@@ -4,6 +4,8 @@
 
 import * as Sentry from '@sentry/nextjs';
 
+import { scrubEvent } from './src/lib/sentry-scrub';
+
 Sentry.init({
   dsn: process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN,
 
@@ -12,5 +14,9 @@ Sentry.init({
 
   enableLogs: true,
 
-  sendDefaultPii: true,
+  // Do not auto-attach IP / request headers (cookies, auth) to events.
+  sendDefaultPii: false,
+
+  // Redact any secrets/PII that still reach an event before it is sent.
+  beforeSend: scrubEvent,
 });
