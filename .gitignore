@@ -39,6 +39,9 @@ testem.log
 .DS_Store
 Thumbs.db
 
+# graphify knowledge-graph output (generated, large)
+graphify-out/
+
 .nx/cache
 .nx/workspace-data
 
