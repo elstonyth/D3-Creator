@@ -79,7 +79,7 @@ skills-lock.json
 # D3 — temporary local-only UI verification seed (delete after testing)
 libraries/database/src/seed-ui-check.ts
 
-# D3 — Postiz runtime artifacts (legacy, no longer used)
+# D3 — legacy runtime artifacts (no longer used)
 reports/
 var/
 dynamicconfig/

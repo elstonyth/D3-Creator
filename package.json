@@ -59,7 +59,6 @@
     "@neynar/nodejs-sdk": "^3.112.0",
     "@neynar/react": "^1.2.22",
     "@pigment-css/react": "^0.0.30",
-    "@postiz/wallets": "^0.0.1",
     "@prisma/client": "6.5.0",
     "@react-three/fiber": "^9.3.0",
     "@react-three/postprocessing": "^3.0.4",

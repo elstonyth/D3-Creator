@@ -1,6 +1,6 @@
 {
-	"name": "Postiz Dev Container",
-	"image": "localhost/postiz-devcontainer",
+	"name": "D3 Creator Dev Container",
+	"image": "localhost/d3-creator-devcontainer",
 	"features": {},
 	"customizations": {
 		"vscode": {
