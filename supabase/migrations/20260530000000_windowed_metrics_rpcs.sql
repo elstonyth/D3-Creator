@@ -1,32 +1,28 @@
 -- Phase 0 — Windowed-metrics data layer (keystone for Views-over-Engagement).
 --
--- Additive only: two read-only SQL functions + (conditional) indexes. No table
--- or column is dropped/altered, so this is safe on live data per CLAUDE.md
--- deploy rules.
+-- Additive only: two read-only functions + (conditional) indexes. No table or
+-- column is dropped/altered, so this is safe on live data per CLAUDE.md deploy
+-- rules.
 --
--- MATH VERIFIED (read-only) on 2026-05-30 against the live d3-creator project
--- WITHOUT creating anything in prod: the CTE logic below was inlined as a plain
--- SELECT over (a) a VALUES worked-example fixture and (b) the real tables.
---   - Fixture, all 4 windows PASS exactly: 7d vg=2000 fd=100; 30d vg=6000
---     fd=200; 90d vg=7000 fd=0 insufficient=true; lifetime vg=7000 fd=200;
---     engagement=0.0643 every window; post_count=2 (no-view post excluded).
---   - Real data (22 creators): views_gained>=0 everywhere, no negatives,
---     engagement in [0.0059, 0.0368], insufficient flags correct, base-0 rule
---     reconciles (spot profile: gained 57115 = current 57115).
--- The CREATE FUNCTION form below has NOT yet been applied to prod (needs an
--- explicit write-approval) — that is step 1 of the Phase 0 implementation plan,
--- alongside the rollback test in supabase/tests/windowed_metrics_verify.sql.
+-- MATH VERIFIED against a seeded worked-example fixture (all 4 windows PASS,
+-- rolled back) — see supabase/tests/windowed_metrics_verify.sql. Real-data
+-- smoke test on 22 creators: views_gained >= 0 everywhere, engagement in a
+-- sane range, insufficient flags correct.
 --
 -- DATA-MATURITY FINDING: as of 2026-05-30 the DB holds only ONE snapshot day,
 -- so every window currently returns identical numbers (no baseline to diff).
 -- Windowed deltas only diverge once the daily cron accrues >=2 days of history;
 -- Option A ("views gained in window") shows no movement for ~7 days post-launch.
 --
--- Two risks confirmed handled during the proof:
+-- Two risks confirmed handled:
 --   1. NULL follower baseline (window with no on-or-before snapshot): current -
 --      NULL = NULL. Handled: delta 0 + insufficient when base_followers IS NULL.
 --   2. current_date folding: baseline CASE is inlined (not an IMMUTABLE helper);
 --      functions are STABLE.
+--
+-- plpgsql (not plain sql) so an unsupported p_window FAILS FAST instead of
+-- silently falling through to lifetime. `#variable_conflict use_column` makes
+-- column names (e.g. ORDER BY views_gained) win over the same-named OUT params.
 --
 -- Definitions (single source of truth):
 --   views_gained(window) = Σ_posts GREATEST(current_views - baseline_views, 0)
@@ -37,7 +33,9 @@
 --   engagement(window) = Σ(likes+comments+shares) / Σ(views) over QUALIFYING
 --       posts only (views > 0 and latest snapshot in-window). Ratio-of-sums,
 --       weighted by reach. Posts with 0/NULL views are excluded entirely so
---       there is never a divide-by-zero and they are never counted as 0%.
+--       there is never a divide-by-zero. A creator WITH views but zero
+--       interactions returns 0.0000 (not NULL); NULL means "no qualifying
+--       posts at all" (view_sum = 0).
 --   insufficient(window) = the creator has no follower baseline on-or-before
 --       the window start (delta not yet reliable). False for lifetime whenever
 --       at least one snapshot exists.
@@ -57,7 +55,14 @@ returns table (
   creator_id uuid, display_name text, avatar_url text, primary_platform text,
   followers bigint, followers_delta bigint, views_gained bigint,
   engagement numeric, post_count int, insufficient boolean
-) language sql stable as $$
+) language plpgsql stable as $$
+#variable_conflict use_column
+begin
+  if p_window not in ('7d','30d','90d','lifetime') then
+    raise exception 'invalid p_window: % (expected one of 7d, 30d, 90d, lifetime)', p_window;
+  end if;
+
+  return query
   with
   params as (
     select case p_window
@@ -135,13 +140,16 @@ returns table (
     sum(p.cur_f)::bigint,
     sum(case when p.base_f is null then 0 else p.cur_f - p.base_f end)::bigint,
     sum(p.views_gained)::bigint,
-    round(nullif(sum(p.eng_sum),0)::numeric / nullif(sum(p.view_sum),0), 4),
+    -- coalesce on the NUMERATOR (not nullif): a creator with views but zero
+    -- interactions yields 0.0000; only view_sum = 0 (no qualifying posts) -> NULL.
+    round(coalesce(sum(p.eng_sum),0)::numeric / nullif(sum(p.view_sum),0), 4),
     sum(p.qual_posts)::int,
     bool_and(p.base_f is null)
   from per_profile p
   join public.creator c on c.id = p.creator_id
   left join primary_plat pp on pp.creator_id = p.creator_id
   group by c.id, c.display_name, c.avatar_url, pp.platform;
+end;
 $$;
 
 -- ---------------------------------------------------------------------------
@@ -159,7 +167,14 @@ returns table (
   platform text, handle text, caption_excerpt text, media_url text,
   posted_at timestamptz, views_gained bigint, current_views bigint,
   likes bigint, comments bigint, shares bigint
-) language sql stable as $$
+) language plpgsql stable as $$
+#variable_conflict use_column
+begin
+  if p_window not in ('7d','30d','90d','lifetime') then
+    raise exception 'invalid p_window: % (expected one of 7d, 30d, 90d, lifetime)', p_window;
+  end if;
+
+  return query
   with
   params as (
     select case p_window
@@ -199,12 +214,13 @@ returns table (
   join public.creator c on c.id = sp.creator_id
   left join base_post bp on bp.profile_id = cp.profile_id and bp.external_post_id = cp.external_post_id
   order by views_gained desc limit p_limit;
+end;
 $$;
 
 -- Supporting indexes for the DISTINCT ON range scans. IF NOT EXISTS guards
 -- against the equivalents already created by the v1 unique constraints
--- (profile_snapshot_unique_day / post_snapshot_unique_day) — the implementation
--- plan verifies with \d and drops any that are truly redundant.
+-- (profile_snapshot_unique_day / post_snapshot_unique_day). EXPLAIN confirmed
+-- the planner uses idx_post_snapshot_profile_post_date for the DISTINCT ON scan.
 create index if not exists idx_profile_snapshot_profile_date
   on public.profile_snapshot (profile_id, captured_date desc);
 create index if not exists idx_post_snapshot_profile_post_date

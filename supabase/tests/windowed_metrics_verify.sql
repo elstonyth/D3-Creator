@@ -58,33 +58,67 @@ begin
     end if;
     exp := expected -> w;
 
-    if r.views_gained <> (exp->>0)::bigint then
+    -- IS DISTINCT FROM (not <>) so a NULL on either side counts as a mismatch
+    -- and trips the assertion, instead of <> silently yielding NULL -> false-pass.
+    if r.views_gained is distinct from (exp->>0)::bigint then
       raise exception 'FAIL %: views_gained = % (expected %)', w, r.views_gained, exp->>0;
     end if;
-    if r.followers_delta <> (exp->>1)::bigint then
+    if r.followers_delta is distinct from (exp->>1)::bigint then
       raise exception 'FAIL %: followers_delta = % (expected %)', w, r.followers_delta, exp->>1;
     end if;
-    if r.post_count <> (exp->>2)::int then
+    if r.post_count is distinct from (exp->>2)::int then
       raise exception 'FAIL %: post_count = % (expected %)', w, r.post_count, exp->>2;
     end if;
-    if (r.insufficient)::int <> (exp->>3)::int then
+    if (r.insufficient)::int is distinct from (exp->>3)::int then
       raise exception 'FAIL %: insufficient = % (expected %)', w, r.insufficient, exp->>3;
     end if;
-    -- engagement = (200+50+50 + 100+20+30) / (5000+2000) = 450/7000 = 0.0643
-    if round(r.engagement, 4) <> 0.0643 then
+    -- engagement = (200+50+50 + 100+20+30) / (5000+2000) = 450/7000 = 0.0643.
+    -- The 0-view post C contributes engagement 90 but is excluded entirely, so
+    -- the numerator is exactly 450 (not 540). round() catches a leak; the
+    -- numerator check below makes the guard self-documenting.
+    if round(r.engagement, 4) is distinct from 0.0643 then
       raise exception 'FAIL %: engagement = % (expected 0.0643)', w, r.engagement;
+    end if;
+    if round(r.engagement * 7000) is distinct from 450 then
+      raise exception 'FAIL %: engagement numerator = % (expected 450; 0-view post C must be excluded)', w, round(r.engagement * 7000);
     end if;
   end loop;
 
   -- ---- Assert top_content_windowed ranking + no-view exclusion -----------
   -- Top by 30d views_gained must be A(4000), then B(2000), then C(0).
-  perform 1;
   if (select array_agg(external_post_id order by views_gained desc)
         from public.top_content_windowed('30d', 10)
         where creator_id = '00000000-0000-0000-0000-0000000c0001')
-     <> array['A','B','C'] then
+     is distinct from array['A','B','C'] then
     raise exception 'FAIL top_content_windowed: ranking mismatch';
   end if;
+
+  -- ---- Assert engagement = 0.0000 (NOT NULL) when views exist but zero
+  -- interactions. Seed a second creator with a single viewed-but-silent post.
+  insert into public.creator (id, display_name)
+  values ('00000000-0000-0000-0000-0000000c0002','ZERO-ENG Creator');
+  insert into public.profile (id, creator_id, platform, profile_url, handle)
+  values ('00000000-0000-0000-0000-0000000d0002',
+          '00000000-0000-0000-0000-0000000c0002',
+          'tiktok','https://tiktok.com/@zero','zero');
+  insert into public.post_snapshot
+    (profile_id, external_post_id, captured_date, views, likes, comments, shares)
+  values ('00000000-0000-0000-0000-0000000d0002','Z', current_date-0, 1000, 0, 0, 0);
+
+  select * into r from public.creator_metrics_windowed('lifetime')
+    where creator_id = '00000000-0000-0000-0000-0000000c0002';
+  if r.engagement is distinct from 0.0000 then
+    raise exception 'FAIL zero-interaction: engagement = % (expected 0.0000, not NULL)', r.engagement;
+  end if;
+
+  -- ---- Assert an unsupported window RAISES (fail-fast, not silent lifetime).
+  begin
+    perform * from public.creator_metrics_windowed('99d');
+    raise exception 'FAIL: creator_metrics_windowed(''99d'') should have raised, but did not';
+  exception
+    when others then
+      if sqlerrm not like 'invalid p_window%' then raise; end if;
+  end;
 
   raise notice 'ALL WINDOWED-METRICS ASSERTIONS PASSED';
 end $$;
