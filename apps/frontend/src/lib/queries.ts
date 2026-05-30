@@ -491,9 +491,20 @@ async function latestSnapshotsForProfiles(
   return map;
 }
 
+/** Coerce a value to a non-empty string, else null. */
+function asStr(v: unknown): string | null {
+  return typeof v === 'string' && v.length > 0 ? v : null;
+}
+
 /**
- * Pull profile pic + display name + bio from the snapshot.raw blob if present.
- * Apify's instagram-scraper puts these on each post item.
+ * Pull avatar + display name + bio out of a snapshot.raw blob, tolerating the
+ * different field names each platform adapter writes:
+ *   - Instagram profile raw: profile_pic_url / full_name / biography
+ *   - TikTok + Douyin:       avatar_url   / nickname  / biography
+ *   - RedNote:               avatar_url   / nickname  / desc
+ *   - Facebook:              profile_pic  / page_name / summary_text
+ * Legacy Apify rows (camelCase profilePicUrlHD / fullName) are kept as a final
+ * fallback so pre-migration snapshots still render.
  */
 function extractRawProfileFields(raw: unknown): {
   avatarUrl: string | null;
@@ -504,17 +515,23 @@ function extractRawProfileFields(raw: unknown): {
     return { avatarUrl: null, fullName: null, biography: null };
   }
   const r = raw as Record<string, unknown>;
-  // Apify post item carries the profile fields. profile_snapshot.raw on the
-  // other hand is our own summary blob, which only has username/fullName.
-  // post_snapshot.raw is the richer source — see getCreatorByHandle for the
-  // fallback chain.
   return {
     avatarUrl:
-      (typeof r.profilePicUrlHD === 'string' && r.profilePicUrlHD) ||
-      (typeof r.profilePicUrl === 'string' && r.profilePicUrl) ||
-      null,
-    fullName: typeof r.fullName === 'string' ? r.fullName : null,
-    biography: typeof r.biography === 'string' ? r.biography : null,
+      asStr(r.profile_pic_url) ??
+      asStr(r.avatar_url) ??
+      asStr(r.profile_pic) ??
+      asStr(r.profilePicUrlHD) ??
+      asStr(r.profilePicUrl),
+    fullName:
+      asStr(r.full_name) ??
+      asStr(r.nickname) ??
+      asStr(r.page_name) ??
+      asStr(r.fullName),
+    biography:
+      asStr(r.biography) ??
+      asStr(r.desc) ??
+      asStr(r.summary_text) ??
+      asStr(r.signature),
   };
 }
 
@@ -652,32 +669,82 @@ export interface CreatorPlatformDetail {
   posts: PlatformPostRow[];
 }
 
-function mapPostSnapshotToRow(raw: unknown, content_type: string | null, post: { external_post_id: string; posted_at: string | null; caption_excerpt: string | null; likes: number | null; comments: number | null; shares: number | null; views: number | null; media_url: string | null }): PlatformPostRow {
+/** Hashtags parsed from caption text — works across every platform since no
+ *  adapter writes a structured hashtag array anymore. */
+function extractHashtags(caption: string | null): string[] {
+  if (!caption) return [];
+  const m = caption.match(/#[\p{L}\p{N}_]+/gu);
+  return m ? Array.from(new Set(m)) : [];
+}
+
+/**
+ * Build the canonical permalink for a post, per platform. A raw `url` from the
+ * adapter (Facebook posts carry one) always wins; otherwise we synthesize the
+ * platform-correct URL from the external id (+ handle for TikTok).
+ */
+function buildPostUrl(
+  platform: PlatformKey,
+  raw: Record<string, unknown>,
+  externalId: string,
+  handle: string | null,
+): string {
+  const rawUrl = asStr(raw.url);
+  if (rawUrl) return rawUrl;
+  switch (platform) {
+    case 'instagram': {
+      const code = asStr(raw.code) ?? asStr(raw.shortcode) ?? asStr(raw.shortCode) ?? externalId;
+      return `https://www.instagram.com/p/${code}/`;
+    }
+    case 'tiktok':
+      return handle
+        ? `https://www.tiktok.com/@${handle}/video/${externalId}`
+        : `https://www.tiktok.com/`;
+    case 'douyin':
+      return `https://www.douyin.com/video/${externalId}`;
+    case 'xiaohongshu':
+      return `https://www.xiaohongshu.com/explore/${externalId}`;
+    case 'facebook':
+      return `https://www.facebook.com/${externalId}`;
+    default:
+      return rawUrl ?? '';
+  }
+}
+
+function mapPostSnapshotToRow(
+  platform: PlatformKey,
+  raw: unknown,
+  content_type: string | null,
+  handle: string | null,
+  post: { external_post_id: string; posted_at: string | null; caption_excerpt: string | null; likes: number | null; comments: number | null; shares: number | null; views: number | null; media_url: string | null },
+): PlatformPostRow {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-  const hashtags = Array.isArray(r.hashtags) ? (r.hashtags as string[]) : [];
-  const shortCode = typeof r.shortCode === 'string' ? r.shortCode : post.external_post_id;
-  const childPosts = Array.isArray(r.childPosts) ? (r.childPosts as unknown[]) : [];
+  // Instagram carousels expose carousel_media; legacy Apify rows used childPosts.
+  const carousel = Array.isArray(r.carousel_media)
+    ? (r.carousel_media as unknown[])
+    : Array.isArray(r.childPosts)
+      ? (r.childPosts as unknown[])
+      : [];
   const ct = (content_type ?? 'image').toLowerCase();
   const type: PlatformPostRow['type'] =
     ct === 'reel' ? 'reel'
-      : ct === 'video' ? 'video'
-        : childPosts.length > 0 ? 'carousel'
+      : ct === 'video' || ct === 'short' ? 'video'
+        : carousel.length > 0 ? 'carousel'
           : 'image';
 
   return {
     externalId: post.external_post_id,
-    url: typeof r.url === 'string' ? r.url : `https://www.instagram.com/p/${shortCode}/`,
+    url: buildPostUrl(platform, r, post.external_post_id, handle),
     type,
     thumbnailUrl: viaProxy(post.media_url),
     caption: post.caption_excerpt ?? '',
-    hashtags,
+    hashtags: extractHashtags(post.caption_excerpt),
     publishedAt: post.posted_at ?? new Date().toISOString(),
     likes: post.likes ?? 0,
     comments: post.comments ?? 0,
     shares: post.shares ?? 0,
     views: post.views,
-    mediaCount: childPosts.length > 0 ? childPosts.length + 1 : null,
-    durationSec: null, // IG actor doesn't surface duration; future adapters may
+    mediaCount: carousel.length > 0 ? carousel.length + 1 : null,
+    durationSec: null, // not surfaced by current adapters; future ones may
   };
 }
 
@@ -718,7 +785,7 @@ export async function getCreatorPlatformDetail(
   for (const r of postsRes.data ?? []) {
     if (seen.has(r.external_post_id)) continue;
     seen.add(r.external_post_id);
-    rows.push(mapPostSnapshotToRow(r.raw, r.content_type, r));
+    rows.push(mapPostSnapshotToRow(platformKey, r.raw, r.content_type, slot.handle, r));
     if (rows.length >= 30) break;
   }
   return { creator, slot, posts: rows };
