@@ -192,7 +192,7 @@ returns table (
   )
   select cp.external_post_id, cp.profile_id, sp.creator_id, c.display_name,
     sp.platform, sp.handle, cp.caption_excerpt, cp.media_url, cp.posted_at,
-    greatest(coalesce(cp.cur_views,0) - coalesce(bp.base_views,0), 0)::bigint,
+    greatest(coalesce(cp.cur_views,0) - coalesce(bp.base_views,0), 0)::bigint as views_gained,
     coalesce(cp.cur_views,0)::bigint, cp.likes::bigint, cp.comments::bigint, cp.shares::bigint
   from cur_post cp
   join scope_profile sp on sp.id = cp.profile_id
