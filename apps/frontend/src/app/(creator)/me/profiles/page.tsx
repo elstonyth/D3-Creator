@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { getSupabaseRoute } from '@gitroom/frontend/lib/supabase-route';
 import { resolveProfileName } from '@gitroom/frontend/lib/profile-name';
+import { daysAgoDate } from '@gitroom/frontend/lib/utils';
 
 import { EmptyState } from '@gitroom/frontend/components/ui/empty-state';
 import { PlatformPill } from '@gitroom/frontend/components/ui/platform-pill';
@@ -121,10 +122,15 @@ export default async function MyProfilesPage() {
   const profileIds = claims.map((c) => c.profile?.id).filter((id): id is string => !!id);
   const nameByProfile = new Map<string, string | null>();
   if (profileIds.length) {
+    // Bound to a recent window so we don't transfer every historical raw blob
+    // (only the latest snapshot per profile is used via the !has guard below;
+    // (profile_id, captured_date desc) is indexed). daysAgoDate lives in lib so
+    // the Date.now() call stays out of the Server Component's render-purity scope.
     const { data: snaps } = await sb
       .from('profile_snapshot')
       .select('profile_id, captured_date, raw')
       .in('profile_id', profileIds)
+      .gte('captured_date', daysAgoDate(14))
       .order('captured_date', { ascending: false });
     for (const s of (snaps ?? []) as { profile_id: string; raw: unknown }[]) {
       if (!nameByProfile.has(s.profile_id)) {

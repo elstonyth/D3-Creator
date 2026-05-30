@@ -78,7 +78,8 @@ begin
   ),
   scope_profile as (
     select pr.id, pr.creator_id, pr.platform, pr.handle from public.profile pr
-    where (p_profile_ids is null or pr.id = any(p_profile_ids))
+    where pr.platform <> 'rednote'  -- xiaohongshu archived: excluded before aggregation/limit
+      and (p_profile_ids is null or pr.id = any(p_profile_ids))
       and (p_creator_ids is null or pr.creator_id = any(p_creator_ids))
   ),
   cur_foll as (
@@ -210,7 +211,8 @@ begin
   ),
   scope_profile as (
     select pr.id, pr.creator_id, pr.platform, pr.handle from public.profile pr
-    where (p_profile_ids is null or pr.id = any(p_profile_ids))
+    where pr.platform <> 'rednote'  -- xiaohongshu archived: excluded before aggregation/limit
+      and (p_profile_ids is null or pr.id = any(p_profile_ids))
       and (p_creator_ids is null or pr.creator_id = any(p_creator_ids))
   ),
   cur_post as (

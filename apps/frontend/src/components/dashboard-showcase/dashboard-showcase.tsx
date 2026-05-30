@@ -165,7 +165,9 @@ export function DashboardShowcase({
 
   const lifetimeViews = isLive
     ? formatWindowedValue(
-        allInsufficientLife,
+        // Empty lifetime set while 30d is live (lifetime fetch missing/failed)
+        // must read as "Building history…", not a misleading 0.
+        allInsufficientLife || filteredLifetime.length === 0,
         totalViewsLifetime,
         compactFormatter.format,
       )

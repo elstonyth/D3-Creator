@@ -225,11 +225,12 @@ function ContentCard({ row, rank }: { row: TopContentRow; rank: number }) {
         className="group block relative aspect-[9/16] rounded-xl overflow-hidden bg-customColor1 border border-borderGlass hover:border-borderGlassStrong transition-colors outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
       >
         {row.thumbnailUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- proxied, dims vary by platform
-          <img
+          <Image
             src={row.thumbnailUrl}
             alt={row.captionExcerpt ?? 'Post thumbnail'}
-            loading="lazy"
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1280px) 25vw, 20vw"
+            unoptimized
             className="absolute inset-0 size-full object-cover"
           />
         ) : (
@@ -264,7 +265,7 @@ function ContentCard({ row, rank }: { row: TopContentRow; rank: number }) {
 }
 ```
 
-NOTE on the `no-img-element` disable: the project rule forbids adding NEW eslint-disable for lint you caused. This exact directive is the established repo pattern for proxied external thumbnails (see `creator-stats.tsx`, `admin/profiles/page.tsx`). It is required because `next/image` cannot handle arbitrary external CDN dimensions through the proxy. If lint still flags it, STOP and report — do not invent a different suppression.
+NOTE on the thumbnail: the project rule (CLAUDE.md) forbids `eslint-disable-next-line` — do NOT suppress `@next/next/no-img-element`. Use `next/image` with `fill` + `unoptimized` instead. The src is a same-origin proxied path (`/api/proxy-image?...`), so next/image's local loader handles it without `remotePatterns`; `unoptimized` skips a redundant optimize hop since the bytes are already proxied. (Some older repo files still carry the raw-`<img>` + disable pattern; leave those pre-existing ones alone, but new code must use next/image.)
 
 - [ ] **Step 2: Typecheck + lint**
 
@@ -485,7 +486,7 @@ Expected: build succeeds, no type errors, no missing-import failures on `/dashbo
 Launch the app (use the `run` skill or `pnpm dev`) and load `/dashboard` and `/leaderboard`. Confirm:
 - `/dashboard`: hero = "Total Views · 30D" (value or "Building history…"), second tile = "Lifetime Total Views", Top Creators captioned "Ranked by 30D views", NO engagement tile/word.
 - `/leaderboard`: two boards — Follower table (cols: # / Creator / Platform / Followers / Views 30D) and a Top-20 content thumbnail grid. NO "Eng. Rate"/"Engagement" anywhere.
-- Grep the rendered routes' source for "ngagement" → only allowed in untouched demo type fields, never in public output.
+- Grep the rendered routes' source for "engagement" → only allowed in untouched demo type fields, never in public output.
 
 - [ ] **Step 3: Record result**
 

@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import clsx from 'clsx';
 import { GlassCard } from '../ui/glass-card';
 import { EmptyState } from '../ui/empty-state';
@@ -56,11 +57,16 @@ function ContentCard({ row, rank }: { row: TopContentRow; rank: number }) {
         className="group block relative aspect-[9/16] rounded-xl overflow-hidden bg-customColor1 border border-borderGlass hover:border-borderGlassStrong transition-colors outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
       >
         {row.thumbnailUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- proxied, dims vary by platform
-          <img
+          // Same-origin proxied URL (/api/proxy-image); next/image's local
+          // loader handles it without remotePatterns. `fill` + object-cover
+          // matches the variable-dimension thumbnail. `unoptimized` because the
+          // bytes are already proxied/normalized — avoids a double optimize hop.
+          <Image
             src={row.thumbnailUrl}
             alt={row.captionExcerpt ?? 'Post thumbnail'}
-            loading="lazy"
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1280px) 25vw, 20vw"
+            unoptimized
             className="absolute inset-0 size-full object-cover"
           />
         ) : (
