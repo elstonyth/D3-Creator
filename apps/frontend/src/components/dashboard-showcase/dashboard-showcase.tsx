@@ -20,7 +20,6 @@ import {
   getCreatorsForFilter,
   handleToSlug,
   signedPercentFormatter,
-  type CreatorRow,
   type PlatformBreakdown,
   type PlatformFilter,
 } from './showcase-data';
