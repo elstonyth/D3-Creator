@@ -22,7 +22,7 @@ const VALID: PlatformKey[] = [
   'tiktok',
   'douyin',
   'facebook',
-  'xiaohongshu',
+  // xiaohongshu archived — its per-platform route now 404s (notFound).
 ];
 
 const compact = new Intl.NumberFormat('en-US', {

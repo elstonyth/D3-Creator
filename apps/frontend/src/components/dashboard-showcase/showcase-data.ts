@@ -59,26 +59,23 @@ export const PLATFORM_BREAKDOWN: PlatformBreakdown[] = [
   { platform: 'tiktok', followers: 612_400, growth30d: 88_710, engagementRate: 0.094 },
   { platform: 'douyin', followers: 504_100, growth30d: 63_200, engagementRate: 0.071 },
   { platform: 'facebook', followers: 318_900, growth30d: 7_420, engagementRate: 0.018 },
-  { platform: 'xiaohongshu', followers: 287_600, growth30d: 39_950, engagementRate: 0.063 },
+  // xiaohongshu archived — removed from the demo platform breakdown.
 ];
 
 const RAW_TOP_CREATORS: Array<Omit<CreatorRow, 'totalViews' | 'totalEngagement'>> = [
   { rank: 1, handle: '@miawatkins', primaryPlatform: 'instagram', followers: 412_300, growth30d: 22_410, engagementRate: 0.058 },
   { rank: 2, handle: '@junhao.shoots', primaryPlatform: 'tiktok', followers: 388_900, growth30d: 41_220, engagementRate: 0.103 },
-  { rank: 3, handle: '@cafeyumi', primaryPlatform: 'xiaohongshu', followers: 246_700, growth30d: 33_180, engagementRate: 0.078 },
   { rank: 4, handle: '@dailylift', primaryPlatform: 'tiktok', followers: 198_400, growth30d: 18_660, engagementRate: 0.091 },
   { rank: 5, handle: '@lin.moves', primaryPlatform: 'douyin', followers: 188_200, growth30d: 24_730, engagementRate: 0.082 },
   { rank: 6, handle: '@steady.frames', primaryPlatform: 'instagram', followers: 162_800, growth30d: 9_140, engagementRate: 0.046 },
   { rank: 7, handle: '@kang.eats', primaryPlatform: 'douyin', followers: 144_300, growth30d: 16_240, engagementRate: 0.069 },
   { rank: 8, handle: '@hellosora', primaryPlatform: 'instagram', followers: 121_900, growth30d: 6_810, engagementRate: 0.041 },
   { rank: 9, handle: '@notebookryo', primaryPlatform: 'instagram', followers: 108_400, growth30d: 5_220, engagementRate: 0.052 },
-  { rank: 10, handle: '@wenyu.films', primaryPlatform: 'xiaohongshu', followers: 96_800, growth30d: 14_310, engagementRate: 0.071 },
   { rank: 11, handle: '@ramen.bookmark', primaryPlatform: 'tiktok', followers: 88_200, growth30d: 12_870, engagementRate: 0.098 },
   { rank: 12, handle: '@ailin.studio', primaryPlatform: 'douyin', followers: 81_400, growth30d: 11_240, engagementRate: 0.066 },
   { rank: 13, handle: '@chefdam', primaryPlatform: 'facebook', followers: 74_600, growth30d: 2_180, engagementRate: 0.022 },
   { rank: 14, handle: '@midnight.coding', primaryPlatform: 'tiktok', followers: 62_900, growth30d: 9_410, engagementRate: 0.087 },
   { rank: 15, handle: '@parking.lot.club', primaryPlatform: 'instagram', followers: 58_300, growth30d: 4_180, engagementRate: 0.049 },
-  { rank: 16, handle: '@mochi.runs', primaryPlatform: 'xiaohongshu', followers: 47_100, growth30d: 6_820, engagementRate: 0.064 },
   { rank: 17, handle: '@goodform.life', primaryPlatform: 'facebook', followers: 41_800, growth30d: 1_910, engagementRate: 0.019 },
   { rank: 18, handle: '@inkscape.tw', primaryPlatform: 'instagram', followers: 36_200, growth30d: 2_640, engagementRate: 0.043 },
 ];

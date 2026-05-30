@@ -12,8 +12,8 @@ const SUPPORTED_PLATFORMS: PlatformKey[] = [
   'instagram',
   'tiktok',
   'facebook',
-  'xiaohongshu',
   'douyin',
+  // xiaohongshu archived — hidden from the supported-platform hint.
 ];
 
 export const dynamic = 'force-dynamic';
@@ -66,7 +66,7 @@ export default async function CreatorMePage() {
             </svg>
           }
           title="Track your first profile"
-          description="Paste an Instagram, TikTok, Facebook, RedNote, or Douyin profile URL — daily stats appear on this dashboard within 24 hours."
+          description="Paste an Instagram, TikTok, Facebook, or Douyin profile URL — daily stats appear on this dashboard within 24 hours."
           action={{ href: '/me/profiles', label: 'Add a profile' }}
         >
           <div className="flex items-center gap-2.5 mt-1">

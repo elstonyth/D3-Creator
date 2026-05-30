@@ -12,7 +12,7 @@ export const revalidate = 3600;
 export const metadata: Metadata = {
   title: 'Dashboard — D3 Creator',
   description:
-    'Live overview of every creator we grow at D3 — views, followers, and growth across Instagram, TikTok, Facebook, Douyin, and Xiaohongshu.',
+    'Live overview of every creator we grow at D3 — views, followers, and growth across Instagram, TikTok, Facebook, and Douyin.',
 };
 
 export default async function DashboardPage() {

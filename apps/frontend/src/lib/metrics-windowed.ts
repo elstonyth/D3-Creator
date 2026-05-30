@@ -13,6 +13,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseRead } from './supabase-server';
+import { isHiddenDbPlatform } from '../components/ui/platform-icons';
 
 /** Time window for every windowed metric. */
 export type MetricWindow = '7d' | '30d' | '90d' | 'lifetime';
@@ -102,7 +103,11 @@ export async function getCreatorMetricsWindowed(
     console.error('[metrics-windowed] creator_metrics_windowed', error);
     return [];
   }
-  return (data ?? []).map(
+  return (data ?? [])
+    // Defense-in-depth: drop creators whose primary platform is archived
+    // (e.g. rednote). UI lists already hide it; this guards the read path too.
+    .filter((r: Record<string, unknown>) => !isHiddenDbPlatform(r.primary_platform as string | null))
+    .map(
     (r: Record<string, unknown>): CreatorMetricWindowRow => ({
       creatorId: r.creator_id as string,
       displayName: (r.display_name as string | null) ?? null,
@@ -137,7 +142,10 @@ export async function getTopContentWindowed(
     console.error('[metrics-windowed] top_content_windowed', error);
     return [];
   }
-  return (data ?? []).map(
+  return (data ?? [])
+    // Defense-in-depth: drop posts from archived platforms (e.g. rednote).
+    .filter((r: Record<string, unknown>) => !isHiddenDbPlatform(r.platform as string | null))
+    .map(
     (r: Record<string, unknown>): TopContentRow => ({
       externalPostId: r.external_post_id as string,
       profileId: r.profile_id as string,

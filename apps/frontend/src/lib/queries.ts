@@ -167,7 +167,8 @@ export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
 
   const profiles = await sb
     .from('profile')
-    .select('id, creator_id, platform, handle, created_at');
+    .select('id, creator_id, platform, handle, created_at')
+    .neq('platform', 'rednote'); // xiaohongshu archived — exclude from rollups
   if (profiles.error) {
     console.error('[queries] getLiveCreatorRows profiles', profiles.error);
     return null;
@@ -370,7 +371,10 @@ export async function getPlatformBreakdown(): Promise<
 > {
   const sb = getSupabaseRead();
 
-  const profiles = await sb.from('profile').select('id, creator_id, platform');
+  const profiles = await sb
+    .from('profile')
+    .select('id, creator_id, platform')
+    .neq('platform', 'rednote'); // xiaohongshu archived — exclude from breakdown
   if (profiles.error || !profiles.data || profiles.data.length === 0) {
     if (profiles.error)
       console.error('[queries] getPlatformBreakdown profiles', profiles.error);
@@ -574,6 +578,7 @@ export async function getCreatorByHandle(
     .from('profile')
     .select('id, creator_id, platform, profile_url, handle, nickname, scrape_status')
     .ilike('handle', handle)
+    .neq('platform', 'rednote') // xiaohongshu archived — its handles 404
     .limit(1)
     .maybeSingle();
   if (profileRes.error) {
@@ -586,7 +591,8 @@ export async function getCreatorByHandle(
   const allProfilesRes = await sb
     .from('profile')
     .select('id, platform, profile_url, handle, nickname, scrape_status')
-    .eq('creator_id', profileRes.data.creator_id);
+    .eq('creator_id', profileRes.data.creator_id)
+    .neq('platform', 'rednote'); // xiaohongshu archived — hide its slots
   if (allProfilesRes.error) {
     console.error('[queries] getCreatorByHandle all-profiles', allProfilesRes.error);
     return null;

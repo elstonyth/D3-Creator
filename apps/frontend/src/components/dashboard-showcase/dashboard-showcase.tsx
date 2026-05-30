@@ -38,7 +38,7 @@ const TABS: TabDef[] = [
   { value: 'tiktok', label: PLATFORM_LABELS.tiktok },
   { value: 'douyin', label: PLATFORM_LABELS.douyin },
   { value: 'facebook', label: PLATFORM_LABELS.facebook },
-  { value: 'xiaohongshu', label: PLATFORM_LABELS.xiaohongshu },
+  // xiaohongshu archived — hidden from the platform filter.
 ];
 
 function filterLabel(filter: PlatformFilter): string {

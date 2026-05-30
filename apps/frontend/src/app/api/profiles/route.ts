@@ -38,7 +38,7 @@ const PLATFORMS: ReadonlyArray<Platform> = [
   'instagram',
   'tiktok',
   'facebook',
-  'rednote',
+  // 'rednote' archived — rejected by the add-profile schema below.
   'douyin',
 ];
 

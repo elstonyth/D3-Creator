@@ -23,7 +23,7 @@ const SUPPORTED: PlatformKey[] = [
   'tiktok',
   'douyin',
   'facebook',
-  'xiaohongshu',
+  // xiaohongshu archived — hidden from the per-creator platform list.
 ];
 
 const compact = new Intl.NumberFormat('en-US', {

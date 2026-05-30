@@ -50,7 +50,7 @@ const PLATFORM_ORDER: PlatformKey[] = [
   'tiktok',
   'douyin',
   'facebook',
-  'xiaohongshu',
+  // xiaohongshu archived — hidden from the platform strip.
 ];
 
 export default async function HomePage() {

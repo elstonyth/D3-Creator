@@ -127,7 +127,7 @@ export default async function MyProfilesPage() {
         </span>
         <h1 className="text-display-2 text-fg mb-4">Manage your URLs.</h1>
         <p className="text-body-lg text-fgMuted max-w-[600px]">
-          Add an Instagram, TikTok, Facebook, RedNote, or Douyin profile URL —
+          Add an Instagram, TikTok, Facebook, or Douyin profile URL —
           one per platform — and stats start flowing to your dashboard. Remove
           any you no longer want tracked. To change a URL, remove it and add the
           new one.
