@@ -56,7 +56,8 @@ create or replace function public.creator_metrics_windowed(
   p_profile_ids uuid[] default null
 )
 returns table (
-  creator_id uuid, display_name text, avatar_url text, primary_platform text,
+  creator_id uuid, display_name text, avatar_url text,
+  primary_platform text, primary_handle text,
   followers bigint, followers_delta bigint, views_gained bigint,
   engagement numeric, post_count int, insufficient boolean
 ) language plpgsql stable as $$
@@ -76,7 +77,7 @@ begin
       else null end as baseline           -- null => lifetime
   ),
   scope_profile as (
-    select pr.id, pr.creator_id, pr.platform from public.profile pr
+    select pr.id, pr.creator_id, pr.platform, pr.handle from public.profile pr
     where (p_profile_ids is null or pr.id = any(p_profile_ids))
       and (p_creator_ids is null or pr.creator_id = any(p_creator_ids))
   ),
@@ -137,7 +138,7 @@ begin
     group by profile_id
   ),
   per_profile as (
-    select sp.id as profile_id, sp.creator_id, sp.platform,
+    select sp.id as profile_id, sp.creator_id, sp.platform, sp.handle,
       coalesce(cf.cur_f,0) as cur_f, bf.base_f,
       coalesce(pca.views_gained,0) as views_gained,
       coalesce(pca.eng_sum,0) as eng_sum,
@@ -148,13 +149,15 @@ begin
     left join base_foll bf on bf.profile_id = sp.id
     left join post_calc_agg pca on pca.profile_id = sp.id
   ),
-  -- Secondary sort key (platform) makes the primary-platform pick deterministic
-  -- when two profiles tie on current followers.
-  primary_plat as (
-    select distinct on (creator_id) creator_id, platform
+  -- Highest-follower profile decides BOTH the primary platform and the primary
+  -- handle (the slug for /creators/<handle> links — the route resolves by
+  -- profile handle, not display name). Secondary sort key (platform) keeps the
+  -- pick deterministic on a follower tie.
+  primary_pick as (
+    select distinct on (creator_id) creator_id, platform, handle
     from per_profile order by creator_id, cur_f desc, platform
   )
-  select c.id, c.display_name, c.avatar_url, pp.platform,
+  select c.id, c.display_name, c.avatar_url, pp.platform, pp.handle,
     sum(p.cur_f)::bigint,
     sum(case when p.base_f is null then 0 else p.cur_f - p.base_f end)::bigint,
     sum(p.views_gained)::bigint,
@@ -169,8 +172,8 @@ begin
     bool_or(p.base_f is null)
   from per_profile p
   join public.creator c on c.id = p.creator_id
-  left join primary_plat pp on pp.creator_id = p.creator_id
-  group by c.id, c.display_name, c.avatar_url, pp.platform;
+  left join primary_pick pp on pp.creator_id = p.creator_id
+  group by c.id, c.display_name, c.avatar_url, pp.platform, pp.handle;
 end;
 $$;
 

@@ -23,6 +23,10 @@ export interface CreatorMetricWindowRow {
   displayName: string | null;
   avatarUrl: string | null;
   primaryPlatform: string | null;
+  /** Handle of the creator's highest-follower profile. This is the slug used
+   *  for /creators/<handle> links (the route resolves by profile handle, not
+   *  by display name or creator id). null when that profile has no handle. */
+  primaryHandle: string | null;
   followers: number;
   followersDelta: number;
   viewsGained: number;
@@ -104,6 +108,7 @@ export async function getCreatorMetricsWindowed(
       displayName: (r.display_name as string | null) ?? null,
       avatarUrl: (r.avatar_url as string | null) ?? null,
       primaryPlatform: (r.primary_platform as string | null) ?? null,
+      primaryHandle: (r.primary_handle as string | null) ?? null,
       followers: toNum(r.followers),
       followersDelta: toNum(r.followers_delta),
       viewsGained: toNum(r.views_gained),

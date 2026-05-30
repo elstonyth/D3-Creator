@@ -133,7 +133,9 @@ export function DashboardShowcase({
         .map((r, i) => ({
           key: r.creatorId,
           name: r.displayName ?? r.creatorId,
-          slug: handleToSlug(r.displayName ?? r.creatorId),
+          // /creators/[id] resolves by profile handle — use the primary handle,
+          // never the display name (which 404s). null => render without a link.
+          slug: r.primaryHandle ? handleToSlug(r.primaryHandle) : null,
           platform: toPlatformKey(r.primaryPlatform),
           followers: r.followers,
           viewsGained: r.viewsGained,
@@ -370,7 +372,7 @@ function MetricCard({ label, value, note, delta, deltaPositive }: MetricCardProp
 interface TopCreatorRow {
   key: string;
   name: string;
-  slug: string;
+  slug: string | null;
   platform: PlatformKey | null;
   followers: number;
   viewsGained: number;
@@ -416,29 +418,42 @@ function LeaderboardCard({ rows, filter }: LeaderboardCardProps) {
 
           {rows.map((row) => {
             const Icon = row.platform ? PLATFORM_ICONS[row.platform] : null;
+            const cellClass =
+              'grid grid-cols-[28px_minmax(0,1fr)_44px_92px_82px] gap-3 px-1 py-3 items-center text-body-sm transition-colors duration-150 ease-out rounded-md';
+            const cells = (
+              <>
+                <span className="font-mono tabular-nums text-fgSubtle">
+                  {String(row.rank).padStart(2, '0')}
+                </span>
+                <span className="text-fg truncate font-medium">{row.name}</span>
+                <span className="flex justify-end items-center text-fgMuted">
+                  {Icon ? <Icon size={14} /> : null}
+                </span>
+                <span className="text-right font-mono tabular-nums text-fg">
+                  {compactFormatter.format(row.followers)}
+                </span>
+                <span className="text-right font-mono tabular-nums text-fg">
+                  {formatWindowedValue(row.insufficient, row.viewsGained, compactFormatter.format)}
+                </span>
+              </>
+            );
             return (
               <li
                 key={row.key}
                 className="border-b border-borderGlass last:border-b-0"
               >
-                <Link
-                  href={`/creators/${row.slug}`}
-                  className="grid grid-cols-[28px_minmax(0,1fr)_44px_92px_82px] gap-3 px-1 py-3 items-center text-body-sm transition-colors duration-150 ease-out hover:bg-white/[0.025] focus-visible:bg-white/[0.04] outline-none rounded-md"
-                >
-                  <span className="font-mono tabular-nums text-fgSubtle">
-                    {String(row.rank).padStart(2, '0')}
-                  </span>
-                  <span className="text-fg truncate font-medium">{row.name}</span>
-                  <span className="flex justify-end items-center text-fgMuted">
-                    {Icon ? <Icon size={14} /> : null}
-                  </span>
-                  <span className="text-right font-mono tabular-nums text-fg">
-                    {compactFormatter.format(row.followers)}
-                  </span>
-                  <span className="text-right font-mono tabular-nums text-fg">
-                    {formatWindowedValue(row.insufficient, row.viewsGained, compactFormatter.format)}
-                  </span>
-                </Link>
+                {/* /creators/[id] resolves by profile handle; render a link only
+                    when we have one, else a plain row (no 404 link). */}
+                {row.slug ? (
+                  <Link
+                    href={`/creators/${row.slug}`}
+                    className={`${cellClass} hover:bg-white/[0.025] focus-visible:bg-white/[0.04] outline-none`}
+                  >
+                    {cells}
+                  </Link>
+                ) : (
+                  <div className={cellClass}>{cells}</div>
+                )}
               </li>
             );
           })}

@@ -68,7 +68,7 @@ export interface LeaderboardShowcaseProps {
 /** The subset of CreatorMetricWindowRow the follower board renders. */
 type LbRow = Pick<
   CreatorMetricWindowRow,
-  'creatorId' | 'displayName' | 'primaryPlatform' | 'followers' | 'viewsGained' | 'insufficient'
+  'creatorId' | 'displayName' | 'primaryPlatform' | 'primaryHandle' | 'followers' | 'viewsGained' | 'insufficient'
 > & { rank: number };
 
 function applySort(rows: LbRow[], sortBy: LbSort): LbRow[] {
@@ -82,6 +82,7 @@ function demoRows(): LbRow[] {
     creatorId: c.handle,
     displayName: c.handle,
     primaryPlatform: c.primaryPlatform,
+    primaryHandle: handleToSlug(c.handle),
     followers: c.followers,
     viewsGained: c.totalViews,
     insufficient: false,
@@ -103,6 +104,7 @@ export function LeaderboardShowcase({
         creatorId: r.creatorId,
         displayName: r.displayName,
         primaryPlatform: r.primaryPlatform,
+        primaryHandle: r.primaryHandle,
         followers: r.followers,
         viewsGained: r.viewsGained,
         insufficient: r.insufficient,
@@ -369,16 +371,21 @@ function LeaderRow({ row, sortBy }: LeaderRowProps) {
   const platformKey = toPlatformKey(row.primaryPlatform);
   const Icon = platformKey ? PLATFORM_ICONS[platformKey] : null;
   const isWinner = row.rank === 1;
-  const slug = handleToSlug(name);
+  // The /creators/[id] route resolves by profile handle. Use the creator's
+  // primary-profile handle; if absent, render no link rather than a slug that
+  // 404s (a display-name slug never matches a handle).
+  const slug = row.primaryHandle ? handleToSlug(row.primaryHandle) : null;
   return (
     <tr className="relative border-b border-borderGlass last:border-b-0 transition-colors duration-150 ease-out hover:bg-white/[0.025] focus-within:bg-white/[0.04]">
       <td className="h-12 pl-2 font-mono tabular-nums">
         {/* Overlay anchor: absolute inset-0 inside tr (relative) covers whole row */}
-        <Link
-          href={`/creators/${slug}`}
-          aria-label={`View ${name} profile`}
-          className="absolute inset-0 outline-none focus-visible:ring-1 focus-visible:ring-brand-500 rounded-md z-0"
-        />
+        {slug ? (
+          <Link
+            href={`/creators/${slug}`}
+            aria-label={`View ${name} profile`}
+            className="absolute inset-0 outline-none focus-visible:ring-1 focus-visible:ring-brand-500 rounded-md z-0"
+          />
+        ) : null}
         <span
           className={clsx(
             'relative z-10',
