@@ -707,7 +707,7 @@ function extractHashtags(caption: string | null): string[] {
  * adapter (Facebook posts carry one) always wins; otherwise we synthesize the
  * platform-correct URL from the external id (+ handle for TikTok).
  */
-function buildPostUrl(
+export function buildPostUrl(
   platform: PlatformKey,
   raw: Record<string, unknown>,
   externalId: string,
