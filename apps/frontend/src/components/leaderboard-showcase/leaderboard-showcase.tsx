@@ -43,9 +43,10 @@ interface SortDef {
 }
 
 const SORTS: SortDef[] = [
+  { value: 'engagementRate', label: 'Eng. Rate' },
   { value: 'followers', label: 'Followers' },
-  { value: 'growth30d', label: '30d Growth' },
-  { value: 'engagementRate', label: 'Engagement' },
+  { value: 'totalViews', label: 'Views' },
+  { value: 'totalEngagement', label: 'Engagement' },
 ];
 
 function filterLabel(filter: PlatformFilter): string {
@@ -59,11 +60,8 @@ export interface LeaderboardShowcaseProps {
 }
 
 function applySort(rows: CreatorRow[], sortBy: LeaderboardSort): CreatorRow[] {
-  const sorted = [...rows].sort((a, b) => {
-    if (sortBy === 'growth30d') return b.growth30d - a.growth30d;
-    if (sortBy === 'engagementRate') return b.engagementRate - a.engagementRate;
-    return b.followers - a.followers;
-  });
+  // All sort keys map to numeric CreatorRow fields — sort desc, then re-rank.
+  const sorted = [...rows].sort((a, b) => b[sortBy] - a[sortBy]);
   return sorted.map((r, i) => ({ ...r, rank: i + 1 }));
 }
 
@@ -73,16 +71,25 @@ function summarizeLive(rows: CreatorRow[], filter: PlatformFilter): LeaderboardS
   const trackedCreators = base.length;
   const combinedFollowers = base.reduce((s, c) => s + c.followers, 0);
   const combinedGrowth30d = base.reduce((s, c) => s + c.growth30d, 0);
+  const combinedViews = base.reduce((s, c) => s + c.totalViews, 0);
+  const combinedEngagement = base.reduce((s, c) => s + c.totalEngagement, 0);
   const avgEngagementRate =
     trackedCreators === 0
       ? 0
       : base.reduce((s, c) => s + c.engagementRate, 0) / trackedCreators;
-  return { trackedCreators, combinedFollowers, combinedGrowth30d, avgEngagementRate };
+  return {
+    trackedCreators,
+    combinedFollowers,
+    combinedGrowth30d,
+    avgEngagementRate,
+    combinedViews,
+    combinedEngagement,
+  };
 }
 
 export function LeaderboardShowcase({ liveCreators }: LeaderboardShowcaseProps = {}) {
   const [filter, setFilter] = useState<PlatformFilter>('all');
-  const [sortBy, setSortBy] = useState<LeaderboardSort>('followers');
+  const [sortBy, setSortBy] = useState<LeaderboardSort>('engagementRate');
   const isLive = !!(liveCreators && liveCreators.length > 0);
 
   const rows = useMemo(() => {
@@ -105,21 +112,26 @@ export function LeaderboardShowcase({ liveCreators }: LeaderboardShowcaseProps =
     <div className="flex flex-col gap-6">
       <PlatformTabBar value={filter} onChange={setFilter} />
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 lg:gap-6">
         <SummaryStat
-          label="Tracked Creators"
-          value={exactFormatter.format(stats.trackedCreators)}
-          note={filterLabel(filter)}
-        />
-        <SummaryStat
-          label="Combined Followers"
+          label="Total Followers"
           value={compactFormatter.format(stats.combinedFollowers)}
-          note={`${exactFormatter.format(stats.combinedFollowers)} total`}
+          note={`across ${exactFormatter.format(stats.trackedCreators)} creator${stats.trackedCreators === 1 ? '' : 's'}`}
         />
         <SummaryStat
-          label="Combined 30d Growth"
-          value={`+${compactFormatter.format(stats.combinedGrowth30d)}`}
-          note={`Avg eng ${percentFormatter.format(stats.avgEngagementRate)}`}
+          label="Total Views"
+          value={compactFormatter.format(stats.combinedViews)}
+          note="recent content views"
+        />
+        <SummaryStat
+          label="Total Engagement"
+          value={compactFormatter.format(stats.combinedEngagement)}
+          note="likes + comments + shares"
+        />
+        <SummaryStat
+          label="Avg Engagement Rate"
+          value={percentFormatter.format(stats.avgEngagementRate)}
+          note="per post ÷ followers"
         />
       </div>
 
@@ -291,24 +303,30 @@ function LeaderTable({ rows, sortBy }: LeaderTableProps) {
           <tr className="text-micro uppercase tracking-[0.04em] text-fgSubtle">
             <Th className="w-[44px] text-left pl-2">#</Th>
             <Th className="text-left">Creator</Th>
-            <Th className="w-[80px] text-right">Platform</Th>
+            <Th className="w-[72px] text-right">Platform</Th>
             <Th
-              className="w-[120px] text-right"
+              className="w-[100px] text-right"
               active={sortBy === 'followers'}
             >
               Followers
             </Th>
             <Th
-              className="w-[110px] text-right"
-              active={sortBy === 'growth30d'}
+              className="w-[96px] text-right"
+              active={sortBy === 'totalViews'}
             >
-              30d Δ
+              Views
             </Th>
             <Th
-              className="w-[100px] text-right pr-2"
-              active={sortBy === 'engagementRate'}
+              className="w-[110px] text-right"
+              active={sortBy === 'totalEngagement'}
             >
               Engagement
+            </Th>
+            <Th
+              className="w-[92px] text-right pr-2"
+              active={sortBy === 'engagementRate'}
+            >
+              Eng. Rate
             </Th>
           </tr>
         </thead>
@@ -384,8 +402,11 @@ function LeaderRow({ row, sortBy }: LeaderRowProps) {
       <NumCell active={sortBy === 'followers'}>
         {compactFormatter.format(row.followers)}
       </NumCell>
-      <NumCell active={sortBy === 'growth30d'}>
-        +{compactFormatter.format(row.growth30d)}
+      <NumCell active={sortBy === 'totalViews'}>
+        {compactFormatter.format(row.totalViews)}
+      </NumCell>
+      <NumCell active={sortBy === 'totalEngagement'}>
+        {compactFormatter.format(row.totalEngagement)}
       </NumCell>
       <NumCell active={sortBy === 'engagementRate'} pr>
         {signedPercentFormatter

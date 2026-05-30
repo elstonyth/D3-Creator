@@ -9,9 +9,18 @@ export interface CreatorRow {
   followers: number;
   growth30d: number;
   engagementRate: number;
+  /** Σ views across recent posts (display "wow" number, not a rank driver). */
+  totalViews: number;
+  /** Σ likes+comments+shares across recent posts (display, not a rank driver). */
+  totalEngagement: number;
 }
 
-export type LeaderboardSort = 'followers' | 'growth30d' | 'engagementRate';
+export type LeaderboardSort =
+  | 'followers'
+  | 'growth30d'
+  | 'engagementRate'
+  | 'totalViews'
+  | 'totalEngagement';
 
 export interface PlatformBreakdown {
   platform: PlatformKey;
@@ -53,7 +62,7 @@ export const PLATFORM_BREAKDOWN: PlatformBreakdown[] = [
   { platform: 'xiaohongshu', followers: 287_600, growth30d: 39_950, engagementRate: 0.063 },
 ];
 
-export const TOP_CREATORS: CreatorRow[] = [
+const RAW_TOP_CREATORS: Array<Omit<CreatorRow, 'totalViews' | 'totalEngagement'>> = [
   { rank: 1, handle: '@miawatkins', primaryPlatform: 'instagram', followers: 412_300, growth30d: 22_410, engagementRate: 0.058 },
   { rank: 2, handle: '@junhao.shoots', primaryPlatform: 'tiktok', followers: 388_900, growth30d: 41_220, engagementRate: 0.103 },
   { rank: 3, handle: '@cafeyumi', primaryPlatform: 'xiaohongshu', followers: 246_700, growth30d: 33_180, engagementRate: 0.078 },
@@ -73,6 +82,14 @@ export const TOP_CREATORS: CreatorRow[] = [
   { rank: 17, handle: '@goodform.life', primaryPlatform: 'facebook', followers: 41_800, growth30d: 1_910, engagementRate: 0.019 },
   { rank: 18, handle: '@inkscape.tw', primaryPlatform: 'instagram', followers: 36_200, growth30d: 2_640, engagementRate: 0.043 },
 ];
+
+// Derive the display "wow" totals from the demo's followers + engagement rate so
+// the synthetic numbers stay internally consistent with the live formula.
+export const TOP_CREATORS: CreatorRow[] = RAW_TOP_CREATORS.map((c) => ({
+  ...c,
+  totalEngagement: Math.round(c.followers * c.engagementRate * 12),
+  totalViews: Math.round(c.followers * (3 + c.engagementRate * 40)),
+}));
 
 export const METRICS: Record<PlatformFilter, MetricView> = {
   all: {
@@ -166,6 +183,8 @@ export interface LeaderboardSummary {
   combinedFollowers: number;
   combinedGrowth30d: number;
   avgEngagementRate: number;
+  combinedViews: number;
+  combinedEngagement: number;
 }
 
 export function summarize(filter: PlatformFilter): LeaderboardSummary {
@@ -176,11 +195,20 @@ export function summarize(filter: PlatformFilter): LeaderboardSummary {
   const trackedCreators = base.length;
   const combinedFollowers = base.reduce((acc, c) => acc + c.followers, 0);
   const combinedGrowth30d = base.reduce((acc, c) => acc + c.growth30d, 0);
+  const combinedViews = base.reduce((acc, c) => acc + c.totalViews, 0);
+  const combinedEngagement = base.reduce((acc, c) => acc + c.totalEngagement, 0);
   const avgEngagementRate =
     trackedCreators === 0
       ? 0
       : base.reduce((acc, c) => acc + c.engagementRate, 0) / trackedCreators;
-  return { trackedCreators, combinedFollowers, combinedGrowth30d, avgEngagementRate };
+  return {
+    trackedCreators,
+    combinedFollowers,
+    combinedGrowth30d,
+    avgEngagementRate,
+    combinedViews,
+    combinedEngagement,
+  };
 }
 
 export const compactFormatter = new Intl.NumberFormat('en-US', {

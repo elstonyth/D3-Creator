@@ -42,9 +42,17 @@ export interface LiveCreatorRow {
    * Average (likes + comments + shares) per post divided by followers.
    * Stored as a fraction (0.052 = 5.2%) to match the demo data convention
    * and the Intl percentFormatter consumers in the showcase components.
-   * 0 when no posts yet OR no followers.
+   * 0 when no posts yet OR no followers. THIS is the leaderboard rank metric —
+   * window-insensitive (per-post average), so it stays fair across platforms
+   * whose post windows differ (IG ~12, TikTok/FB up to 30).
    */
   engagementRate: number;
+  /** Σ views across the creator's recent posts (display-only "wow" number;
+   *  window-based, never used for ranking). */
+  totalViews: number;
+  /** Σ (likes + comments + shares) across the creator's recent posts
+   *  (display-only; window-based, never used for ranking). */
+  totalEngagement: number;
   /** When true, growth/engagement cells should render an empty-state in the UI. */
   insufficient: boolean;
 }
@@ -204,20 +212,33 @@ export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
   }
   for (const [id, v] of earliest30dWithTs) earliest30d.set(id, v.followers);
 
-  // 3. Recent posts → engagement (limit to last 30 per profile)
+  // 3. Recent posts → engagement + view/engagement totals
   const posts = await sb
     .from('post_snapshot')
-    .select('profile_id, likes, comments, shares')
+    .select('profile_id, external_post_id, captured_at, likes, comments, shares, views')
     .order('captured_at', { ascending: false })
     .limit(5000);
   if (posts.error) {
     console.error('[queries] getLiveCreatorRows posts', posts.error);
     return null;
   }
-  const engagementByProfile = new Map<string, { totalEng: number; count: number }>();
+  // Dedup to the LATEST snapshot per distinct post (rows are captured_at DESC,
+  // so the first time we see a post is its newest snapshot). Without this, a
+  // post snapshotted across multiple days would be counted once per day and
+  // inflate both the per-post average and the displayed totals.
+  const seenPost = new Set<string>();
+  const engagementByProfile = new Map<
+    string,
+    { totalEng: number; totalViews: number; count: number }
+  >();
   for (const p of posts.data ?? []) {
-    const cur = engagementByProfile.get(p.profile_id) || { totalEng: 0, count: 0 };
+    const key = `${p.profile_id}:${p.external_post_id}`;
+    if (seenPost.has(key)) continue;
+    seenPost.add(key);
+    const cur =
+      engagementByProfile.get(p.profile_id) || { totalEng: 0, totalViews: 0, count: 0 };
     cur.totalEng += (p.likes ?? 0) + (p.comments ?? 0) + (p.shares ?? 0);
+    cur.totalViews += p.views ?? 0;
     cur.count += 1;
     engagementByProfile.set(p.profile_id, cur);
   }
@@ -233,6 +254,7 @@ export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
     let prior = 0;
     let priorSeen = false;
     let totalEng = 0;
+    let totalViews = 0;
     let totalPosts = 0;
     let mostRecentProfile = cProfiles[0];
 
@@ -241,6 +263,7 @@ export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
       const e = engagementByProfile.get(p.id);
       if (e) {
         totalEng += e.totalEng;
+        totalViews += e.totalViews;
         totalPosts += e.count;
       }
       const priorVal = earliest30d.get(p.id);
@@ -279,6 +302,8 @@ export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
       followers,
       growth30d,
       engagementRate,
+      totalViews,
+      totalEngagement: totalEng,
       insufficient,
     });
   }
