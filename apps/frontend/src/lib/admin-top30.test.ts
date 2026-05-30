@@ -47,4 +47,20 @@ describe('rankCreatorsByFollowerDelta', () => {
   it('returns an empty array for empty input', () => {
     expect(rankCreatorsByFollowerDelta([])).toEqual([]);
   });
+
+  it('breaks follower ties by displayName asc', () => {
+    const out = rankCreatorsByFollowerDelta([
+      row({ creatorId: 'z', followersDelta: 10, followers: 100, displayName: 'Zara' }),
+      row({ creatorId: 'a', followersDelta: 10, followers: 100, displayName: 'Alice' }),
+    ]);
+    expect(out.map((r) => r.creatorId)).toEqual(['a', 'z']);
+  });
+
+  it('sorts insufficient creators by followers desc', () => {
+    const out = rankCreatorsByFollowerDelta([
+      row({ creatorId: 'small', insufficient: true, followers: 10 }),
+      row({ creatorId: 'big', insufficient: true, followers: 500 }),
+    ]);
+    expect(out.map((r) => r.creatorId)).toEqual(['big', 'small']);
+  });
 });
