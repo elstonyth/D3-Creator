@@ -91,6 +91,19 @@ export const TOP_CREATORS: CreatorRow[] = RAW_TOP_CREATORS.map((c) => ({
   totalViews: Math.round(c.followers * (3 + c.engagementRate * 40)),
 }));
 
+/**
+ * Synthetic Views totals for the demo (non-live) dashboard. Mirrors the shape
+ * of the live windowed metrics: 30-day views gained + lifetime views.
+ */
+export const DEMO_VIEWS: Record<PlatformFilter, { views30d: number; viewsLifetime: number }> = {
+  all:        { views30d: 4_812_000, viewsLifetime: 58_400_000 },
+  instagram:  { views30d: 1_640_000, viewsLifetime: 19_200_000 },
+  tiktok:     { views30d: 1_520_000, viewsLifetime: 17_800_000 },
+  douyin:     { views30d:   910_000, viewsLifetime: 11_300_000 },
+  facebook:   { views30d:   180_000, viewsLifetime:  4_100_000 },
+  xiaohongshu:{ views30d:   562_000, viewsLifetime:  6_000_000 },
+};
+
 export const METRICS: Record<PlatformFilter, MetricView> = {
   all: {
     totalFollowers: 2_565_300,

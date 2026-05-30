@@ -1,12 +1,10 @@
 import { Metadata } from 'next';
 import { DashboardShowcase } from '@gitroom/frontend/components/dashboard-showcase/dashboard-showcase';
+import { getPlatformBreakdown } from '@gitroom/frontend/lib/queries';
 import {
-  getLiveCreatorRows,
-  getPlatformBreakdown,
-  type LiveCreatorRow,
-  type LivePlatformBreakdown,
-} from '@gitroom/frontend/lib/queries';
-import type { CreatorRow } from '@gitroom/frontend/components/dashboard-showcase/showcase-data';
+  getCreatorMetricsWindowed,
+  type CreatorMetricWindowRow,
+} from '@gitroom/frontend/lib/metrics-windowed';
 
 // ISR: 1h cache, see (public)/page.tsx for rationale.
 export const revalidate = 3600;
@@ -14,28 +12,26 @@ export const revalidate = 3600;
 export const metadata: Metadata = {
   title: 'Dashboard — D3 Creator',
   description:
-    'Live overview of every creator we grow at D3 — followers, engagement, and growth across Instagram, TikTok, Facebook, Douyin, and Xiaohongshu.',
+    'Live overview of every creator we grow at D3 — views, followers, and growth across Instagram, TikTok, Facebook, Douyin, and Xiaohongshu.',
 };
 
 export default async function DashboardPage() {
-  const [live, livePlatformBreakdown] = await Promise.all([
-    getLiveCreatorRows().catch((err) => {
-      console.error('[dashboard] getLiveCreatorRows failed', err);
-      return null;
+  const [metrics30d, metricsLifetime, livePlatformBreakdown] = await Promise.all([
+    getCreatorMetricsWindowed('30d').catch((e) => {
+      console.error('[dashboard] 30d', e);
+      return [] as CreatorMetricWindowRow[];
     }),
-    getPlatformBreakdown().catch((err) => {
-      console.error('[dashboard] getPlatformBreakdown failed', err);
+    getCreatorMetricsWindowed('lifetime').catch((e) => {
+      console.error('[dashboard] lifetime', e);
+      return [] as CreatorMetricWindowRow[];
+    }),
+    getPlatformBreakdown().catch((e) => {
+      console.error('[dashboard] breakdown', e);
       return null;
     }),
   ]);
-  // Strip the `insufficient` flag — showcase consumes plain CreatorRow.
-  const liveCreators: CreatorRow[] | null = live
-    ? live.map((r: LiveCreatorRow): CreatorRow => {
-        const { insufficient: _i, ...rest } = r;
-        return rest;
-      })
-    : null;
-  const insufficient = live ? live.some((r: LiveCreatorRow) => r.insufficient) : false;
+
+  const isLive = metrics30d.length > 0;
 
   return (
     <div className="flex flex-col gap-10 pt-12 pb-24">
@@ -51,16 +47,17 @@ export default async function DashboardPage() {
           A live roll-up of every account we manage. Filter by platform; numbers
           refresh as our scraper collects them.
         </p>
-        {liveCreators && insufficient && (
+        {isLive && (
           <p className="mt-4 text-caption text-fgSubtle">
-            Tracking {liveCreators.length} creator{liveCreators.length === 1 ? '' : 's'} ·
+            Tracking {metrics30d.length} creator{metrics30d.length === 1 ? '' : 's'} ·
             growth metrics fill in after 14 days of snapshots.
           </p>
         )}
       </header>
 
       <DashboardShowcase
-        liveCreators={liveCreators}
+        metrics30d={metrics30d}
+        metricsLifetime={metricsLifetime}
         livePlatformBreakdown={livePlatformBreakdown}
       />
     </div>

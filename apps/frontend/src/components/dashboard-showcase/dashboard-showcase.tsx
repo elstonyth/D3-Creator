@@ -12,20 +12,21 @@ import {
 } from '../ui/platform-icons';
 import { Sparkline } from './sparkline';
 import {
+  DEMO_VIEWS,
   METRICS,
   PLATFORM_BREAKDOWN,
   compactFormatter,
   exactFormatter,
   getCreatorsForFilter,
   handleToSlug,
-  percentFormatter,
   signedPercentFormatter,
   type CreatorRow,
-  type MetricView,
   type PlatformBreakdown,
   type PlatformFilter,
 } from './showcase-data';
+import type { CreatorMetricWindowRow } from '@gitroom/frontend/lib/metrics-windowed';
 import type { LivePlatformBreakdown } from '@gitroom/frontend/lib/queries';
+import { formatWindowedValue } from '@gitroom/frontend/lib/format-metric';
 
 interface TabDef {
   value: PlatformFilter;
@@ -45,84 +46,134 @@ function filterLabel(filter: PlatformFilter): string {
   return filter === 'all' ? 'All platforms' : PLATFORM_LABELS[filter];
 }
 
+/** Map a raw platform string (RPC: 'rednote') to a UI PlatformKey. */
+function toPlatformKey(platform: string | null): PlatformKey | null {
+  if (!platform) return null;
+  return platform === 'rednote' ? 'xiaohongshu' : (platform as PlatformKey);
+}
+
 export interface DashboardShowcaseProps {
-  /** Live creator rows from Supabase. When non-empty, drives leaderboard +
-   *  derived metrics (totals, growth, engagement, active count). */
-  liveCreators?: CreatorRow[] | null;
+  /** Live 30-day windowed creator metrics from Supabase. When non-empty,
+   *  drives the views hero, Top Creators (ranked by 30d views), and the
+   *  follower tile. */
+  metrics30d?: CreatorMetricWindowRow[] | null;
+  /** Live lifetime windowed creator metrics — drives the Lifetime Views tile. */
+  metricsLifetime?: CreatorMetricWindowRow[] | null;
   /** Live per-platform aggregates from Supabase. When provided, merges with
    *  demo PLATFORM_BREAKDOWN: live wins per-platform, demo fills the rest
    *  so the strip always renders all five rows. */
   livePlatformBreakdown?: LivePlatformBreakdown[] | null;
 }
 
-/**
- * Derive a MetricView from live creator rows filtered by platform.
- * - growthSeries: kept from demo until we have a real time-series query
- *   (the Hero card already labels itself "Preview" for this reason).
- * - engagementRateDelta: 0 (need historical engagement to compute).
- * - All other fields computed from the filtered live set.
- */
-function computeLiveMetrics(
-  liveCreators: CreatorRow[],
+/** Filter live windowed rows by the active platform tab. */
+function filterByPlatform(
+  rows: CreatorMetricWindowRow[],
   filter: PlatformFilter,
-): MetricView {
-  const filtered =
-    filter === 'all'
-      ? liveCreators
-      : liveCreators.filter((c) => c.primaryPlatform === filter);
-
-  const totalFollowers = filtered.reduce((s, c) => s + c.followers, 0);
-  const netGrowth30d = filtered.reduce((s, c) => s + c.growth30d, 0);
-  const activeCreators = filtered.length;
-  const engagementRate =
-    filtered.length > 0
-      ? filtered.reduce((s, c) => s + c.engagementRate, 0) / filtered.length
-      : 0;
-
-  const prior = totalFollowers - netGrowth30d;
-  const netGrowth30dPct = prior > 0 ? netGrowth30d / prior : 0;
-
-  return {
-    totalFollowers,
-    totalFollowersDeltaPct: netGrowth30dPct,
-    engagementRate,
-    engagementRateDelta: 0,
-    activeCreators,
-    growthSeries: METRICS[filter].growthSeries, // sparkline still demo
-    netGrowth30d,
-    netGrowth30dPct,
-  };
+): CreatorMetricWindowRow[] {
+  if (filter === 'all') return rows;
+  return rows.filter((r) => toPlatformKey(r.primaryPlatform) === filter);
 }
 
 export function DashboardShowcase({
-  liveCreators,
+  metrics30d,
+  metricsLifetime,
   livePlatformBreakdown,
 }: DashboardShowcaseProps = {}) {
   const [filter, setFilter] = useState<PlatformFilter>('all');
-  const isLive = !!(liveCreators && liveCreators.length > 0);
+  const isLive = !!(metrics30d && metrics30d.length > 0);
 
-  const metrics = useMemo<MetricView>(
-    () => (isLive ? computeLiveMetrics(liveCreators!, filter) : METRICS[filter]),
-    [isLive, liveCreators, filter],
+  // --- 30d views (hero) -----------------------------------------------------
+  const filtered30d = useMemo(
+    () => (metrics30d ? filterByPlatform(metrics30d, filter) : []),
+    [metrics30d, filter],
   );
+  const totalViews30d = useMemo(
+    () => filtered30d.reduce((s, r) => s + r.viewsGained, 0),
+    [filtered30d],
+  );
+  const allInsufficient30d =
+    filtered30d.length > 0 && filtered30d.every((r) => r.insufficient);
 
-  const creators = useMemo(() => {
+  // --- Lifetime views (tile) ------------------------------------------------
+  const filteredLifetime = useMemo(
+    () => (metricsLifetime ? filterByPlatform(metricsLifetime, filter) : []),
+    [metricsLifetime, filter],
+  );
+  const totalViewsLifetime = useMemo(
+    () => filteredLifetime.reduce((s, r) => s + r.viewsGained, 0),
+    [filteredLifetime],
+  );
+  const allInsufficientLife =
+    filteredLifetime.length > 0 && filteredLifetime.every((r) => r.insufficient);
+
+  // --- Followers tile -------------------------------------------------------
+  const totalFollowers = useMemo(
+    () =>
+      isLive
+        ? filtered30d.reduce((s, r) => s + r.followers, 0)
+        : METRICS[filter].totalFollowers,
+    [isLive, filtered30d, filter],
+  );
+  const followersDelta = useMemo(
+    () => filtered30d.reduce((s, r) => s + r.followersDelta, 0),
+    [filtered30d],
+  );
+  const followersDeltaPct = useMemo(() => {
+    if (!isLive) return METRICS[filter].totalFollowersDeltaPct;
+    const prior = totalFollowers - followersDelta;
+    return prior > 0 ? followersDelta / prior : 0;
+  }, [isLive, totalFollowers, followersDelta, filter]);
+
+  const activeCreators = isLive ? filtered30d.length : METRICS[filter].activeCreators;
+
+  // --- Top Creators (ranked by 30d views desc) ------------------------------
+  const topCreators = useMemo<TopCreatorRow[]>(() => {
     if (isLive) {
-      const filtered =
-        filter === 'all'
-          ? liveCreators!
-          : liveCreators!.filter((c) => c.primaryPlatform === filter);
-      return filtered.map((c, i) => ({ ...c, rank: i + 1 }));
+      return [...filtered30d]
+        .sort((a, b) => b.viewsGained - a.viewsGained)
+        .map((r, i) => ({
+          key: r.creatorId,
+          name: r.displayName ?? r.creatorId,
+          slug: handleToSlug(r.displayName ?? r.creatorId),
+          platform: toPlatformKey(r.primaryPlatform),
+          followers: r.followers,
+          viewsGained: r.viewsGained,
+          insufficient: r.insufficient,
+          rank: i + 1,
+        }));
     }
-    return getCreatorsForFilter(filter);
-  }, [filter, liveCreators, isLive]);
+    return getCreatorsForFilter(filter)
+      .slice()
+      .sort((a, b) => b.totalViews - a.totalViews)
+      .map((c, i) => ({
+        key: c.handle,
+        name: c.handle,
+        slug: handleToSlug(c.handle),
+        platform: c.primaryPlatform,
+        followers: c.followers,
+        viewsGained: c.totalViews,
+        insufficient: false,
+        rank: i + 1,
+      }));
+  }, [isLive, filtered30d, filter]);
+
+  // --- Hero / tile display values -------------------------------------------
+  const heroViews = isLive
+    ? formatWindowedValue(allInsufficient30d, totalViews30d, compactFormatter.format)
+    : compactFormatter.format(DEMO_VIEWS[filter].views30d);
+
+  const lifetimeViews = isLive
+    ? formatWindowedValue(
+        allInsufficientLife,
+        totalViewsLifetime,
+        compactFormatter.format,
+      )
+    : compactFormatter.format(DEMO_VIEWS[filter].viewsLifetime);
 
   // Breakdown card rows.
   //   - No live data at all → demo (full demo mode).
   //   - At least one live platform → live-only: every row uses the live
-  //     followers/growth (0 if that platform has no profile yet), and
-  //     engagement renders as "—" since we don't aggregate engagement-by-
-  //     platform on the live side yet (avoiding the prior demo-leak bug).
+  //     followers/growth (0 if that platform has no profile yet).
   const breakdownRows = useMemo<PlatformBreakdown[]>(() => {
     if (!livePlatformBreakdown || livePlatformBreakdown.length === 0) {
       return PLATFORM_BREAKDOWN;
@@ -135,7 +186,7 @@ export function DashboardShowcase({
         platform: demo.platform,
         followers: live?.followers ?? 0,
         growth30d: live?.growth30d ?? 0,
-        engagementRate: NaN, // sentinel — card renders "—" instead of a %
+        engagementRate: NaN, // unused by the card now; kept to satisfy the type
       };
     });
   }, [livePlatformBreakdown]);
@@ -146,31 +197,29 @@ export function DashboardShowcase({
 
       <BentoGrid gap="md">
         <BentoItem colSpan={8} rowSpan={2} tabletColSpan={6}>
-          <HeroGrowthCard filter={filter} metrics={metrics} />
+          <HeroViewsCard filter={filter} value={heroViews} />
         </BentoItem>
 
         <BentoItem colSpan={4} rowSpan={1} tabletColSpan={3}>
           <MetricCard
             label="Total Followers"
-            value={compactFormatter.format(metrics.totalFollowers)}
-            delta={signedPercentFormatter.format(metrics.totalFollowersDeltaPct)}
-            note={`${exactFormatter.format(metrics.totalFollowers)} tracked`}
-            deltaPositive={metrics.totalFollowersDeltaPct >= 0}
+            value={compactFormatter.format(totalFollowers)}
+            delta={signedPercentFormatter.format(followersDeltaPct)}
+            note={`${exactFormatter.format(totalFollowers)} tracked`}
+            deltaPositive={followersDeltaPct >= 0}
           />
         </BentoItem>
 
         <BentoItem colSpan={4} rowSpan={1} tabletColSpan={3}>
           <MetricCard
-            label="Avg Engagement Rate"
-            value={percentFormatter.format(metrics.engagementRate)}
-            delta={signedPercentFormatter.format(metrics.engagementRateDelta)}
-            note={`${metrics.activeCreators} active creator${metrics.activeCreators === 1 ? '' : 's'}`}
-            deltaPositive={metrics.engagementRateDelta >= 0}
+            label="Lifetime Total Views"
+            value={lifetimeViews}
+            note={`${activeCreators} creator${activeCreators === 1 ? '' : 's'}`}
           />
         </BentoItem>
 
         <BentoItem colSpan={7} rowSpan={2} tabletColSpan={6}>
-          <LeaderboardCard rows={creators} filter={filter} />
+          <LeaderboardCard rows={topCreators} filter={filter} />
         </BentoItem>
 
         <BentoItem colSpan={5} rowSpan={2} tabletColSpan={6}>
@@ -234,18 +283,20 @@ function PlatformTabBar({ value, onChange }: PlatformTabBarProps) {
 
 // --- Hero card ------------------------------------------------------------
 
-interface HeroGrowthCardProps {
+interface HeroViewsCardProps {
   filter: PlatformFilter;
-  metrics: typeof METRICS[PlatformFilter];
+  value: string;
 }
 
-function HeroGrowthCard({ filter, metrics }: HeroGrowthCardProps) {
+function HeroViewsCard({ filter, value }: HeroViewsCardProps) {
+  // Sparkline stays the demo series — it's labeled "Preview" for that reason.
+  const series = METRICS[filter].growthSeries;
   return (
     <GlassCard variant="base" padding="lg" radius="2xl" className="h-full flex flex-col">
       <div className="flex items-start justify-between mb-6">
         <div className="flex flex-col gap-1">
           <span className="text-micro uppercase text-fgSubtle tracking-[0.04em]">
-            Net Follower Growth · 30d
+            Total Views · 30D
           </span>
           <span className="text-caption text-fgMuted">{filterLabel(filter)}</span>
         </div>
@@ -256,20 +307,17 @@ function HeroGrowthCard({ filter, metrics }: HeroGrowthCardProps) {
 
       <div className="flex items-baseline gap-4 mb-1">
         <div className="text-[clamp(44px,5.5vw,68px)] leading-[0.98] tracking-[-0.035em] font-semibold text-fg tabular-nums">
-          +{compactFormatter.format(metrics.netGrowth30d)}
-        </div>
-        <div className="text-body-sm font-mono tabular-nums text-fgMuted">
-          {signedPercentFormatter.format(metrics.netGrowth30dPct)}
+          {value}
         </div>
       </div>
       <div className="text-caption text-fgMuted mb-6 tabular-nums">
-        {exactFormatter.format(metrics.netGrowth30d)} new followers · vs. prior 30d
+        views gained · last 30 days
       </div>
 
       <div className="flex-1 min-h-[160px]">
         <Sparkline
-          values={metrics.growthSeries}
-          ariaLabel="Daily net follower additions over the last 30 days"
+          values={series}
+          ariaLabel="Preview of daily activity over the last 30 days"
         />
       </div>
 
@@ -287,12 +335,12 @@ function HeroGrowthCard({ filter, metrics }: HeroGrowthCardProps) {
 interface MetricCardProps {
   label: string;
   value: string;
-  delta: string;
   note: string;
-  deltaPositive: boolean;
+  delta?: string;
+  deltaPositive?: boolean;
 }
 
-function MetricCard({ label, value, delta, note, deltaPositive }: MetricCardProps) {
+function MetricCard({ label, value, note, delta, deltaPositive }: MetricCardProps) {
   return (
     <GlassCard variant="base" padding="lg" radius="2xl" className="h-full flex flex-col">
       <span className="text-micro uppercase text-fgSubtle tracking-[0.04em] mb-5">
@@ -302,14 +350,16 @@ function MetricCard({ label, value, delta, note, deltaPositive }: MetricCardProp
         <div className="text-[clamp(28px,3vw,38px)] leading-[1.02] tracking-[-0.025em] font-semibold text-fg tabular-nums">
           {value}
         </div>
-        <div
-          className={clsx(
-            'text-body-sm font-mono tabular-nums',
-            deltaPositive ? 'text-fg' : 'text-fgSubtle'
-          )}
-        >
-          {delta}
-        </div>
+        {delta != null && (
+          <div
+            className={clsx(
+              'text-body-sm font-mono tabular-nums',
+              deltaPositive ? 'text-fg' : 'text-fgSubtle'
+            )}
+          >
+            {delta}
+          </div>
+        )}
       </div>
       <p className="text-caption text-fgMuted mt-auto tabular-nums">{note}</p>
     </GlassCard>
@@ -318,8 +368,19 @@ function MetricCard({ label, value, delta, note, deltaPositive }: MetricCardProp
 
 // --- Leaderboard (dense text list) ----------------------------------------
 
+interface TopCreatorRow {
+  key: string;
+  name: string;
+  slug: string;
+  platform: PlatformKey | null;
+  followers: number;
+  viewsGained: number;
+  insufficient: boolean;
+  rank: number;
+}
+
 interface LeaderboardCardProps {
-  rows: CreatorRow[];
+  rows: TopCreatorRow[];
   filter: PlatformFilter;
 }
 
@@ -332,7 +393,7 @@ function LeaderboardCard({ rows, filter }: LeaderboardCardProps) {
             Top Creators
           </span>
           <span className="text-caption text-fgMuted">
-            Ranked by 30d net growth · {filterLabel(filter)}
+            Ranked by 30D views · {filterLabel(filter)}
           </span>
         </div>
       </div>
@@ -351,32 +412,32 @@ function LeaderboardCard({ rows, filter }: LeaderboardCardProps) {
             <span>Creator</span>
             <span className="text-right">Plat</span>
             <span className="text-right">Followers</span>
-            <span className="text-right">30d Δ</span>
+            <span className="text-right">30D Views</span>
           </li>
 
           {rows.map((row) => {
-            const Icon = PLATFORM_ICONS[row.primaryPlatform];
+            const Icon = row.platform ? PLATFORM_ICONS[row.platform] : null;
             return (
               <li
-                key={row.handle}
+                key={row.key}
                 className="border-b border-borderGlass last:border-b-0"
               >
                 <Link
-                  href={`/creators/${handleToSlug(row.handle)}`}
+                  href={`/creators/${row.slug}`}
                   className="grid grid-cols-[28px_minmax(0,1fr)_44px_92px_82px] gap-3 px-1 py-3 items-center text-body-sm transition-colors duration-150 ease-out hover:bg-white/[0.025] focus-visible:bg-white/[0.04] outline-none rounded-md"
                 >
                   <span className="font-mono tabular-nums text-fgSubtle">
                     {String(row.rank).padStart(2, '0')}
                   </span>
-                  <span className="text-fg truncate font-medium">{row.handle}</span>
+                  <span className="text-fg truncate font-medium">{row.name}</span>
                   <span className="flex justify-end items-center text-fgMuted">
-                    <Icon size={14} />
+                    {Icon ? <Icon size={14} /> : null}
                   </span>
                   <span className="text-right font-mono tabular-nums text-fg">
                     {compactFormatter.format(row.followers)}
                   </span>
                   <span className="text-right font-mono tabular-nums text-fg">
-                    +{compactFormatter.format(row.growth30d)}
+                    {formatWindowedValue(row.insufficient, row.viewsGained, compactFormatter.format)}
                   </span>
                 </Link>
               </li>
@@ -411,7 +472,7 @@ function PlatformBreakdownCard({
           Platform Breakdown
         </span>
         <span className="text-caption text-fgMuted">
-          Followers + 30d engagement by platform
+          Followers + 30d growth by platform
         </span>
       </div>
 
@@ -421,7 +482,6 @@ function PlatformBreakdownCard({
           const widthPct = (row.followers / max) * 100;
           const isFocused = activeFilter === row.platform;
           const isEmpty = row.followers === 0;
-          const showEngagement = Number.isFinite(row.engagementRate);
           return (
             <li key={row.platform}>
               <button
@@ -460,13 +520,7 @@ function PlatformBreakdownCard({
                   />
                 </div>
 
-                <div className="flex items-center justify-between mt-2 text-caption text-fgMuted font-mono tabular-nums">
-                  <span>
-                    Eng{' '}
-                    {showEngagement
-                      ? percentFormatter.format(row.engagementRate)
-                      : '—'}
-                  </span>
+                <div className="flex items-center justify-end mt-2 text-caption text-fgMuted font-mono tabular-nums">
                   <span className="text-fg">
                     {isEmpty
                       ? 'Not yet tracked'
