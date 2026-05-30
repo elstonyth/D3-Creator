@@ -8,15 +8,10 @@
  * Yellow-mono: success/failure read from a glyph + label, not color.
  */
 
-import { useActionState, useState } from 'react';
+import { useActionState, useRef, useState } from 'react';
 import { Button } from '@gitroom/frontend/components/ui/button';
 import { Input } from '@gitroom/frontend/components/ui/input';
 import { createCreator, type ProvisionResult } from './actions';
-
-let rowSeq = 0;
-function nextRowId(): number {
-  return ++rowSeq;
-}
 
 function CheckGlyph() {
   return (
@@ -38,8 +33,10 @@ export function ProvisionForm() {
     createCreator,
     null,
   );
-  const [rows, setRows] = useState<{ id: number; value: string }[]>([
-    { id: nextRowId(), value: '' },
+  const rowSeq = useRef(1);
+  const nextRowId = () => (rowSeq.current += 1);
+  const [rows, setRows] = useState<{ id: number; value: string }[]>(() => [
+    { id: 1, value: '' },
   ]);
 
   function updateRow(id: number, value: string) {
