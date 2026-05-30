@@ -1,7 +1,11 @@
 import { Metadata } from 'next';
 import { LeaderboardShowcase } from '@gitroom/frontend/components/leaderboard-showcase/leaderboard-showcase';
-import { getLiveCreatorRows, type LiveCreatorRow } from '@gitroom/frontend/lib/queries';
-import type { CreatorRow } from '@gitroom/frontend/components/dashboard-showcase/showcase-data';
+import {
+  getCreatorMetricsWindowed,
+  getTopContentWindowed,
+  type CreatorMetricWindowRow,
+  type TopContentRow,
+} from '@gitroom/frontend/lib/metrics-windowed';
 
 // ISR: 1h cache, see (public)/page.tsx for rationale.
 export const revalidate = 3600;
@@ -9,21 +13,22 @@ export const revalidate = 3600;
 export const metadata: Metadata = {
   title: 'Leaderboard — D3 Creator',
   description:
-    'Top creators we grow at D3, ranked by followers, 30-day growth, and engagement across every platform.',
+    'Top creators we grow at D3, ranked by followers, views, and growth across every platform.',
 };
 
 export default async function LeaderboardPage() {
-  const live = await getLiveCreatorRows().catch((err) => {
-    console.error('[leaderboard] getLiveCreatorRows failed — falling back to demo', err);
-    return null;
-  });
-  const liveCreators: CreatorRow[] | null = live
-    ? live.map((r: LiveCreatorRow): CreatorRow => {
-        const { insufficient: _i, ...rest } = r;
-        return rest;
-      })
-    : null;
-  const insufficient = live ? live.some((r: LiveCreatorRow) => r.insufficient) : false;
+  const [creators, topContent] = await Promise.all([
+    getCreatorMetricsWindowed('30d').catch((e) => {
+      console.error('[leaderboard] creator metrics', e);
+      return [] as CreatorMetricWindowRow[];
+    }),
+    getTopContentWindowed('30d', { limit: 20 }).catch((e) => {
+      console.error('[leaderboard] top content', e);
+      return [] as TopContentRow[];
+    }),
+  ]);
+
+  const insufficient = creators.some((r) => r.insufficient);
 
   return (
     <div className="flex flex-col gap-10 pt-12 pb-24">
@@ -36,21 +41,21 @@ export default async function LeaderboardPage() {
           A public leaderboard of the creators built by D3.
         </h1>
         <p className="text-body-lg text-fgMuted max-w-[600px] mb-3">
-          Track live followers, engagement, reach, and growth across TikTok,
+          Track live followers, views, and growth across TikTok,
           Instagram, Facebook, and more.
         </p>
         <p className="text-body-lg text-fgMuted max-w-[600px]">
           No screenshots. No fake case studies. Just live numbers.
         </p>
-        {liveCreators && insufficient && (
+        {creators.length > 0 && insufficient && (
           <p className="mt-4 text-caption text-fgSubtle">
-            Tracking {liveCreators.length} creator{liveCreators.length === 1 ? '' : 's'} ·
-            growth and engagement insights fill in after 14 days of snapshots.
+            Tracking {creators.length} creator{creators.length === 1 ? '' : 's'} ·
+            views fill in as snapshots accrue.
           </p>
         )}
       </header>
 
-      <LeaderboardShowcase liveCreators={liveCreators} />
+      <LeaderboardShowcase liveCreators={creators} topContent={topContent} />
     </div>
   );
 }
