@@ -23,6 +23,10 @@ export interface CreatorMetricWindowRow {
   displayName: string | null;
   avatarUrl: string | null;
   primaryPlatform: string | null;
+  /** Handle of the creator's highest-follower profile. This is the slug used
+   *  for /creators/<handle> links (the route resolves by profile handle, not
+   *  by display name or creator id). null when that profile has no handle. */
+  primaryHandle: string | null;
   followers: number;
   followersDelta: number;
   viewsGained: number;
@@ -98,12 +102,16 @@ export async function getCreatorMetricsWindowed(
     console.error('[metrics-windowed] creator_metrics_windowed', error);
     return [];
   }
+  // Archived platforms (e.g. rednote) are excluded inside the RPC's
+  // scope_profile, before aggregation — so a multi-platform creator keeps their
+  // visible-platform totals and primary platform is never 'rednote'.
   return (data ?? []).map(
     (r: Record<string, unknown>): CreatorMetricWindowRow => ({
       creatorId: r.creator_id as string,
       displayName: (r.display_name as string | null) ?? null,
       avatarUrl: (r.avatar_url as string | null) ?? null,
       primaryPlatform: (r.primary_platform as string | null) ?? null,
+      primaryHandle: (r.primary_handle as string | null) ?? null,
       followers: toNum(r.followers),
       followersDelta: toNum(r.followers_delta),
       viewsGained: toNum(r.views_gained),
@@ -132,6 +140,8 @@ export async function getTopContentWindowed(
     console.error('[metrics-windowed] top_content_windowed', error);
     return [];
   }
+  // Archived-platform posts are excluded inside the RPC before ORDER BY/LIMIT,
+  // so the top-N is filled entirely with visible content (no short results).
   return (data ?? []).map(
     (r: Record<string, unknown>): TopContentRow => ({
       externalPostId: r.external_post_id as string,

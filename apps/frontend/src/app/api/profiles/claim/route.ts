@@ -30,7 +30,7 @@ const PLATFORMS: ReadonlyArray<Platform> = [
   'instagram',
   'tiktok',
   'facebook',
-  'rednote',
+  // 'rednote' archived — not auto-discovered from dashboard/leaderboard URLs.
   'douyin',
 ];
 

@@ -11,6 +11,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { resolveProfileName } from './profile-name';
 
 const SNAPSHOT_WINDOW_DAYS = 14;
 
@@ -86,6 +87,7 @@ interface SnapshotRow {
   followers: number | null;
   total_views: number | null;
   total_likes: number | null;
+  raw: unknown;
 }
 interface ClaimRow {
   profile_id: string;
@@ -143,7 +145,7 @@ export async function getAdminCreatorsData(
       .slice(0, 10);
     const { data } = await admin
       .from('profile_snapshot')
-      .select('profile_id, captured_date, followers, total_views, total_likes')
+      .select('profile_id, captured_date, followers, total_views, total_likes, raw')
       .in('profile_id', profileIds)
       .gte('captured_date', sinceIso)
       .order('captured_date', { ascending: false });
@@ -202,7 +204,9 @@ export async function getAdminCreatorsData(
         id: p.id,
         platform: p.platform,
         handle: p.handle,
-        displayName: p.display_name,
+        // Facebook etc. store a numeric id as handle + null display_name; the
+        // readable name lives in the latest snapshot raw (page_name/nickname/…).
+        displayName: resolveProfileName(p.display_name, latest?.raw, p.handle),
         profileUrl: p.profile_url,
         scrapeStatus: p.scrape_status,
         followers,

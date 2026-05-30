@@ -76,6 +76,11 @@ begin
     if (r.insufficient)::int is distinct from (exp->>3)::int then
       raise exception 'FAIL %: insufficient = % (expected %)', w, r.insufficient, exp->>3;
     end if;
+    -- primary_handle = the single profile's handle ('test'); it is the slug for
+    -- /creators/<handle> links, so a regression here re-breaks creator links.
+    if r.primary_handle is distinct from 'test' then
+      raise exception 'FAIL %: primary_handle = % (expected test)', w, r.primary_handle;
+    end if;
     -- engagement = (200+50+50 + 100+20+30) / (5000+2000) = 450/7000 = 0.0643.
     -- The 0-view post C contributes engagement 90 but is excluded entirely, so
     -- the numerator is exactly 450 (not 540). round() catches a leak; the

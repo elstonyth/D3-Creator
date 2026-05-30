@@ -105,3 +105,29 @@ export const PLATFORM_LABELS: Record<PlatformKey, string> = {
   douyin: 'Douyin',
   xiaohongshu: 'Xiaohongshu',
 };
+
+/**
+ * Xiaohongshu / RedNote is ARCHIVED — no longer supported. The PlatformKey,
+ * icon, label, scraper adapter, and DB platform check constraint are kept
+ * intact (so historic data and the casts that map DB 'rednote' -> 'xiaohongshu'
+ * still type-check), but it is hidden from every visible surface and filtered
+ * out of read paths as defense-in-depth.
+ *
+ * - VISIBLE_PLATFORMS: the platforms shown in tabs, filters, and platform lists.
+ * - isHiddenDbPlatform(): true for the DB platform string of an archived
+ *   platform; use it to drop archived rows when reading.
+ */
+export const VISIBLE_PLATFORMS: PlatformKey[] = [
+  'instagram',
+  'tiktok',
+  'douyin',
+  'facebook',
+];
+
+/** DB platform strings (profile.platform values) that are archived/hidden. */
+export const HIDDEN_DB_PLATFORMS: ReadonlySet<string> = new Set(['rednote']);
+
+/** True when a DB platform string belongs to an archived (hidden) platform. */
+export function isHiddenDbPlatform(dbPlatform: string | null | undefined): boolean {
+  return dbPlatform != null && HIDDEN_DB_PLATFORMS.has(dbPlatform);
+}

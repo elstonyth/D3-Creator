@@ -24,7 +24,7 @@ const MILESTONES: Milestone[] = [
   {
     year: '2023',
     title: 'Multi-platform expansion',
-    body: 'Operations expand to TikTok, Instagram, Facebook, Douyin, and Xiaohongshu. Five platforms, one playbook.',
+    body: 'Operations expand to TikTok, Instagram, Facebook, and Douyin. Four platforms, one playbook.',
   },
   {
     year: '2024',

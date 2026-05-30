@@ -13,6 +13,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { resolveProfileName } from './profile-name';
 
 // How many days of daily snapshots to pull when computing latest-vs-previous
 // deltas. Daily cron → 2 rows is enough for a delta, but a small window keeps
@@ -81,6 +82,7 @@ interface SnapshotRow {
   total_posts: number | null;
   total_views: number | null;
   total_likes: number | null;
+  raw: unknown;
 }
 
 interface PostRow {
@@ -165,7 +167,7 @@ export async function getCreatorMetrics(
     .slice(0, 10);
   const { data: snapData } = await sb
     .from('profile_snapshot')
-    .select('profile_id, captured_date, followers, total_posts, total_views, total_likes')
+    .select('profile_id, captured_date, followers, total_posts, total_views, total_likes, raw')
     .in('profile_id', ids)
     .gte('captured_date', sinceIso)
     .order('captured_date', { ascending: false });
@@ -192,7 +194,9 @@ export async function getCreatorMetrics(
       profileId: p.id,
       platform: p.platform,
       handle: p.handle,
-      displayName: p.display_name,
+      // FB etc. use a numeric handle + null display_name; pull the readable
+      // name from the latest snapshot raw when needed.
+      displayName: resolveProfileName(p.display_name, latest?.raw, p.handle),
       profileUrl: p.profile_url,
       scrapeStatus: p.scrape_status,
       followers: followers != null ? Number(followers) : null,

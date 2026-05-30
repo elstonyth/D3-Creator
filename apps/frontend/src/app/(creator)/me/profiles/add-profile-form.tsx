@@ -35,7 +35,8 @@ const HOST_TO_PLATFORM: Array<{ test: RegExp; platform: Platform }> = [
   { test: /(^|\.)instagram\.com$/i, platform: 'instagram' },
   { test: /(^|\.)tiktok\.com$/i, platform: 'tiktok' },
   { test: /(^|\.)(facebook|fb)\.com$/i, platform: 'facebook' },
-  { test: /(^|\.)(xiaohongshu|xhslink)\.com$/i, platform: 'rednote' },
+  // xiaohongshu/xhslink (rednote) archived — no longer detected, so pasting a
+  // RedNote URL fails platform detection and the add is rejected client-side.
   { test: /(^|\.)douyin\.com$/i, platform: 'douyin' },
 ];
 
@@ -73,7 +74,7 @@ export function AddProfileForm() {
     e.preventDefault();
     setError(null);
     if (!detected) {
-      setError('Could not detect platform from URL. Paste a profile URL from Instagram, TikTok, Facebook, RedNote, or Douyin.');
+      setError('Could not detect platform from URL. Paste a profile URL from Instagram, TikTok, Facebook, or Douyin.');
       return;
     }
     setSubmitting(true);

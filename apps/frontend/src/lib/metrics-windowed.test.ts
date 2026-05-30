@@ -18,7 +18,8 @@ describe('getCreatorMetricsWindowed', () => {
       data: [
         {
           creator_id: 'c1', display_name: 'Alice', avatar_url: null,
-          primary_platform: 'tiktok', followers: 1200, followers_delta: 200,
+          primary_platform: 'tiktok', primary_handle: 'alice_tt',
+          followers: 1200, followers_delta: 200,
           views_gained: 6000, engagement: 0.0643, post_count: 2, insufficient: false,
         },
       ],
@@ -30,10 +31,33 @@ describe('getCreatorMetricsWindowed', () => {
     expect(rows).toEqual([
       {
         creatorId: 'c1', displayName: 'Alice', avatarUrl: null,
-        primaryPlatform: 'tiktok', followers: 1200, followersDelta: 200,
+        primaryPlatform: 'tiktok', primaryHandle: 'alice_tt',
+        followers: 1200, followersDelta: 200,
         viewsGained: 6000, engagement: 0.0643, postCount: 2, insufficient: false,
       },
     ]);
+  });
+
+  it('maps primary_handle and tolerates a null handle', async () => {
+    const { client } = mockClient({
+      data: [
+        {
+          creator_id: 'c1', display_name: 'Alice', avatar_url: null,
+          primary_platform: 'tiktok', primary_handle: 'alice_tt',
+          followers: 10, followers_delta: 0, views_gained: 0,
+          engagement: null, post_count: 0, insufficient: true,
+        },
+        {
+          creator_id: 'c2', display_name: 'Bob', avatar_url: null,
+          primary_platform: null, primary_handle: null,
+          followers: 5, followers_delta: 0, views_gained: 0,
+          engagement: null, post_count: 0, insufficient: true,
+        },
+      ],
+    });
+    const rows = await getCreatorMetricsWindowed('30d', { client: client as never });
+    expect(rows[0].primaryHandle).toBe('alice_tt');
+    expect(rows[1].primaryHandle).toBeNull();
   });
 
   it('forwards creatorIds / profileIds filters', async () => {
