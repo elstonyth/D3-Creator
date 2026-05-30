@@ -11,7 +11,7 @@ interface AuthShellProps {
 }
 
 // Two-column auth layout: brand panel on the left (with FloatingPaths),
-// form panel on the right. Used for /login, /signup, and /onboarding.
+// form panel on the right. Used for /login and /onboarding.
 export function AuthShell({ children, eyebrow, heading, subheading }: AuthShellProps) {
   return (
     <div className="min-h-screen w-full grid lg:grid-cols-[1.05fr_1fr] bg-canvas text-fg">

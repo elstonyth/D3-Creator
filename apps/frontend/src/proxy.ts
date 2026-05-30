@@ -3,7 +3,7 @@ import { createServerClient } from '@supabase/ssr';
 
 const ADMIN_PREFIXES = ['/admin'];
 const CREATOR_PREFIXES = ['/me', '/onboarding'];
-const AUTH_PAGES = new Set(['/login', '/signup']);
+const AUTH_PAGES = new Set(['/login']);
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -43,6 +43,13 @@ export async function proxy(request: NextRequest) {
   // be redirected — a 3xx would corrupt fetch/JSON callers. Bail after the
   // session refresh above.
   if (pathname.startsWith('/api')) return response;
+
+  // Public signup is killed — provisioning is admin-only. Redirect any /signup
+  // hit to login (anon + authed; works even after the route file is gone since
+  // middleware runs before routing).
+  if (pathname === '/signup') {
+    return NextResponse.redirect(new URL('/login', request.url));
+  }
 
   const isAuthPage = AUTH_PAGES.has(pathname);
   const isAdminRoute = ADMIN_PREFIXES.some((p) => pathname.startsWith(p));

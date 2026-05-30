@@ -52,30 +52,13 @@ export default async function PublicLayout({ children }: { children: ReactNode }
                   <SignOutButton />
                 </>
               ) : (
-                <>
-                  <NavLink href="/login">Sign in</NavLink>
-                  <Link
-                    href="/signup"
-                    className="ml-1 inline-flex items-center px-3 py-1.5 rounded-md bg-aurora-cta text-brand-darker hover:bg-aurora-ctaHover transition-colors text-label font-medium"
-                  >
-                    Sign up
-                  </Link>
-                </>
+                <NavLink href="/login">Sign in</NavLink>
               )}
             </nav>
 
             {/* Mobile nav — keep primary CTA visible, links go in the hamburger */}
             <div className="flex md:hidden items-center gap-1 text-label">
-              {auth ? (
-                <SignOutButton />
-              ) : (
-                <Link
-                  href="/signup"
-                  className="inline-flex items-center px-3 py-1.5 rounded-md bg-aurora-cta text-brand-darker hover:bg-aurora-ctaHover transition-colors text-label font-medium"
-                >
-                  Sign up
-                </Link>
-              )}
+              {auth && <SignOutButton />}
               <MobileNav
                 links={[
                   { href: '/about', label: 'About' },
