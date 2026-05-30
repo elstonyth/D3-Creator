@@ -6,7 +6,7 @@
 
 **Architecture:** All metric math lives in two Postgres `language sql stable` functions (`creator_metrics_windowed`, `top_content_windowed`) — already written and read-only-proven. This plan applies them to prod, then adds `apps/frontend/src/lib/metrics-windowed.ts`: a pass-through that calls `.rpc()`, maps snake_case → camelCase, and wraps `media_url` through the existing image proxy. No business logic in TS — it stays in SQL so there is one source of truth.
 
-**Tech Stack:** Postgres (Supabase), TypeScript, Next.js Server Components, `@supabase/supabase-js`. Migrations applied via the Supabase MCP (no local CLI in this repo). No JS test runner exists in the repo — verification is SQL-fixture assertions run through the MCP plus `pnpm typecheck` / `pnpm lint`.
+**Tech Stack:** Postgres (Supabase), TypeScript, Next.js Server Components, `@supabase/supabase-js`. Migrations applied via the Supabase MCP. Test runner: **jest via nx** (`apps/frontend/jest.config.ts`; run with `pnpm test` from root — existing examples: `apps/frontend/src/lib/sentry-scrub.test.ts`, `libraries/database/src/claim.test.ts`). The SQL math is verified by a fixture assertion run through the MCP; the TS wrapper gets a jest unit test with a mocked client.
 
 ---
 
@@ -16,14 +16,15 @@
 - **Project ref:** d3-creator = `wmesjldkqvbzrcpitclu` (org `clymqursncacptinqerf`, Free plan — no branching).
 - **Data-maturity reality:** the DB currently holds only ONE snapshot day, so every window returns identical numbers until the daily cron accrues ≥2 days. This is expected; the `insufficient` flag drives the downstream "Building history…" UI state (Phases 1/3). Phase 0 just returns the flag correctly.
 - **Read client:** `getSupabaseRead()` in `apps/frontend/src/lib/supabase-server.ts` (anon key, public-RLS). Admin/`/me` callers inject their own client.
-- **No tests dir / runner.** Do NOT scaffold jest — `pnpm test` is a no-op and there are zero spec files. Verification is SQL + typecheck + lint, as written in each task.
-- **Commands (run from repo root only):** `pnpm typecheck`, `pnpm lint`.
+- **Test runner exists:** jest via nx. Co-locate specs as `*.test.ts` next to source (pattern: `sentry-scrub.test.ts`). Run all with `pnpm test` from root, or a single file via `pnpm --filter ./apps/frontend exec jest src/lib/metrics-windowed.test.ts`.
+- **Commands (run from repo root only):** `pnpm typecheck`, `pnpm lint`, `pnpm test`.
 
 ## File Structure
 
 - **Apply (existing, no edit):** `supabase/migrations/20260530000000_windowed_metrics_rpcs.sql` — the two RPCs + indexes.
 - **Existing verification SQL (no edit):** `supabase/tests/windowed_metrics_verify.sql` — seed-assert-rollback fixture test.
 - **Create:** `apps/frontend/src/lib/metrics-windowed.ts` — typed wrapper: `MetricWindow` type, row types, `getCreatorMetricsWindowed()`, `getTopContentWindowed()`. One responsibility: turn an RPC call into typed, proxy-wrapped objects.
+- **Create:** `apps/frontend/src/lib/metrics-windowed.test.ts` — jest unit test with a mocked Supabase client: asserts correct RPC name + params, snake→camel mapping, thumbnail proxy-wrapping, and `[]`-on-error.
 - **No other files.** Consumers (dashboard/leaderboard/admin/me) are out of scope — they belong to Phases 1–3.
 
 ---
@@ -126,14 +127,172 @@ Test file already committed; this task is a verification gate only.
 
 ---
 
-### Task 3: Create the typed TypeScript wrapper
+### Task 3: Create the typed TypeScript wrapper (TDD)
 
 **Files:**
 - Create: `apps/frontend/src/lib/metrics-windowed.ts`
+- Test: `apps/frontend/src/lib/metrics-windowed.test.ts`
 
-The wrapper exposes the window type, the row shapes, and two async functions. It accepts an injected Supabase client so public pages can pass `getSupabaseRead()` (anon) while admin/`/me` pass their own client. It only maps fields and wraps `media_url` through the existing `/api/proxy-image` route — no math.
+The wrapper exposes the window type, the row shapes, and two async functions. It accepts an injected Supabase client so public pages can pass `getSupabaseRead()` (anon) while admin/`/me` pass their own client. It only maps fields and wraps `media_url` through the existing `/api/proxy-image` route — no math. Test-first: write the spec against a mocked client, watch it fail, implement, watch it pass.
 
-- [ ] **Step 1: Write the wrapper file**
+- [ ] **Step 1: Write the failing test**
+
+Create `apps/frontend/src/lib/metrics-windowed.test.ts` with exactly:
+
+```ts
+import {
+  getCreatorMetricsWindowed,
+  getTopContentWindowed,
+} from './metrics-windowed';
+
+/** Minimal mock matching the `.rpc()` surface the wrapper uses. */
+function mockClient(result: { data?: unknown; error?: unknown }) {
+  const rpc = jest.fn().mockResolvedValue({
+    data: result.data ?? null,
+    error: result.error ?? null,
+  });
+  // Cast through unknown — we only implement the one method the wrapper calls.
+  return { client: { rpc } as unknown as Parameters<typeof getCreatorMetricsWindowed>[1] extends { client?: infer C } ? C : never, rpc };
+}
+
+describe('getCreatorMetricsWindowed', () => {
+  it('calls the RPC with window + null filters and maps snake->camel', async () => {
+    const { client, rpc } = mockClient({
+      data: [
+        {
+          creator_id: 'c1',
+          display_name: 'Alice',
+          avatar_url: null,
+          primary_platform: 'tiktok',
+          followers: 1200,
+          followers_delta: 200,
+          views_gained: 6000,
+          engagement: 0.0643,
+          post_count: 2,
+          insufficient: false,
+        },
+      ],
+    });
+
+    const rows = await getCreatorMetricsWindowed('30d', { client: client as never });
+
+    expect(rpc).toHaveBeenCalledWith('creator_metrics_windowed', {
+      p_window: '30d',
+      p_creator_ids: null,
+      p_profile_ids: null,
+    });
+    expect(rows).toEqual([
+      {
+        creatorId: 'c1',
+        displayName: 'Alice',
+        avatarUrl: null,
+        primaryPlatform: 'tiktok',
+        followers: 1200,
+        followersDelta: 200,
+        viewsGained: 6000,
+        engagement: 0.0643,
+        postCount: 2,
+        insufficient: false,
+      },
+    ]);
+  });
+
+  it('forwards creatorIds / profileIds filters', async () => {
+    const { client, rpc } = mockClient({ data: [] });
+    await getCreatorMetricsWindowed('7d', {
+      client: client as never,
+      creatorIds: ['c1'],
+      profileIds: ['p1', 'p2'],
+    });
+    expect(rpc).toHaveBeenCalledWith('creator_metrics_windowed', {
+      p_window: '7d',
+      p_creator_ids: ['c1'],
+      p_profile_ids: ['p1', 'p2'],
+    });
+  });
+
+  it('returns [] and does not throw on RPC error', async () => {
+    const { client } = mockClient({ error: { message: 'boom' } });
+    const rows = await getCreatorMetricsWindowed('30d', { client: client as never });
+    expect(rows).toEqual([]);
+  });
+
+  it('coerces null engagement to null', async () => {
+    const { client } = mockClient({
+      data: [
+        {
+          creator_id: 'c1', display_name: null, avatar_url: null,
+          primary_platform: null, followers: 0, followers_delta: 0,
+          views_gained: 0, engagement: null, post_count: 0, insufficient: true,
+        },
+      ],
+    });
+    const rows = await getCreatorMetricsWindowed('lifetime', { client: client as never });
+    expect(rows[0].engagement).toBeNull();
+    expect(rows[0].insufficient).toBe(true);
+  });
+});
+
+describe('getTopContentWindowed', () => {
+  it('calls the RPC with limit and proxy-wraps media_url', async () => {
+    const { client, rpc } = mockClient({
+      data: [
+        {
+          external_post_id: 'A', profile_id: 'p1', creator_id: 'c1',
+          creator_name: 'Alice', platform: 'tiktok', handle: 'alice',
+          caption_excerpt: 'hi', media_url: 'https://cdn.example.com/x.jpg',
+          posted_at: '2026-05-01T00:00:00Z', views_gained: 4000,
+          current_views: 5000, likes: 200, comments: 50, shares: 50,
+        },
+      ],
+    });
+
+    const rows = await getTopContentWindowed('30d', { client: client as never, limit: 20 });
+
+    expect(rpc).toHaveBeenCalledWith('top_content_windowed', {
+      p_window: '30d',
+      p_limit: 20,
+      p_creator_ids: null,
+      p_profile_ids: null,
+    });
+    expect(rows[0].thumbnailUrl).toBe(
+      '/api/proxy-image?url=' + encodeURIComponent('https://cdn.example.com/x.jpg'),
+    );
+    expect(rows[0].externalPostId).toBe('A');
+    expect(rows[0].viewsGained).toBe(4000);
+  });
+
+  it('leaves null media_url as null and defaults limit to 20', async () => {
+    const { client, rpc } = mockClient({
+      data: [
+        {
+          external_post_id: 'B', profile_id: 'p1', creator_id: 'c1',
+          creator_name: null, platform: 'instagram', handle: null,
+          caption_excerpt: null, media_url: null, posted_at: null,
+          views_gained: 0, current_views: 0, likes: 0, comments: 0, shares: 0,
+        },
+      ],
+    });
+    const rows = await getTopContentWindowed('7d', { client: client as never });
+    expect(rpc).toHaveBeenCalledWith('top_content_windowed', {
+      p_window: '7d', p_limit: 20, p_creator_ids: null, p_profile_ids: null,
+    });
+    expect(rows[0].thumbnailUrl).toBeNull();
+  });
+
+  it('returns [] on error', async () => {
+    const { client } = mockClient({ error: { message: 'nope' } });
+    expect(await getTopContentWindowed('30d', { client: client as never })).toEqual([]);
+  });
+});
+```
+
+- [ ] **Step 2: Run the test to verify it fails**
+
+Run: `pnpm --filter ./apps/frontend exec jest src/lib/metrics-windowed.test.ts`
+Expected: FAIL — `Cannot find module './metrics-windowed'` (file not created yet).
+
+- [ ] **Step 3: Write the wrapper file**
 
 Create `apps/frontend/src/lib/metrics-windowed.ts` with exactly:
 
@@ -288,27 +447,32 @@ export async function getTopContentWindowed(
 }
 ```
 
-- [ ] **Step 2: Typecheck**
+- [ ] **Step 4: Run the test to verify it passes**
+
+Run: `pnpm --filter ./apps/frontend exec jest src/lib/metrics-windowed.test.ts`
+Expected: PASS — all 7 cases green.
+
+- [ ] **Step 5: Typecheck**
 
 Run from repo root: `pnpm typecheck`
+Expected: PASS (exit 0), no errors referencing `metrics-windowed.ts` or its test.
 
-Expected: PASS (exit 0), no errors referencing `metrics-windowed.ts`.
-
-- [ ] **Step 3: Lint**
+- [ ] **Step 6: Lint**
 
 Run from repo root: `pnpm lint`
+Expected: PASS, no new warnings/errors. (Do NOT add any `eslint-disable` — project rule.)
 
-Expected: PASS, no new warnings/errors for `metrics-windowed.ts`. (Do NOT add any `eslint-disable` — project rule.)
-
-- [ ] **Step 4: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add apps/frontend/src/lib/metrics-windowed.ts
+git add apps/frontend/src/lib/metrics-windowed.ts apps/frontend/src/lib/metrics-windowed.test.ts
 git commit -m "feat(metrics): typed wrapper for windowed-metrics RPCs (Phase 0)
 
 getCreatorMetricsWindowed + getTopContentWindowed over the
 creator_metrics_windowed / top_content_windowed SQL functions. Thin
 pass-through: typed rows, proxy-wrapped thumbnails, injectable client.
+Jest unit test with mocked client covers param shape, mapping, proxy
+wrap, and []-on-error.
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
@@ -376,8 +540,9 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 1. `execute_sql`: `select count(*) from pg_proc where proname in ('creator_metrics_windowed','top_content_windowed');` → expect 2.
 2. Re-run `supabase/tests/windowed_metrics_verify.sql` via MCP → expect no exception, fixture rolled back.
-3. From root: `pnpm typecheck` → PASS.
-4. From root: `pnpm lint` → PASS.
+3. From root: `pnpm test` → wrapper spec green (and no other suite broken).
+4. From root: `pnpm typecheck` → PASS.
+5. From root: `pnpm lint` → PASS.
 
 - [ ] **Step 2: Confirm prod data is untouched**
 
@@ -414,4 +579,4 @@ The data layer is live and typed. Phases 1–3 (public / admin / creator UI) can
 
 **Type consistency:** `MetricWindow` values match the SQL `case` arms (`7d/30d/90d/lifetime`). RPC param names (`p_window`, `p_limit`, `p_creator_ids`, `p_profile_ids`) match the migration signatures exactly. Row field names in the mappers (`creator_id`, `views_gained`, `media_url`, etc.) match the RPC `returns table (...)` columns. ✓
 
-**Honest deviation from the skill's TDD default:** the repo has no JS test runner (`pnpm test` is a no-op, zero spec files). Rather than scaffold jest for one data module, verification uses the committed SQL fixture assertion (`windowed_metrics_verify.sql`, run via MCP) plus `pnpm typecheck`/`pnpm lint`. This is called out so no worker wastes time looking for a jest setup.
+**TDD:** the TS wrapper follows test-first (Task 3: failing jest spec → implement → green), using the repo's existing jest-via-nx runner. The SQL math, which jest cannot exercise, is verified by the committed fixture assertion (`windowed_metrics_verify.sql`) run through the MCP (Task 2) — that is its equivalent red/green gate.
