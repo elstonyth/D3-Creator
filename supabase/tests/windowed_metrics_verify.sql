@@ -49,10 +49,14 @@ declare
   );
   w text;
   exp jsonb;
+  cid uuid := '00000000-0000-0000-0000-0000000c0001';
 begin
   foreach w in array array['7d','30d','90d','lifetime'] loop
-    select * into r from public.creator_metrics_windowed(w)
-      where creator_id = '00000000-0000-0000-0000-0000000c0001';
+    -- Scope via the creator_ids PARAM, not an outer WHERE: top_content applies
+    -- its LIMIT inside the function, so an outer filter would drop our fixture
+    -- rows behind the real creators. Same param style used consistently here.
+    select * into r from public.creator_metrics_windowed(w, array[cid])
+      where creator_id = cid;
     if not found then
       raise exception 'FAIL %: creator_metrics_windowed returned no row', w;
     end if;
@@ -85,10 +89,11 @@ begin
   end loop;
 
   -- ---- Assert top_content_windowed ranking + no-view exclusion -----------
-  -- Top by 30d views_gained must be A(4000), then B(2000), then C(0).
+  -- Top by 30d views_gained must be A(4000), then B(2000), then C(0). Scope via
+  -- the creator_ids PARAM so the in-function LIMIT applies within our fixture
+  -- (an outer WHERE would filter AFTER the limit had already kept real creators).
   if (select array_agg(external_post_id order by views_gained desc)
-        from public.top_content_windowed('30d', 10)
-        where creator_id = '00000000-0000-0000-0000-0000000c0001')
+        from public.top_content_windowed('30d', 10, array[cid]))
      is distinct from array['A','B','C'] then
     raise exception 'FAIL top_content_windowed: ranking mismatch';
   end if;
@@ -105,10 +110,28 @@ begin
     (profile_id, external_post_id, captured_date, views, likes, comments, shares)
   values ('00000000-0000-0000-0000-0000000d0002','Z', current_date-0, 1000, 0, 0, 0);
 
-  select * into r from public.creator_metrics_windowed('lifetime')
+  select * into r from public.creator_metrics_windowed('lifetime', array['00000000-0000-0000-0000-0000000c0002'::uuid])
     where creator_id = '00000000-0000-0000-0000-0000000c0002';
   if r.engagement is distinct from 0.0000 then
     raise exception 'FAIL zero-interaction: engagement = % (expected 0.0000, not NULL)', r.engagement;
+  end if;
+
+  -- ---- Assert bool_or insufficient: a creator with one mature profile AND one
+  -- brand-new profile (no in-window baseline) must be insufficient = true, so
+  -- the understated aggregate delta shows "Building history…" not a mature number.
+  insert into public.creator (id, display_name)
+  values ('00000000-0000-0000-0000-0000000c0003','MIXED Creator');
+  insert into public.profile (id, creator_id, platform, profile_url, handle) values
+    ('00000000-0000-0000-0000-0000000d0003','00000000-0000-0000-0000-0000000c0003','tiktok','https://tiktok.com/@mix1','mix1'),
+    ('00000000-0000-0000-0000-0000000d0004','00000000-0000-0000-0000-0000000c0003','instagram','https://instagram.com/mix2','mix2');
+  insert into public.profile_snapshot (profile_id, captured_date, followers) values
+    ('00000000-0000-0000-0000-0000000d0003', current_date-40, 500),   -- mature
+    ('00000000-0000-0000-0000-0000000d0003', current_date-0,  600),
+    ('00000000-0000-0000-0000-0000000d0004', current_date-0,  300);   -- new: no 30d baseline
+  select * into r from public.creator_metrics_windowed('30d', array['00000000-0000-0000-0000-0000000c0003'::uuid])
+    where creator_id = '00000000-0000-0000-0000-0000000c0003';
+  if r.insufficient is distinct from true then
+    raise exception 'FAIL bool_or: mixed-maturity creator 30d insufficient = % (expected true)', r.insufficient;
   end if;
 
   -- ---- Assert an unsupported window RAISES (fail-fast, not silent lifetime).

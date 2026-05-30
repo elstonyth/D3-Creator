@@ -36,9 +36,13 @@
 --       there is never a divide-by-zero. A creator WITH views but zero
 --       interactions returns 0.0000 (not NULL); NULL means "no qualifying
 --       posts at all" (view_sum = 0).
---   insufficient(window) = the creator has no follower baseline on-or-before
---       the window start (delta not yet reliable). False for lifetime whenever
---       at least one snapshot exists.
+--   insufficient(window) = ANY of the creator's included profiles has no
+--       follower baseline on-or-before the window start (bool_or). Even one
+--       baseline-less profile understates the summed delta, so the row is
+--       flagged so the UI shows "Building history…" instead of a deceptively
+--       mature number. For lifetime, a profile's baseline is its earliest
+--       snapshot, so lifetime is insufficient only for a profile with zero
+--       snapshots.
 
 -- ---------------------------------------------------------------------------
 -- creator_metrics_windowed
@@ -121,20 +125,34 @@ begin
     from cur_post cp
     left join base_post bp on bp.profile_id = cp.profile_id and bp.external_post_id = cp.external_post_id
   ),
+  -- Aggregate post_calc once per profile (instead of four correlated
+  -- subqueries) so the CTE is scanned a single time.
+  post_calc_agg as (
+    select profile_id,
+      sum(gained) as views_gained,
+      sum(eng) filter (where qualifies) as eng_sum,
+      sum(cur_views) filter (where qualifies) as view_sum,
+      count(*) filter (where qualifies) as qual_posts
+    from post_calc
+    group by profile_id
+  ),
   per_profile as (
     select sp.id as profile_id, sp.creator_id, sp.platform,
       coalesce(cf.cur_f,0) as cur_f, bf.base_f,
-      coalesce((select sum(pc.gained) from post_calc pc where pc.profile_id = sp.id),0) as views_gained,
-      coalesce((select sum(pc.eng) from post_calc pc where pc.profile_id = sp.id and pc.qualifies),0) as eng_sum,
-      coalesce((select sum(pc.cur_views) from post_calc pc where pc.profile_id = sp.id and pc.qualifies),0) as view_sum,
-      coalesce((select count(*) from post_calc pc where pc.profile_id = sp.id and pc.qualifies),0) as qual_posts
+      coalesce(pca.views_gained,0) as views_gained,
+      coalesce(pca.eng_sum,0) as eng_sum,
+      coalesce(pca.view_sum,0) as view_sum,
+      coalesce(pca.qual_posts,0) as qual_posts
     from scope_profile sp
     left join cur_foll cf on cf.profile_id = sp.id
     left join base_foll bf on bf.profile_id = sp.id
+    left join post_calc_agg pca on pca.profile_id = sp.id
   ),
+  -- Secondary sort key (platform) makes the primary-platform pick deterministic
+  -- when two profiles tie on current followers.
   primary_plat as (
     select distinct on (creator_id) creator_id, platform
-    from per_profile order by creator_id, cur_f desc
+    from per_profile order by creator_id, cur_f desc, platform
   )
   select c.id, c.display_name, c.avatar_url, pp.platform,
     sum(p.cur_f)::bigint,
@@ -144,7 +162,11 @@ begin
     -- interactions yields 0.0000; only view_sum = 0 (no qualifying posts) -> NULL.
     round(coalesce(sum(p.eng_sum),0)::numeric / nullif(sum(p.view_sum),0), 4),
     sum(p.qual_posts)::int,
-    bool_and(p.base_f is null)
+    -- insufficient when ANY included profile lacks an in-window baseline: its
+    -- missing delta is silently summed as 0, understating the creator's true
+    -- windowed delta, so the UI should show "Building history…" rather than a
+    -- deceptively-mature number. (bool_or, not bool_and.)
+    bool_or(p.base_f is null)
   from per_profile p
   join public.creator c on c.id = p.creator_id
   left join primary_plat pp on pp.creator_id = p.creator_id
