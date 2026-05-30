@@ -53,6 +53,9 @@ begin
   foreach w in array array['7d','30d','90d','lifetime'] loop
     select * into r from public.creator_metrics_windowed(w)
       where creator_id = '00000000-0000-0000-0000-0000000c0001';
+    if not found then
+      raise exception 'FAIL %: creator_metrics_windowed returned no row', w;
+    end if;
     exp := expected -> w;
 
     if r.views_gained <> (exp->>0)::bigint then
