@@ -74,7 +74,7 @@ function CreatorRow({ row, rank }: { row: CreatorMetricWindowRow; rank: number }
       </td>
       <td className="px-4 py-2.5">
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className="size-7 rounded-full bg-customColor1 border border-borderGlass flex items-center justify-center overflow-hidden shrink-0">
+          <span className="size-7 rounded-full bg-white/[0.04] border border-borderGlass flex items-center justify-center overflow-hidden shrink-0">
             {row.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element -- external avatar, dims vary
               <img src={row.avatarUrl} alt="" className="size-full object-cover" />
