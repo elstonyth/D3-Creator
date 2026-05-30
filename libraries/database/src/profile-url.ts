@@ -21,6 +21,13 @@ interface PlatformPattern {
   hostMatch: RegExp;
   /** Used by validateProfileUrl — must capture the handle. */
   handleExtract: RegExp;
+  /**
+   * Canonical host the normalized URL is rewritten to, so host variants of
+   * the same creator (m.instagram.com, no-www, web.facebook.com) collapse to
+   * ONE row under the (platform, lower(profile_url)) unique index. Adapters
+   * parse the handle from the path only, so the host rewrite is safe.
+   */
+  canonical: string;
 }
 
 const PATTERNS: PlatformPattern[] = [
@@ -29,38 +36,76 @@ const PATTERNS: PlatformPattern[] = [
     hostMatch: /(^|\.)instagram\.com$/i,
     // /@handle or /handle (no /p/, /reel/, /tv/ — those are post URLs)
     handleExtract: /^\/(?!p\/|reel\/|tv\/|explore\/|stories\/)@?([A-Za-z0-9._]+)\/?$/,
+    canonical: 'www.instagram.com',
   },
   {
     platform: 'tiktok',
     hostMatch: /(^|\.)tiktok\.com$/i,
     // /@handle or /@handle/video/... — accept profile root only
     handleExtract: /^\/@([A-Za-z0-9._]+)\/?$/,
+    canonical: 'www.tiktok.com',
   },
   {
     platform: 'facebook',
     hostMatch: /(^|\.)(facebook|fb)\.com$/i,
     // /handle or /pages/Name/123... or /profile.php?id=123 (handled separately)
     handleExtract: /^\/(?!share|reel|posts|watch|groups|events|story\.php)([A-Za-z0-9.\-]+)\/?$/,
+    canonical: 'www.facebook.com',
   },
   {
     platform: 'rednote',
     hostMatch: /(^|\.)(xiaohongshu|xhslink)\.com$/i,
     // /user/profile/<id>
     handleExtract: /^\/user\/profile\/([A-Za-z0-9]+)\/?$/,
+    canonical: 'www.xiaohongshu.com',
   },
   {
     platform: 'douyin',
     hostMatch: /(^|\.)douyin\.com$/i,
     // /user/<sec_uid> — long alphanumeric
     handleExtract: /^\/user\/([A-Za-z0-9_-]+)\/?$/,
+    canonical: 'www.douyin.com',
   },
 ];
+
+/**
+ * Prepend https:// when the user pasted a bare URL with no scheme.
+ * People constantly paste "instagram.com/handle" or "www.tiktok.com/@x"
+ * without the protocol; without this new URL() throws and the paste is
+ * rejected as "malformed".
+ *
+ * Leaves anything that already has a scheme (https://, ftp://, mailto:)
+ * untouched so the downstream protocol/host checks still reject bad input.
+ */
+function ensureScheme(raw: string): string {
+  const t = raw.trim();
+  if (!t) return t;
+  // "scheme://..." or "scheme:..." (mailto:, javascript:) → leave as-is.
+  if (/^[a-z][a-z0-9+.-]*:/i.test(t)) return t;
+  return `https://${t}`;
+}
+
+/**
+ * Redirect/short-link hosts we can't resolve without an HTTP round-trip.
+ * Reject with an actionable message (telling the user the full-URL form to
+ * paste) instead of a confusing "not a profile" error. Auto-resolution
+ * (following the redirect) is intentionally out of scope here.
+ */
+const SHORTLINK_HOSTS: Array<{ re: RegExp; full: string }> = [
+  { re: /(^|\.)xhslink\.com$/i, full: 'xiaohongshu.com/user/profile/<id>' },
+  { re: /^(vm|vt)\.tiktok\.com$/i, full: 'tiktok.com/@<handle>' },
+  { re: /^v\.douyin\.com$/i, full: 'douyin.com/user/<id>' },
+];
+
+/** Facebook profile sub-tabs a user might paste along with the profile root. */
+const FB_TAB =
+  '(?:about|reels_tab|photos|videos|followers|following|friends|reviews|likes|map|mentions|sports)';
 
 /** Detect platform from URL host. Returns null if no match. */
 export function detectPlatform(rawUrl: string): Platform | null {
   let u: URL;
   try {
-    u = new URL(rawUrl.trim());
+    u = new URL(ensureScheme(rawUrl));
   } catch {
     return null;
   }
@@ -95,7 +140,7 @@ export function validateProfileUrl(
 
   let u: URL;
   try {
-    u = new URL(trimmed);
+    u = new URL(ensureScheme(trimmed));
   } catch {
     return { ok: false, error: 'URL is malformed' };
   }
@@ -104,16 +149,14 @@ export function validateProfileUrl(
     return { ok: false, error: 'URL must use http(s)' };
   }
 
-  // xhslink.com is RedNote's short-link redirector. The scraper extracts the
-  // user_id from xiaohongshu.com/user/profile/<id>, so a short link passes
-  // host validation but fails extraction on every cron — permanent `failed`.
-  // Reject up-front and tell the user to paste the full profile URL.
-  // (Following the redirect at validation time is out of scope.)
-  if (platform === 'rednote' && /(^|\.)xhslink\.com$/i.test(u.hostname)) {
+  // Short-link / redirector hosts can't be resolved without an HTTP round-trip,
+  // so they'd pass host validation but fail extraction on every cron. Reject
+  // up-front with the full-URL form to paste instead of a cryptic path error.
+  const shortlink = SHORTLINK_HOSTS.find((s) => s.re.test(u.hostname));
+  if (shortlink) {
     return {
       ok: false,
-      error:
-        'xhslink.com short links are not supported. Open the link in a browser and paste the full xiaohongshu.com/user/profile/<id> URL.',
+      error: `Short links (${u.hostname}) aren't supported. Open the link in a browser and paste the full ${shortlink.full} URL.`,
     };
   }
 
@@ -128,17 +171,50 @@ export function validateProfileUrl(
     };
   }
 
-  // FB profile.php?id=12345 — handle lives in query, not path
-  if (platform === 'facebook' && u.pathname === '/profile.php') {
-    const id = u.searchParams.get('id');
-    if (!id || !/^\d+$/.test(id)) {
-      return { ok: false, error: 'Facebook profile.php URL missing numeric ?id=' };
+  // Facebook has several distinct profile URL shapes — resolve them all here
+  // and canonicalize numeric-id forms to /profile.php?id= so the same person
+  // pasted two different ways dedupes to one row.
+  if (platform === 'facebook') {
+    // 1. /profile.php?id=12345 — id lives in the query.
+    if (u.pathname === '/profile.php') {
+      const id = u.searchParams.get('id');
+      if (!id || !/^\d+$/.test(id)) {
+        return { ok: false, error: 'Facebook profile.php URL missing numeric ?id=' };
+      }
+      return {
+        ok: true,
+        platform,
+        normalizedUrl: `https://www.facebook.com/profile.php?id=${id}`,
+        handle: id,
+      };
+    }
+    // 2. /people/Some-Name/12345 → canonicalize to profile.php?id=.
+    const people = u.pathname.match(/^\/people\/[^/]+\/(\d+)\/?$/);
+    if (people) {
+      return {
+        ok: true,
+        platform,
+        normalizedUrl: `https://www.facebook.com/profile.php?id=${people[1]}`,
+        handle: people[1],
+      };
+    }
+    // 3. /vanity, optionally with a profile sub-tab (/about, /reels_tab, …).
+    const vanity = u.pathname.match(
+      new RegExp(
+        `^/(?!share|reel|posts|watch|groups|events|story\\.php|people|profile\\.php)([A-Za-z0-9.\\-]+)(?:/${FB_TAB})?/?$`,
+      ),
+    );
+    if (vanity) {
+      return {
+        ok: true,
+        platform,
+        normalizedUrl: `https://${pattern.canonical}/${vanity[1]}`,
+        handle: vanity[1],
+      };
     }
     return {
-      ok: true,
-      platform,
-      normalizedUrl: `https://www.facebook.com/profile.php?id=${id}`,
-      handle: id,
+      ok: false,
+      error: `URL path "${u.pathname}" is not a Facebook profile (expected a vanity name, /profile.php?id=, or /people/Name/id).`,
     };
   }
 
@@ -151,7 +227,8 @@ export function validateProfileUrl(
   }
 
   const handle = m[1];
-  const normalizedUrl = `https://${u.hostname.toLowerCase()}${u.pathname.replace(/\/+$/, '')}`;
+  // Canonical host so m./web./no-www variants of the same creator dedupe.
+  const normalizedUrl = `https://${pattern.canonical}${u.pathname.replace(/\/+$/, '')}`;
   return { ok: true, platform, normalizedUrl, handle };
 }
 

@@ -35,13 +35,20 @@ const HOST_TO_PLATFORM: Array<{ test: RegExp; platform: Platform }> = [
   { test: /(^|\.)instagram\.com$/i, platform: 'instagram' },
   { test: /(^|\.)tiktok\.com$/i, platform: 'tiktok' },
   { test: /(^|\.)(facebook|fb)\.com$/i, platform: 'facebook' },
-  { test: /(^|\.)xiaohongshu\.com$/i, platform: 'rednote' },
+  { test: /(^|\.)(xiaohongshu|xhslink)\.com$/i, platform: 'rednote' },
   { test: /(^|\.)douyin\.com$/i, platform: 'douyin' },
 ];
 
 function detectPlatform(input: string): Platform | null {
+  const t = input.trim();
+  if (!t) return null;
+  // Prepend https:// for bare pastes (instagram.com/x) so detection — and the
+  // platform chip — light up without the user typing the protocol. Mirrors
+  // ensureScheme() in @d3/database profile-url (kept in sync; the server is
+  // the source of truth and re-validates on submit).
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(t) ? t : `https://${t}`;
   try {
-    const u = new URL(input.trim());
+    const u = new URL(withScheme);
     for (const { test, platform } of HOST_TO_PLATFORM) {
       if (test.test(u.hostname)) return platform;
     }
