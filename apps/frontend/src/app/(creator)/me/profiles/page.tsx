@@ -16,6 +16,7 @@ import Link from 'next/link';
 
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { getSupabaseRoute } from '@gitroom/frontend/lib/supabase-route';
+import { resolveProfileName } from '@gitroom/frontend/lib/profile-name';
 
 import { EmptyState } from '@gitroom/frontend/components/ui/empty-state';
 import { PlatformPill } from '@gitroom/frontend/components/ui/platform-pill';
@@ -114,6 +115,24 @@ export default async function MyProfilesPage() {
 
   const claims = (claimsRes.data ?? []) as unknown as ClaimRowFromJoin[];
 
+  // Resolve readable names: FB etc. store a numeric handle + null display_name,
+  // so pull the name from each profile's latest snapshot raw. One query, mapped
+  // by profile_id; render falls back to handle/url when no snapshot yet.
+  const profileIds = claims.map((c) => c.profile?.id).filter((id): id is string => !!id);
+  const nameByProfile = new Map<string, string | null>();
+  if (profileIds.length) {
+    const { data: snaps } = await sb
+      .from('profile_snapshot')
+      .select('profile_id, captured_date, raw')
+      .in('profile_id', profileIds)
+      .order('captured_date', { ascending: false });
+    for (const s of (snaps ?? []) as { profile_id: string; raw: unknown }[]) {
+      if (!nameByProfile.has(s.profile_id)) {
+        nameByProfile.set(s.profile_id, resolveProfileName(null, s.raw, null));
+      }
+    }
+  }
+
   const owners = claims.filter((c) => c.claim_kind === 'owner' && c.profile);
   const trackers = claims.filter((c) => c.claim_kind === 'tracker' && c.profile);
   const pending = claims.filter((c) => c.claim_kind === 'pending' && c.profile);
@@ -136,13 +155,14 @@ export default async function MyProfilesPage() {
 
       <AddProfileForm />
 
-      <Section title="Owned" empty="You haven't claimed any profiles as owner yet." rows={owners} />
-      <Section title="Tracked" empty="No tracker-only profiles." rows={trackers} />
+      <Section title="Owned" empty="You haven't claimed any profiles as owner yet." rows={owners} nameByProfile={nameByProfile} />
+      <Section title="Tracked" empty="No tracker-only profiles." rows={trackers} nameByProfile={nameByProfile} />
       {pending.length > 0 && (
         <Section
           title="Pending admin approval"
           empty="No pending claims."
           rows={pending}
+          nameByProfile={nameByProfile}
           hint="An admin pre-added these URLs. They'll appear in your view once approved."
         />
       )}
@@ -160,6 +180,7 @@ function Section(props: {
   title: string;
   empty: string;
   rows: ClaimRowFromJoin[];
+  nameByProfile: Map<string, string | null>;
   hint?: string;
 }) {
   return (
@@ -177,7 +198,10 @@ function Section(props: {
                   <PlatformPill platform={toPlatformKey(c.profile.platform)} iconSize={13} />
                   <div className="min-w-0">
                     <div className="text-body text-fg truncate">
-                      {c.profile.display_name ?? c.profile.handle ?? c.profile.profile_url}
+                      {c.profile.display_name ??
+                        props.nameByProfile.get(c.profile.id) ??
+                        c.profile.handle ??
+                        c.profile.profile_url}
                     </div>
                     <a
                       href={c.profile.profile_url}
