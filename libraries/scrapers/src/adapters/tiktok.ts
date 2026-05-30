@@ -123,18 +123,37 @@ function truncate(s: string | null | undefined, n: number): string | null {
   return s.length <= n ? s : s.slice(0, n - 1) + '…';
 }
 
+/**
+ * Pick a browser-renderable image URL from a TikTok url_list.
+ *
+ * TikTok returns each cover/avatar as TWO signed URLs — a `.heic` (first) and
+ * a `.jpeg` (or `.webp`). HEIC is smaller but browsers (Chrome/Firefox) can't
+ * render it, so the thumbnail shows black. Each format carries its own valid
+ * signature, so we must pick the actual non-HEIC URL from the list (rewriting
+ * the .heic URL's extension breaks the signature → 403). Verified live
+ * 2026-05-30.
+ */
+function pickRenderableUrl(list?: TtUrlList): string | null {
+  const urls = list?.url_list;
+  if (!urls || urls.length === 0) return null;
+  const nonHeic = urls.find(
+    (u) => !u.split('?')[0].toLowerCase().endsWith('.heic'),
+  );
+  return nonHeic ?? urls[0];
+}
+
 function pickCover(v?: TtVideo): string | null {
-  const lists = [v?.cover, v?.dynamic_cover, v?.origin_cover];
-  for (const l of lists) {
-    if (l?.url_list && l.url_list.length > 0) return l.url_list[0];
+  for (const l of [v?.cover, v?.dynamic_cover, v?.origin_cover]) {
+    const url = pickRenderableUrl(l);
+    if (url) return url;
   }
   return null;
 }
 
 function pickAvatar(u: TtUser): string | null {
-  const lists = [u.avatar_larger, u.avatar_medium, u.avatar_thumb];
-  for (const l of lists) {
-    if (l?.url_list && l.url_list.length > 0) return l.url_list[0];
+  for (const l of [u.avatar_larger, u.avatar_medium, u.avatar_thumb]) {
+    const url = pickRenderableUrl(l);
+    if (url) return url;
   }
   return null;
 }
@@ -241,8 +260,31 @@ export const tiktokAdapter: PlatformAdapter = {
       throw new ProfilePrivateError(PLATFORM, profileUrl);
     }
 
+    // Some public accounts return an EMPTY post list when queried by unique_id
+    // even though they have videos (verified 2026-05-30: @alexloh2828 has 356
+    // posts but unique_id yields 0; sec_user_id yields them). Fall back to the
+    // sec_uid we already have from the profile response. Keeps the common case
+    // fast (one parallel call) and only pays a second request for the few
+    // accounts TikHub's unique_id worker can't resolve.
+    let awemeList = postsResp.aweme_list ?? [];
+    if (awemeList.length === 0 && user.sec_uid) {
+      try {
+        const bySec = await tikhubGet<TtPostsResponse>({
+          path: '/api/v1/tiktok/app/v3/fetch_user_post_videos_v2',
+          query: { sec_user_id: user.sec_uid, count: POSTS_PER_SCRAPE, max_cursor: 0 },
+          platform: PLATFORM,
+          profileUrl,
+        });
+        awemeList = bySec.aweme_list ?? [];
+      } catch (err) {
+        // Posts are supplementary — don't sink the profile snapshot if the
+        // fallback also fails. Re-throw only on a hard (non-private) error.
+        if (!(err instanceof ProfilePrivateError)) throw err;
+      }
+    }
+
     const posts: NormalizedPostSnapshot[] = [];
-    for (const a of postsResp.aweme_list ?? []) {
+    for (const a of awemeList) {
       const mapped = mapPost(a);
       if (mapped) posts.push(mapped);
     }
