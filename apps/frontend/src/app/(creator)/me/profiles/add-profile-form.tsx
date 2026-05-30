@@ -35,7 +35,7 @@ const HOST_TO_PLATFORM: Array<{ test: RegExp; platform: Platform }> = [
   { test: /(^|\.)instagram\.com$/i, platform: 'instagram' },
   { test: /(^|\.)tiktok\.com$/i, platform: 'tiktok' },
   { test: /(^|\.)(facebook|fb)\.com$/i, platform: 'facebook' },
-  { test: /(^|\.)xiaohongshu\.com$/i, platform: 'rednote' },
+  { test: /(^|\.)(xiaohongshu|xhslink)\.com$/i, platform: 'rednote' },
   { test: /(^|\.)douyin\.com$/i, platform: 'douyin' },
 ];
 
