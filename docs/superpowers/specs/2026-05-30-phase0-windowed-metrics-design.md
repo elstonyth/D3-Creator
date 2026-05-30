@@ -99,12 +99,51 @@ Carried in the RPC (`insufficient` column). TS surfaces it; each UI phase decide
 - No UI changes. No edits to `dashboard-showcase`, `leaderboard-showcase`, `creator-stats`, admin pages.
 - `lib/queries.ts` left intact (old functions still feed current pages until their phase migrates them). New code lives in the new file.
 
-## Verification plan
+## Verification (NOT YET RUN — must execute before this phase is "done")
 
-1. **Seed script / SQL fixture**: insert a creator + 1 profile + profile_snapshots at day 0, −7, −30, −90 and post_snapshots for 2 posts across the same days with known view counts.
-2. Call each RPC for all 4 windows; assert deltas match hand-computed values (the worked example: A grew 1k→5k, B posted in-window at 2k → 30d views_gained = 6k).
-3. Assert no-view post excluded from engagement; assert `insufficient=true` for a profile seeded only 3 days back when window=7d.
-4. `pnpm` typecheck + lint from root (project rule: lint from root only).
+> **Honesty note:** the migration SQL has been written
+> (`supabase/migrations/20260530000000_windowed_metrics_rpcs.sql`) but has **not
+> been executed against any database**. An attempt to prove it on the live
+> d3-creator project was blocked (wrong project id used, then a tool outage), so
+> the numbers below are **expected/asserted targets, not observed results.** Do
+> not treat the math as proven until this section is run and updated.
+
+**Fixture to seed** (one profile): post A `1000→4500→5000` views (snapshots at
+−40/−7/0d); post B posted in-window `500→2000` (−20/0d); post C `0` views (today);
+followers `1000→1100→1200` (−40/−7/0d).
+
+**Expected results to assert (all four windows):**
+
+| window | views_gained | engagement | post_count | followers_delta | insufficient |
+|---|---|---|---|---|---|
+| 7d | 2000 | 0.0643 | 2 | 100 | false |
+| 30d | 6000 | 0.0643 | 2 | 200 | false |
+| 90d | 7000 | 0.0643 | 2 | 0 | true |
+| lifetime | 7000 | 0.0643 | 2 | 200 | false |
+
+Plus: `top_content_windowed('30d')` ranks A(4000) → B(2000) → C(0); engagement
+denominator excludes no-view post C (450/7000 = 0.0643).
+
+**Steps:**
+1. Seed the fixture into the **correct** project (`wmesjldkqvbzrcpitclu` =
+   d3-creator) with fixed test UUIDs.
+2. `apply_migration` the RPCs; call both for all 4 windows; assert the table above.
+3. Tear down the fixture; confirm row counts return to baseline.
+4. `pnpm` typecheck + lint from root for the TS wrapper.
+5. Confirm/drop redundant indexes via `\d` (v1 unique constraints may already cover them).
+
+**Two risks handled pre-emptively at the reasoning level (confirm during the run):**
+1. **NULL follower baseline**: when a window has no snapshot on-or-before its start
+   (90d on a 40-day-old profile), `current − NULL = NULL` → null delta. Handled by
+   `followers_delta = 0` + `insufficient = (base_followers IS NULL)`. *Must confirm.*
+2. **IMMUTABLE + current_date**: a baseline helper marked IMMUTABLE while reading
+   `current_date` (STABLE) could be mis-folded by the planner. Handled by inlining
+   the baseline CASE; functions are STABLE. *Must confirm.*
+
+**Semantic note (by design):** engagement uses each post's *current* (L+C+S) and
+*current* views; the window only gates which posts are *included*. So engagement is
+roughly window-insensitive when the same posts are active across windows —
+intentional; the headline windowed metric is views_gained.
 
 ## Risks
 
