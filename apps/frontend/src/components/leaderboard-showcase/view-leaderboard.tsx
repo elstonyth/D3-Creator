@@ -15,17 +15,23 @@ function toPlatformKey(platform: string): PlatformKey {
 
 export interface ViewLeaderboardProps {
   rows: TopContentRow[];
+  title?: string;
+  subtitle?: string;
 }
 
-export function ViewLeaderboard({ rows }: ViewLeaderboardProps) {
+export function ViewLeaderboard({
+  rows,
+  title = 'Top Content',
+  subtitle = 'Top 20 posts by views · last 30 days',
+}: ViewLeaderboardProps) {
   return (
     <GlassCard variant="base" padding="lg" radius="2xl" className="flex flex-col">
       <div className="flex flex-col gap-1 mb-6">
         <span className="text-micro uppercase text-fgSubtle tracking-[0.04em]">
-          Top Content
+          {title}
         </span>
         <span className="text-caption text-fgMuted">
-          Top 20 posts by views · last 30 days
+          {subtitle}
         </span>
       </div>
 
