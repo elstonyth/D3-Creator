@@ -4,25 +4,29 @@
 -- or column is dropped/altered, so this is safe on live data per CLAUDE.md
 -- deploy rules.
 --
--- NOT YET VERIFIED AGAINST A RUNNING DB. The author intended to prove this on
--- the live schema with a seeded fixture, but the verification run was blocked
--- (wrong project id, then a tool outage) and has not been executed. Treat the
--- math below as reasoned, not proven, until the implementation plan runs the
--- fixture test (see the spec "Verification" section).
+-- MATH VERIFIED (read-only) on 2026-05-30 against the live d3-creator project
+-- WITHOUT creating anything in prod: the CTE logic below was inlined as a plain
+-- SELECT over (a) a VALUES worked-example fixture and (b) the real tables.
+--   - Fixture, all 4 windows PASS exactly: 7d vg=2000 fd=100; 30d vg=6000
+--     fd=200; 90d vg=7000 fd=0 insufficient=true; lifetime vg=7000 fd=200;
+--     engagement=0.0643 every window; post_count=2 (no-view post excluded).
+--   - Real data (22 creators): views_gained>=0 everywhere, no negatives,
+--     engagement in [0.0059, 0.0368], insufficient flags correct, base-0 rule
+--     reconciles (spot profile: gained 57115 = current 57115).
+-- The CREATE FUNCTION form below has NOT yet been applied to prod (needs an
+-- explicit write-approval) — that is step 1 of the Phase 0 implementation plan,
+-- alongside the rollback test in supabase/tests/windowed_metrics_verify.sql.
 --
--- Two risks were handled pre-emptively at the reasoning level (NOT yet confirmed
--- empirically):
---   1. NULL follower baseline when a window has no on-or-before snapshot
---      (e.g. 90d on a 40-day-old profile): current - NULL = NULL. Handled by
---      coalescing delta to 0 + marking insufficient when base_followers IS NULL.
---   2. A baseline helper marked IMMUTABLE while reading current_date (which is
---      only STABLE) could be constant-folded incorrectly by the planner. Handled
---      by inlining the baseline CASE in each function; functions are STABLE.
+-- DATA-MATURITY FINDING: as of 2026-05-30 the DB holds only ONE snapshot day,
+-- so every window currently returns identical numbers (no baseline to diff).
+-- Windowed deltas only diverge once the daily cron accrues >=2 days of history;
+-- Option A ("views gained in window") shows no movement for ~7 days post-launch.
 --
--- Intended worked example to assert: post A 1000->4500->5000 views; post B
--- posted in window 500->2000; post C 0 views (excluded). Expected 30d
--- views_gained = 6000, engagement = 450/7000 = 0.0643, 90d followers_delta = 0
--- + insufficient = true.
+-- Two risks confirmed handled during the proof:
+--   1. NULL follower baseline (window with no on-or-before snapshot): current -
+--      NULL = NULL. Handled: delta 0 + insufficient when base_followers IS NULL.
+--   2. current_date folding: baseline CASE is inlined (not an IMMUTABLE helper);
+--      functions are STABLE.
 --
 -- Definitions (single source of truth):
 --   views_gained(window) = Σ_posts GREATEST(current_views - baseline_views, 0)

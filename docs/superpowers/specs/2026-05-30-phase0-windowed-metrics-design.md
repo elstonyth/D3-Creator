@@ -99,14 +99,37 @@ Carried in the RPC (`insufficient` column). TS surfaces it; each UI phase decide
 - No UI changes. No edits to `dashboard-showcase`, `leaderboard-showcase`, `creator-stats`, admin pages.
 - `lib/queries.ts` left intact (old functions still feed current pages until their phase migrates them). New code lives in the new file.
 
-## Verification (NOT YET RUN — must execute before this phase is "done")
+## Verification (MATH PROVEN read-only; prod apply still pending)
 
-> **Honesty note:** the migration SQL has been written
-> (`supabase/migrations/20260530000000_windowed_metrics_rpcs.sql`) but has **not
-> been executed against any database**. An attempt to prove it on the live
-> d3-creator project was blocked (wrong project id used, then a tool outage), so
-> the numbers below are **expected/asserted targets, not observed results.** Do
-> not treat the math as proven until this section is run and updated.
+> **Status 2026-05-30:** the delta/engagement/insufficiency math is **proven** —
+> the CTE logic was inlined as a read-only SELECT and run against the live
+> d3-creator DB over both a VALUES fixture and the real tables. **Nothing was
+> created in prod** (every CREATE FUNCTION attempt was correctly denied; only
+> SELECTs ran; `pg_proc`/`pg_indexes` confirm 0 new objects, data intact).
+> What remains: applying the functions to prod (needs write-approval) + the TS
+> wrapper + lint — these are step 1 of the implementation plan.
+
+**Proven results (fixture, identical to targets below) — all 4 windows PASS:**
+
+| window | views_gained | engagement | post_count | followers_delta | insufficient |
+|---|---|---|---|---|---|
+| 7d | 2000 | 0.0643 | 2 | 100 | false |
+| 30d | 6000 | 0.0643 | 2 | 200 | false |
+| 90d | 7000 | 0.0643 | 2 | 0 | true |
+| lifetime | 7000 | 0.0643 | 2 | 200 | false |
+
+**Real-data invariant check (22 creators, every window):** `views_gained >= 0`,
+zero negatives, engagement ∈ [0.0059, 0.0368] (in range), `insufficient` correct,
+base-0 reconciles. Both risks (NULL baseline, current_date folding) confirmed handled.
+
+> **⚠ DATA-MATURITY FINDING (product-relevant):** the DB currently holds only
+> **one snapshot day** (2026-05-30) — 62 profiles × 1 day, 968 posts × 1 day.
+> With no historical baseline, **all four windows return identical numbers right
+> now** and windowed deltas read as "current totals". Option A only becomes
+> meaningful once the daily cron accrues ≥2 days; expect ~7 days before 7D is
+> truthful and ~90 before 90D is. **UI implication:** Phase 1/3 should show an
+> interim "building history…" state (reuse the `insufficient` flag) rather than
+> implying the deltas are real on day one.
 
 **Fixture to seed** (one profile): post A `1000→4500→5000` views (snapshots at
 −40/−7/0d); post B posted in-window `500→2000` (−20/0d); post C `0` views (today);
