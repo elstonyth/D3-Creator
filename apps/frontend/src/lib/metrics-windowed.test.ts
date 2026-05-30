@@ -66,6 +66,22 @@ describe('getCreatorMetricsWindowed', () => {
     expect(rows[0].engagement).toBeNull();
     expect(rows[0].insufficient).toBe(true);
   });
+
+  it('coerces a malformed non-numeric value to 0 instead of NaN', async () => {
+    const { client } = mockClient({
+      data: [
+        {
+          creator_id: 'c1', display_name: 'Alice', avatar_url: null,
+          primary_platform: 'tiktok', followers: 'not-a-number',
+          followers_delta: 200, views_gained: 6000, engagement: 0.0643,
+          post_count: 2, insufficient: false,
+        },
+      ],
+    });
+    const rows = await getCreatorMetricsWindowed('30d', { client: client as never });
+    expect(rows[0].followers).toBe(0);
+    expect(Number.isNaN(rows[0].followers)).toBe(false);
+  });
 });
 
 describe('getTopContentWindowed', () => {

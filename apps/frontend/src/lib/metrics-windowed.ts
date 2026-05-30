@@ -72,7 +72,12 @@ function viaProxy(url: string | null): string | null {
 }
 
 function toNum(v: unknown): number {
-  return typeof v === 'number' ? v : v == null ? 0 : Number(v);
+  if (typeof v === 'number') return v;
+  if (v == null) return 0;
+  // Guard against a malformed RPC value (e.g. a non-numeric string) yielding
+  // NaN, which would otherwise silently corrupt every downstream sum/sort.
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
 }
 
 /**
