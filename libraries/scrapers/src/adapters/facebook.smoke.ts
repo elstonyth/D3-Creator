@@ -8,10 +8,11 @@
  *
  * Requires BRIGHTDATA_API_KEY in env.
  *
- * Unlike the prior Apify actor, Bright Data's FB profile dataset
- * (gd_lkay758p1eanlolqw8) DOES expose followers / posts_count / lifetime
- * page likes — so we gate on the live counters when present and fall back
- * to window-total likes only if profile.followers is null.
+ * Single-dataset design (2026-05-30): the adapter reads BOTH posts and the
+ * profile snapshot from the posts dataset (gd_lkaxegm826bjpoo9m5), whose items
+ * carry page_followers / page_name / page_is_verified. We gate on the live
+ * follower counter when present and fall back to window-total likes only if
+ * profile.followers is null.
  */
 
 import { facebookAdapter } from './facebook';
