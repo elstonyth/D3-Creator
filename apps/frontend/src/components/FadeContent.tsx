@@ -99,7 +99,23 @@ const FadeContent: React.FC<FadeContentProps> = ({
       tl.kill();
       gsap.killTweensOf(el);
     };
-  }, []);
+    // All inputs are static per call site (literal props, no inline callbacks),
+    // so listing them keeps the effect's run-once behavior while satisfying
+    // react-hooks/exhaustive-deps.
+  }, [
+    blur,
+    container,
+    delay,
+    disappearAfter,
+    disappearDuration,
+    disappearEase,
+    duration,
+    ease,
+    initialOpacity,
+    onComplete,
+    onDisappearanceComplete,
+    threshold,
+  ]);
 
   return (
     <div ref={ref} className={className} {...props}>

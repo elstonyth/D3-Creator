@@ -3,9 +3,8 @@ import { redirect } from 'next/navigation';
 
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { getSupabaseRoute } from '@gitroom/frontend/lib/supabase-route';
+import { resolveCreatorProfiles } from '@gitroom/frontend/lib/creator-metrics';
 import { SignOutButton } from '@gitroom/frontend/components/auth/signout-button';
-
-import { AccountForm } from './account-form';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -21,7 +20,8 @@ export default async function AccountPage() {
 
   // Current display name lives on the linked creator row (may not exist yet for
   // a brand-new creator — that's fine, the field starts blank and saving
-  // provisions it). Same client also counts how many profiles this user tracks.
+  // provisions it). Same client also resolves how many profiles this user
+  // tracks — via the shared resolver so the count matches /me + /me/leaderboard.
   const sb = await getSupabaseRoute();
   let displayName = '';
   const creatorId = auth.creatorLink?.creator_id ?? null;
@@ -33,11 +33,11 @@ export default async function AccountPage() {
       .maybeSingle();
     displayName = data?.display_name ?? '';
   }
-  const { count: profileCount } = await sb
-    .from('profile_claim')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', auth.userId);
-  const tracked = profileCount ?? 0;
+  const { profiles } = await resolveCreatorProfiles(sb, {
+    userId: auth.userId,
+    creatorId,
+  });
+  const tracked = profiles.length;
 
   return (
     <div className="flex flex-col gap-10 pt-12 pb-24 max-w-[640px]">
@@ -58,7 +58,12 @@ export default async function AccountPage() {
           <h2 className="text-heading text-fg">Profile</h2>
           <p className="text-body text-fgMuted mt-1">The name shown for your creator across D3.</p>
         </div>
-        <AccountForm defaultDisplayName={displayName} />
+        <div className="flex flex-col gap-1.5">
+          <div className="text-body text-fg">{displayName || 'Not set yet'}</div>
+          <span className="text-caption text-fgSubtle">
+            Managed by your agency — contact them to change it.
+          </span>
+        </div>
       </section>
 
       {/* Identity */}
@@ -73,13 +78,13 @@ export default async function AccountPage() {
         </div>
       </section>
 
-      {/* Tracked profiles summary (read-only — nav already links to manage) */}
+      {/* Tracked profiles summary — read-only, agency-managed */}
       <section className="glass-subtle border border-borderGlass rounded-2xl p-6 flex flex-col gap-1">
         <h2 className="text-heading text-fg">Tracked profiles</h2>
         <p className="text-body text-fgMuted">
           {tracked === 0
-            ? 'No profiles tracked yet — add one from the Profiles tab.'
-            : `${tracked} profile${tracked === 1 ? '' : 's'} tracked across your platforms.`}
+            ? 'No accounts yet — your agency adds them for you.'
+            : `${tracked} account${tracked === 1 ? '' : 's'} managed by your agency.`}
         </p>
       </section>
     </div>

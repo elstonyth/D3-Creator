@@ -32,6 +32,7 @@ import { NextResponse } from 'next/server';
 import { runScraper, ScrapeError } from '@d3/scrapers';
 import {
   getSupabaseAdmin,
+  persistMediaForPosts,
   setProfileStatus,
   upsertPostSnapshots,
   upsertProfileSnapshot,
@@ -123,7 +124,10 @@ export async function POST(
     );
 
     const profileWrite = await upsertProfileSnapshot(profile.id, snap);
-    const postsWrite = await upsertPostSnapshots(profile.id, posts);
+    // Persist post cover images to Storage while their CDN signatures are
+    // fresh (best-effort, time-bounded — see persistMediaForPosts).
+    const persistedPosts = await persistMediaForPosts(profile.id, posts);
+    const postsWrite = await upsertPostSnapshots(profile.id, persistedPosts);
     await setProfileStatus(profile.id, 'ok');
 
     return NextResponse.json(

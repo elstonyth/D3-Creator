@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { getSupabaseRoute } from '@gitroom/frontend/lib/supabase-route';
 import { resolveCreatorProfiles } from '@gitroom/frontend/lib/creator-metrics';
+import { resolveMediaUrl } from '@gitroom/frontend/lib/media-url';
 import { EmptyState } from '@gitroom/frontend/components/ui/empty-state';
 
 export const dynamic = 'force-dynamic';
@@ -83,18 +84,14 @@ export default async function CreatorMeLeaderboardPage() {
           title="No posts to rank yet"
           description={
             ids.length === 0
-              ? "You're not tracking any profiles yet. Add one and your highest-viewed posts will appear here."
+              ? 'Your agency manages your accounts. Your top posts will appear here once they are connected.'
               : 'Your top posts appear here once the first daily scrape collects them — usually within 24 hours.'
           }
-          action={ids.length === 0 ? { href: '/me/profiles', label: 'Add a profile' } : undefined}
         />
       ) : (
         <ol className="space-y-2">
           {posts.map((p, i) => {
-            const thumb =
-              p.media_url && p.media_url.startsWith('http')
-                ? `/api/proxy-image?url=${encodeURIComponent(p.media_url)}`
-                : null;
+            const thumb = resolveMediaUrl(p.media_url);
             const isWinner = i === 0;
             return (
               <li

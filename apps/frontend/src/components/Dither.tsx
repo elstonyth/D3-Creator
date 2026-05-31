@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useEffect, forwardRef } from 'react';
+import { useRef, useLayoutEffect, useEffect, forwardRef } from 'react';
 import { Canvas, useFrame, useThree, ThreeEvent } from '@react-three/fiber';
 import { EffectComposer, wrapEffect } from '@react-three/postprocessing';
 import { Effect } from 'postprocessing';
@@ -157,9 +157,13 @@ class RetroEffectImpl extends Effect {
   }
 }
 
+// Hoisted out of render: wrapEffect() returns a component, and creating it
+// inside RetroEffect violated react-hooks/static-components (a new component
+// type every render would remount the effect).
+const WrappedRetroEffect = wrapEffect(RetroEffectImpl);
+
 const RetroEffect = forwardRef<RetroEffectImpl, { colorNum: number; pixelSize: number }>((props, ref) => {
   const { colorNum, pixelSize } = props;
-  const WrappedRetroEffect = wrapEffect(RetroEffectImpl);
   return <WrappedRetroEffect ref={ref} colorNum={colorNum} pixelSize={pixelSize} />;
 });
 
@@ -205,6 +209,9 @@ function DitheredWaves({
   const mouseRef = useRef(new THREE.Vector2());
   const { viewport, size, gl } = useThree();
 
+  // useRef holds the long-lived uniforms object that useFrame mutates every
+  // frame. (useState would trip react-hooks/immutability — you may not mutate
+  // a useState value — whereas a ref is the right tool for imperative state.)
   const waveUniformsRef = useRef<WaveUniforms>({
     time: new THREE.Uniform(0),
     resolution: new THREE.Uniform(new THREE.Vector2(0, 0)),
@@ -216,6 +223,15 @@ function DitheredWaves({
     enableMouseInteraction: new THREE.Uniform(enableMouseInteraction ? 1 : 0),
     mouseRadius: new THREE.Uniform(mouseRadius)
   });
+
+  // Hand the uniforms to the material via a ref after mount. Passing
+  // waveUniformsRef.current straight into the JSX prop would read a ref during
+  // render (react-hooks/refs); useLayoutEffect assigns it before the first
+  // painted frame, so there's no flash of an un-uniformed shader.
+  const materialRef = useRef<THREE.ShaderMaterial>(null);
+  useLayoutEffect(() => {
+    if (materialRef.current) materialRef.current.uniforms = waveUniformsRef.current;
+  }, []);
 
   useEffect(() => {
     const dpr = gl.getPixelRatio();
@@ -264,9 +280,9 @@ function DitheredWaves({
       <mesh ref={mesh} scale={[viewport.width, viewport.height, 1]}>
         <planeGeometry args={[1, 1]} />
         <shaderMaterial
+          ref={materialRef}
           vertexShader={waveVertexShader}
           fragmentShader={waveFragmentShader}
-          uniforms={waveUniformsRef.current}
         />
       </mesh>
 

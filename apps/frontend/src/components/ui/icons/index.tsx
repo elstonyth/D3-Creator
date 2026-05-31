@@ -773,14 +773,14 @@ export const NoMediaIcon: FC = () => {
   const [mode, setMode] = useCookie('mode', 'dark');
 
   useEffect(() => {
-    modeEmitter.on('mode', (value) => {
-      setMode(value);
-    });
-
+    // Named handler + removeListener so unmount only detaches THIS listener
+    // (removeAllListeners would also kill the theme toggle's subscription).
+    const handler = (value: string) => setMode(value);
+    modeEmitter.on('mode', handler);
     return () => {
-      modeEmitter.removeAllListeners();
+      modeEmitter.removeListener('mode', handler);
     };
-  }, []);
+  }, [setMode]);
 
   return (
     <>
