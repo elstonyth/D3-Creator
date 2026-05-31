@@ -51,6 +51,13 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
+  // /me/profiles is removed in Phase 3 — creators no longer self-manage
+  // accounts. Send stale links to the dashboard (authed creators; anon falls
+  // through to the creator-route -> /login rule below).
+  if (pathname === '/me/profiles') {
+    return NextResponse.redirect(new URL('/me', request.url));
+  }
+
   const isAuthPage = AUTH_PAGES.has(pathname);
   const isAdminRoute = ADMIN_PREFIXES.some((p) => pathname.startsWith(p));
   const isCreatorRoute = CREATOR_PREFIXES.some((p) => pathname.startsWith(p));

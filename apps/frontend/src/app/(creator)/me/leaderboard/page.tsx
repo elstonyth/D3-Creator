@@ -83,10 +83,9 @@ export default async function CreatorMeLeaderboardPage() {
           title="No posts to rank yet"
           description={
             ids.length === 0
-              ? "You're not tracking any profiles yet. Add one and your highest-viewed posts will appear here."
+              ? 'Your agency manages your accounts. Your top posts will appear here once they are connected.'
               : 'Your top posts appear here once the first daily scrape collects them — usually within 24 hours.'
           }
-          action={ids.length === 0 ? { href: '/me/profiles', label: 'Add a profile' } : undefined}
         />
       ) : (
         <ol className="space-y-2">
