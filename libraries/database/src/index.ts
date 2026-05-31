@@ -40,6 +40,7 @@ export {
   persistPostMedia,
   persistMediaForPosts,
   POST_MEDIA_BUCKET,
+  POST_MEDIA_DEADLINE_MS,
 } from './media';
 export type {
   Platform,

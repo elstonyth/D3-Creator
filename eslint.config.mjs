@@ -29,6 +29,26 @@ const eslintConfig = [
   },
   ...nextCoreWebVitals,
   ...nextTypescript,
+  {
+    // Mirror apps/frontend/eslint.config.mjs so `eslint .` from the repo root
+    // (and editor integrations) apply the same deliberate rule overrides as
+    // `pnpm run lint` (which runs eslint inside apps/frontend).
+    rules: {
+      'react/no-unescaped-entities': 'off',
+      'react/display-name': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/ban-ts-comment': 'off',
+      '@typescript-eslint/no-empty-object-type': 'off',
+      '@typescript-eslint/prefer-as-const': 'off',
+      '@typescript-eslint/no-non-null-asserted-optional-chain': 'off',
+    },
+  },
+  {
+    // CommonJS config files legitimately use require().
+    files: ['**/*.cjs'],
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
 ];
 
 export default eslintConfig;

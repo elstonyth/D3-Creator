@@ -61,18 +61,28 @@ export async function GET(request: Request): Promise<Response> {
   const sb = getSupabaseAdmin();
 
   // Candidate rows: an http(s) media_url that isn't already on our Storage.
-  const res = await sb
-    .from('post_snapshot')
-    .select('profile_id, external_post_id, media_url, captured_date')
-    .like('media_url', 'http%')
-    .not('media_url', 'ilike', '%supabase.co%');
-  if (res.error) {
-    return NextResponse.json(
-      { error: 'candidate query failed', detail: res.error.message },
-      { status: 500 },
-    );
+  // PostgREST caps a single response at 1000 rows, so page explicitly (ordered
+  // by the stable PK so pages don't overlap/skip).
+  const PAGE = 1000;
+  const rows: CandidateRow[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const res = await sb
+      .from('post_snapshot')
+      .select('profile_id, external_post_id, media_url, captured_date')
+      .like('media_url', 'http%')
+      .not('media_url', 'ilike', '%supabase.co%')
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (res.error) {
+      return NextResponse.json(
+        { error: 'candidate query failed', detail: res.error.message },
+        { status: 500 },
+      );
+    }
+    const page = (res.data ?? []) as CandidateRow[];
+    rows.push(...page);
+    if (page.length < PAGE) break;
   }
-  const rows = (res.data ?? []) as CandidateRow[];
 
   // Dedupe to the latest snapshot per (profile, post) — that's the row the
   // read path displays. We heal all rows for the post in one UPDATE below.
@@ -92,9 +102,10 @@ export async function GET(request: Request): Promise<Response> {
     });
   }
 
-  let persisted = 0;
-  let failed = 0;
-  let rowsUpdated = 0;
+  let persisted = 0; // image copied to Storage
+  let failed = 0; // image fetch/upload failed (kept on its CDN URL)
+  let updateFailed = 0; // image copied but the DB heal errored
+  let rowsUpdated = 0; // snapshot rows pointed at the permanent URL
   let next = 0;
 
   async function worker(): Promise<void> {
@@ -119,7 +130,19 @@ export async function GET(request: Request): Promise<Response> {
         .like('media_url', 'http%')
         .not('media_url', 'ilike', '%supabase.co%')
         .select('id');
-      if (!upd.error) rowsUpdated += upd.data?.length ?? 0;
+      if (upd.error) {
+        // Bytes are safe in Storage, but the row still points at the CDN URL —
+        // surface it so the run's counts reflect the partial failure.
+        updateFailed++;
+        console.error(
+          '[backfill-media] row update failed',
+          c.profile_id,
+          c.external_post_id,
+          upd.error.message,
+        );
+        continue;
+      }
+      rowsUpdated += upd.data?.length ?? 0;
     }
   }
 
@@ -130,6 +153,7 @@ export async function GET(request: Request): Promise<Response> {
     candidate_posts: candidates.length,
     persisted,
     failed,
+    update_failed: updateFailed,
     rows_updated: rowsUpdated,
   });
 }

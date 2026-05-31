@@ -25,6 +25,7 @@ import { runScraper, ScrapeError } from '@d3/scrapers';
 import {
   listScrapeableProfiles,
   persistMediaForPosts,
+  POST_MEDIA_DEADLINE_MS,
   setProfileStatus,
   upsertPostSnapshots,
   upsertProfileSnapshot,
@@ -48,6 +49,10 @@ export const dynamic = 'force-dynamic';
 // own invocation budget instead of sharing one 300s window.
 // See https://vercel.com/docs/queues
 const PROFILES_PER_RUN = 5;
+
+// Wall-clock reserved at the end of the budget for the snapshot upsert +
+// status write that must run even when media persistence is skipped.
+const WRAPUP_RESERVE_MS = 15_000;
 
 interface ProfileResult {
   profile_id: string;
@@ -133,9 +138,23 @@ export async function GET(request: Request): Promise<Response> {
 
       await upsertProfileSnapshot(profile.id, snap);
       // Copy post cover images into Storage while their signed CDN URLs are
-      // still valid, so thumbnails survive signature expiry (best-effort,
-      // time-bounded — see persistMediaForPosts).
-      const persistedPosts = await persistMediaForPosts(profile.id, posts);
+      // still valid, so thumbnails survive signature expiry (best-effort).
+      // Cap the persist step by the function's REMAINING wall-clock budget
+      // (minus a reserve for the upsert + status write), so several profiles'
+      // persist steps can't compound past maxDuration. When the budget is
+      // exhausted the deadline is 0 → persist is skipped and the snapshot
+      // (with original CDN URLs) is still written; the backfill heals later.
+      const elapsedMs = Date.now() - startedAt.getTime();
+      const remainingMs = maxDuration * 1000 - elapsedMs - WRAPUP_RESERVE_MS;
+      const mediaDeadlineMs = Math.max(
+        0,
+        Math.min(POST_MEDIA_DEADLINE_MS, remainingMs),
+      );
+      const persistedPosts = await persistMediaForPosts(
+        profile.id,
+        posts,
+        mediaDeadlineMs,
+      );
       const { written } = await upsertPostSnapshots(profile.id, persistedPosts);
       await setProfileStatus(profile.id, 'ok');
 

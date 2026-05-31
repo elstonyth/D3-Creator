@@ -27,12 +27,42 @@ const FETCH_TIMEOUT_MS = 6000;
 /** Concurrent image copies per profile. */
 const CONCURRENCY = 8;
 /**
- * Per-profile wall-clock ceiling for the whole persist step. Past this we stop
- * STARTING new fetches and leave the remaining posts on their (still-valid) CDN
- * URLs — the backfill picks them up. Bounds worst-case added latency on the
- * daily cron (which processes several profiles under one 300s function budget).
+ * Default per-profile wall-clock ceiling for the whole persist step. Past this
+ * we stop STARTING new fetches and leave the remaining posts on their
+ * (still-valid) CDN URLs — the backfill picks them up. Exported so the daily
+ * cron can cap it further against the function's remaining 300s budget.
  */
-const PROFILE_DEADLINE_MS = 30_000;
+export const POST_MEDIA_DEADLINE_MS = 30_000;
+
+/**
+ * Hard cap on a single image we'll buffer in memory before upload. Thumbnails
+ * are tens of KB; this guards against a hostile/oversized upstream response
+ * OOMing the function. Enforced via content-length AND a streaming byte count
+ * (a lying or absent content-length can't bypass it).
+ */
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+/**
+ * SSRF allowlist. media_url comes from third-party scraper responses (TikHub /
+ * BrightData), so it's NOT fully trusted — a compromised/crafted upstream could
+ * inject an internal URL. Only fetch from the known social-CDN suffixes (the
+ * same set the image proxy permits). Anything else is left on its original URL.
+ */
+const ALLOWED_IMAGE_HOST_SUFFIXES = [
+  '.cdninstagram.com',
+  '.fbcdn.net',
+  '.tiktokcdn.com',
+  '.tiktokcdn-us.com',
+  '.muscdn.com',
+  '.xhscdn.com',
+  '.rednotecdn.com',
+  '.douyinpic.com',
+];
+
+function isAllowedImageHost(host: string): boolean {
+  const lower = host.toLowerCase();
+  return ALLOWED_IMAGE_HOST_SUFFIXES.some((suffix) => lower.endsWith(suffix));
+}
 
 const PROXY_UA =
   'Mozilla/5.0 (compatible; D3CreatorImageProxy/0.1; +https://d3-creator.vercel.app)';
@@ -63,12 +93,63 @@ function isAlreadyPersisted(url: string): boolean {
 }
 
 /**
+ * Read a response body into memory, aborting if it exceeds maxBytes. Rejects
+ * up front on an oversized content-length, then counts streamed bytes so a
+ * missing or dishonest content-length can't smuggle past the cap.
+ */
+async function readBodyCapped(
+  res: Response,
+  maxBytes: number,
+): Promise<ArrayBuffer | null> {
+  const lenHeader = res.headers.get('content-length');
+  if (lenHeader) {
+    const len = Number(lenHeader);
+    if (Number.isFinite(len) && len > maxBytes) return null;
+  }
+  if (!res.body) {
+    const buf = await res.arrayBuffer();
+    return buf.byteLength > maxBytes ? null : buf;
+  }
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const c of chunks) {
+    out.set(c, offset);
+    offset += c.byteLength;
+  }
+  return out.buffer;
+}
+
+/**
  * Fetch image bytes server-side (no Referer — the same trick the image proxy
  * uses to dodge CDN Referer gates). Returns null on any failure / non-image.
+ * Validates the host against the SSRF allowlist and caps the body size.
  */
 async function fetchImage(
   url: string,
 ): Promise<{ body: ArrayBuffer; contentType: string } | null> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== 'https:') return null;
+  if (!isAllowedImageHost(parsed.hostname)) return null;
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -79,8 +160,8 @@ async function fetchImage(
     if (!res.ok) return null;
     const contentType = res.headers.get('content-type') ?? '';
     if (!contentType.startsWith('image/')) return null;
-    const body = await res.arrayBuffer();
-    if (body.byteLength === 0) return null;
+    const body = await readBodyCapped(res, MAX_IMAGE_BYTES);
+    if (!body || body.byteLength === 0) return null;
     return { body, contentType };
   } catch {
     return null;
@@ -130,7 +211,7 @@ export async function persistPostMedia(
  */
 export async function persistMediaForPosts<
   T extends { external_post_id: string; media_url: string | null },
->(profileId: string, posts: T[], deadlineMs: number = PROFILE_DEADLINE_MS): Promise<T[]> {
+>(profileId: string, posts: T[], deadlineMs: number = POST_MEDIA_DEADLINE_MS): Promise<T[]> {
   const out = posts.slice();
   const startedAt = Date.now();
   let next = 0;
@@ -138,8 +219,9 @@ export async function persistMediaForPosts<
   async function worker(): Promise<void> {
     while (next < out.length) {
       const idx = next++;
-      // Budget spent — leave this and the rest on their (still-valid) CDN URLs.
-      if (Date.now() - startedAt > deadlineMs) return;
+      // Budget spent (or zero) — leave this and the rest on their (still-valid)
+      // CDN URLs. >= so a deadline of 0 short-circuits immediately.
+      if (Date.now() - startedAt >= deadlineMs) return;
       const post = out[idx];
       const src = post.media_url;
       if (!src || !src.startsWith('http')) continue;
