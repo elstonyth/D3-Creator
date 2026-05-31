@@ -2,13 +2,14 @@
 
 /**
  * Admin "create creator" form. Credentials group + a dynamic list of social
- * profile URLs (add/remove rows). Submits via the createCreator server action
- * (useActionState); renders per-URL results + a once-only credentials panel.
+ * profile URLs (add/remove rows). Submits to the createCreator server action
+ * inside a transition; renders per-URL results + a once-only credentials panel.
+ * On success the form clears so it's ready for the next creator.
  *
  * Yellow-mono: success/failure read from a glyph + label, not color.
  */
 
-import { useActionState, useRef, useState } from 'react';
+import { useRef, useState, useTransition, type FormEvent } from 'react';
 import { Button } from '@gitroom/frontend/components/ui/button';
 import { Input } from '@gitroom/frontend/components/ui/input';
 import { createCreator, type ProvisionResult } from './actions';
@@ -40,15 +41,33 @@ function XGlyph() {
 }
 
 export function ProvisionForm() {
-  const [state, action, pending] = useActionState<ProvisionResult | null, FormData>(
-    createCreator,
-    null,
-  );
   const rowSeq = useRef(1);
   const nextRowId = () => (rowSeq.current += 1);
   const [rows, setRows] = useState<{ id: number; value: string }[]>(() => [
     { id: 1, value: '' },
   ]);
+  const formRef = useRef<HTMLFormElement>(null);
+  const [result, setResult] = useState<ProvisionResult | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  // Submit via onSubmit (not the form `action` prop) so React does not
+  // auto-reset the fields on a failed attempt. We reset explicitly, and only on
+  // success: clear the inputs and collapse the URL list back to one empty row
+  // so the filled-in values don't linger and eat space, leaving the form ready
+  // for the next creator. The result panel still renders from `result`.
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    startTransition(async () => {
+      const res = await createCreator(null, formData);
+      setResult(res);
+      if (res.ok) {
+        formRef.current?.reset();
+        rowSeq.current = 1;
+        setRows([{ id: 1, value: '' }]);
+      }
+    });
+  }
 
   function updateRow(id: number, value: string) {
     setRows((r) => r.map((row) => (row.id === id ? { ...row, value } : row)));
@@ -61,7 +80,7 @@ export function ProvisionForm() {
   }
 
   return (
-    <form action={action} className="flex flex-col gap-5">
+    <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col gap-5">
       {/* Credentials */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <label className="block space-y-1.5">
@@ -122,22 +141,22 @@ export function ProvisionForm() {
       </div>
 
       {/* Error */}
-      {state && !state.ok && (
+      {result && !result.ok && (
         <p className="text-caption text-fg flex items-center gap-1.5" role="alert">
-          <XGlyph /> {state.message}
+          <XGlyph /> {result.message}
         </p>
       )}
 
       {/* Success: credentials echo + per-URL results */}
-      {state?.ok && (
+      {result?.ok && (
         <div className="flex flex-col gap-4">
-          <p className="text-caption text-fgMuted">{state.message}</p>
-          {state.credentials && (
-            <CredentialsPanel email={state.credentials.email} password={state.credentials.password} />
+          <p className="text-caption text-fgMuted">{result.message}</p>
+          {result.credentials && (
+            <CredentialsPanel email={result.credentials.email} password={result.credentials.password} />
           )}
-          {state.urlResults && state.urlResults.length > 0 && (
+          {result.urlResults && result.urlResults.length > 0 && (
             <ul className="flex flex-col gap-1.5">
-              {state.urlResults.map((r) => (
+              {result.urlResults.map((r) => (
                 <li key={r.url} className="flex items-center gap-2 text-caption min-w-0">
                   {r.status === 'failed' ? <XGlyph /> : <CheckGlyph />}
                   <span className="text-fgMuted truncate">
