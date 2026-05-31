@@ -1,28 +1,24 @@
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
-import { FlatCompat } from '@eslint/eslintrc';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
+// Root ESLint flat config (ESLint 9 + eslint-config-next 16, which ships
+// flat-native config objects — no FlatCompat / @eslint/eslintrc shim needed).
+// The repo's lint entry point delegates to apps/frontend (see root "lint"
+// script), which has its own copy of this config; this root file keeps a bare
+// `eslint .` and editor integrations working from the repo root too.
+import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
+import nextTypescript from 'eslint-config-next/typescript';
 
 const eslintConfig = [
-  ...compat.config({
-    extends: ['next/core-web-vitals', 'next/typescript'],
-    rules: {
-      'react/no-unescaped-entities': 'off',
-      '@typescript-eslint/no-explicit-any': 'off',
-      '@typescript-eslint/no-unused-vars': 'off',
-      'react/display-name': 'off',
-      '@typescript-eslint/ban-ts-comment': 'off',
-      '@typescript-eslint/no-empty-object-type': 'off',
-      '@typescript-eslint/prefer-as-const': 'off',
-      '@typescript-eslint/no-non-null-asserted-optional-chain': 'off',
-    },
-  }),
+  ...nextCoreWebVitals,
+  ...nextTypescript,
+  {
+    ignores: [
+      'node_modules/**',
+      '**/.next/**',
+      '**/out/**',
+      '**/build/**',
+      '**/dist/**',
+      '**/next-env.d.ts',
+    ],
+  },
 ];
 
 export default eslintConfig;
