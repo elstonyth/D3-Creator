@@ -24,6 +24,7 @@ import { NextResponse } from 'next/server';
 import { runScraper, ScrapeError } from '@d3/scrapers';
 import {
   listScrapeableProfiles,
+  persistMediaForPosts,
   setProfileStatus,
   upsertPostSnapshots,
   upsertProfileSnapshot,
@@ -131,7 +132,11 @@ export async function GET(request: Request): Promise<Response> {
       );
 
       await upsertProfileSnapshot(profile.id, snap);
-      const { written } = await upsertPostSnapshots(profile.id, posts);
+      // Copy post cover images into Storage while their signed CDN URLs are
+      // still valid, so thumbnails survive signature expiry (best-effort,
+      // time-bounded — see persistMediaForPosts).
+      const persistedPosts = await persistMediaForPosts(profile.id, posts);
+      const { written } = await upsertPostSnapshots(profile.id, persistedPosts);
       await setProfileStatus(profile.id, 'ok');
 
       results.push({

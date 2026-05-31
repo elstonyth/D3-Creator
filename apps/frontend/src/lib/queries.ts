@@ -13,18 +13,8 @@
  */
 
 import { getSupabaseRead } from './supabase-server';
+import { resolveMediaUrl } from './media-url';
 import type { PlatformKey } from '@gitroom/frontend/components/ui/platform-icons';
-
-/**
- * Wrap a social-CDN URL through our /api/proxy-image route so the browser
- * never hits the CDN directly. Fixes signed-URL expiry + Referer blocks.
- * Returns null unchanged.
- */
-function viaProxy(url: string | null | undefined): string | null {
-  if (!url) return null;
-  if (!url.startsWith('http')) return null;
-  return `/api/proxy-image?url=${encodeURIComponent(url)}`;
-}
 
 // DB stores 'rednote'; showcase uses 'xiaohongshu' — single map point.
 function dbPlatformToKey(platform: string): PlatformKey {
@@ -630,7 +620,7 @@ export async function getCreatorByHandle(
 
   // 6. Roll up
   let totalFollowers = 0;
-  let bestAvatar: string | null = viaProxy(creatorRes.data.avatar_url);
+  let bestAvatar: string | null = resolveMediaUrl(creatorRes.data.avatar_url);
   let bestFullName: string | null = creatorRes.data.display_name;
   let bestBio: string | null = null;
   const slots: CreatorPlatformSlot[] = [];
@@ -643,7 +633,7 @@ export async function getCreatorByHandle(
     const rawFromSnap = snap?.raw;
     const fromPost = extractRawProfileFields(rawFromPost);
     const fromSnap = extractRawProfileFields(rawFromSnap);
-    if (!bestAvatar) bestAvatar = viaProxy(fromPost.avatarUrl ?? fromSnap.avatarUrl);
+    if (!bestAvatar) bestAvatar = resolveMediaUrl(fromPost.avatarUrl ?? fromSnap.avatarUrl);
     if (!bestFullName) bestFullName = fromPost.fullName ?? fromSnap.fullName;
     if (!bestBio) bestBio = fromPost.biography ?? fromSnap.biography;
 
@@ -766,7 +756,7 @@ function mapPostSnapshotToRow(
     externalId: post.external_post_id,
     url: buildPostUrl(platform, r, post.external_post_id, handle),
     type,
-    thumbnailUrl: viaProxy(post.media_url),
+    thumbnailUrl: resolveMediaUrl(post.media_url),
     caption: post.caption_excerpt ?? '',
     hashtags: extractHashtags(post.caption_excerpt),
     publishedAt: post.posted_at ?? new Date().toISOString(),

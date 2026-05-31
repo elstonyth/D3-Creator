@@ -13,6 +13,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseRead } from './supabase-server';
+import { resolveMediaUrl } from './media-url';
 
 /** Time window for every windowed metric. */
 export type MetricWindow = '7d' | '30d' | '90d' | 'lifetime';
@@ -69,11 +70,6 @@ export interface TopContentOpts extends WindowedMetricsOpts {
   limit?: number;
 }
 
-/** Route a social-CDN URL through our same-origin proxy. Null passes through. */
-function viaProxy(url: string | null): string | null {
-  if (!url || !url.startsWith('http')) return null;
-  return `/api/proxy-image?url=${encodeURIComponent(url)}`;
-}
 
 function toNum(v: unknown): number {
   if (typeof v === 'number') return v;
@@ -151,7 +147,7 @@ export async function getTopContentWindowed(
       platform: r.platform as string,
       handle: (r.handle as string | null) ?? null,
       captionExcerpt: (r.caption_excerpt as string | null) ?? null,
-      thumbnailUrl: viaProxy((r.media_url as string | null) ?? null),
+      thumbnailUrl: resolveMediaUrl((r.media_url as string | null) ?? null),
       postedAt: (r.posted_at as string | null) ?? null,
       viewsGained: toNum(r.views_gained),
       currentViews: toNum(r.current_views),

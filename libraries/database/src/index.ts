@@ -36,6 +36,11 @@ export {
   type ProfileSnapshotInput,
   type PostSnapshotInput,
 } from './snapshots';
+export {
+  persistPostMedia,
+  persistMediaForPosts,
+  POST_MEDIA_BUCKET,
+} from './media';
 export type {
   Platform,
   ScrapeStatus,
