@@ -60,7 +60,7 @@ Reused Phase 1 pieces:
 
 ### 4.1 Files
 
-```
+```text
 apps/frontend/src/
   app/(admin)/admin/
     page.tsx                 [rewrite]  Top-30 dashboard + provisioning panel

@@ -93,7 +93,7 @@ export function ProvisionForm() {
         </label>
         <label className="block space-y-1.5">
           <span className="text-label text-fgMuted">Password</span>
-          <Input name="password" type="text" required minLength={8} placeholder="At least 8 characters" />
+          <Input name="password" type="password" required minLength={8} placeholder="At least 8 characters" />
         </label>
       </div>
 
@@ -140,11 +140,17 @@ export function ProvisionForm() {
         </Button>
       </div>
 
-      {/* Error */}
+      {/* Error — still surfaces credentials on a partial failure (the auth user
+          was created but a later step failed) so the admin doesn't lose the login. */}
       {result && !result.ok && (
-        <p className="text-caption text-fg flex items-center gap-1.5" role="alert">
-          <XGlyph /> {result.message}
-        </p>
+        <div className="flex flex-col gap-3">
+          <p className="text-caption text-fg flex items-center gap-1.5" role="alert">
+            <XGlyph /> {result.message}
+          </p>
+          {result.credentials && (
+            <CredentialsPanel email={result.credentials.email} password={result.credentials.password} />
+          )}
+        </div>
       )}
 
       {/* Success: credentials echo + per-URL results */}
@@ -177,8 +183,14 @@ export function ProvisionForm() {
 function CredentialsPanel({ email, password }: { email: string; password: string }) {
   const [copied, setCopied] = useState(false);
   async function copy() {
-    await navigator.clipboard.writeText(`${email}\n${password}`);
-    setCopied(true);
+    try {
+      await navigator.clipboard.writeText(`${email}\n${password}`);
+      setCopied(true);
+    } catch {
+      // Clipboard API unavailable (insecure context) or permission denied — the
+      // credentials are visible on screen for manual copy, so just no-op.
+      setCopied(false);
+    }
   }
   return (
     <div className="glass-elevated rounded-xl border border-borderGlass p-4 flex flex-col gap-2">
