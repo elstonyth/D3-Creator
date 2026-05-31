@@ -13,6 +13,17 @@ import { Button } from '@gitroom/frontend/components/ui/button';
 import { Input } from '@gitroom/frontend/components/ui/input';
 import { createCreator, type ProvisionResult } from './actions';
 
+// Example URLs cycled across rows so the form reads as multi-platform, not
+// Instagram-only. The actual platform is detected server-side from whatever is
+// pasted (detectPlatform), so any supported host works regardless of which
+// placeholder a given row shows. RedNote is archived/hidden, so it's omitted.
+const URL_PLACEHOLDERS = [
+  'https://www.instagram.com/handle',
+  'https://www.tiktok.com/@handle',
+  'https://www.facebook.com/handle',
+  'https://www.douyin.com/user/MS4w...',
+];
+
 function CheckGlyph() {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="text-fg shrink-0">
@@ -70,14 +81,18 @@ export function ProvisionForm() {
       {/* Social URLs */}
       <div className="flex flex-col gap-2 border-t border-borderGlass pt-4">
         <span className="text-label text-fgMuted">Social profile URLs</span>
-        {rows.map((row) => (
+        <span className="text-caption text-fgSubtle">
+          Instagram, TikTok, Facebook, or Douyin — the platform is detected
+          automatically from the URL.
+        </span>
+        {rows.map((row, i) => (
           <div key={row.id} className="flex items-center gap-2">
             <Input
               name="url"
               type="url"
               value={row.value}
               onChange={(e) => updateRow(row.id, e.target.value)}
-              placeholder="https://www.instagram.com/handle"
+              placeholder={URL_PLACEHOLDERS[i % URL_PLACEHOLDERS.length]}
               className="flex-1"
             />
             <button
