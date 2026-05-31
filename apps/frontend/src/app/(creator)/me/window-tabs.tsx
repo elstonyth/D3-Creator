@@ -12,7 +12,7 @@ const WINDOWS: MetricWindow[] = ['7d', '30d', '90d', 'lifetime'];
 
 export function WindowTabs({ current }: { current: MetricWindow }) {
   return (
-    <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Time window">
+    <nav className="flex flex-wrap items-center gap-2" aria-label="Time window">
       {WINDOWS.map((w) => {
         const active = w === current;
         return (
@@ -20,7 +20,7 @@ export function WindowTabs({ current }: { current: MetricWindow }) {
             key={w}
             href={`/me?window=${w}`}
             scroll={false}
-            aria-current={active ? 'true' : undefined}
+            aria-current={active ? 'page' : undefined}
             className={`text-caption px-3 py-1.5 rounded-full border transition-colors ${
               active
                 ? 'bg-brand/10 text-fg border-brand/20'
@@ -31,6 +31,6 @@ export function WindowTabs({ current }: { current: MetricWindow }) {
           </Link>
         );
       })}
-    </div>
+    </nav>
   );
 }

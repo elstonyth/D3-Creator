@@ -45,12 +45,12 @@ export function CreatorStats({ row }: { row: CreatorMetricWindowRow }) {
 
       <Kpi
         label="Views"
-        value={formatWindowedValue(row.insufficient, row.viewsGained, formatCompact)}
+        value={formatWindowedValue(false, row.viewsGained, formatCompact)}
         hint="gained this window"
       />
       <Kpi
         label="Engagement"
-        value={formatWindowedValue(row.insufficient, row.engagement, formatPercent)}
+        value={formatWindowedValue(false, row.engagement, formatPercent)}
         hint="likes ÷ views"
       />
     </section>

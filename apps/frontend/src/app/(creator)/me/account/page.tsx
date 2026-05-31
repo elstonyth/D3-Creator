@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { getSupabaseRoute } from '@gitroom/frontend/lib/supabase-route';
+import { resolveCreatorProfiles } from '@gitroom/frontend/lib/creator-metrics';
 import { SignOutButton } from '@gitroom/frontend/components/auth/signout-button';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +20,8 @@ export default async function AccountPage() {
 
   // Current display name lives on the linked creator row (may not exist yet for
   // a brand-new creator — that's fine, the field starts blank and saving
-  // provisions it). Same client also counts how many profiles this user tracks.
+  // provisions it). Same client also resolves how many profiles this user
+  // tracks — via the shared resolver so the count matches /me + /me/leaderboard.
   const sb = await getSupabaseRoute();
   let displayName = '';
   const creatorId = auth.creatorLink?.creator_id ?? null;
@@ -31,11 +33,11 @@ export default async function AccountPage() {
       .maybeSingle();
     displayName = data?.display_name ?? '';
   }
-  const { count: profileCount } = await sb
-    .from('profile_claim')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', auth.userId);
-  const tracked = profileCount ?? 0;
+  const { profiles } = await resolveCreatorProfiles(sb, {
+    userId: auth.userId,
+    creatorId,
+  });
+  const tracked = profiles.length;
 
   return (
     <div className="flex flex-col gap-10 pt-12 pb-24 max-w-[640px]">

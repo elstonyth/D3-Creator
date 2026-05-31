@@ -136,7 +136,7 @@ export function WindowTabs({ current }: { current: MetricWindow }) {
             key={w}
             href={`/me?window=${w}`}
             scroll={false}
-            aria-current={active ? 'true' : undefined}
+            aria-current={active ? 'page' : undefined}
             className={`text-caption px-3 py-1.5 rounded-full border transition-colors ${
               active
                 ? 'bg-brand/10 text-fg border-brand/20'
