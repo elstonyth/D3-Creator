@@ -23,7 +23,7 @@ import {
   addProfileClaim,
   detectPlatform,
 } from '@d3/database';
-import { getAuthContext } from '@gitroom/frontend/lib/auth';
+import { requireAdmin } from '@gitroom/frontend/lib/auth';
 import { normalizeProvisionUrls } from '@gitroom/frontend/lib/provision-plan';
 import {
   validateEmail,
@@ -49,11 +49,6 @@ export interface ProvisionResult {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unexpected error';
-}
-
-async function requireAdmin(): Promise<void> {
-  const auth = await getAuthContext();
-  if (!auth || auth.role !== 'admin') throw new Error('Not authorized.');
 }
 
 export async function createCreator(

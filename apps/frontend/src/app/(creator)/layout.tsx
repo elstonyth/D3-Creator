@@ -9,8 +9,8 @@ import NavLink from '@gitroom/frontend/components/ui/nav-link';
 // Cookie-bound. Never prerender — Supabase env required at construction.
 export const dynamic = 'force-dynamic';
 
-// Creator-scoped layout. Middleware already enforces auth + onboarding gating;
-// we re-fetch here so child server components can rely on the auth context.
+// Creator-scoped layout. There is NO middleware — THIS check enforces auth for
+// /me/* pages; child server components re-read the cached auth context.
 export default async function CreatorLayout({ children }: { children: ReactNode }) {
   const auth = await getAuthContext();
   if (!auth) redirect('/login');

@@ -18,7 +18,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getSupabaseAdmin } from '@d3/database';
-import { getAuthContext } from '@gitroom/frontend/lib/auth';
+import { requireAdmin } from '@gitroom/frontend/lib/auth';
 import { isUuid } from '@gitroom/frontend/lib/ids';
 
 export interface ActionResult {
@@ -28,13 +28,6 @@ export interface ActionResult {
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unexpected error';
-}
-
-async function requireAdmin(): Promise<void> {
-  const auth = await getAuthContext();
-  if (!auth || auth.role !== 'admin') {
-    throw new Error('Not authorized.');
-  }
 }
 
 export async function approveClaim(
