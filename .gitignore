@@ -95,4 +95,6 @@ dynamicconfig/
 
 # Local tooling artifacts
 .playwright-cli/
+.playwright-mcp/
 e2e-screenshots/
+.vstate.txt
