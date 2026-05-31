@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import useCookie from 'react-use-cookie';
 import EventEmitter from 'events';
 
@@ -9,10 +9,14 @@ export const modeEmitter = new EventEmitter();
 const ModeComponent = () => {
   const [mode, setMode] = useCookie('mode', 'dark');
 
-  const changeMode = useCallback(() => {
-    modeEmitter.emit('mode', mode === 'dark' ? 'light' : 'dark');
-    setMode(mode === 'dark' ? 'light' : 'dark');
-  }, [mode]);
+  // Plain handler — React Compiler memoizes it; a manual useCallback here
+  // tripped react-hooks/preserve-manual-memoization (deps [mode] didn't match
+  // the inferred setMode) and added nothing (it's only an onClick handler).
+  const changeMode = () => {
+    const next = mode === 'dark' ? 'light' : 'dark';
+    modeEmitter.emit('mode', next);
+    setMode(next);
+  };
 
   useEffect(() => {
     document.body.classList.remove('dark', 'light');

@@ -26,10 +26,9 @@ export function useInView<T extends Element = HTMLElement>(
   useEffect(() => {
     const node = ref.current;
     if (!node) return;
-    if (typeof IntersectionObserver === 'undefined') {
-      setInView(true);
-      return;
-    }
+    // IntersectionObserver is universally supported; the old no-IO fallback
+    // called setState synchronously in the effect (react-hooks/set-state-in-effect)
+    // and only ran in environments that don't exist on the client.
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {

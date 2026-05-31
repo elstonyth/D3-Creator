@@ -6,6 +6,11 @@ interface FloatingPathsProps {
   position?: number;
 }
 
+// Per-path drift durations, randomized once at module load. Calling Math.random()
+// during render violates react-hooks/purity and would also reshuffle the speeds
+// on every re-render; hoisting it here keeps the look but makes render pure.
+const PATH_DURATIONS = Array.from({ length: 24 }, () => 20 + Math.random() * 10);
+
 // Decorative background — soft drifting SVG paths in low-opacity yellow.
 // Used on the left brand panel of auth/onboarding screens.
 export function FloatingPaths({ position = 1 }: FloatingPathsProps) {
@@ -39,7 +44,7 @@ export function FloatingPaths({ position = 1 }: FloatingPathsProps) {
               pathOffset: [0, 1, 0],
             }}
             transition={{
-              duration: 20 + Math.random() * 10,
+              duration: PATH_DURATIONS[path.id],
               repeat: Infinity,
               ease: 'linear',
             }}

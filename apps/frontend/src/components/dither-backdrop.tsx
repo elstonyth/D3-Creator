@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 
 // Lazy-load the WebGL shader. Three.js + r3f is heavy — keep it out of the
 // initial JS bundle and off the server render.
@@ -18,17 +18,29 @@ const PURPLE_WAVE_COLOR: [number, number, number] = [0.486, 0.227, 0.929];
  * Skips entirely when the user prefers reduced motion — the shader animates
  * continuously and shouldn't run in that mode.
  */
-export function DitherBackdrop() {
-  const [reducedMotion, setReducedMotion] = useState(false);
+const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    setReducedMotion(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
-  }, []);
+function subscribeReducedMotion(onChange: () => void): () => void {
+  if (typeof window === 'undefined' || !window.matchMedia) return () => {};
+  const mq = window.matchMedia(REDUCED_MOTION_QUERY);
+  mq.addEventListener('change', onChange);
+  return () => mq.removeEventListener('change', onChange);
+}
+
+function getReducedMotionSnapshot(): boolean {
+  return typeof window !== 'undefined' && !!window.matchMedia
+    ? window.matchMedia(REDUCED_MOTION_QUERY).matches
+    : false;
+}
+
+export function DitherBackdrop() {
+  // useSyncExternalStore is the idiomatic way to read an external store (the
+  // media query) — no synchronous setState in an effect (react-hooks/set-state-in-effect).
+  const reducedMotion = useSyncExternalStore(
+    subscribeReducedMotion,
+    getReducedMotionSnapshot,
+    () => false, // server snapshot: assume motion allowed
+  );
 
   if (reducedMotion) return null;
 

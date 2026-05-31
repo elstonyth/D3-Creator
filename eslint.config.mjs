@@ -7,8 +7,8 @@ import nextCoreWebVitals from 'eslint-config-next/core-web-vitals';
 import nextTypescript from 'eslint-config-next/typescript';
 
 const eslintConfig = [
-  ...nextCoreWebVitals,
-  ...nextTypescript,
+  // Global ignores — lint source only, never build output / generated bundles
+  // (e.g. apps/frontend/.vercel holds 89M of 500KB+ JS that OOMs the parser).
   {
     ignores: [
       'node_modules/**',
@@ -16,9 +16,19 @@ const eslintConfig = [
       '**/out/**',
       '**/build/**',
       '**/dist/**',
+      '**/.swc/**',
+      '**/.vercel/**',
+      '**/.vercel.bak/**',
+      '**/public/**',
+      '**/coverage/**',
+      '**/storybook-static/**',
+      '**/.storybook.disabled/**',
+      '**/.git_disabled_hooks/**',
       '**/next-env.d.ts',
     ],
   },
+  ...nextCoreWebVitals,
+  ...nextTypescript,
 ];
 
 export default eslintConfig;
