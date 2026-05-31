@@ -5,8 +5,6 @@ import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { getSupabaseRoute } from '@gitroom/frontend/lib/supabase-route';
 import { SignOutButton } from '@gitroom/frontend/components/auth/signout-button';
 
-
-
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
@@ -78,7 +76,7 @@ export default async function AccountPage() {
         </div>
       </section>
 
-      {/* Tracked profiles summary (read-only — nav already links to manage) */}
+      {/* Tracked profiles summary — read-only, agency-managed */}
       <section className="glass-subtle border border-borderGlass rounded-2xl p-6 flex flex-col gap-1">
         <h2 className="text-heading text-fg">Tracked profiles</h2>
         <p className="text-body text-fgMuted">

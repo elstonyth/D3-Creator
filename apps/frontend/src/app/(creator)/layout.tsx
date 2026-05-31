@@ -36,7 +36,7 @@ export default async function CreatorLayout({ children }: { children: ReactNode 
             </Link>
             <nav className="flex items-center gap-1 text-label">
               <NavLink href="/me" exact>Dashboard</NavLink>
-<NavLink href="/me/leaderboard">Leaderboard</NavLink>
+              <NavLink href="/me/leaderboard">Leaderboard</NavLink>
               <NavLink href="/me/account">Account</NavLink>
               {auth.role === 'admin' && (
                 <Link
