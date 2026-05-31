@@ -91,6 +91,9 @@ function StatusGlyphIcon({ glyph }: { glyph: StatusGlyph }) {
   );
 }
 
+// Allowlist for the ?platform= filter — mirrors the profile.platform CHECK set.
+const FILTER_PLATFORMS = new Set(['instagram', 'tiktok', 'facebook', 'rednote', 'douyin']);
+
 export default async function AdminProfilesPage({
   searchParams,
 }: {
@@ -106,8 +109,9 @@ export default async function AdminProfilesPage({
   // URL-as-state filtering — server-side on the already-fetched data, no new
   // query. ?q= matches creator name or any profile handle; ?platform= narrows
   // to accounts running that platform.
-  const { q = '', platform = '' } = await searchParams;
-  const query = q.trim().toLowerCase();
+  const { q = '', platform: rawPlatform = '' } = await searchParams;
+  const query = q.trim().slice(0, 80).toLowerCase();
+  const platform = FILTER_PLATFORMS.has(rawPlatform) ? rawPlatform : '';
   const platforms = Array.from(new Set(groups.flatMap((g) => g.platforms))).sort();
   const filteredGroups = groups.filter((g) => {
     const matchesPlatform = !platform || g.platforms.includes(platform);

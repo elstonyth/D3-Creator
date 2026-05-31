@@ -41,6 +41,8 @@ import {
 } from '@d3/database';
 
 import { getSupabaseRoute } from '../../../../lib/supabase-route';
+import { isUuid } from '../../../../lib/ids';
+import { checkRateLimit } from '../../../../lib/rate-limit';
 
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
@@ -61,8 +63,8 @@ export async function POST(
   ctx: RouteContext,
 ): Promise<Response> {
   const { profileId } = await ctx.params;
-  if (!profileId || typeof profileId !== 'string') {
-    return jsonError(400, 'profileId is required');
+  if (!isUuid(profileId)) {
+    return jsonError(400, 'invalid profile id');
   }
 
   // 1. Auth — who is calling?
@@ -80,9 +82,23 @@ export async function POST(
   // calling user's row in public.user_role and returns boolean.
   const adminCheck = await route.rpc('is_admin');
   if (adminCheck.error) {
-    return jsonError(500, `is_admin check failed: ${adminCheck.error.message}`);
+    console.error('[scrape] is_admin check failed', adminCheck.error);
+    return jsonError(500, 'internal error');
   }
   const isAdmin = adminCheck.data === true;
+
+  // Cost guard: every scrape calls a paid upstream (Facebook ~20x TikHub). Cap
+  // non-admin self-scrapes; admins bulk-retry failed profiles so they're exempt.
+  // Fail-open if Upstash is unconfigured/erroring (see lib/rate-limit).
+  if (!isAdmin) {
+    const rl = await checkRateLimit({ prefix: 'scrape', key: user.id, tokens: 5, window: '1 m' });
+    if (!rl.ok) {
+      return NextResponse.json(
+        { ok: false, error: 'Too many scrape requests — try again shortly.' },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } },
+      );
+    }
+  }
 
   // 2. Load the profile (admin client — RLS would deny cross-creator reads).
   const admin = getSupabaseAdmin();
@@ -92,7 +108,8 @@ export async function POST(
     .eq('id', profileId)
     .maybeSingle();
   if (profileRes.error) {
-    return jsonError(500, `load profile failed: ${profileRes.error.message}`);
+    console.error('[scrape] load profile failed', profileRes.error);
+    return jsonError(500, 'internal error');
   }
   const profile = profileRes.data as ProfileRow | null;
   if (!profile) {
@@ -107,7 +124,8 @@ export async function POST(
       .eq('user_id', user.id)
       .maybeSingle();
     if (linkRes.error) {
-      return jsonError(500, `creator_link lookup failed: ${linkRes.error.message}`);
+      console.error('[scrape] creator_link lookup failed', linkRes.error);
+      return jsonError(500, 'internal error');
     }
     const ownCreatorId = linkRes.data?.creator_id ?? null;
     if (!ownCreatorId || ownCreatorId !== profile.creator_id) {

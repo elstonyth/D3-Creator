@@ -26,7 +26,8 @@ export function AdminSearchForm({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const params = new URLSearchParams();
-    if (q.trim()) params.set('q', q.trim());
+    const trimmed = q.trim().slice(0, 80);
+    if (trimmed) params.set('q', trimmed);
     if (platform) params.set('platform', platform);
     const qs = params.toString();
     router.push(qs ? `/admin/profiles?${qs}` : '/admin/profiles', { scroll: false });
@@ -38,6 +39,7 @@ export function AdminSearchForm({
         name="q"
         value={q}
         onChange={(e) => setQ(e.target.value)}
+        maxLength={80}
         placeholder="Search by creator name or handle…"
         className="max-w-[360px]"
       />

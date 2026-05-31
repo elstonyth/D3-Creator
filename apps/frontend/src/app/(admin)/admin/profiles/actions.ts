@@ -19,6 +19,7 @@
 import { revalidatePath } from 'next/cache';
 import { getSupabaseAdmin } from '@d3/database';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
+import { isUuid } from '@gitroom/frontend/lib/ids';
 
 export interface ActionResult {
   ok: boolean;
@@ -44,7 +45,9 @@ export async function approveClaim(
     await requireAdmin();
     const userId = String(formData.get('user_id') ?? '');
     const profileId = String(formData.get('profile_id') ?? '');
-    if (!userId || !profileId) return { ok: false, message: 'Missing user or profile.' };
+    if (!isUuid(userId) || !isUuid(profileId)) {
+      return { ok: false, message: 'Invalid user or profile id.' };
+    }
 
     const admin = getSupabaseAdmin();
     const { error } = await admin
@@ -52,7 +55,10 @@ export async function approveClaim(
       .update({ claim_kind: 'owner', confirmed_at: new Date().toISOString() })
       .eq('user_id', userId)
       .eq('profile_id', profileId);
-    if (error) return { ok: false, message: error.message };
+    if (error) {
+      console.error('[admin/approveClaim]', error);
+      return { ok: false, message: 'Could not approve the claim.' };
+    }
 
     revalidatePath('/admin/profiles');
     return { ok: true, message: 'Claim approved.' };
@@ -69,7 +75,9 @@ export async function rejectClaim(
     await requireAdmin();
     const userId = String(formData.get('user_id') ?? '');
     const profileId = String(formData.get('profile_id') ?? '');
-    if (!userId || !profileId) return { ok: false, message: 'Missing user or profile.' };
+    if (!isUuid(userId) || !isUuid(profileId)) {
+      return { ok: false, message: 'Invalid user or profile id.' };
+    }
 
     const admin = getSupabaseAdmin();
     const { error } = await admin
@@ -77,7 +85,10 @@ export async function rejectClaim(
       .delete()
       .eq('user_id', userId)
       .eq('profile_id', profileId);
-    if (error) return { ok: false, message: error.message };
+    if (error) {
+      console.error('[admin/rejectClaim]', error);
+      return { ok: false, message: 'Could not reject the claim.' };
+    }
 
     revalidatePath('/admin/profiles');
     return { ok: true, message: 'Claim rejected.' };
@@ -93,14 +104,19 @@ export async function deleteProfile(
   try {
     await requireAdmin();
     const profileId = String(formData.get('profile_id') ?? '');
-    if (!profileId) return { ok: false, message: 'Missing profile.' };
+    if (!isUuid(profileId)) {
+      return { ok: false, message: 'Invalid profile id.' };
+    }
 
     // ON DELETE CASCADE on profile_claim.profile_id + profile_snapshot.profile_id
     // + post_snapshot.profile_id (per init_v1_core_tables + profile_claim
     // migrations) cleans up dependent rows automatically.
     const admin = getSupabaseAdmin();
     const { error } = await admin.from('profile').delete().eq('id', profileId);
-    if (error) return { ok: false, message: error.message };
+    if (error) {
+      console.error('[admin/deleteProfile]', error);
+      return { ok: false, message: 'Could not delete the profile.' };
+    }
 
     revalidatePath('/admin/profiles');
     return { ok: true, message: 'Profile deleted.' };

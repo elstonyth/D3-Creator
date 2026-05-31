@@ -25,11 +25,13 @@ export function SignInForm({ redirectTo }: SignInFormProps) {
     setPending(true);
     const supabase = getSupabaseBrowser();
     const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
+      email: email.trim().toLowerCase(),
       password,
     });
     if (signInError) {
-      setError(signInError.message);
+      // Collapse provider errors to one generic message: no Supabase internals
+      // leaked, no account-enumeration signal.
+      setError('Invalid email or password.');
       setPending(false);
       return;
     }
@@ -48,6 +50,7 @@ export function SignInForm({ redirectTo }: SignInFormProps) {
           <Input
             type="email"
             required
+            maxLength={254}
             autoComplete="email"
             placeholder="you@agency.com"
             value={email}
@@ -62,6 +65,7 @@ export function SignInForm({ redirectTo }: SignInFormProps) {
         <Input
           type="password"
           required
+          maxLength={200}
           autoComplete="current-password"
           placeholder="••••••••"
           value={password}
