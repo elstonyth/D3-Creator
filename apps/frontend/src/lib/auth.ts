@@ -48,6 +48,13 @@ export const getAuthContext = cache(
         .maybeSingle(),
     ]);
 
+    // A failed role lookup must NOT be silently read as "no role -> creator":
+    // that would demote a real admin (and bounce them out of /admin) during a
+    // transient DB error. Surface the error so the caller fails closed, the
+    // same way the edge middleware (proxy.ts) does. Only a successful query
+    // with no row falls through to the 'creator' default below.
+    if (roleRes.error) throw roleRes.error;
+
     const role: UserRole = (roleRes.data?.role as UserRole) ?? 'creator';
     return {
       userId: user.id,

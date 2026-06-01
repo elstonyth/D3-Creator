@@ -94,7 +94,16 @@ export async function upsertPostSnapshots(
 ): Promise<{ written: number }> {
   if (posts.length === 0) return { written: 0 };
   const sb = getSupabaseAdmin();
-  const rows = posts.map((p) => ({
+  // De-duplicate by external_post_id before the batch UPSERT. Every row shares
+  // the same (profile_id, captured_date), so two rows with the same
+  // external_post_id hit the same ON CONFLICT target and Postgres aborts the
+  // entire statement with "ON CONFLICT DO UPDATE command cannot affect row a
+  // second time" (21000) — losing every post for the profile that day. Feeds
+  // routinely repeat a post (a pinned item also appearing in the timeline).
+  // Last write wins, matching this writer's documented idempotent intent.
+  const byId = new Map<string, PostSnapshotInput>();
+  for (const p of posts) byId.set(p.external_post_id, p);
+  const rows = [...byId.values()].map((p) => ({
     profile_id: profileId,
     external_post_id: p.external_post_id,
     posted_at: p.posted_at,

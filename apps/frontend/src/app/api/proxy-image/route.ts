@@ -46,6 +46,11 @@ const ratelimit: Ratelimit | null =
     ? new Ratelimit({
         redis: Redis.fromEnv(),
         limiter: Ratelimit.slidingWindow(30, '10 s'),
+        // Bound the per-request limiter latency: the SDK's default fail-open
+        // timeout is ~5s, so a Redis/Upstash stall would add seconds to every
+        // image request. Cap it at 1s — the route still serves the image when
+        // the limiter times out or errors (see the try/catch below).
+        timeout: 1000,
         analytics: false,
         prefix: 'proxy-image',
       })
@@ -118,17 +123,29 @@ export async function GET(request: Request): Promise<Response> {
   // itself is a remote Redis call. When ratelimit is null (no env vars
   // set), this is free.
   if (ratelimit) {
-    const { success, limit, remaining, reset } = await ratelimit.limit(
-      callerIp(request),
-    );
-    if (!success) {
-      return new NextResponse('rate limited', {
-        status: 429,
-        headers: {
+    // Fail OPEN: a limiter outage (bad Upstash token / Redis unreachable) must
+    // never take down every image on the site. Only an actual success:false
+    // blocks the request; an error from .limit() is logged and swallowed so the
+    // proxy still serves the image. (Mirrors the fail-open lib/rate-limit.ts.)
+    let limitedHeaders: Record<string, string> | null = null;
+    try {
+      const { success, limit, remaining, reset } = await ratelimit.limit(
+        callerIp(request),
+      );
+      if (!success) {
+        limitedHeaders = {
           'Retry-After': Math.max(0, Math.ceil((reset - Date.now()) / 1000)).toString(),
           'X-RateLimit-Limit': String(limit),
           'X-RateLimit-Remaining': String(remaining),
-        },
+        };
+      }
+    } catch (err) {
+      console.error('[proxy-image] rate limiter error — failing open', err);
+    }
+    if (limitedHeaders) {
+      return new NextResponse('rate limited', {
+        status: 429,
+        headers: limitedHeaders,
       });
     }
   }
