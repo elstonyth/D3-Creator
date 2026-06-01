@@ -7,7 +7,7 @@
  * reusing the provision-form credentials pattern.
  */
 
-import { useActionState, useState } from 'react';
+import { useActionState, useEffect, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Input } from '@gitroom/frontend/components/ui/input';
 import { Button } from '@gitroom/frontend/components/ui/button';
@@ -89,11 +89,15 @@ function ProfileUrlRow({ creatorId, profile }: { creatorId: string; profile: Adm
   const [editState, editAction] = useActionState(editCreatorUrl, null);
   const [removeState, removeAction] = useActionState(removeCreatorUrl, null);
   const [confirming, setConfirming] = useState(false);
+  const editFormRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (editState?.ok) editFormRef.current?.reset();
+  }, [editState]);
   return (
     <li className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
         <span className="text-caption text-fgSubtle w-16 shrink-0">{profile.platform}</span>
-        <form action={editAction} className="flex items-center gap-2 flex-1">
+        <form ref={editFormRef} action={editAction} className="flex items-center gap-2 flex-1">
           <input type="hidden" name="creator_id" value={creatorId} />
           <input type="hidden" name="profile_id" value={profile.id} />
           <Input name="url" type="url" defaultValue={profile.profileUrl} className="flex-1" />
@@ -127,10 +131,14 @@ function ProfileUrlRow({ creatorId, profile }: { creatorId: string; profile: Adm
 
 function AddUrlRow({ creatorId }: { creatorId: string }) {
   const [state, action] = useActionState(addCreatorUrl, null);
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (state?.ok) formRef.current?.reset();
+  }, [state]);
   return (
     <div className="flex flex-col gap-1.5 border-t border-borderGlass pt-4">
       <span className="text-label text-fgMuted">Add a URL</span>
-      <form action={action} className="flex items-center gap-2">
+      <form ref={formRef} action={action} className="flex items-center gap-2">
         <input type="hidden" name="creator_id" value={creatorId} />
         <Input name="url" type="url" required placeholder="https://www.instagram.com/handle" className="flex-1" />
         <Save label="Add" />
@@ -159,12 +167,17 @@ function LoginsSection({ creatorId, logins }: { creatorId: string; logins: Admin
 
 function LoginRow({ creatorId, login }: { creatorId: string; login: AdminCreatorLogin }) {
   const [state, action] = useActionState(resetCreatorPassword, null as PasswordResetResult | null);
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (state?.ok) formRef.current?.reset();
+  }, [state]);
   return (
     <li className="flex flex-col gap-2">
       <div className="text-body text-fg">{login.email}</div>
-      <form action={action} className="flex items-center gap-2">
+      <form ref={formRef} action={action} className="flex items-center gap-2">
         <input type="hidden" name="creator_id" value={creatorId} />
         <input type="hidden" name="user_id" value={login.userId} />
+        {/* type="text" is intentional — admin sees/copies the new password to share it once */}
         <Input name="password" type="text" placeholder="New password (blank = generate)" minLength={8} maxLength={72} className="flex-1" />
         <Save label="Reset password" />
       </form>
