@@ -262,3 +262,93 @@ export async function getAdminCreatorsData(
     },
   };
 }
+
+export interface AdminCreatorLogin {
+  userId: string;
+  email: string;
+}
+
+export interface AdminCreatorDetail {
+  creatorId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  profiles: AdminProfileRow[];
+  logins: AdminCreatorLogin[];
+}
+
+/**
+ * Per-creator detail for the editor page. Returns null when the creator does not
+ * exist. Logins come from creator_link → auth.admin.getUserById (auth schema
+ * isn't reachable via PostgREST). Service-role only.
+ */
+export async function getAdminCreatorDetail(
+  admin: SupabaseClient,
+  creatorId: string,
+): Promise<AdminCreatorDetail | null> {
+  const creatorRes = await admin
+    .from('creator')
+    .select('id, display_name, avatar_url')
+    .eq('id', creatorId)
+    .maybeSingle();
+  if (creatorRes.error || !creatorRes.data) return null;
+  const creator = creatorRes.data as { id: string; display_name: string; avatar_url: string | null };
+
+  const profilesRes = await admin
+    .from('profile')
+    .select('id, platform, profile_url, handle, display_name, scrape_status')
+    .eq('creator_id', creatorId)
+    .order('platform', { ascending: true });
+  const profileRows = (profilesRes.data ?? []) as Array<{
+    id: string; platform: string; profile_url: string; handle: string | null;
+    display_name: string | null; scrape_status: string;
+  }>;
+  const profileIds = profileRows.map((p) => p.id);
+
+  let claims: { profile_id: string; user_id: string; claim_kind: string }[] = [];
+  if (profileIds.length) {
+    const { data } = await admin
+      .from('profile_claim')
+      .select('profile_id, user_id, claim_kind')
+      .in('profile_id', profileIds);
+    claims = (data ?? []) as typeof claims;
+  }
+  const claimsByProfile = new Map<string, typeof claims>();
+  for (const c of claims) {
+    const arr = claimsByProfile.get(c.profile_id);
+    if (arr) arr.push(c);
+    else claimsByProfile.set(c.profile_id, [c]);
+  }
+
+  const profiles: AdminProfileRow[] = profileRows.map((p) => {
+    const pc = claimsByProfile.get(p.id) ?? [];
+    return {
+      id: p.id,
+      platform: p.platform,
+      handle: p.handle,
+      displayName: p.display_name,
+      profileUrl: p.profile_url,
+      scrapeStatus: p.scrape_status,
+      followers: null,
+      followersDelta: null,
+      views: null,
+      ownerCount: pc.filter((c) => c.claim_kind === 'owner').length,
+      trackerCount: pc.filter((c) => c.claim_kind === 'tracker').length,
+      pendingCount: pc.filter((c) => c.claim_kind === 'pending').length,
+    };
+  });
+
+  const linksRes = await admin.from('creator_link').select('user_id').eq('creator_id', creatorId);
+  const logins: AdminCreatorLogin[] = [];
+  for (const l of (linksRes.data ?? []) as { user_id: string }[]) {
+    const u = await admin.auth.admin.getUserById(l.user_id);
+    if (u.data?.user) logins.push({ userId: l.user_id, email: u.data.user.email ?? '' });
+  }
+
+  return {
+    creatorId: creator.id,
+    displayName: creator.display_name,
+    avatarUrl: creator.avatar_url,
+    profiles,
+    logins,
+  };
+}
