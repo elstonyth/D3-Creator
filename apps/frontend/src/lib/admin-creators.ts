@@ -304,15 +304,15 @@ export async function getAdminCreatorDetail(
   }>;
   const profileIds = profileRows.map((p) => p.id);
 
-  let claims: { profile_id: string; user_id: string; claim_kind: string }[] = [];
+  let claims: ClaimRow[] = [];
   if (profileIds.length) {
     const { data } = await admin
       .from('profile_claim')
       .select('profile_id, user_id, claim_kind')
       .in('profile_id', profileIds);
-    claims = (data ?? []) as typeof claims;
+    claims = (data ?? []) as ClaimRow[];
   }
-  const claimsByProfile = new Map<string, typeof claims>();
+  const claimsByProfile = new Map<string, ClaimRow[]>();
   for (const c of claims) {
     const arr = claimsByProfile.get(c.profile_id);
     if (arr) arr.push(c);
