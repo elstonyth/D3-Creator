@@ -70,7 +70,12 @@ export async function createCreator(
     if (!nameRes.ok) return { ok: false, message: nameRes.error };
     const displayName = nameRes.value;
 
-    const rawUrls = formData.getAll('url').map((v) => String(v));
+    // Validate the URL list BEFORE creating any auth user — an over-cap
+    // submission must not leave an orphaned login/creator behind.
+    const urls = normalizeProvisionUrls(formData.getAll('url').map((v) => String(v)));
+    if (urls.length > MAX_PROVISION_URLS) {
+      return { ok: false, message: `Too many URLs — provide at most ${MAX_PROVISION_URLS}.` };
+    }
 
     const admin = getSupabaseAdmin();
 
@@ -98,10 +103,6 @@ export async function createCreator(
     const creatorId = creatorRes.value.creator_id;
 
     // 3. Assign social URLs — owner claims, admin-initiated.
-    const urls = normalizeProvisionUrls(rawUrls);
-    if (urls.length > MAX_PROVISION_URLS) {
-      return { ok: false, message: `Too many URLs — provide at most ${MAX_PROVISION_URLS}.` };
-    }
     const urlResults: UrlResult[] = [];
     for (const url of urls) {
       const platform = detectPlatform(url);
