@@ -162,10 +162,17 @@ function unwrapCaption(c: IgPost['caption']): string | null {
 }
 
 function unwrapTimestamp(p: IgPost): string | null {
-  if (typeof p.taken_at === 'string') return p.taken_at;
+  // A non-numeric string is an actual date string (ISO) — pass it through.
+  // A numeric string like '1716800000' is unix seconds masquerading as a
+  // string; returning it verbatim would fail the timestamptz column and throw
+  // the whole post batch, so coerce it like a number instead.
+  if (typeof p.taken_at === 'string' && Number.isNaN(Number(p.taken_at))) {
+    return p.taken_at;
+  }
   const ts = p.taken_at ?? p.taken_at_timestamp;
-  if (typeof ts === 'number' && Number.isFinite(ts)) {
-    return new Date(ts * 1000).toISOString();
+  const seconds = typeof ts === 'string' ? Number(ts) : ts;
+  if (typeof seconds === 'number' && Number.isFinite(seconds)) {
+    return new Date(seconds * 1000).toISOString();
   }
   return null;
 }

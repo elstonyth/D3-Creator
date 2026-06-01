@@ -136,10 +136,14 @@ function truncate(s: string | null | undefined, n: number): string | null {
 function pickRenderableUrl(list?: TtUrlList): string | null {
   const urls = list?.url_list;
   if (!urls || urls.length === 0) return null;
-  const nonHeic = urls.find(
+  // Upstream JSON occasionally carries a null/non-string entry; guard before
+  // .split so one bad URL can't throw a TypeError and abort the whole scrape.
+  const strings = urls.filter((u): u is string => typeof u === 'string');
+  if (strings.length === 0) return null;
+  const nonHeic = strings.find(
     (u) => !u.split('?')[0].toLowerCase().endsWith('.heic'),
   );
-  return nonHeic ?? urls[0];
+  return nonHeic ?? strings[0];
 }
 
 function pickCover(v?: TtVideo): string | null {
@@ -245,9 +249,15 @@ export const tiktokAdapter: PlatformAdapter = {
         platform: PLATFORM,
         profileUrl,
       }).catch((err) => {
-        // Private accounts often return profile fine but reject posts —
-        // surface the profile shape with empty posts in that case.
-        if (err instanceof ProfilePrivateError) return { aweme_list: [] } as TtPostsResponse;
+        // Posts are supplementary. A private OR not-found error from the posts
+        // endpoint must not sink an otherwise-healthy profile — the profile
+        // response below still decides genuine private/not_found. Degrade to
+        // empty posts. (Matches the Instagram and Douyin adapters; without the
+        // not_found case a transient posts-worker blip would mark a live
+        // profile not_found, which the cron then excludes permanently.)
+        if (err instanceof ProfilePrivateError || err instanceof ProfileNotFoundError) {
+          return { aweme_list: [] } as TtPostsResponse;
+        }
         throw err;
       }),
     ]);
@@ -276,10 +286,11 @@ export const tiktokAdapter: PlatformAdapter = {
           profileUrl,
         });
         awemeList = bySec.aweme_list ?? [];
-      } catch (err) {
-        // Posts are supplementary — don't sink the profile snapshot if the
-        // fallback also fails. Re-throw only on a hard (non-private) error.
-        if (!(err instanceof ProfilePrivateError)) throw err;
+      } catch {
+        // Posts are supplementary and the profile is already validated above,
+        // so a failed fallback must not sink the snapshot — keep posts empty.
+        // (Previously this re-threw on any non-private error, discarding the
+        // good follower data already fetched and contradicting this comment.)
       }
     }
 

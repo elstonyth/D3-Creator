@@ -242,6 +242,7 @@ export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
     if (cProfiles.length === 0) continue;
 
     let followers = 0;
+    let followersWithBaseline = 0;
     let prior = 0;
     let priorSeen = false;
     let totalEng = 0;
@@ -250,7 +251,8 @@ export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
     let mostRecentProfile = cProfiles[0];
 
     for (const p of cProfiles) {
-      followers += latestSnap.get(p.id) ?? 0;
+      const current = latestSnap.get(p.id) ?? 0;
+      followers += current;
       const e = engagementByProfile.get(p.id);
       if (e) {
         totalEng += e.totalEng;
@@ -260,6 +262,7 @@ export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
       const priorVal = earliest30d.get(p.id);
       if (priorVal !== undefined) {
         prior += priorVal;
+        followersWithBaseline += current;
         priorSeen = true;
       }
       if (
@@ -281,7 +284,11 @@ export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
     }
     const insufficient = trackedDays < INSUFFICIENT_DAYS;
 
-    const growth30d = priorSeen && !insufficient ? followers - prior : 0;
+    // Compare like-for-like: growth is current-minus-baseline over only the
+    // profiles that HAVE a 30d baseline. Summing every profile's current
+    // followers against a partial baseline counted a newly-added platform's
+    // entire audience as "growth".
+    const growth30d = priorSeen && !insufficient ? followersWithBaseline - prior : 0;
     const engagementRate =
       followers > 0 && totalPosts > 0
         ? totalEng / totalPosts / followers

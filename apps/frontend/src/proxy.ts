@@ -94,6 +94,11 @@ export async function proxy(request: NextRequest) {
       roleErr: roleErr.message,
       userId: user.id,
     });
+    // Don't redirect to /login when we're already on it: /login re-runs this
+    // same lookup, so redirecting on a persistent error would bounce
+    // /login -> /login forever (ERR_TOO_MANY_REDIRECTS) and lock the user out
+    // entirely. Serve the auth page instead so they can still see the error.
+    if (isAuthPage) return response;
     const failUrl = new URL('/login', request.url);
     failUrl.searchParams.set('error', 'session_lookup_failed');
     return NextResponse.redirect(failUrl);
