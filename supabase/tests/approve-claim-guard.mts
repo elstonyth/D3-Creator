@@ -6,7 +6,7 @@
  *   NEXT_PUBLIC_SUPABASE_URL=… SUPABASE_SERVICE_ROLE_KEY=… pnpm exec tsx supabase/tests/approve-claim-guard.mts
  */
 import { randomUUID } from 'node:crypto';
-import { getSupabaseAdmin, ensureCreatorForUser, findOrCreateProfile, addProfileClaim } from '@d3/database';
+import { getSupabaseAdmin, ensureCreatorForUser, findOrCreateProfile } from '@d3/database';
 
 const sb = getSupabaseAdmin();
 let pass = 0, fail = 0;
@@ -33,9 +33,11 @@ async function mkUser() {
 async function main() {
   const owner = await mkUser();
   const cr = await ensureCreatorForUser({ user_id: owner, display_name: `Guard ${randomUUID().slice(0, 4)}` });
-  creatorIds.push(cr.ok ? cr.value.creator_id : '');
-  const prof = await findOrCreateProfile({ platform: 'instagram', profile_url: `https://www.instagram.com/g${randomUUID().slice(0, 8)}`, fallback_creator_id: cr.ok ? cr.value.creator_id : '' });
-  const profileId = prof.ok ? prof.value.profile.id : '';
+  if (!cr.ok) throw new Error(`ensureCreatorForUser failed: ${cr.error}`);
+  creatorIds.push(cr.value.creator_id);
+  const prof = await findOrCreateProfile({ platform: 'instagram', profile_url: `https://www.instagram.com/g${randomUUID().slice(0, 8)}`, fallback_creator_id: cr.value.creator_id });
+  if (prof.ok !== true) throw new Error(`findOrCreateProfile failed: ${prof.error}`);
+  const profileId = prof.value.profile.id;
 
   // Case 1: unowned profile — a pending claim approves cleanly.
   const claimer1 = await mkUser();
