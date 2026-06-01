@@ -185,7 +185,7 @@ export default async function AdminProfilesPage({
                   </div>
                   <div className="text-caption text-fgSubtle">User: {c.userId}</div>
                 </div>
-                <ClaimActions userId={c.userId} profileId={c.profileId} />
+                <ClaimActions userId={c.userId} profileId={c.profileId} alreadyOwned={c.alreadyOwned} />
               </li>
             ))}
           </ul>

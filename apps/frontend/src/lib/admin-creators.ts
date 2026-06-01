@@ -22,6 +22,8 @@ export interface AdminPendingClaim {
   handle: string | null;
   profileUrl: string;
   creatorName: string;
+  /** True when the claim's profile already has an owner — Approve cannot succeed. */
+  alreadyOwned: boolean;
 }
 
 export interface AdminProfileRow {
@@ -170,6 +172,9 @@ export async function getAdminCreatorsData(
     .filter((c) => c.claim_kind === 'pending')
     .map((c) => {
       const p = profiles.find((pr) => pr.id === c.profile_id);
+      const alreadyOwned = (claimsByProfile.get(c.profile_id) ?? []).some(
+        (x) => x.claim_kind === 'owner',
+      );
       return {
         userId: c.user_id,
         profileId: c.profile_id,
@@ -177,6 +182,7 @@ export async function getAdminCreatorsData(
         handle: p?.handle ?? null,
         profileUrl: p?.profile_url ?? '',
         creatorName: p ? creatorName.get(p.creator_id) ?? '—' : '—',
+        alreadyOwned,
       };
     });
 

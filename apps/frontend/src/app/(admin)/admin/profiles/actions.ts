@@ -43,6 +43,24 @@ export async function approveClaim(
     }
 
     const admin = getSupabaseAdmin();
+
+    // One owner per profile (partial unique profile_claim_one_owner). If another
+    // user already owns it, promoting this claim to 'owner' would 23505 — tell the
+    // admin plainly instead of failing opaquely.
+    const owner = await admin
+      .from('profile_claim')
+      .select('user_id')
+      .eq('profile_id', profileId)
+      .eq('claim_kind', 'owner')
+      .maybeSingle();
+    if (owner.data && owner.data.user_id !== userId) {
+      return {
+        ok: false,
+        message:
+          "This profile already has an owner — reject this claim, or reassign ownership from the creator's editor.",
+      };
+    }
+
     const { error } = await admin
       .from('profile_claim')
       .update({ claim_kind: 'owner', confirmed_at: new Date().toISOString() })
@@ -50,7 +68,13 @@ export async function approveClaim(
       .eq('profile_id', profileId);
     if (error) {
       console.error('[admin/approveClaim]', error);
-      return { ok: false, message: 'Could not approve the claim.' };
+      return {
+        ok: false,
+        message:
+          error.code === '23505'
+            ? "This profile already has an owner — reject this claim, or reassign ownership from the creator's editor."
+            : 'Could not approve the claim.',
+      };
     }
 
     revalidatePath('/admin/profiles');

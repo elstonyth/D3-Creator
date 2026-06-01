@@ -45,9 +45,11 @@ function SubmitButton({
 export function ClaimActions({
   userId,
   profileId,
+  alreadyOwned,
 }: {
   userId: string;
   profileId: string;
+  alreadyOwned: boolean;
 }) {
   const [approveState, approveAction] = useActionState(approveClaim, null);
   const [rejectState, rejectAction] = useActionState(rejectClaim, null);
@@ -61,13 +63,15 @@ export function ClaimActions({
   return (
     <div className="flex flex-col items-end gap-1.5 shrink-0">
       <div className="flex gap-2">
-        <form action={approveAction}>
-          <input type="hidden" name="user_id" value={userId} />
-          <input type="hidden" name="profile_id" value={profileId} />
-          <SubmitButton className={APPROVE_CLS} pendingLabel="Approving…">
-            Approve
-          </SubmitButton>
-        </form>
+        {!alreadyOwned && (
+          <form action={approveAction}>
+            <input type="hidden" name="user_id" value={userId} />
+            <input type="hidden" name="profile_id" value={profileId} />
+            <SubmitButton className={APPROVE_CLS} pendingLabel="Approving…">
+              Approve
+            </SubmitButton>
+          </form>
+        )}
         <form action={rejectAction}>
           <input type="hidden" name="user_id" value={userId} />
           <input type="hidden" name="profile_id" value={profileId} />
@@ -76,6 +80,11 @@ export function ClaimActions({
           </SubmitButton>
         </form>
       </div>
+      {alreadyOwned && (
+        <span className="text-caption text-fgSubtle max-w-[220px] text-right">
+          Already owned — reject, or reassign in the creator&apos;s editor.
+        </span>
+      )}
       {error && <span className="text-caption text-red-400 max-w-[220px] text-right">{error}</span>}
     </div>
   );
