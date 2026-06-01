@@ -109,8 +109,11 @@ export default async function AdminProfilesPage({
   // URL-as-state filtering — server-side on the already-fetched data, no new
   // query. ?q= matches creator name or any profile handle; ?platform= narrows
   // to accounts running that platform.
-  const { q = '', platform: rawPlatform = '' } = await searchParams;
-  const query = q.trim().slice(0, 80).toLowerCase();
+  const { q: rawQ = '', platform: rawPlatform = '' } = await searchParams;
+  // Normalize ONCE (trim + 80-char cap) and reuse for display + links; the
+  // lowercased copy is only for case-insensitive filtering.
+  const normalizedQuery = rawQ.trim().slice(0, 80);
+  const query = normalizedQuery.toLowerCase();
   const platform = FILTER_PLATFORMS.has(rawPlatform) ? rawPlatform : '';
   const platforms = Array.from(new Set(groups.flatMap((g) => g.platforms))).sort();
   const filteredGroups = groups.filter((g) => {
@@ -127,7 +130,7 @@ export default async function AdminProfilesPage({
   });
   const chipHref = (p: string) => {
     const params = new URLSearchParams();
-    if (query) params.set('q', q.trim());
+    if (normalizedQuery) params.set('q', normalizedQuery);
     if (p) params.set('platform', p);
     const qs = params.toString();
     return qs ? `/admin/profiles?${qs}` : '/admin/profiles';
@@ -198,7 +201,7 @@ export default async function AdminProfilesPage({
 
         {/* Filter toolbar — URL-as-state via GET form + platform chip links */}
         <div className="flex flex-col gap-3">
-          <AdminSearchForm defaultQuery={q} platform={platform} />
+          <AdminSearchForm defaultQuery={normalizedQuery} platform={platform} />
           {platforms.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
               <Link
