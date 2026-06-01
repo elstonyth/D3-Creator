@@ -43,7 +43,7 @@ export default async function CreatorMeLeaderboardPage() {
   // its top posts.
   const { profiles } = await resolveCreatorProfiles(sb, {
     userId: auth.userId,
-    creatorId: auth.creatorLink.creator_id,
+    creatorId: auth.creatorLink?.creator_id ?? null,
   });
   const ids = profiles.map((p) => p.id);
 
