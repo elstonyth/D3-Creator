@@ -11,10 +11,6 @@
     {
       "path": "/api/cron/archive-and-purge",
       "schedule": "30 2 * * *"
-    },
-    {
-      "path": "/api/admin/backfill-media",
-      "schedule": "0 3 * * *"
     }
   ]
 }
