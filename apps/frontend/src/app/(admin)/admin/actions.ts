@@ -22,6 +22,7 @@ import {
   findOrCreateProfile,
   addProfileClaim,
   detectPlatform,
+  resolveShortLink,
 } from '@d3/database';
 import { requireAdmin } from '@gitroom/frontend/lib/auth';
 import { normalizeProvisionUrls } from '@gitroom/frontend/lib/provision-plan';
@@ -104,7 +105,8 @@ export async function createCreator(
 
     // 3. Assign social URLs — owner claims, admin-initiated.
     const urlResults: UrlResult[] = [];
-    for (const url of urls) {
+    for (const rawUrl of urls) {
+      const url = await resolveShortLink(rawUrl);
       const platform = detectPlatform(url);
       if (!platform) {
         urlResults.push({ url, status: 'failed', detail: 'Unrecognized platform URL.' });
