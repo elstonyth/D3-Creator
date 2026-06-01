@@ -233,6 +233,59 @@ export function validateProfileUrl(
 }
 
 /**
+ * Resolve an allowlisted short/redirector link to its final URL so it can be
+ * validated like any normal profile URL. Only hosts in SHORTLINK_HOSTS trigger
+ * a network round-trip; everything else returns unchanged with no fetch.
+ *
+ * Safety: we only INITIATE requests to known short-link domains, follow at most
+ * 5 redirects with a 3s timeout, and never throw — on any failure we return the
+ * original input so the caller's validateProfileUrl rejects it with the usual
+ * short-link message (fail closed). The final URL is still validated downstream
+ * (must be a known platform PROFILE host), so a redirect elsewhere is rejected.
+ */
+export async function resolveShortLink(
+  rawUrl: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  let u: URL;
+  try {
+    u = new URL(ensureScheme(rawUrl.trim()));
+  } catch {
+    return rawUrl;
+  }
+  if (!SHORTLINK_HOSTS.some((s) => s.re.test(u.hostname))) return rawUrl;
+
+  let current = u.toString();
+  for (let hop = 0; hop < 5; hop++) {
+    let res: Response;
+    try {
+      res = await fetchImpl(current, {
+        method: 'GET',
+        redirect: 'manual',
+        signal: AbortSignal.timeout(3000),
+      });
+    } catch {
+      return rawUrl; // network error / timeout → fail closed
+    }
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get('location');
+      if (!loc) return rawUrl;
+      let next: string;
+      try {
+        next = new URL(loc, current).toString();
+      } catch {
+        return rawUrl;
+      }
+      if (next === current) return rawUrl; // self-loop
+      current = next;
+      continue;
+    }
+    return current; // non-redirect → resolved
+  }
+  return rawUrl; // exceeded redirect cap
+}
+
+/**
  * Fold a handle for cross-platform fuzzy matching used by Auto-Discovery.
  *
  * Steps:

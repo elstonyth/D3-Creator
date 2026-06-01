@@ -12,6 +12,7 @@ export { getSupabaseAdmin } from './supabase-server';
 export {
   detectPlatform,
   normalizeHandle,
+  resolveShortLink,
   validateProfileUrl,
   type ProfileUrlValidation,
   type ProfileUrlValidationError,
