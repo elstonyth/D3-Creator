@@ -17,7 +17,7 @@ function fakeFetch(routes: Record<string, { status: number; location?: string }>
   return async (url: string | URL): Promise<Response> => {
     const key = url.toString();
     const r = routes[key];
-    if (!r) return new Response(null, { status: 200 }); // terminal
+    if (!r) throw new Error(`fakeFetch: no route for ${key}`);
     const headers = new Headers();
     if (r.location) headers.set('location', r.location);
     return new Response(null, { status: r.status, headers });
@@ -48,14 +48,26 @@ async function main() {
   const r2 = await resolveShortLink('v.douyin.com/abc/', f2);
   check('bare douyin shortlink resolves', r2 === 'https://www.douyin.com/user/MS4wABC', r2);
 
-  // 4. Redirect loop / too many hops → fail closed (return original).
+  // 4. Self-loop → fail closed (return original).
   const loop = fakeFetch({
     'https://vm.tiktok.com/loop/': { status: 302, location: 'https://vm.tiktok.com/loop/' },
   }) as typeof fetch;
   const r3 = await resolveShortLink('https://vm.tiktok.com/loop/', loop);
-  check('redirect loop fails closed to original', r3 === 'https://vm.tiktok.com/loop/', r3);
+  check('self-loop fails closed to original', r3 === 'https://vm.tiktok.com/loop/', r3);
 
-  // 5. Network error → fail closed (return original).
+  // 5. 5-hop cap: 6 distinct hops (h0→h1→h2→h3→h4→h5→h6) — cap exceeded → fail closed.
+  const capFetch = fakeFetch({
+    'https://vm.tiktok.com/h0/': { status: 302, location: 'https://vm.tiktok.com/h1/' },
+    'https://vm.tiktok.com/h1/': { status: 302, location: 'https://vm.tiktok.com/h2/' },
+    'https://vm.tiktok.com/h2/': { status: 302, location: 'https://vm.tiktok.com/h3/' },
+    'https://vm.tiktok.com/h3/': { status: 302, location: 'https://vm.tiktok.com/h4/' },
+    'https://vm.tiktok.com/h4/': { status: 302, location: 'https://vm.tiktok.com/h5/' },
+    'https://vm.tiktok.com/h5/': { status: 302, location: 'https://vm.tiktok.com/h6/' },
+  }) as typeof fetch;
+  const r4cap = await resolveShortLink('https://vm.tiktok.com/h0/', capFetch);
+  check('5-hop cap exceeded fails closed to original', r4cap === 'https://vm.tiktok.com/h0/', r4cap);
+
+  // 6. Network error → fail closed (return original).
   const boom = (async () => { throw new Error('network down'); }) as typeof fetch;
   const r4 = await resolveShortLink('https://vm.tiktok.com/x/', boom);
   check('network error fails closed to original', r4 === 'https://vm.tiktok.com/x/', r4);

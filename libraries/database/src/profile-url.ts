@@ -237,6 +237,11 @@ export function validateProfileUrl(
  * validated like any normal profile URL. Only hosts in SHORTLINK_HOSTS trigger
  * a network round-trip; everything else returns unchanged with no fetch.
  *
+ * Return contract: on success, returns the resolved (possibly URL-normalised)
+ * final URL after following redirects; only on failure (network error, timeout,
+ * redirect loop, or hop cap exceeded) does it return the original `rawUrl`
+ * unchanged.
+ *
  * Safety: we only INITIATE requests to known short-link domains, follow at most
  * 5 redirects with a 3s timeout, and never throw — on any failure we return the
  * original input so the caller's validateProfileUrl rejects it with the usual
