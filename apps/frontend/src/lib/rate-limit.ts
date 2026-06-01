@@ -14,15 +14,17 @@ type Window = `${number} ${'ms' | 's' | 'm' | 'h' | 'd'}`;
 
 export type RateLimitResult = { ok: true } | { ok: false; retryAfter: number };
 
-// One limiter per (prefix) reused across warm invocations. Keep prefixes unique
-// per config — tokens/window are baked into the first instance for a prefix.
+// One limiter per (prefix, tokens, window) reused across warm invocations. The
+// cache key folds in tokens + window so two callers sharing a prefix but using
+// different limits each get their own correctly-configured instance.
 const limiters = new Map<string, Ratelimit>();
 
 function getLimiter(prefix: string, tokens: number, window: Window): Ratelimit | null {
   if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
     return null;
   }
-  const cached = limiters.get(prefix);
+  const cacheKey = `${prefix}:${tokens}:${window}`;
+  const cached = limiters.get(cacheKey);
   if (cached) return cached;
   const limiter = new Ratelimit({
     redis: Redis.fromEnv(),
@@ -30,7 +32,7 @@ function getLimiter(prefix: string, tokens: number, window: Window): Ratelimit |
     analytics: false,
     prefix,
   });
-  limiters.set(prefix, limiter);
+  limiters.set(cacheKey, limiter);
   return limiter;
 }
 
