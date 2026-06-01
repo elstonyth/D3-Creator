@@ -12,6 +12,21 @@ const AMOUNT_Y = 60;
 const PHASE_SPEED = 1.5;
 
 /**
+ * Cheap WebGL capability probe. A browser without a usable WebGL context
+ * (GPU/driver blocked, headless, per-page context limit reached) returns null
+ * from getContext; checking up front lets us skip the Three.js renderer
+ * entirely instead of letting its constructor log an error and throw.
+ */
+function isWebGLAvailable(): boolean {
+  try {
+    const canvas = document.createElement('canvas');
+    return !!(canvas.getContext('webgl2') || canvas.getContext('webgl'));
+  } catch {
+    return false;
+  }
+}
+
+/**
  * The Three.js scene that owns the animated dot grid. Lives inside an
  * absolute layer behind the hero content. Listens for container resize so
  * the surface always matches its parent without cutoff, and pauses the
@@ -27,6 +42,12 @@ export function DottedSurfaceCanvas() {
     const width = container.clientWidth || window.innerWidth;
     const height = container.clientHeight || window.innerHeight;
 
+    // Degrade gracefully when WebGL isn't available (GPU/driver blocked,
+    // headless, context limit): skip the animated backdrop entirely. The parent
+    // still renders the gradient + hero content, and nothing is logged or
+    // thrown — this is what prevents the "Error creating WebGL context" reports.
+    if (!isWebGLAvailable()) return;
+
     // Scene + camera + renderer
     const scene = new THREE.Scene();
     scene.fog = new THREE.Fog(0x0a0a0d, 2000, 10000);
@@ -34,7 +55,19 @@ export function DottedSurfaceCanvas() {
     const camera = new THREE.PerspectiveCamera(60, width / height, 1, 10000);
     camera.position.set(0, 355, 1220);
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    // Backstop: even when the probe above passes, renderer creation can still
+    // fail (a context-loss race, or the context limit hit between the probe and
+    // here). Catch it and degrade the same way instead of surfacing an error.
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    } catch (err) {
+      console.warn(
+        '[dotted-surface] WebGL context creation failed — skipping animated backdrop',
+        err,
+      );
+      return;
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
     renderer.setClearColor(0x000000, 0);
