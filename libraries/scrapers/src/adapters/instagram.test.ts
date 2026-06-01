@@ -51,3 +51,24 @@ test('a real ISO date string passes through unchanged', async () => {
   const res = await instagramAdapter.scrape(PROFILE_URL);
   expect(res.posts[0].posted_at).toBe('2024-05-27T10:00:00.000Z');
 });
+
+test('a malformed taken_at string falls back to taken_at_timestamp instead of breaking the write', async () => {
+  mockGet.mockImplementation(async (opts: any) => {
+    if (opts.path.includes('get_user_profile')) return healthyProfile;
+    return postsWith({ pk: 'p4', code: 'jkl', like_count: 1, taken_at: 'not-a-date', taken_at_timestamp: 1716800000 });
+  });
+
+  const res = await instagramAdapter.scrape(PROFILE_URL);
+  expect(res.posts[0].posted_at).toBe(new Date(1716800000 * 1000).toISOString());
+});
+
+test('a malformed taken_at string with no fallback yields null (never a non-timestamp string)', async () => {
+  mockGet.mockImplementation(async (opts: any) => {
+    if (opts.path.includes('get_user_profile')) return healthyProfile;
+    return postsWith({ pk: 'p5', code: 'mno', like_count: 1, taken_at: 'not-a-date' });
+  });
+
+  const res = await instagramAdapter.scrape(PROFILE_URL);
+  expect(res.posts).toHaveLength(1);
+  expect(res.posts[0].posted_at).toBeNull();
+});

@@ -162,17 +162,27 @@ function unwrapCaption(c: IgPost['caption']): string | null {
 }
 
 function unwrapTimestamp(p: IgPost): string | null {
-  // A non-numeric string is an actual date string (ISO) — pass it through.
-  // A numeric string like '1716800000' is unix seconds masquerading as a
-  // string; returning it verbatim would fail the timestamptz column and throw
-  // the whole post batch, so coerce it like a number instead.
-  if (typeof p.taken_at === 'string' && Number.isNaN(Number(p.taken_at))) {
-    return p.taken_at;
+  const takenAt = p.taken_at;
+  if (typeof takenAt === 'number' && Number.isFinite(takenAt)) {
+    return new Date(takenAt * 1000).toISOString();
   }
-  const ts = p.taken_at ?? p.taken_at_timestamp;
-  const seconds = typeof ts === 'string' ? Number(ts) : ts;
-  if (typeof seconds === 'number' && Number.isFinite(seconds)) {
-    return new Date(seconds * 1000).toISOString();
+  if (typeof takenAt === 'string' && takenAt.trim() !== '') {
+    // A numeric string ('1716800000') is unix seconds masquerading as a string.
+    const numeric = Number(takenAt);
+    if (Number.isFinite(numeric)) {
+      return new Date(numeric * 1000).toISOString();
+    }
+    // Otherwise it should be a real date string — only return it if it actually
+    // parses, so a malformed value can't slip through and fail the timestamptz
+    // write (the very failure this guard exists to prevent).
+    const parsed = Date.parse(takenAt);
+    if (Number.isFinite(parsed)) {
+      return new Date(parsed).toISOString();
+    }
+  }
+  // Fall back to the numeric taken_at_timestamp field.
+  if (typeof p.taken_at_timestamp === 'number' && Number.isFinite(p.taken_at_timestamp)) {
+    return new Date(p.taken_at_timestamp * 1000).toISOString();
   }
   return null;
 }
