@@ -102,6 +102,10 @@ export async function addCreatorUrl(
       .order('user_id', { ascending: true })
       .limit(1)
       .maybeSingle();
+    if (link.error) {
+      console.error('[admin/addCreatorUrl] creator_link lookup', link.error);
+      return { ok: false, message: 'Could not verify the creator login — try again.' };
+    }
     if (link.data?.user_id) {
       const claimRes = await addProfileClaim({
         user_id: link.data.user_id,
@@ -139,7 +143,11 @@ export async function editCreatorUrl(
       .select('platform, creator_id')
       .eq('id', profileId)
       .maybeSingle();
-    if (existing.error || !existing.data || existing.data.creator_id !== creatorId) {
+    if (existing.error) {
+      console.error('[admin/editCreatorUrl] profile fetch', existing.error);
+      return { ok: false, message: 'Could not look up the profile.' };
+    }
+    if (!existing.data || existing.data.creator_id !== creatorId) {
       return { ok: false, message: 'Profile not found for this creator.' };
     }
 
@@ -253,8 +261,13 @@ export async function deleteCreator(
     // Delete linked logins first (cascades user_role + creator_link), then the
     // creator (cascades profiles → claims/snapshots/posts).
     const links = await admin.from('creator_link').select('user_id').eq('creator_id', creatorId);
+    if (links.error) {
+      console.error('[admin/deleteCreator] creator_link lookup', links.error);
+      return { ok: false, message: 'Could not delete the creator.' };
+    }
     for (const l of (links.data ?? []) as { user_id: string }[]) {
-      await admin.auth.admin.deleteUser(l.user_id).catch(() => {});
+      const { error: delErr } = await admin.auth.admin.deleteUser(l.user_id);
+      if (delErr) console.error('[admin/deleteCreator] deleteUser', l.user_id, delErr);
     }
     const del = await admin.from('creator').delete().eq('id', creatorId);
     if (del.error) {
