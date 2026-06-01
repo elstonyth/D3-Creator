@@ -9,7 +9,7 @@
  * matching the platform chips. The active platform filter is carried through.
  */
 
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@gitroom/frontend/components/ui/input';
 
@@ -23,7 +23,7 @@ export function AdminSearchForm({
   const router = useRouter();
   const [q, setQ] = useState(defaultQuery);
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const params = new URLSearchParams();
     const trimmed = q.trim().slice(0, 80);
