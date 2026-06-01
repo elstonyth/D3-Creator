@@ -287,7 +287,7 @@ function CreatorCard({ group }: { group: AdminCreatorGroup }) {
             <h3 className="text-heading text-fg truncate">
               <Link
                 href={`/admin/creators/${group.creatorId}`}
-                className="hover:text-aurora-cta underline-offset-4 hover:underline"
+                className="hover:text-aurora-cta underline-offset-4 hover:underline focus-visible:underline"
               >
                 {group.displayName}
               </Link>
