@@ -9,8 +9,8 @@ import NavLink from '@gitroom/frontend/components/ui/nav-link';
 // Cookie-bound. Never prerender — Supabase env required at construction.
 export const dynamic = 'force-dynamic';
 
-// Admin-only layout. Middleware blocks non-admins; this server-side check is a
-// defense-in-depth second gate.
+// Admin-only layout. There is NO middleware.ts — THIS server-side check is the
+// gate for admin pages. Admin mutations re-check requireAdmin() independently.
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const auth = await getAuthContext();
   if (!auth) redirect('/login');

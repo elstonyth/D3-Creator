@@ -23,8 +23,14 @@ import {
   addProfileClaim,
   detectPlatform,
 } from '@d3/database';
-import { getAuthContext } from '@gitroom/frontend/lib/auth';
+import { requireAdmin } from '@gitroom/frontend/lib/auth';
 import { normalizeProvisionUrls } from '@gitroom/frontend/lib/provision-plan';
+import {
+  validateEmail,
+  validatePassword,
+  validateDisplayName,
+  MAX_PROVISION_URLS,
+} from '@gitroom/frontend/lib/account-validation';
 
 export interface UrlResult {
   url: string;
@@ -45,11 +51,6 @@ function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unexpected error';
 }
 
-async function requireAdmin(): Promise<void> {
-  const auth = await getAuthContext();
-  if (!auth || auth.role !== 'admin') throw new Error('Not authorized.');
-}
-
 export async function createCreator(
   _prev: ProvisionResult | null,
   formData: FormData,
@@ -57,14 +58,24 @@ export async function createCreator(
   try {
     await requireAdmin();
 
-    const email = String(formData.get('email') ?? '').trim();
-    const password = String(formData.get('password') ?? '');
-    const displayName = String(formData.get('display_name') ?? '').trim();
-    const rawUrls = formData.getAll('url').map((v) => String(v));
+    const emailRes = validateEmail(String(formData.get('email') ?? ''));
+    if (!emailRes.ok) return { ok: false, message: emailRes.error };
+    const email = emailRes.value;
 
-    if (!email) return { ok: false, message: 'Email is required.' };
-    if (password.length < 8) return { ok: false, message: 'Password must be at least 8 characters.' };
-    if (!displayName) return { ok: false, message: 'Display name is required.' };
+    const passwordRes = validatePassword(String(formData.get('password') ?? ''));
+    if (!passwordRes.ok) return { ok: false, message: passwordRes.error };
+    const password = passwordRes.value;
+
+    const nameRes = validateDisplayName(String(formData.get('display_name') ?? ''));
+    if (!nameRes.ok) return { ok: false, message: nameRes.error };
+    const displayName = nameRes.value;
+
+    // Validate the URL list BEFORE creating any auth user — an over-cap
+    // submission must not leave an orphaned login/creator behind.
+    const urls = normalizeProvisionUrls(formData.getAll('url').map((v) => String(v)));
+    if (urls.length > MAX_PROVISION_URLS) {
+      return { ok: false, message: `Too many URLs — provide at most ${MAX_PROVISION_URLS}.` };
+    }
 
     const admin = getSupabaseAdmin();
 
@@ -92,7 +103,6 @@ export async function createCreator(
     const creatorId = creatorRes.value.creator_id;
 
     // 3. Assign social URLs — owner claims, admin-initiated.
-    const urls = normalizeProvisionUrls(rawUrls);
     const urlResults: UrlResult[] = [];
     for (const url of urls) {
       const platform = detectPlatform(url);

@@ -85,15 +85,15 @@ export function ProvisionForm() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <label className="block space-y-1.5">
           <span className="text-label text-fgMuted">Display name</span>
-          <Input name="display_name" type="text" required placeholder="Creator name" />
+          <Input name="display_name" type="text" required maxLength={80} placeholder="Creator name" />
         </label>
         <label className="block space-y-1.5">
           <span className="text-label text-fgMuted">Email</span>
-          <Input name="email" type="email" required placeholder="creator@example.com" />
+          <Input name="email" type="email" required maxLength={254} placeholder="creator@example.com" />
         </label>
         <label className="block space-y-1.5">
           <span className="text-label text-fgMuted">Password</span>
-          <Input name="password" type="password" required minLength={8} placeholder="At least 8 characters" />
+          <Input name="password" type="password" required minLength={8} maxLength={72} placeholder="8 to 72 characters" />
         </label>
       </div>
 

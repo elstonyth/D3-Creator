@@ -57,3 +57,15 @@ export const getAuthContext = cache(
     };
   },
 );
+
+/**
+ * Admin guard for Server Actions / Route Handlers — throws "Not authorized."
+ * unless the caller is a verified admin (role === 'admin'). Single source of
+ * truth so no admin action can ship without the check (AC-ADMIN-5).
+ */
+export async function requireAdmin(): Promise<void> {
+  const auth = await getAuthContext();
+  if (!auth || auth.role !== 'admin') {
+    throw new Error('Not authorized.');
+  }
+}

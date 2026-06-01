@@ -9,7 +9,7 @@
  * matching the platform chips. The active platform filter is carried through.
  */
 
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@gitroom/frontend/components/ui/input';
 
@@ -23,10 +23,11 @@ export function AdminSearchForm({
   const router = useRouter();
   const [q, setQ] = useState(defaultQuery);
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const params = new URLSearchParams();
-    if (q.trim()) params.set('q', q.trim());
+    const trimmed = q.trim().slice(0, 80);
+    if (trimmed) params.set('q', trimmed);
     if (platform) params.set('platform', platform);
     const qs = params.toString();
     router.push(qs ? `/admin/profiles?${qs}` : '/admin/profiles', { scroll: false });
@@ -38,6 +39,7 @@ export function AdminSearchForm({
         name="q"
         value={q}
         onChange={(e) => setQ(e.target.value)}
+        maxLength={80}
         placeholder="Search by creator name or handle…"
         className="max-w-[360px]"
       />
