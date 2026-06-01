@@ -46,6 +46,11 @@ const ratelimit: Ratelimit | null =
     ? new Ratelimit({
         redis: Redis.fromEnv(),
         limiter: Ratelimit.slidingWindow(30, '10 s'),
+        // Bound the per-request limiter latency: the SDK's default fail-open
+        // timeout is ~5s, so a Redis/Upstash stall would add seconds to every
+        // image request. Cap it at 1s — the route still serves the image when
+        // the limiter times out or errors (see the try/catch below).
+        timeout: 1000,
         analytics: false,
         prefix: 'proxy-image',
       })

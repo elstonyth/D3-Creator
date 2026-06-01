@@ -286,11 +286,17 @@ export const tiktokAdapter: PlatformAdapter = {
           profileUrl,
         });
         awemeList = bySec.aweme_list ?? [];
-      } catch {
+      } catch (err) {
         // Posts are supplementary and the profile is already validated above,
         // so a failed fallback must not sink the snapshot — keep posts empty.
         // (Previously this re-threw on any non-private error, discarding the
         // good follower data already fetched and contradicting this comment.)
+        // Log rather than re-throw so an unexpected fallback failure stays
+        // visible without taking down the profile snapshot.
+        console.warn(
+          `[tiktok] sec_uid posts fallback failed for ${profileUrl} (non-fatal)`,
+          err,
+        );
       }
     }
 
