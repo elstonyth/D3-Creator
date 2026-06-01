@@ -41,7 +41,8 @@ const attackerEmail = `attacker+${stamp}@local.test`;
 const victimEmail = `victim+${stamp}@local.test`;
 const PW = 'test-password-123';
 
-let attackerId, victimId, attackerCreatorId, victimCreatorId, victimProfileId, attackerProfileId;
+let attackerId, victimId, attackerCreatorId, victimCreatorId;
+let victimClaimedProfileId, victimUnclaimedProfileId, attackerProfileId;
 
 async function setup() {
   // 1. Two creator users. The handle_new_auth_user trigger auto-creates their
@@ -61,12 +62,22 @@ async function setup() {
   if (vc.error) throw new Error(`create victim creator: ${vc.error.message}`);
   victimCreatorId = vc.data.id;
 
-  const vp = await svc.from('profile').insert({
+  // Two victim profiles: one we attach an owner claim to (AC-2b deletes it), and
+  // one left genuinely UNCLAIMED (AC-2 inserts on it — so the insert can ONLY be
+  // stopped by the dropped RLS policy, never by an existing-claim collision).
+  const vpClaimed = await svc.from('profile').insert({
     creator_id: victimCreatorId, platform: 'tiktok',
     profile_url: `https://www.tiktok.com/@victim${stamp}`, handle: `victim${stamp}`,
   }).select('id').single();
-  if (vp.error) throw new Error(`create victim profile: ${vp.error.message}`);
-  victimProfileId = vp.data.id;
+  if (vpClaimed.error) throw new Error(`create victim claimed profile: ${vpClaimed.error.message}`);
+  victimClaimedProfileId = vpClaimed.data.id;
+
+  const vpUnclaimed = await svc.from('profile').insert({
+    creator_id: victimCreatorId, platform: 'tiktok',
+    profile_url: `https://www.tiktok.com/@victim-open${stamp}`, handle: `victim-open${stamp}`,
+  }).select('id').single();
+  if (vpUnclaimed.error) throw new Error(`create victim unclaimed profile: ${vpUnclaimed.error.message}`);
+  victimUnclaimedProfileId = vpUnclaimed.data.id;
 
   const ap = await svc.from('profile').insert({
     creator_id: attackerCreatorId, platform: 'tiktok',
@@ -83,7 +94,7 @@ async function setup() {
   await svc.from('creator_link').update({ creator_id: victimCreatorId }).eq('user_id', victimId);
 
   const bindClaim = await svc.from('profile_claim').insert({
-    user_id: victimId, profile_id: victimProfileId, claim_kind: 'owner',
+    user_id: victimId, profile_id: victimClaimedProfileId, claim_kind: 'owner',
     claimed_via: 'admin_assigned', confirmed_at: new Date().toISOString(),
   }).select();
   check('Provisioning: service-role can insert an owner claim (AC-2 path stays open for admin)',
@@ -91,7 +102,7 @@ async function setup() {
 
   // 4. Seed 101 posts on the victim profile so the AC-5 clamp is actually exercised.
   const rows = Array.from({ length: 101 }, (_, i) => ({
-    profile_id: victimProfileId, external_post_id: `post-${stamp}-${i}`,
+    profile_id: victimClaimedProfileId, external_post_id: `post-${stamp}-${i}`,
     views: 1000 + i, likes: i, comments: 0, shares: 0,
     caption_excerpt: `seed ${i}`, content_type: 'video',
   }));
@@ -125,28 +136,29 @@ async function run() {
     linkNow.data?.creator_id === attackerCreatorId,
     `creator_id=${linkNow.data?.creator_id} (attacker=${attackerCreatorId}, victim=${victimCreatorId})`);
 
-  console.log('\n[AC-2] profile_claim self-insert (claim the victim\'s unowned... profile as owner):');
-  // Use a SECOND attacker-owned-free profile target: claim victim's profile.
+  console.log('\n[AC-2] profile_claim self-insert (claim the victim\'s UNCLAIMED profile as owner):');
+  // Target a profile with NO existing claim, so the only thing that can stop the
+  // insert is the dropped "user inserts own claims" RLS policy (not a collision).
   const ins = await atk.from('profile_claim').insert({
-    user_id: attackerId, profile_id: victimProfileId, claim_kind: 'owner', claimed_via: 'manual',
+    user_id: attackerId, profile_id: victimUnclaimedProfileId, claim_kind: 'owner', claimed_via: 'manual',
   }).select();
   const insBlocked = !!ins.error || (ins.data?.length ?? 0) === 0;
   check('AC-2: attacker INSERT profile_claim(owner) is denied', insBlocked,
     ins.error ? `error=${ins.error.message}` : `rows=${ins.data?.length}`);
   // Ground truth: no such claim exists.
   const claimNow = await svc.from('profile_claim').select('*')
-    .eq('user_id', attackerId).eq('profile_id', victimProfileId);
+    .eq('user_id', attackerId).eq('profile_id', victimUnclaimedProfileId);
   check('AC-2: no attacker→victim claim row exists in the DB', (claimNow.data?.length ?? 0) === 0,
     `rows=${claimNow.data?.length}`);
 
   console.log('\n[AC-2b] profile_claim self-delete (delete the victim\'s owner claim):');
   const del = await atk.from('profile_claim').delete()
-    .eq('user_id', victimId).eq('profile_id', victimProfileId).select();
+    .eq('user_id', victimId).eq('profile_id', victimClaimedProfileId).select();
   const delBlocked = (del.data?.length ?? 0) === 0;
   check('AC-2b: attacker DELETE of victim claim affects no row', delBlocked,
     del.error ? `error=${del.error.message}` : `rows=${del.data?.length}`);
   const victimClaimStill = await svc.from('profile_claim').select('*')
-    .eq('user_id', victimId).eq('profile_id', victimProfileId);
+    .eq('user_id', victimId).eq('profile_id', victimClaimedProfileId);
   check('AC-2b: victim\'s claim still present after the attack', (victimClaimStill.data?.length ?? 0) === 1,
     `rows=${victimClaimStill.data?.length}`);
 
