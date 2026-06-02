@@ -390,6 +390,32 @@ export interface AvatarBackfillResult {
 }
 
 /**
+ * Page a PostgREST select past its ~1000-row response cap. `select(from, to)`
+ * must return a query already filtered + ordered by a STABLE key and ranged to
+ * [from, to]; we keep requesting pages until one comes back short. Mirrors the
+ * post-media backfill's paging (and queries.ts `fetchAllRows`) so a large
+ * creator / profile set is never silently truncated.
+ */
+async function fetchAllRows<T>(
+  select: (
+    from: number,
+    to: number,
+  ) => Promise<{ data: T[] | null; error: { message: string } | null }>,
+  label: string,
+): Promise<T[]> {
+  const PAGE = 1000;
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await select(from, from + PAGE - 1);
+    if (error) throw new Error(`${label}: ${error.message}`);
+    const page = data ?? [];
+    out.push(...page);
+    if (page.length < PAGE) break;
+  }
+  return out;
+}
+
+/**
  * Backfill creator avatars — copy each not-yet-persisted creator's best avatar
  * into Storage and point creator.avatar_url at the permanent URL. The "best"
  * avatar is the highest-follower profile's latest-snapshot avatar; if that
@@ -401,12 +427,22 @@ export interface AvatarBackfillResult {
 export async function backfillCreatorAvatars(dryRun = false): Promise<AvatarBackfillResult> {
   const sb = getSupabaseAdmin();
 
-  const creatorsRes = await sb.from('creator').select('id, avatar_url');
-  if (creatorsRes.error) {
-    throw new Error(`backfillCreatorAvatars creators: ${creatorsRes.error.message}`);
-  }
-  const needing = (creatorsRes.data ?? []).filter((c) => {
-    const a = (c.avatar_url as string | null) ?? null;
+  // Page past the PostgREST row cap — a deployment can have >1000 creators, and
+  // an unpaged select would only see the first page (making the backfill + the
+  // daily cron silently skip every creator beyond it).
+  const creators = await fetchAllRows<{ id: string; avatar_url: string | null }>(
+    async (from, to) => {
+      const r = await sb
+        .from('creator')
+        .select('id, avatar_url')
+        .order('id', { ascending: true })
+        .range(from, to);
+      return { data: r.data, error: r.error };
+    },
+    'backfillCreatorAvatars creators',
+  );
+  const needing = creators.filter((c) => {
+    const a = c.avatar_url ?? null;
     return !a || !isAlreadyPersisted(a);
   });
 
@@ -419,12 +455,22 @@ export async function backfillCreatorAvatars(dryRun = false): Promise<AvatarBack
   };
   if (dryRun || needing.length === 0) return result;
 
-  const creatorIds = needing.map((c) => c.id as string);
-  const profsRes = await sb.from('profile').select('id, creator_id').in('creator_id', creatorIds);
-  if (profsRes.error) {
-    throw new Error(`backfillCreatorAvatars profiles: ${profsRes.error.message}`);
-  }
-  const profiles = (profsRes.data ?? []) as { id: string; creator_id: string }[];
+  const creatorIds = needing.map((c) => c.id);
+  // Page profiles too — >1000 profiles across the candidate creators would
+  // otherwise be truncated, mis-marking creators as no_avatar or picking a
+  // lower-priority avatar.
+  const profiles = await fetchAllRows<{ id: string; creator_id: string }>(
+    async (from, to) => {
+      const r = await sb
+        .from('profile')
+        .select('id, creator_id')
+        .in('creator_id', creatorIds)
+        .order('id', { ascending: true })
+        .range(from, to);
+      return { data: r.data, error: r.error };
+    },
+    'backfillCreatorAvatars profiles',
+  );
   const profIds = profiles.map((p) => p.id);
   if (profIds.length === 0) {
     result.no_avatar = needing.length;
@@ -463,7 +509,7 @@ export async function backfillCreatorAvatars(dryRun = false): Promise<AvatarBack
   }
 
   for (const c of needing) {
-    const cid = c.id as string;
+    const cid = c.id;
     const candidates = (profsByCreator.get(cid) ?? [])
       .map((pid) => {
         const snap = latest.get(pid);
