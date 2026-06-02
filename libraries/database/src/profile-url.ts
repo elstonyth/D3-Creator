@@ -233,6 +233,32 @@ export function validateProfileUrl(
 }
 
 /**
+ * SSRF guard for resolveShortLink's redirect following. resolveShortLink chases
+ * Location headers from allowlisted short-link services; this blocks any hop
+ * whose host is a loopback/private/link-local/cloud-metadata address so the
+ * server never fetches an internal endpoint. Hostname/IP-literal check only —
+ * does NOT defend against DNS rebinding (a public name resolving to a private
+ * IP); acceptable given hops originate from reputable allowlisted platforms.
+ */
+function isPrivateOrLoopbackHost(hostname: string): boolean {
+  const h = hostname.toLowerCase().replace(/^\[|\]$/g, ''); // strip IPv6 brackets
+  if (h === 'localhost' || h.endsWith('.localhost')) return true;
+  const m = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m) {
+    const a = Number(m[1]);
+    const b = Number(m[2]);
+    if (a === 0 || a === 127 || a === 10) return true;
+    if (a === 169 && b === 254) return true; // link-local + cloud metadata
+    if (a === 172 && b >= 16 && b <= 31) return true; // private
+    if (a === 192 && b === 168) return true; // private
+    return false;
+  }
+  // IPv6 loopback / link-local / unique-local
+  if (h === '::1' || h.startsWith('fe80') || h.startsWith('fc') || h.startsWith('fd')) return true;
+  return false;
+}
+
+/**
  * Resolve an allowlisted short/redirector link to its final URL so it can be
  * validated like any normal profile URL. Only hosts in SHORTLINK_HOSTS trigger
  * a network round-trip; everything else returns unchanged with no fetch.
@@ -262,6 +288,13 @@ export async function resolveShortLink(
 
   let current = u.toString();
   for (let hop = 0; hop < 5; hop++) {
+    let host: string;
+    try {
+      host = new URL(current).hostname;
+    } catch {
+      return rawUrl; // unparseable → fail closed
+    }
+    if (isPrivateOrLoopbackHost(host)) return rawUrl; // SSRF guard → fail closed
     let res: Response;
     try {
       res = await fetchImpl(current, {

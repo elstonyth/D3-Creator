@@ -72,6 +72,13 @@ async function main() {
   const r4 = await resolveShortLink('https://vm.tiktok.com/x/', boom);
   check('network error fails closed to original', r4 === 'https://vm.tiktok.com/x/', r4);
 
+  // SSRF: a redirect to an internal/metadata IP is blocked before fetch → fail closed.
+  const ssrf = fakeFetch({
+    'https://vm.tiktok.com/evil/': { status: 302, location: 'http://169.254.169.254/latest/meta-data/' },
+  }) as typeof fetch;
+  const rSsrf = await resolveShortLink('https://vm.tiktok.com/evil/', ssrf);
+  check('redirect to internal IP blocked (SSRF) → original', rSsrf === 'https://vm.tiktok.com/evil/', rSsrf);
+
   console.log(`\n  ${pass} passed, ${fail} failed`);
   process.exit(fail === 0 ? 0 : 1);
 }
