@@ -12,8 +12,11 @@ import {
 import {
   compactFormatter,
   exactFormatter,
+  percentFormatter,
   handleToSlug,
   demoCreatorRows,
+  placeholderViewsTrend,
+  placeholderDeltaPct,
   type PlatformFilter,
 } from './showcase-data';
 import type { LiveCreatorRow } from '@gitroom/frontend/lib/queries';
@@ -76,9 +79,24 @@ function resolveRows(creators: LiveCreatorRow[], filter: PlatformFilter): Displa
 
 export interface DashboardShowcaseProps {
   creators?: LiveCreatorRow[] | null;
+  /**
+   * Real "Total Views" history (oldest→newest) for the sparkline. OPTIONAL —
+   * when omitted, a realistic deterministic placeholder is shown.
+   * TODO(backend): pass from the page once snapshot aggregation lands.
+   */
+  viewsTrend?: number[];
+  /**
+   * Real period-over-period deltas (fractions, e.g. 0.063 = +6.3%). OPTIONAL —
+   * placeholders fill in per-metric when omitted. See showcase-data.ts.
+   */
+  deltas?: { views?: number; followers?: number; engagement?: number };
 }
 
-export function DashboardShowcase({ creators }: DashboardShowcaseProps = {}) {
+export function DashboardShowcase({
+  creators,
+  viewsTrend: propViewsTrend,
+  deltas: propDeltas,
+}: DashboardShowcaseProps = {}) {
   const [filter, setFilter] = useState<PlatformFilter>('all');
   const isLive = !!(creators && creators.length > 0);
   const baseCreators = useMemo(
@@ -99,6 +117,23 @@ export function DashboardShowcase({ creators }: DashboardShowcaseProps = {}) {
           ),
     [baseCreators, filter],
   );
+
+  // Sparkline series + per-metric deltas. Real values arrive via props; until the
+  // backend aggregates snapshot history we fall back to realistic placeholders.
+  const viewsTrend = useMemo(
+    () =>
+      propViewsTrend && propViewsTrend.length > 1
+        ? propViewsTrend
+        : placeholderViewsTrend(totalViews),
+    [propViewsTrend, totalViews],
+  );
+  const viewsDelta = useMemo(() => {
+    if (typeof propDeltas?.views === 'number') return propDeltas.views;
+    const first = viewsTrend[0] || 1;
+    return (viewsTrend[viewsTrend.length - 1] - first) / first;
+  }, [propDeltas, viewsTrend]);
+  const followersDelta = propDeltas?.followers ?? placeholderDeltaPct(totalFollowers);
+  const engagementDelta = propDeltas?.engagement ?? placeholderDeltaPct(totalEngagement);
 
   // Top creators by followers (dashboard summary — capped).
   const topCreators = useMemo(
@@ -128,23 +163,51 @@ export function DashboardShowcase({ creators }: DashboardShowcaseProps = {}) {
     <div className="flex flex-col gap-5">
       <PlatformTabBar value={filter} onChange={setFilter} />
 
-      {/* Compact stats row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatTile
-          label="Total Views"
-          value={exactFormatter.format(totalViews)}
-          note={`${filterLabel(filter)} · recent posts`}
-        />
-        <StatTile
-          label="Total Followers"
-          value={compactFormatter.format(totalFollowers)}
-          note={`${exactFormatter.format(totalFollowers)} tracked`}
-        />
-        <StatTile
-          label="Total Engagement"
-          value={compactFormatter.format(totalEngagement)}
-          note="likes, comments & shares"
-        />
+      {/* Stats — frameless bento: Total Views hero (left) with a sparkline filling the
+          open space; Followers + Engagement stacked right. Each carries a trend chip. */}
+      <div className="grid grid-cols-1 gap-8 py-2 sm:grid-cols-12 sm:gap-x-10 sm:gap-y-7">
+        <div className="flex flex-col justify-center gap-3 sm:col-span-8 sm:row-span-2">
+          <div className="flex items-center gap-3">
+            <span className="text-label text-fgMuted">Total Views</span>
+            <DeltaChip value={viewsDelta} />
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="text-[clamp(48px,6.5vw,84px)] leading-[0.98] tracking-[-0.035em] font-semibold text-fg tabular-nums">
+              {exactFormatter.format(totalViews)}
+            </div>
+            <Sparkline
+              data={viewsTrend}
+              className="hidden h-16 flex-1 self-center text-white/30 sm:block"
+            />
+          </div>
+          <p className="text-caption text-fgSubtle tabular-nums">
+            {`${filterLabel(filter)} · all-time, across tracked posts`}
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-2 sm:col-span-4 sm:items-end sm:text-right">
+          <span className="text-label text-fgMuted">Total Followers</span>
+          <div className="flex items-baseline gap-2.5">
+            <div className="text-[clamp(28px,3vw,38px)] leading-none tracking-[-0.025em] font-semibold text-fg tabular-nums">
+              {compactFormatter.format(totalFollowers)}
+            </div>
+            <DeltaChip value={followersDelta} />
+          </div>
+          <p className="text-caption text-fgSubtle tabular-nums">
+            {`${exactFormatter.format(totalFollowers)} tracked`}
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-2 sm:col-span-4 sm:items-end sm:text-right">
+          <span className="text-label text-fgMuted">Total Engagement</span>
+          <div className="flex items-baseline gap-2.5">
+            <div className="text-[clamp(28px,3vw,38px)] leading-none tracking-[-0.025em] font-semibold text-fg tabular-nums">
+              {compactFormatter.format(totalEngagement)}
+            </div>
+            <DeltaChip value={engagementDelta} />
+          </div>
+          <p className="text-caption text-fgSubtle">{'likes, comments & shares'}</p>
+        </div>
       </div>
 
       {/* Content row — top creators + platform breakdown */}
@@ -204,17 +267,71 @@ function PlatformTabBar({
   );
 }
 
-// --- Stat tile ------------------------------------------------------------
+// --- Sparkline + trend chip -----------------------------------------------
 
-function StatTile({ label, value, note }: { label: string; value: string; note: string }) {
+/** Axis-less SVG sparkline; stretches to fill its box. Color via `currentColor`. */
+function Sparkline({ data, className }: { data: number[]; className?: string }) {
+  if (!data || data.length < 2) return null;
+  const w = 120;
+  const h = 36;
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const range = max - min || 1;
+  const points = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - 1 - ((v - min) / range) * (h - 2);
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  });
+  const line = `M${points.join(' L')}`;
+  const area = `${line} L${w},${h} L0,${h} Z`;
   return (
-    <GlassCard variant="base" padding="md" radius="2xl" className="flex flex-col gap-1.5">
-      <span className="text-label text-fgMuted">{label}</span>
-      <div className="text-[clamp(26px,3.2vw,40px)] leading-[1.04] tracking-[-0.025em] font-semibold text-fg tabular-nums">
-        {value}
-      </div>
-      <p className="text-caption text-fgSubtle tabular-nums">{note}</p>
-    </GlassCard>
+    <svg
+      viewBox={`0 0 ${w} ${h}`}
+      preserveAspectRatio="none"
+      className={className}
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="currentColor" stopOpacity="0.16" />
+          <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill="url(#sparkFill)" />
+      <path
+        d={line}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
+/** Period-over-period change. Direction via caret, not color (DESIGN.md: no red/green). */
+function DeltaChip({ value, period = 'recent' }: { value: number; period?: string }) {
+  const up = value >= 0;
+  const pct = percentFormatter.format(Math.abs(value));
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-caption tabular-nums"
+      title={`${up ? 'Up' : 'Down'} ${pct} · ${period} trend`}
+    >
+      <svg
+        width="8"
+        height="8"
+        viewBox="0 0 10 10"
+        aria-hidden="true"
+        className={clsx('text-fg', !up && 'rotate-180')}
+      >
+        <path d="M5 1 L9.33 8.5 L0.67 8.5 Z" fill="currentColor" />
+      </svg>
+      <span className="text-fg">{pct}</span>
+      <span className="text-fgSubtle">· {period}</span>
+    </span>
   );
 }
 

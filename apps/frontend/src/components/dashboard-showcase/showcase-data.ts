@@ -269,3 +269,31 @@ export const signedPercentFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 1,
   signDisplay: 'exceptZero',
 });
+
+// ---------------------------------------------------------------------------
+// PLACEHOLDER trend + delta data  ⚠️ SWAP FOR REAL DATA WHEN BACKEND IS READY
+// ---------------------------------------------------------------------------
+// The backend does not yet aggregate daily snapshot history, so the dashboard
+// sparkline and the per-metric "▲ x% · recent" chips are driven by these realistic,
+// fully deterministic placeholders (no Math.random / Date.now → no SSR↔CSR
+// hydration drift).
+//
+// TO SWAP: once `profile_snapshot` aggregation lands, have the dashboard page
+// compute the real series + period deltas and pass them to <DashboardShowcase/>
+// via the `viewsTrend` and `deltas` props. When those props are present the
+// component uses them and ignores everything below — no code here needs deleting.
+
+/** Realistic 30-point "Total Views" trend rising to ~`current`. Deterministic. */
+export function placeholderViewsTrend(current: number): number[] {
+  if (current <= 0) return new Array(30).fill(0);
+  const start = Math.round(current / 1.085); // ~8% rise across the window
+  return makeSeries(start, current, (Math.round(current) % 233_280) || 7);
+}
+
+/** Plausible positive period-over-period change (fraction, e.g. 0.063 → 6.3%). */
+export function placeholderDeltaPct(value: number, lo = 0.03, hi = 0.09): number {
+  if (value <= 0) return 0;
+  let seed = (Math.round(value) % 233_280) || 13;
+  seed = (seed * 9301 + 49297) % 233_280;
+  return lo + (seed / 233_280) * (hi - lo);
+}
