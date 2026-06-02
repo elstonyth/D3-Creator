@@ -299,7 +299,13 @@ export const douyinAdapter: PlatformAdapter = {
     if (awemeIds.length > 0) {
       try {
         statsMap = await fetchVideoStats(awemeIds, profileUrl);
-      } catch {
+      } catch (err) {
+        // Degrade to feed values (views→0) but stay observable: a systemic
+        // stats-endpoint outage would otherwise silently zero every profile.
+        console.warn(
+          `[douyin] stats backfill failed for ${profileUrl}; degrading views/likes/shares to feed values`,
+          err,
+        );
         statsMap = new Map();
       }
     }
