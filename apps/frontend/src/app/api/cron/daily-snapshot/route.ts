@@ -1,12 +1,9 @@
 /**
- * Snapshot cron — runs hourly via Vercel Cron.
+ * Daily snapshot cron — runs once every 24h via Vercel Cron.
  *
- * Schedule lives in vercel.json ("0 * * * *"). Each tick processes the
- * PROFILES_PER_RUN least-recently-scraped profiles; setProfileStatus stamps
- * last_scraped_at on every attempt, so a scraped profile sorts to the back
- * and the next tick advances to the next batch. Hourly ticks thus drain the
- * roster (~81 profiles) within a day instead of starving the tail. Was daily
- * (02:00 UTC) but 5/day couldn't keep up with the roster.
+ * Schedule lives in vercel.json. v1 picks 02:00 UTC (mid-window of spec's
+ * 00:00-06:00 stagger). The spec's 6-hour staggered window is deferred to
+ * Plan-wins-over-spec MVP.
  *
  * Auth model:
  *   Production: Vercel Cron requests carry x-vercel-cron-signature; we ALSO
