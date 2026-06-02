@@ -150,11 +150,17 @@ function AddUrlRow({ creatorId }: { creatorId: string }) {
 }
 
 function LoginsSection({ creatorId, logins }: { creatorId: string; logins: AdminCreatorLogin[] }) {
+  // Own the add-login action state HERE, not inside AddLoginRow: a successful add
+  // revalidates → logins becomes nonzero → the add-form unmounts. Holding the
+  // state in this always-mounted section preserves the one-time credentials
+  // across that swap, and surfaces them on partial failure too (login created
+  // but a downstream step failed), where the generated password is irreplaceable.
+  const [addState, addAction] = useActionState(addCreatorLogin, null as PasswordResetResult | null);
   return (
     <section className={SECTION}>
       <h2 className="text-heading text-fg">Login &amp; password</h2>
       {logins.length === 0 ? (
-        <AddLoginRow creatorId={creatorId} />
+        <AddLoginRow creatorId={creatorId} state={addState} action={addAction} />
       ) : (
         <ul className="flex flex-col gap-4">
           {logins.map((l) => (
@@ -162,12 +168,22 @@ function LoginsSection({ creatorId, logins }: { creatorId: string; logins: Admin
           ))}
         </ul>
       )}
+      {addState?.credentials && (
+        <CredentialsPanel email={addState.credentials.email} password={addState.credentials.password} />
+      )}
     </section>
   );
 }
 
-function AddLoginRow({ creatorId }: { creatorId: string }) {
-  const [state, action] = useActionState(addCreatorLogin, null as PasswordResetResult | null);
+function AddLoginRow({
+  creatorId,
+  state,
+  action,
+}: {
+  creatorId: string;
+  state: PasswordResetResult | null;
+  action: (formData: FormData) => void;
+}) {
   const formRef = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (state?.ok) formRef.current?.reset();
@@ -182,10 +198,9 @@ function AddLoginRow({ creatorId }: { creatorId: string }) {
         <Input name="password" type="text" placeholder="Password (blank = generate)" minLength={8} maxLength={72} className="flex-1" />
         <Save label="Create login" />
       </form>
+      {/* CredentialsPanel is rendered by LoginsSection so it survives the form's
+          unmount on success; here we only show the inline error on failure. */}
       {state && !state.ok && <span className={ERR}>{state.message}</span>}
-      {state?.ok && state.credentials && (
-        <CredentialsPanel email={state.credentials.email} password={state.credentials.password} />
-      )}
     </div>
   );
 }

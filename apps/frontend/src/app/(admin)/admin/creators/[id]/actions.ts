@@ -248,6 +248,25 @@ export async function addCreatorLogin(
     if (creatorRes.error || !creatorRes.data) {
       return { ok: false, message: 'Creator not found.' };
     }
+
+    // This action is for credential-less creators only. Refuse if a login is
+    // already linked — a second auth user would never collide on user_id, so
+    // it would silently spawn a duplicate login (and addCreatorUrl only ever
+    // claims onto the first creator_link user). Use Reset password instead.
+    const existingLogin = await admin
+      .from('creator_link')
+      .select('user_id')
+      .eq('creator_id', creatorId)
+      .limit(1)
+      .maybeSingle();
+    if (existingLogin.error) {
+      console.error('[admin/addCreatorLogin] creator_link lookup', existingLogin.error);
+      return { ok: false, message: 'Could not verify existing logins — try again.' };
+    }
+    if (existingLogin.data?.user_id) {
+      return { ok: false, message: 'This creator already has a login — use Reset password instead.' };
+    }
+
     const displayName = (creatorRes.data as { display_name: string }).display_name;
 
     // 1. Auth login. Trigger assigns role='creator' + empty creator_link.
@@ -280,23 +299,38 @@ export async function addCreatorLogin(
 
     // 3. Backfill owner claims for the creator's existing profiles (parity with
     //    createCreator). Idempotent — safe on retry.
+    let claimFailure: string | null = null;
     const profilesRes = await admin.from('profile').select('id').eq('creator_id', creatorId);
     if (profilesRes.error) {
       console.error('[admin/addCreatorLogin] profile fetch', profilesRes.error);
-    }
-    for (const p of (profilesRes.data ?? []) as { id: string }[]) {
-      const claimRes = await addProfileClaim({
-        user_id: userId,
-        profile_id: p.id,
-        claim_kind: 'owner',
-        claimed_via: 'admin_assigned',
-      });
-      if (claimRes.ok !== true) {
-        console.error('[admin/addCreatorLogin] claim', p.id, claimRes.error);
+      claimFailure = profilesRes.error.message;
+    } else {
+      for (const p of (profilesRes.data ?? []) as { id: string }[]) {
+        const claimRes = await addProfileClaim({
+          user_id: userId,
+          profile_id: p.id,
+          claim_kind: 'owner',
+          claimed_via: 'admin_assigned',
+        });
+        if (claimRes.ok !== true) {
+          console.error('[admin/addCreatorLogin] claim', p.id, claimRes.error);
+          claimFailure ??= claimRes.error;
+        }
       }
     }
 
     revalidateCreator(creatorId);
+    // The login is created and bound (it works via the creator_id fallback), but
+    // a failed owner-claim backfill leaves /me parity + ownerCount understated.
+    // Report it so the admin sees the gap — never a silent success. Credentials
+    // still ride along so the one-time password is never lost.
+    if (claimFailure) {
+      return {
+        ok: false,
+        message: `Login created and works, but an owner claim failed (${claimFailure}) — the creator may show fewer owned profiles.`,
+        credentials: { email, password: pwRes.value },
+      };
+    }
     return {
       ok: true,
       message: 'Login created.',

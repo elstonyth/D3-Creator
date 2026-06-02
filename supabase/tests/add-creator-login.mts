@@ -51,6 +51,12 @@ async function addLogin(creatorId: string, email: string, password: string) {
 
   const creatorRes = await sb.from('creator').select('id, display_name').eq('id', creatorId).maybeSingle();
   if (creatorRes.error || !creatorRes.data) return { ok: false as const, message: 'Creator not found.' };
+
+  // Guard: credential-less creators only — refuse if a login is already linked.
+  const existingLogin = await sb.from('creator_link').select('user_id').eq('creator_id', creatorId).limit(1).maybeSingle();
+  if (existingLogin.error) return { ok: false as const, message: 'Could not verify existing logins — try again.' };
+  if (existingLogin.data?.user_id) return { ok: false as const, message: 'This creator already has a login — use Reset password instead.' };
+
   const displayName = (creatorRes.data as { display_name: string }).display_name;
 
   // 1. Auth login. Trigger assigns role='creator' + empty creator_link.
@@ -111,6 +117,13 @@ async function main() {
   // Trigger assigned role='creator'.
   const role = await sb.from('user_role').select('role').eq('user_id', res2.ok ? res2.userId : '').maybeSingle();
   check('signup trigger set role=creator', role.data?.role === 'creator', role.data?.role ?? 'none');
+
+  // Guard: a creator that already has a login rejects a second provision
+  // (credential-less only — otherwise a duplicate auth user is silently spawned).
+  const dupe = await addLogin(creatorId, `dupe_${randomUUID().slice(0, 8)}@test.local`, randomUUID());
+  check('second login rejected (already has login)',
+    dupe.ok === false && /already has a login/.test(dupe.message),
+    dupe.ok ? 'unexpectedly ok' : dupe.message);
 
   // Idempotent retry: re-running the claim backfill does NOT duplicate the owner claim.
   if (res2.ok) {
