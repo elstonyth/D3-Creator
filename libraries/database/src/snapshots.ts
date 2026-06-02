@@ -11,6 +11,7 @@
  */
 
 import { getSupabaseAdmin } from './supabase-server';
+import { avatarUrlFromRaw, persistAvatar } from './media';
 import type { ProfileRow, ScrapeStatus } from './types';
 
 /** Shape returned by the scraper layer (mirror of @d3/scrapers NormalizedProfileSnapshot). */
@@ -63,6 +64,21 @@ export async function upsertProfileSnapshot(
   snap: ProfileSnapshotInput,
 ): Promise<{ written: number }> {
   const sb = getSupabaseAdmin();
+
+  // Persist the avatar to Storage (best-effort) so it survives CDN signature
+  // expiry — same rationale as post media. If the copy fails we keep the raw
+  // CDN URL (still valid for hours/days; healed later by /api/admin/
+  // backfill-avatars). The scrape NEVER fails because an avatar couldn't copy.
+  const rawAvatar = avatarUrlFromRaw(snap.raw);
+  let avatar_url: string | null = rawAvatar;
+  if (rawAvatar) {
+    try {
+      avatar_url = (await persistAvatar(profileId, rawAvatar)) ?? rawAvatar;
+    } catch {
+      avatar_url = rawAvatar;
+    }
+  }
+
   const res = await sb
     .from('profile_snapshot')
     .upsert(
@@ -73,6 +89,7 @@ export async function upsertProfileSnapshot(
         total_posts: snap.total_posts,
         total_views: snap.total_views,
         total_likes: snap.total_likes,
+        avatar_url,
         raw: snap.raw,
       },
       { onConflict: 'profile_id,captured_date', ignoreDuplicates: false },

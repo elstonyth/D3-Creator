@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import { GlassCard } from '@gitroom/frontend/components/ui/glass-card';
+import { SITE_URL, SITE_DOMAIN, PRIVACY_EMAIL } from '@gitroom/frontend/lib/site';
 
 export const dynamic = 'force-static';
 export const revalidate = false;
@@ -35,8 +36,8 @@ export default function PrivacyPage() {
         &ldquo;we&rdquo;, &ldquo;our&rdquo;, or &ldquo;us&rdquo;) is committed to protecting your
         privacy. This Privacy Policy explains how we collect, use, store, and disclose your personal
         information when you use our website at{' '}
-        <a className={linkClass} href="https://d3-creator.vercel.app">
-          d3-creator.vercel.app
+        <a className={linkClass} href={SITE_URL}>
+          {SITE_DOMAIN}
         </a>{' '}
         and our related social media analytics services (collectively, the &ldquo;Service&rdquo;).
       </p>
@@ -61,20 +62,23 @@ export default function PrivacyPage() {
         <li className={bullet}>Account preferences and settings</li>
       </ul>
 
-      <h3 className={subTitle}>1.2 Connected Social Media Accounts</h3>
+      <h3 className={subTitle}>1.2 Tracked Social Profiles</h3>
       <p className={paragraph}>
-        When you connect a social media account (such as Instagram, Facebook, TikTok, Douyin, or
-        Xiaohongshu / RedNote) to the Service, we collect:
+        D3 Creator is an agency-managed service: your agency adds the public social
+        profiles that belong to you (on Instagram, Facebook, TikTok, or Douyin), and we
+        collect publicly available data from those profiles. We do{' '}
+        <span className={inlineStrong}>not</span> use OAuth and never ask you to log in to
+        any social platform. For each tracked profile we collect:
       </p>
       <ul className="list-disc pl-6 mb-3">
-        <li className={bullet}>The OAuth access tokens issued by the platform (for OAuth-based integrations such as Meta and TikTok)</li>
-        <li className={bullet}>Your public profile information on that platform (such as username, profile picture, follower count)</li>
-        <li className={bullet}>Profile URLs you submit voluntarily (for Douyin and Xiaohongshu)</li>
-        <li className={bullet}>Publicly visible posts, engagement metrics, and aggregate analytics data that you have authorized the platform to share with us</li>
+        <li className={bullet}>The public profile URL and handle supplied by your agency</li>
+        <li className={bullet}>Public profile information (such as username, display name, profile picture, follower and following counts)</li>
+        <li className={bullet}>Publicly visible posts and their public engagement metrics (views, likes, comments, shares)</li>
       </ul>
       <p className={paragraph}>
-        We do not access private messages, private posts, or any data the platform has not
-        authorized you to share with us.
+        We only collect information that is publicly visible on the platform. We do not
+        access private messages, private posts, or any non-public data, and we never log
+        in to your social accounts.
       </p>
 
       <h3 className={subTitle}>1.3 Analytics & Usage Data</h3>
@@ -114,10 +118,9 @@ export default function PrivacyPage() {
         D3 Creator relies on the following third-party services to deliver its features. Each third party is responsible for its own data handling under its own privacy policy.
       </p>
       <ul className="list-disc pl-6 mb-3">
-        <li className={bullet}><span className={inlineStrong}>Meta Platforms (Facebook & Instagram API)</span> — used to fetch authorized analytics data from your Facebook and Instagram accounts via OAuth.</li>
-        <li className={bullet}><span className={inlineStrong}>TikTok Developer API</span> — used to fetch authorized analytics data from your TikTok account via OAuth.</li>
-        <li className={bullet}><span className={inlineStrong}>Apify</span> — used to fetch publicly available data from Douyin and Xiaohongshu (RedNote) profile URLs you submit. Only public data is accessed; private insights are not available for these platforms.</li>
-        <li className={bullet}><span className={inlineStrong}>Supabase (PostgreSQL hosting)</span> — used to securely store your account information and analytics data. Supabase&rsquo;s data centers operate in the region we select and follow industry-standard security practices.</li>
+        <li className={bullet}><span className={inlineStrong}>TikHub</span> — used to collect publicly available profile and post data from Instagram, TikTok, and Douyin.</li>
+        <li className={bullet}><span className={inlineStrong}>BrightData</span> — used to collect publicly available profile and post data from Facebook.</li>
+        <li className={bullet}><span className={inlineStrong}>Supabase (PostgreSQL hosting & storage)</span> — used to securely store account information, analytics data, and cached media. Supabase&rsquo;s data centers operate in the region we select and follow industry-standard security practices.</li>
         <li className={bullet}><span className={inlineStrong}>Vercel</span> — used to host the web application and serve it to your browser.</li>
       </ul>
 
@@ -153,16 +156,16 @@ export default function PrivacyPage() {
         <li className={bullet}><span className={inlineStrong}>Right to lodge a complaint</span> — you may lodge a complaint with your local data protection authority (in Malaysia, the Personal Data Protection Commissioner).</li>
       </ul>
       <p className={paragraph}>
-        You can exercise most of these rights directly from your account settings, or by emailing us at{' '}
-        <a className={linkClass} href="mailto:privacy@d3-creator.vercel.app">privacy@d3-creator.vercel.app</a>. We will respond to your request within thirty (30) days.
+        You can exercise these rights by contacting your agency or by emailing us at{' '}
+        <a className={linkClass} href={`mailto:${PRIVACY_EMAIL}`}>{PRIVACY_EMAIL}</a>. We will respond to your request within thirty (30) days.
       </p>
 
-      <h2 className={sectionTitle}>7. Disconnecting Social Media Accounts</h2>
+      <h2 className={sectionTitle}>7. Removing Tracked Profiles</h2>
       <p className={paragraph}>
-        You may disconnect any connected social media account at any time from your D3 Creator dashboard. Once disconnected, we will revoke the relevant OAuth tokens and stop fetching new analytics data for that account. Historical analytics snapshots already collected may remain in your account until you delete them or delete your D3 Creator account.
+        Because profiles are added and managed by your agency, you can ask your agency to stop tracking any profile at any time. Once a profile is removed, we stop collecting new data for it. Historical analytics snapshots already collected may remain until they are deleted or your D3 Creator account is closed.
       </p>
       <p className={paragraph}>
-        You can also revoke our access directly from the social platform&rsquo;s settings (for example, in your Facebook, Instagram, or TikTok app permissions).
+        We only ever collect data that is already public on the platform, so there are no app permissions or account connections to revoke on the social platform itself.
       </p>
 
       <h2 className={sectionTitle}>8. Cookies and Tracking Technologies</h2>
@@ -200,8 +203,8 @@ export default function PrivacyPage() {
         </p>
         <p className="text-body-sm text-fgMuted">
           Email:{' '}
-          <a className={linkClass} href="mailto:privacy@d3-creator.vercel.app">
-            privacy@d3-creator.vercel.app
+          <a className={linkClass} href={`mailto:${PRIVACY_EMAIL}`}>
+            {PRIVACY_EMAIL}
           </a>
         </p>
       </GlassCard>

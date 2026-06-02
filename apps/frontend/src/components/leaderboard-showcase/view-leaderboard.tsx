@@ -22,7 +22,7 @@ export interface ViewLeaderboardProps {
 export function ViewLeaderboard({
   rows,
   title = 'Top Content',
-  subtitle = 'Top 20 posts by views · last 30 days',
+  subtitle = 'Top posts by views',
 }: ViewLeaderboardProps) {
   return (
     <GlassCard variant="base" padding="lg" radius="2xl" className="flex flex-col">
@@ -95,7 +95,7 @@ function ContentCard({ row, rank }: { row: TopContentRow; rank: number }) {
 
         <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 to-transparent">
           <div className="text-fg font-mono tabular-nums text-body-sm">
-            {compactFormatter.format(row.viewsGained)} views
+            {compactFormatter.format(row.currentViews)} views
           </div>
           <div className="text-caption text-fgMuted truncate">
             {row.creatorName ?? row.handle ?? ''}

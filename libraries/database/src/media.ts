@@ -65,7 +65,7 @@ function isAllowedImageHost(host: string): boolean {
 }
 
 const PROXY_UA =
-  'Mozilla/5.0 (compatible; D3CreatorImageProxy/0.1; +https://d3-creator.vercel.app)';
+  'Mozilla/5.0 (compatible; D3CreatorImageProxy/0.1; +https://www.d3creator.com)';
 
 /** Map an image content-type to a file extension (cosmetic — the stored
  *  content-type is what governs serving). Defaults to jpg. */
@@ -238,4 +238,65 @@ export async function persistMediaForPosts<
   );
   await Promise.all(workers);
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Avatar persistence — same problem as post media (signed social-CDN URLs
+// expire → broken images), same fix (copy into our public Storage bucket at
+// scrape time). One object per profile, overwritten each scrape.
+// ---------------------------------------------------------------------------
+
+/**
+ * Pull the avatar URL out of a scraped profile `raw` blob, tolerating the
+ * different field names each adapter writes. Mirrors the avatar precedence in
+ * the frontend's extractRawProfileFields so persisted + fallback avatars agree.
+ */
+export function avatarUrlFromRaw(raw: unknown): string | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  const candidates = [
+    r.profile_pic_url,
+    r.avatar_url,
+    r.profile_pic,
+    r.profilePicUrlHD,
+    r.profilePicUrl,
+  ];
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.length > 0) return c;
+  }
+  return null;
+}
+
+/**
+ * Copy a profile avatar into Storage and return its permanent public URL. One
+ * object per profile (avatars/<profileId>.<ext>), upserted so each scrape
+ * overwrites with the freshest avatar. Same best-effort contract as
+ * persistPostMedia: returns the source unchanged if it's already a Storage URL,
+ * or null if the bytes couldn't be fetched/uploaded.
+ */
+export async function persistAvatar(
+  profileId: string,
+  sourceUrl: string,
+): Promise<string | null> {
+  if (isAlreadyPersisted(sourceUrl)) return sourceUrl;
+
+  const img = await fetchImage(sourceUrl);
+  if (!img) return null;
+
+  const sb = getSupabaseAdmin();
+  const key = `avatars/${sanitizeKeySegment(profileId)}.${extFromContentType(
+    img.contentType,
+  )}`;
+
+  const up = await sb.storage.from(POST_MEDIA_BUCKET).upload(key, img.body, {
+    contentType: img.contentType,
+    upsert: true,
+  });
+  if (up.error) {
+    console.error('[media] avatar upload failed', key, up.error.message);
+    return null;
+  }
+
+  const pub = sb.storage.from(POST_MEDIA_BUCKET).getPublicUrl(key);
+  return pub.data.publicUrl ?? null;
 }

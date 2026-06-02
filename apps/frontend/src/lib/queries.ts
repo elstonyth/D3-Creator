@@ -14,6 +14,7 @@
 
 import { getSupabaseRead } from './supabase-server';
 import { resolveMediaUrl } from './media-url';
+import type { TopContentRow } from './metrics-windowed';
 import type { PlatformKey } from '@gitroom/frontend/components/ui/platform-icons';
 
 // DB stores 'rednote'; showcase uses 'xiaohongshu' — single map point.
@@ -21,134 +22,65 @@ function dbPlatformToKey(platform: string): PlatformKey {
   return platform === 'rednote' ? 'xiaohongshu' : (platform as PlatformKey);
 }
 
+/**
+ * Combined totals for one of a creator's platform profiles. The public site
+ * shows totals (current followers + Σ current views across tracked posts), never
+ * deltas — so these need no historical baseline and never read "Building history".
+ */
+export interface CreatorPlatformMetric {
+  platform: PlatformKey;
+  /** DB platform string (e.g. 'rednote' even when key is 'xiaohongshu'). */
+  dbPlatform: string;
+  handle: string | null;
+  followers: number;
+  /** Σ current view count across this profile's tracked recent posts. */
+  totalViews: number;
+  /** Σ (likes + comments + shares) across this profile's tracked recent posts. */
+  totalEngagement: number;
+  postCount: number;
+}
+
 export interface LiveCreatorRow {
   rank: number;
-  handle: string;
+  creatorId: string;
+  /** Display name (creator.display_name, else the primary profile handle). */
+  displayName: string;
+  /** Highest-follower profile's handle — the slug for /creators/<handle>. */
+  primaryHandle: string | null;
+  /** Platform of the highest-follower profile (drives the row icon). */
   primaryPlatform: PlatformKey;
+  /** Whole-creator total: Σ latest followers across the creator's profiles. */
   followers: number;
-  /** 0 when tracked <14 days (spec §4 insufficient-data guard). */
-  growth30d: number;
-  /**
-   * Average (likes + comments + shares) per post divided by followers.
-   * Stored as a fraction (0.052 = 5.2%) to match the demo data convention
-   * and the Intl percentFormatter consumers in the showcase components.
-   * 0 when no posts yet OR no followers. THIS is the leaderboard rank metric —
-   * window-insensitive (per-post average), so it stays fair across platforms
-   * whose post windows differ (IG ~12, TikTok/FB up to 30).
-   */
-  engagementRate: number;
-  /** Σ views across the creator's recent posts (display-only "wow" number;
-   *  window-based, never used for ranking). */
+  /** Combined Σ current views across all the creator's tracked recent posts. */
   totalViews: number;
-  /** Σ (likes + comments + shares) across the creator's recent posts
-   *  (display-only; window-based, never used for ranking). */
+  /** Combined Σ (likes+comments+shares) across those posts. */
   totalEngagement: number;
-  /** When true, growth/engagement cells should render an empty-state in the UI. */
-  insufficient: boolean;
+  /** One entry per platform the creator is on — powers correct per-platform
+   *  filtering (pick the matching slot) without mis-attributing a creator's
+   *  whole audience to its primary platform. */
+  platforms: CreatorPlatformMetric[];
 }
 
 export interface SiteSummary {
+  /** Creators with at least one (non-archived) profile. */
   trackedCreators: number;
   combinedFollowers: number;
-  combinedFollowersDelta30d: number;
-  /** Fraction (0.103 = 10.3%) to match Intl percent-style formatters. */
-  combinedFollowersDelta30dPct: number;
+  /** Σ current views across every tracked recent post. */
+  combinedViews: number;
 }
 
 /**
- * Aggregate counts shown in the hero strip and dashboard summary cards.
+ * One row per creator with combined totals AND a per-platform breakdown.
+ * Single fetch (creators + profiles + latest snapshots + posts); the public
+ * pages derive the site summary, platform breakdown, and top-N from this with
+ * the pure helpers below — no deltas, no historical baseline.
  *
- * - trackedCreators: distinct creators with at least one profile
- * - combinedFollowers: SUM of latest follower count per profile across all
- *   active profiles (one row per profile from its newest snapshot)
- * - combinedFollowersDelta30d: net add over the last 30 days (today vs 30d ago)
- *
- * Returns null if there are no creators yet — caller decides fallback.
- */
-export async function getSiteSummary(): Promise<SiteSummary | null> {
-  const sb = getSupabaseRead();
-
-  // Distinct creators with at least one profile.
-  const creatorsRes = await sb
-    .from('creator')
-    .select('id', { count: 'exact', head: true });
-  if (creatorsRes.error) {
-    console.error('[queries] getSiteSummary creator count failed', creatorsRes.error);
-    return null;
-  }
-  const trackedCreators = creatorsRes.count ?? 0;
-  if (trackedCreators === 0) return null;
-
-  // Latest snapshot per profile (followers). For v1 we keep it simple:
-  // sum the most recent snapshot per profile_id. Postgres distinct on
-  // would be ideal — using a small in-memory roll-up here since the
-  // hero query fires once per request and v1 scale is <100 profiles.
-  const snaps = await sb
-    .from('profile_snapshot')
-    .select('profile_id, captured_at, followers')
-    .order('captured_at', { ascending: false })
-    .limit(2000);
-  if (snaps.error) {
-    console.error('[queries] getSiteSummary snapshots failed', snaps.error);
-    return null;
-  }
-
-  const latestPerProfile = new Map<string, number>();
-  const earliestPerProfile = new Map<string, { ts: string; followers: number }>();
-  const thirtyDaysAgoIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  for (const row of snaps.data ?? []) {
-    const id = row.profile_id as string;
-    const followers = (row.followers as number | null) ?? 0;
-    if (!latestPerProfile.has(id)) {
-      latestPerProfile.set(id, followers);
-    }
-    // earliest snapshot within the last 30d window
-    const ts = row.captured_at as string;
-    if (ts <= thirtyDaysAgoIso) continue;
-    const cur = earliestPerProfile.get(id);
-    if (!cur || ts < cur.ts) {
-      earliestPerProfile.set(id, { ts, followers });
-    }
-  }
-
-  let combinedFollowers = 0;
-  for (const v of latestPerProfile.values()) combinedFollowers += v;
-
-  let priorCombined = 0;
-  for (const [id, snapshot] of earliestPerProfile.entries()) {
-    if (!latestPerProfile.has(id)) continue;
-    priorCombined += snapshot.followers;
-  }
-  const combinedFollowersDelta30d = priorCombined ? combinedFollowers - priorCombined : 0;
-  // Fraction not percent — Intl.NumberFormat percent style multiplies by 100.
-  const combinedFollowersDelta30dPct =
-    priorCombined > 0 ? combinedFollowersDelta30d / priorCombined : 0;
-
-  return {
-    trackedCreators,
-    combinedFollowers,
-    combinedFollowersDelta30d,
-    combinedFollowersDelta30dPct,
-  };
-}
-
-const INSUFFICIENT_DAYS = 14;
-
-/**
- * Build CreatorRow-shaped rows from the DB. One row per creator, ranked by
- * combined followers across that creator's profiles.
- *
- * Returns null if DB has zero creators (caller falls back to demo data).
- *
- * Sparse-data behavior (per spec §4):
- *   - growth30d  = 0 when <14 days of snapshots OR no prior data
- *   - engagementRate = 0 when no posts or zero followers
- *   - insufficient = true so UI can blank those cells
+ * Returns null if DB has zero creators-with-profiles (caller falls back to demo).
  */
 export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
   const sb = getSupabaseRead();
 
-  // 1. Creators + their profiles (joined)
+  // 1. Creators + their profiles
   const creators = await sb.from('creator').select('id, display_name, avatar_url');
   if (creators.error || !creators.data || creators.data.length === 0) {
     if (creators.error) console.error('[queries] getLiveCreatorRows creators', creators.error);
@@ -157,7 +89,7 @@ export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
 
   const profiles = await sb
     .from('profile')
-    .select('id, creator_id, platform, handle, created_at')
+    .select('id, creator_id, platform, handle')
     .neq('platform', 'rednote'); // xiaohongshu archived — exclude from rollups
   if (profiles.error) {
     console.error('[queries] getLiveCreatorRows profiles', profiles.error);
@@ -169,41 +101,24 @@ export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
     profilesByCreator.get(p.creator_id)!.push(p);
   }
 
-  // 2. Latest snapshot per profile (followers) + earliest snapshot in 30d
-  // window for growth.
+  // 2. Latest snapshot per profile (followers).
   const snaps = await sb
     .from('profile_snapshot')
-    .select('profile_id, captured_at, captured_date, followers')
+    .select('profile_id, captured_at, followers')
     .order('captured_at', { ascending: false })
     .limit(5000);
   if (snaps.error) {
     console.error('[queries] getLiveCreatorRows snaps', snaps.error);
     return null;
   }
-  const latestSnap = new Map<string, number>();
-  const earliest30d = new Map<string, number>();
-  const earliestEver = new Map<string, string>();
-  const thirty = new Date(Date.now() - 30 * 86400_000).toISOString();
-  // Explicit "keep earliest in 30d window" — defensive even though DESC order
-  // already happens to produce that with naive overwrite. Storing {ts,followers}
-  // so the comparison is self-documenting and robust to future ordering changes.
-  const earliest30dWithTs = new Map<string, { ts: string; followers: number }>();
+  const latestFollowers = new Map<string, number>();
   for (const s of snaps.data ?? []) {
-    if (!latestSnap.has(s.profile_id)) latestSnap.set(s.profile_id, s.followers ?? 0);
-    if (s.captured_at > thirty) {
-      const existing = earliest30dWithTs.get(s.profile_id);
-      if (!existing || s.captured_at < existing.ts) {
-        earliest30dWithTs.set(s.profile_id, {
-          ts: s.captured_at,
-          followers: s.followers ?? 0,
-        });
-      }
-    }
-    earliestEver.set(s.profile_id, s.captured_at);
+    if (!latestFollowers.has(s.profile_id)) latestFollowers.set(s.profile_id, s.followers ?? 0);
   }
-  for (const [id, v] of earliest30dWithTs) earliest30d.set(id, v.followers);
 
-  // 3. Recent posts → engagement + view/engagement totals
+  // 3. Latest snapshot per distinct post → combined views + engagement per
+  // profile. Dedup to the newest row per post (captured_at DESC) so a post
+  // snapshotted across multiple days isn't counted once per day.
   const posts = await sb
     .from('post_snapshot')
     .select('profile_id, external_post_id, captured_at, likes, comments, shares, views')
@@ -213,239 +128,206 @@ export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
     console.error('[queries] getLiveCreatorRows posts', posts.error);
     return null;
   }
-  // Dedup to the LATEST snapshot per distinct post (rows are captured_at DESC,
-  // so the first time we see a post is its newest snapshot). Without this, a
-  // post snapshotted across multiple days would be counted once per day and
-  // inflate both the per-post average and the displayed totals.
   const seenPost = new Set<string>();
-  const engagementByProfile = new Map<
-    string,
-    { totalEng: number; totalViews: number; count: number }
-  >();
+  const byProfile = new Map<string, { totalViews: number; totalEng: number; count: number }>();
   for (const p of posts.data ?? []) {
     const key = `${p.profile_id}:${p.external_post_id}`;
     if (seenPost.has(key)) continue;
     seenPost.add(key);
-    const cur =
-      engagementByProfile.get(p.profile_id) || { totalEng: 0, totalViews: 0, count: 0 };
-    cur.totalEng += (p.likes ?? 0) + (p.comments ?? 0) + (p.shares ?? 0);
+    const cur = byProfile.get(p.profile_id) ?? { totalViews: 0, totalEng: 0, count: 0 };
     cur.totalViews += p.views ?? 0;
+    cur.totalEng += (p.likes ?? 0) + (p.comments ?? 0) + (p.shares ?? 0);
     cur.count += 1;
-    engagementByProfile.set(p.profile_id, cur);
+    byProfile.set(p.profile_id, cur);
   }
 
-  // 4. Roll up per creator
-  const now = Date.now();
+  // 4. Roll up per creator, emitting a per-platform slot for each profile.
   const rows: Omit<LiveCreatorRow, 'rank'>[] = [];
   for (const c of creators.data) {
     const cProfiles = profilesByCreator.get(c.id) ?? [];
-    if (cProfiles.length === 0) continue;
+    if (cProfiles.length === 0) continue; // 0-profile creators are not "tracked"
 
+    const platforms: CreatorPlatformMetric[] = [];
     let followers = 0;
-    let followersWithBaseline = 0;
-    let prior = 0;
-    let priorSeen = false;
-    let totalEng = 0;
     let totalViews = 0;
-    let totalPosts = 0;
-    let mostRecentProfile = cProfiles[0];
-
+    let totalEngagement = 0;
     for (const p of cProfiles) {
-      const current = latestSnap.get(p.id) ?? 0;
-      followers += current;
-      const e = engagementByProfile.get(p.id);
-      if (e) {
-        totalEng += e.totalEng;
-        totalViews += e.totalViews;
-        totalPosts += e.count;
-      }
-      const priorVal = earliest30d.get(p.id);
-      if (priorVal !== undefined) {
-        prior += priorVal;
-        followersWithBaseline += current;
-        priorSeen = true;
-      }
-      if (
-        new Date(p.created_at).getTime() <
-        new Date(mostRecentProfile.created_at).getTime()
-      ) {
-        mostRecentProfile = p;
-      }
+      const f = latestFollowers.get(p.id) ?? 0;
+      const e = byProfile.get(p.id) ?? { totalViews: 0, totalEng: 0, count: 0 };
+      followers += f;
+      totalViews += e.totalViews;
+      totalEngagement += e.totalEng;
+      platforms.push({
+        platform: dbPlatformToKey(p.platform),
+        dbPlatform: p.platform,
+        handle: p.handle,
+        followers: f,
+        totalViews: e.totalViews,
+        totalEngagement: e.totalEng,
+        postCount: e.count,
+      });
     }
 
-    // Tracked-days from earliest snapshot of any profile of this creator
-    let trackedDays = 0;
-    for (const p of cProfiles) {
-      const e = earliestEver.get(p.id);
-      if (e) {
-        const days = (now - new Date(e).getTime()) / 86400_000;
-        if (days > trackedDays) trackedDays = days;
-      }
-    }
-    const insufficient = trackedDays < INSUFFICIENT_DAYS;
-
-    // Compare like-for-like: growth is current-minus-baseline over only the
-    // profiles that HAVE a 30d baseline. Summing every profile's current
-    // followers against a partial baseline counted a newly-added platform's
-    // entire audience as "growth".
-    const growth30d = priorSeen && !insufficient ? followersWithBaseline - prior : 0;
-    const engagementRate =
-      followers > 0 && totalPosts > 0
-        ? totalEng / totalPosts / followers
-        : 0;
+    // Highest-follower profile decides the primary platform + slug (matches the
+    // admin/leaderboard convention; deterministic on a tie via the first seen).
+    const primary = platforms.reduce(
+      (best, slot) => (slot.followers > best.followers ? slot : best),
+      platforms[0],
+    );
 
     rows.push({
-      handle: mostRecentProfile.handle ?? c.display_name ?? c.id.slice(0, 8),
-      primaryPlatform: dbPlatformToKey(mostRecentProfile.platform),
+      creatorId: c.id,
+      displayName: c.display_name ?? primary.handle ?? c.id.slice(0, 8),
+      primaryHandle: primary.handle,
+      primaryPlatform: primary.platform,
       followers,
-      growth30d,
-      engagementRate,
       totalViews,
-      totalEngagement: totalEng,
-      insufficient,
+      totalEngagement,
+      platforms,
     });
   }
 
   if (rows.length === 0) return null;
-
-  // 5. Rank by followers
   rows.sort((a, b) => b.followers - a.followers);
   return rows.map((r, i) => ({ ...r, rank: i + 1 }));
 }
 
-/**
- * Top creators for the home page "Top Creators" bento.
- *
- * Ranking strategy is signal-aware:
- *   - If any creator has a real 30d growth signal (≥14 days tracked, positive
- *     delta), rank by growth30d desc. This is the intended "movers" ranking.
- *   - Otherwise (early days, no 30d history yet), fall back to ranking by
- *     current follower count so the bento still shows live creators while
- *     growth history accrues.
- *
- * Returns null only when there are zero creators (caller falls back to demo).
- */
-export async function getTopCreatorsByGrowth(
-  limit = 3,
-): Promise<LiveCreatorRow[] | null> {
-  const rows = await getLiveCreatorRows();
-  if (!rows || rows.length === 0) return null;
+// ---------- Pure derivations over getLiveCreatorRows() output ----------
+// These take the already-fetched rows so a page can fetch once and derive the
+// summary / breakdown / top-N without extra round-trips. Pure + unit-testable.
 
-  const withGrowth = rows.filter((r) => !r.insufficient && r.growth30d > 0);
-  const sorted =
-    withGrowth.length > 0
-      ? [...withGrowth].sort((a, b) => b.growth30d - a.growth30d)
-      : [...rows].sort((a, b) => b.followers - a.followers);
-
-  return sorted.slice(0, limit).map((r, i) => ({ ...r, rank: i + 1 }));
+/** Site-wide combined totals (hero strip + dashboard summary). */
+export function summarizeCreatorRows(rows: LiveCreatorRow[]): SiteSummary {
+  let combinedFollowers = 0;
+  let combinedViews = 0;
+  for (const r of rows) {
+    combinedFollowers += r.followers;
+    combinedViews += r.totalViews;
+  }
+  return { trackedCreators: rows.length, combinedFollowers, combinedViews };
 }
 
-// ---------- Platform breakdown (Task 5 step 4 — home page) ----------
+/** Top creators by combined followers (home bento, dashboard list). */
+export function topCreatorRows(rows: LiveCreatorRow[], limit: number): LiveCreatorRow[] {
+  return [...rows]
+    .sort((a, b) => b.followers - a.followers)
+    .slice(0, limit)
+    .map((r, i) => ({ ...r, rank: i + 1 }));
+}
+
+// ---------- Platform breakdown (home page + dashboard) ----------
 
 export interface LivePlatformBreakdown {
   platform: PlatformKey;
   /** DB platform string (e.g. 'rednote' even when key is 'xiaohongshu'). */
   dbPlatform: string;
   followers: number;
-  /** 0 when no profile on this platform has ≥30d of snapshots yet. */
-  growth30d: number;
+  /** Σ current views across that platform's tracked recent posts. */
+  totalViews: number;
   creatorCount: number;
 }
 
 /**
- * Per-platform aggregate for the home page "Five platforms. One showcase."
- * strip. Sums latest follower counts and 30d net adds across every profile
- * on each platform.
- *
- * Returns only platforms with at least one profile in the DB. The home page
- * merges these with the synthetic PLATFORM_BREAKDOWN so all five cards
- * always render — empty platforms show demo data.
- *
- * Returns null when the snapshot table is empty (caller falls back to demo).
+ * Per-platform combined totals, derived from getLiveCreatorRows() output. True
+ * per-profile aggregation (a multi-platform creator contributes each platform's
+ * own followers/views), so the dashboard's per-platform filter is correct.
  */
-export async function getPlatformBreakdown(): Promise<
-  LivePlatformBreakdown[] | null
-> {
+export function platformBreakdownFromRows(
+  rows: LiveCreatorRow[],
+): LivePlatformBreakdown[] {
+  const byPlatform = new Map<
+    PlatformKey,
+    { dbPlatform: string; followers: number; totalViews: number; creators: Set<string> }
+  >();
+  for (const r of rows) {
+    for (const slot of r.platforms) {
+      const b = byPlatform.get(slot.platform) ?? {
+        dbPlatform: slot.dbPlatform,
+        followers: 0,
+        totalViews: 0,
+        creators: new Set<string>(),
+      };
+      b.followers += slot.followers;
+      b.totalViews += slot.totalViews;
+      b.creators.add(r.creatorId);
+      byPlatform.set(slot.platform, b);
+    }
+  }
+  return [...byPlatform.entries()].map(([platform, b]) => ({
+    platform,
+    dbPlatform: b.dbPlatform,
+    followers: b.followers,
+    totalViews: b.totalViews,
+    creatorCount: b.creators.size,
+  }));
+}
+
+// ---------- Top content (public leaderboard) ----------
+
+/**
+ * Top posts ranked by CURRENT views (combined total, no delta). Returns the
+ * shared TopContentRow shape so it's a drop-in for the <ViewLeaderboard>
+ * component; viewsGained is set equal to currentViews (the component renders
+ * currentViews). Dedups to the newest snapshot per post.
+ */
+export async function getTopContent(limit = 20): Promise<TopContentRow[]> {
   const sb = getSupabaseRead();
 
   const profiles = await sb
     .from('profile')
-    .select('id, creator_id, platform')
-    .neq('platform', 'rednote'); // xiaohongshu archived — exclude from breakdown
+    .select('id, creator_id, platform, handle')
+    .neq('platform', 'rednote'); // xiaohongshu archived
   if (profiles.error || !profiles.data || profiles.data.length === 0) {
-    if (profiles.error)
-      console.error('[queries] getPlatformBreakdown profiles', profiles.error);
-    return null;
+    if (profiles.error) console.error('[queries] getTopContent profiles', profiles.error);
+    return [];
   }
+  const profMap = new Map(profiles.data.map((p) => [p.id, p]));
+  const creatorIds = [...new Set(profiles.data.map((p) => p.creator_id))];
+  const creatorsRes = await sb.from('creator').select('id, display_name').in('id', creatorIds);
+  const nameByCreator = new Map(
+    (creatorsRes.data ?? []).map((c) => [c.id, c.display_name as string | null]),
+  );
 
-  const snaps = await sb
-    .from('profile_snapshot')
-    .select('profile_id, captured_at, followers')
+  const posts = await sb
+    .from('post_snapshot')
+    .select(
+      'profile_id, external_post_id, captured_at, posted_at, views, likes, comments, shares, caption_excerpt, media_url',
+    )
     .order('captured_at', { ascending: false })
     .limit(5000);
-  if (snaps.error) {
-    console.error('[queries] getPlatformBreakdown snaps', snaps.error);
-    return null;
+  if (posts.error) {
+    console.error('[queries] getTopContent posts', posts.error);
+    return [];
   }
 
-  // Latest + earliest-in-30d-window per profile. Explicit "earliest" comparison
-  // so the intent doesn't drift if the .order() above ever changes.
-  const latestByProfile = new Map<string, number>();
-  const earliest30dByProfileTs = new Map<string, { ts: string; followers: number }>();
-  const thirtyDaysAgoIso = new Date(
-    Date.now() - 30 * 86400_000,
-  ).toISOString();
-  for (const s of snaps.data ?? []) {
-    const id = s.profile_id as string;
-    const followers = (s.followers as number | null) ?? 0;
-    if (!latestByProfile.has(id)) latestByProfile.set(id, followers);
-    const ts = s.captured_at as string;
-    if (ts > thirtyDaysAgoIso) {
-      const existing = earliest30dByProfileTs.get(id);
-      if (!existing || ts < existing.ts) {
-        earliest30dByProfileTs.set(id, { ts, followers });
-      }
-    }
-  }
-  const earliest30dByProfile = new Map<string, number>();
-  for (const [id, v] of earliest30dByProfileTs) earliest30dByProfile.set(id, v.followers);
-
-  // Group profiles by platform and roll up.
-  interface Bucket {
-    followers: number;
-    prior: number;
-    priorSeen: boolean;
-    creatorIds: Set<string>;
-  }
-  const byPlatform = new Map<string, Bucket>();
-  for (const p of profiles.data) {
-    const bucket: Bucket = byPlatform.get(p.platform) ?? {
-      followers: 0,
-      prior: 0,
-      priorSeen: false,
-      creatorIds: new Set(),
-    };
-    bucket.followers += latestByProfile.get(p.id) ?? 0;
-    const prior = earliest30dByProfile.get(p.id);
-    if (prior !== undefined) {
-      bucket.prior += prior;
-      bucket.priorSeen = true;
-    }
-    bucket.creatorIds.add(p.creator_id as string);
-    byPlatform.set(p.platform, bucket);
-  }
-
-  const out: LivePlatformBreakdown[] = [];
-  for (const [dbPlatform, b] of byPlatform.entries()) {
+  const seen = new Set<string>();
+  const out: TopContentRow[] = [];
+  for (const p of posts.data ?? []) {
+    const prof = profMap.get(p.profile_id);
+    if (!prof) continue; // rednote-excluded / unknown profile
+    const key = `${p.profile_id}:${p.external_post_id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const views = p.views ?? 0;
     out.push({
-      platform: dbPlatformToKey(dbPlatform),
-      dbPlatform,
-      followers: b.followers,
-      growth30d: b.priorSeen ? b.followers - b.prior : 0,
-      creatorCount: b.creatorIds.size,
+      externalPostId: p.external_post_id,
+      profileId: p.profile_id,
+      creatorId: prof.creator_id,
+      creatorName: nameByCreator.get(prof.creator_id) ?? prof.handle ?? null,
+      platform: prof.platform,
+      handle: prof.handle,
+      captionExcerpt: p.caption_excerpt ?? null,
+      thumbnailUrl: resolveMediaUrl(p.media_url),
+      postedAt: p.posted_at ?? null,
+      viewsGained: views,
+      currentViews: views,
+      likes: p.likes ?? 0,
+      comments: p.comments ?? 0,
+      shares: p.shares ?? 0,
     });
   }
-  return out.length > 0 ? out : null;
+  out.sort((a, b) => b.currentViews - a.currentViews);
+  return out.slice(0, limit);
 }
 
 // ---------- Creator detail (Task 5 step 3) ----------
@@ -488,13 +370,13 @@ export interface CreatorDetail {
  */
 async function latestSnapshotsForProfiles(
   profileIds: string[],
-): Promise<Map<string, { followers: number | null; following: number | null; total_posts: number | null; total_views: number | null; total_likes: number | null; captured_at: string; raw: unknown }>> {
-  const map = new Map<string, { followers: number | null; following: number | null; total_posts: number | null; total_views: number | null; total_likes: number | null; captured_at: string; raw: unknown }>();
+): Promise<Map<string, { followers: number | null; following: number | null; total_posts: number | null; total_views: number | null; total_likes: number | null; captured_at: string; avatar_url: string | null; raw: unknown }>> {
+  const map = new Map<string, { followers: number | null; following: number | null; total_posts: number | null; total_views: number | null; total_likes: number | null; captured_at: string; avatar_url: string | null; raw: unknown }>();
   if (profileIds.length === 0) return map;
   const sb = getSupabaseRead();
   const res = await sb
     .from('profile_snapshot')
-    .select('profile_id, followers, following, total_posts, total_views, total_likes, captured_at, raw')
+    .select('profile_id, followers, following, total_posts, total_views, total_likes, captured_at, avatar_url, raw')
     .in('profile_id', profileIds)
     .order('captured_at', { ascending: false });
   if (res.error) {
@@ -510,6 +392,7 @@ async function latestSnapshotsForProfiles(
         total_views: row.total_views,
         total_likes: row.total_likes,
         captured_at: row.captured_at,
+        avatar_url: row.avatar_url,
         raw: row.raw,
       });
     }
@@ -640,7 +523,7 @@ export async function getCreatorByHandle(
     const rawFromSnap = snap?.raw;
     const fromPost = extractRawProfileFields(rawFromPost);
     const fromSnap = extractRawProfileFields(rawFromSnap);
-    if (!bestAvatar) bestAvatar = resolveMediaUrl(fromPost.avatarUrl ?? fromSnap.avatarUrl);
+    if (!bestAvatar) bestAvatar = resolveMediaUrl(snap?.avatar_url ?? fromPost.avatarUrl ?? fromSnap.avatarUrl);
     if (!bestFullName) bestFullName = fromPost.fullName ?? fromSnap.fullName;
     if (!bestBio) bestBio = fromPost.biography ?? fromSnap.biography;
 

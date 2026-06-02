@@ -13,21 +13,17 @@ import {
   PLATFORM_LABELS,
   type PlatformKey,
 } from '@gitroom/frontend/components/ui/platform-icons';
-import { Sparkline } from '@gitroom/frontend/components/dashboard-showcase/sparkline';
 import {
   compactFormatter,
   exactFormatter,
   handleToSlug,
-  METRICS,
-  signedPercentFormatter,
-  summarize,
-  TOP_CREATORS,
+  demoCreatorRows,
 } from '@gitroom/frontend/components/dashboard-showcase/showcase-data';
 import {
-  getSiteSummary,
-  getTopCreatorsByGrowth,
-  getPlatformBreakdown,
-  type LiveCreatorRow,
+  getLiveCreatorRows,
+  summarizeCreatorRows,
+  platformBreakdownFromRows,
+  topCreatorRows,
   type LivePlatformBreakdown,
 } from '@gitroom/frontend/lib/queries';
 
@@ -54,54 +50,24 @@ const PLATFORM_ORDER: PlatformKey[] = [
 ];
 
 export default async function HomePage() {
-  const demoSummary = summarize('all');
-  // Live counts from Supabase when present; otherwise the design demo stays in.
-  // Fire all three queries in parallel — Server Component renders block on
-  // the slowest one anyway, no point in serializing.
-  const [liveSummary, liveTopCreators, livePlatformBreakdown] = await Promise.all([
-    getSiteSummary().catch((err) => {
-      console.error('[home] getSiteSummary failed', err);
-      return null;
-    }),
-    getTopCreatorsByGrowth(3).catch((err) => {
-      console.error('[home] getTopCreatorsByGrowth failed', err);
-      return null;
-    }),
-    getPlatformBreakdown().catch((err) => {
-      console.error('[home] getPlatformBreakdown failed', err);
-      return null;
-    }),
-  ]);
+  // One fetch → derive the summary, top creators, and platform breakdown. When
+  // there is no live data yet, the synthetic demo rows flow through the SAME
+  // helpers, so the page always shows combined totals (followers + views),
+  // never 30-day deltas.
+  const liveRows = await getLiveCreatorRows().catch((err) => {
+    console.error('[home] getLiveCreatorRows failed', err);
+    return null;
+  });
+  const isLive = !!(liveRows && liveRows.length > 0);
+  const rows = isLive ? liveRows! : demoCreatorRows();
 
-  const summary = liveSummary
-    ? {
-        ...demoSummary,
-        trackedCreators: liveSummary.trackedCreators,
-        combinedFollowers: liveSummary.combinedFollowers,
-        combinedGrowth30d: liveSummary.combinedFollowersDelta30d,
-      }
-    : demoSummary;
-  // Prefer live % when we have a real prior baseline; fall back to the demo
-  // metric so the card still renders something pre-launch. Both are fractions
-  // (e.g. 0.103 = 10.3%) — Intl percent style multiplies by 100.
-  const combinedGrowth30dPct = liveSummary
-    ? liveSummary.combinedFollowersDelta30dPct
-    : METRICS.all.netGrowth30dPct;
+  const summary = summarizeCreatorRows(rows);
+  const topThree = topCreatorRows(rows, 3);
 
-  // Top Creators bento: live when we have ≥1 creator past the 14-day
-  // sufficiency gate with positive 30d growth; else fall back to the
-  // synthetic top-3 so the section still has something to show.
-  const topThree: TopCreatorCard[] = liveTopCreators
-    ? liveTopCreators.map(liveRowToCard)
-    : TOP_CREATORS.slice(0, 3).map(demoRowToCard);
-
-  // Per-platform cards: merge live + demo. Each of the five platforms either
-  // has live data (preferred) or falls back to its demo entry so the strip
-  // always renders five cards.
+  // Per-platform cards: each platform that has a profile shows its combined
+  // totals; platforms with none render "Not yet tracked".
   const liveByPlatform = new Map<PlatformKey, LivePlatformBreakdown>();
-  for (const p of livePlatformBreakdown ?? []) liveByPlatform.set(p.platform, p);
-
-  const allMetrics = METRICS.all;
+  for (const p of platformBreakdownFromRows(rows)) liveByPlatform.set(p.platform, p);
 
   return (
     <div className="flex flex-col w-full">
@@ -250,7 +216,7 @@ export default async function HomePage() {
                     Top Creators
                   </span>
                   <span className="text-caption text-fgMuted">
-                    Ranked by 30d net growth · All platforms
+                    Ranked by followers · All platforms
                   </span>
                 </div>
                 <Link
@@ -272,35 +238,49 @@ export default async function HomePage() {
                 {topThree.map((creator) => {
                   const Icon = PLATFORM_ICONS[creator.primaryPlatform];
                   const isWinner = creator.rank === 1;
+                  const slug = creator.primaryHandle
+                    ? handleToSlug(creator.primaryHandle)
+                    : null;
+                  const rowClass =
+                    'grid grid-cols-[40px_minmax(0,1fr)_auto_120px] gap-4 items-center px-1 py-4 rounded-md transition-colors duration-150 ease-out';
+                  const cells = (
+                    <>
+                      <span
+                        className={`font-mono tabular-nums text-[28px] leading-none tracking-[-0.025em] ${
+                          isWinner ? 'text-brand font-semibold' : 'text-fgSubtle'
+                        }`}
+                      >
+                        {String(creator.rank).padStart(2, '0')}
+                      </span>
+                      <span className="text-fg font-medium truncate">
+                        {creator.displayName}
+                      </span>
+                      <span className="flex items-center gap-2 text-fgMuted text-caption">
+                        <Icon size={14} />
+                        <span className="hidden sm:inline">
+                          {PLATFORM_LABELS[creator.primaryPlatform]}
+                        </span>
+                      </span>
+                      <span className="text-right font-mono tabular-nums text-fg">
+                        {compactFormatter.format(creator.followers)}
+                      </span>
+                    </>
+                  );
                   return (
                     <li
-                      key={creator.handle}
+                      key={creator.creatorId}
                       className="border-b border-borderGlass last:border-b-0"
                     >
-                      <Link
-                        href={`/creators/${handleToSlug(creator.handle)}`}
-                        className="grid grid-cols-[40px_minmax(0,1fr)_auto_120px] gap-4 items-center px-1 py-4 rounded-md transition-colors duration-150 ease-out hover:bg-white/[0.025] focus-visible:bg-white/[0.04] outline-none"
-                      >
-                        <span
-                          className={`font-mono tabular-nums text-[28px] leading-none tracking-[-0.025em] ${
-                            isWinner ? 'text-brand font-semibold' : 'text-fgSubtle'
-                          }`}
+                      {slug ? (
+                        <Link
+                          href={`/creators/${slug}`}
+                          className={`${rowClass} hover:bg-white/[0.025] focus-visible:bg-white/[0.04] outline-none`}
                         >
-                          {String(creator.rank).padStart(2, '0')}
-                        </span>
-                        <span className="text-fg font-medium truncate">
-                          {creator.handle}
-                        </span>
-                        <span className="flex items-center gap-2 text-fgMuted text-caption">
-                          <Icon size={14} />
-                          <span className="hidden sm:inline">
-                            {PLATFORM_LABELS[creator.primaryPlatform]}
-                          </span>
-                        </span>
-                        <span className="text-right font-mono tabular-nums text-fg">
-                          {compactFormatter.format(creator.followers)}
-                        </span>
-                      </Link>
+                          {cells}
+                        </Link>
+                      ) : (
+                        <div className={rowClass}>{cells}</div>
+                      )}
                     </li>
                   );
                 })}
@@ -320,7 +300,7 @@ export default async function HomePage() {
                 <div className="flex items-start justify-between mb-6">
                   <div className="flex flex-col gap-1">
                     <span className="text-micro uppercase text-fgSubtle tracking-[0.04em]">
-                      Net Growth · 30d
+                      Total Views
                     </span>
                     <span className="text-caption text-fgMuted">All platforms</span>
                   </div>
@@ -332,23 +312,13 @@ export default async function HomePage() {
                   </span>
                 </div>
 
-                <div className="flex items-baseline gap-3 mb-1">
-                  <div className="text-[clamp(36px,4vw,52px)] leading-[0.98] tracking-[-0.035em] font-semibold text-fg tabular-nums">
-                    +{compactFormatter.format(allMetrics.netGrowth30d)}
+                <div className="flex flex-1 flex-col justify-center">
+                  <div className="text-[clamp(40px,5vw,64px)] leading-[0.98] tracking-[-0.035em] font-semibold text-fg tabular-nums">
+                    {compactFormatter.format(summary.combinedViews)}
                   </div>
-                  <div className="text-body-sm font-mono tabular-nums text-fgMuted">
-                    {signedPercentFormatter.format(allMetrics.netGrowth30dPct)}
+                  <div className="text-caption text-fgMuted mt-3 tabular-nums">
+                    views across tracked recent posts
                   </div>
-                </div>
-                <div className="text-caption text-fgMuted mb-6 tabular-nums">
-                  vs. prior 30d
-                </div>
-
-                <div className="flex-1 min-h-[120px]">
-                  <Sparkline
-                    values={allMetrics.growthSeries}
-                    ariaLabel="Daily net follower additions over 30 days"
-                  />
                 </div>
               </GlassCard>
             </Link>
@@ -372,7 +342,7 @@ export default async function HomePage() {
             const live = liveByPlatform.get(platform);
             const isEmpty = !live;
             const followers = live?.followers ?? 0;
-            const growth30d = live?.growth30d ?? 0;
+            const totalViews = live?.totalViews ?? 0;
             const creatorCount = live?.creatorCount ?? 0;
             return (
               <Link
@@ -408,8 +378,8 @@ export default async function HomePage() {
                   </div>
 
                   <div className="flex items-center justify-between text-caption text-fgMuted font-mono tabular-nums pt-3 border-t border-borderGlass">
-                    <span>{isEmpty ? '—' : `+${compactFormatter.format(growth30d)}`}</span>
-                    <span>30d</span>
+                    <span>{isEmpty ? '—' : compactFormatter.format(totalViews)}</span>
+                    <span>views</span>
                   </div>
                 </GlassCard>
               </Link>
@@ -435,9 +405,9 @@ export default async function HomePage() {
               note={`${exactFormatter.format(summary.combinedFollowers)} total`}
             />
             <StatCell
-              label="30d Net Growth"
-              value={`+${compactFormatter.format(summary.combinedGrowth30d)}`}
-              note={signedPercentFormatter.format(combinedGrowth30dPct) + ' vs. prior 30d'}
+              label="Total Views"
+              value={compactFormatter.format(summary.combinedViews)}
+              note="across tracked recent posts"
             />
           </dl>
         </GlassCard>
@@ -467,7 +437,7 @@ export default async function HomePage() {
               </AuroraButton>
             </Link>
           </div>
-          {!liveSummary && !liveTopCreators && (
+          {!isLive && (
             <p className="text-caption text-fgSubtle mt-8 tabular-nums">
               Showcase preview · synthetic data until the scraper switches on.
             </p>
@@ -477,38 +447,6 @@ export default async function HomePage() {
       </section>
     </div>
   );
-}
-
-// Normalized shape used by the Top Creators bento; both live and demo
-// rows are projected into this so the JSX doesn't branch.
-interface TopCreatorCard {
-  rank: number;
-  handle: string;
-  primaryPlatform: PlatformKey;
-  followers: number;
-}
-
-function liveRowToCard(r: LiveCreatorRow): TopCreatorCard {
-  return {
-    rank: r.rank,
-    handle: r.handle,
-    primaryPlatform: r.primaryPlatform,
-    followers: r.followers,
-  };
-}
-
-function demoRowToCard(r: {
-  rank: number;
-  handle: string;
-  primaryPlatform: PlatformKey;
-  followers: number;
-}): TopCreatorCard {
-  return {
-    rank: r.rank,
-    handle: r.handle,
-    primaryPlatform: r.primaryPlatform,
-    followers: r.followers,
-  };
 }
 
 interface SectionLabelProps {

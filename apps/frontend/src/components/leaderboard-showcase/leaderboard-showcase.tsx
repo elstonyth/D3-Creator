@@ -13,15 +13,12 @@ import {
   compactFormatter,
   exactFormatter,
   handleToSlug,
-  TOP_CREATORS,
+  demoCreatorRows,
   type PlatformFilter,
 } from '../dashboard-showcase/showcase-data';
-import type {
-  CreatorMetricWindowRow,
-  TopContentRow,
-} from '@gitroom/frontend/lib/metrics-windowed';
+import type { LiveCreatorRow } from '@gitroom/frontend/lib/queries';
+import type { TopContentRow } from '@gitroom/frontend/lib/metrics-windowed';
 import { ViewLeaderboard } from './view-leaderboard';
-import { formatWindowedValue } from '@gitroom/frontend/lib/format-metric';
 
 interface TabDef {
   value: PlatformFilter;
@@ -37,8 +34,8 @@ const TABS: TabDef[] = [
   // xiaohongshu archived — hidden from the platform filter.
 ];
 
-/** Sort union for the follower board — followers vs views gained in window. */
-type LbSort = 'followers' | 'viewsGained';
+/** Sort union for the follower board — followers vs combined views. */
+type LbSort = 'followers' | 'totalViews';
 
 interface SortDef {
   value: LbSort;
@@ -47,47 +44,53 @@ interface SortDef {
 
 const SORTS: SortDef[] = [
   { value: 'followers', label: 'Followers' },
-  { value: 'viewsGained', label: 'Views 30D' },
+  { value: 'totalViews', label: 'Views' },
 ];
-
-/** Map a raw platform string (RPC: 'rednote') to a UI PlatformKey. */
-function toPlatformKey(platform: string | null): PlatformKey | null {
-  if (!platform) return null;
-  return platform === 'rednote' ? 'xiaohongshu' : (platform as PlatformKey);
-}
 
 function filterLabel(filter: PlatformFilter): string {
   return filter === 'all' ? 'All platforms' : PLATFORM_LABELS[filter];
 }
 
+/** A creator resolved for the active platform filter (combined totals). */
+interface LbRow {
+  key: string;
+  name: string;
+  slug: string | null;
+  platform: PlatformKey | null;
+  followers: number;
+  totalViews: number;
+}
+
+function resolveRows(creators: LiveCreatorRow[], filter: PlatformFilter): LbRow[] {
+  if (filter === 'all') {
+    return creators.map((c) => ({
+      key: c.creatorId,
+      name: c.displayName,
+      slug: c.primaryHandle ? handleToSlug(c.primaryHandle) : null,
+      platform: c.primaryPlatform,
+      followers: c.followers,
+      totalViews: c.totalViews,
+    }));
+  }
+  const out: LbRow[] = [];
+  for (const c of creators) {
+    const slot = c.platforms.find((p) => p.platform === filter);
+    if (!slot) continue;
+    out.push({
+      key: c.creatorId,
+      name: c.displayName,
+      slug: slot.handle ? handleToSlug(slot.handle) : null,
+      platform: filter,
+      followers: slot.followers,
+      totalViews: slot.totalViews,
+    });
+  }
+  return out;
+}
+
 export interface LeaderboardShowcaseProps {
-  liveCreators?: CreatorMetricWindowRow[] | null;
+  liveCreators?: LiveCreatorRow[] | null;
   topContent?: TopContentRow[] | null;
-}
-
-/** The subset of CreatorMetricWindowRow the follower board renders. */
-type LbRow = Pick<
-  CreatorMetricWindowRow,
-  'creatorId' | 'displayName' | 'primaryPlatform' | 'primaryHandle' | 'followers' | 'viewsGained' | 'insufficient'
-> & { rank: number };
-
-function applySort(rows: LbRow[], sortBy: LbSort): LbRow[] {
-  const sorted = [...rows].sort((a, b) => b[sortBy] - a[sortBy]);
-  return sorted.map((r, i) => ({ ...r, rank: i + 1 }));
-}
-
-/** Demo fallback derived from the existing synthetic TOP_CREATORS. */
-function demoRows(): LbRow[] {
-  return TOP_CREATORS.map((c) => ({
-    creatorId: c.handle,
-    displayName: c.handle,
-    primaryPlatform: c.primaryPlatform,
-    primaryHandle: handleToSlug(c.handle),
-    followers: c.followers,
-    viewsGained: c.totalViews,
-    insufficient: false,
-    rank: c.rank,
-  }));
 }
 
 export function LeaderboardShowcase({
@@ -97,34 +100,19 @@ export function LeaderboardShowcase({
   const [filter, setFilter] = useState<PlatformFilter>('all');
   const [sortBy, setSortBy] = useState<LbSort>('followers');
   const isLive = !!(liveCreators && liveCreators.length > 0);
-
-  const baseRows = useMemo<LbRow[]>(() => {
-    if (isLive) {
-      return liveCreators!.map((r, i) => ({
-        creatorId: r.creatorId,
-        displayName: r.displayName,
-        primaryPlatform: r.primaryPlatform,
-        primaryHandle: r.primaryHandle,
-        followers: r.followers,
-        viewsGained: r.viewsGained,
-        insufficient: r.insufficient,
-        rank: i + 1,
-      }));
-    }
-    return demoRows();
-  }, [isLive, liveCreators]);
+  const baseCreators = useMemo(
+    () => (isLive ? liveCreators! : demoCreatorRows()),
+    [isLive, liveCreators],
+  );
 
   const rows = useMemo(() => {
-    const filtered =
-      filter === 'all'
-        ? baseRows
-        : baseRows.filter((r) => toPlatformKey(r.primaryPlatform) === filter);
-    return applySort(filtered, sortBy);
-  }, [baseRows, filter, sortBy]);
+    const resolved = resolveRows(baseCreators, filter);
+    return [...resolved].sort((a, b) => b[sortBy] - a[sortBy]);
+  }, [baseCreators, filter, sortBy]);
 
   const stats = useMemo(() => {
     const totalFollowers = rows.reduce((s, r) => s + r.followers, 0);
-    const totalViews = rows.reduce((s, r) => s + r.viewsGained, 0);
+    const totalViews = rows.reduce((s, r) => s + r.totalViews, 0);
     return { trackedCreators: rows.length, totalFollowers, totalViews };
   }, [rows]);
 
@@ -139,9 +127,9 @@ export function LeaderboardShowcase({
           note={`across ${exactFormatter.format(stats.trackedCreators)} creator${stats.trackedCreators === 1 ? '' : 's'}`}
         />
         <SummaryStat
-          label="Total Views 30D"
+          label="Total Views"
           value={compactFormatter.format(stats.totalViews)}
-          note="views gained · last 30 days"
+          note="across tracked recent posts"
         />
       </div>
 
@@ -324,15 +312,15 @@ function LeaderTable({ rows, sortBy }: LeaderTableProps) {
             </Th>
             <Th
               className="w-[110px] text-right pr-2"
-              active={sortBy === 'viewsGained'}
+              active={sortBy === 'totalViews'}
             >
-              Views 30D
+              Views
             </Th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <LeaderRow key={row.creatorId} row={row} sortBy={sortBy} />
+          {rows.map((row, i) => (
+            <LeaderRow key={row.key} row={row} rank={i + 1} sortBy={sortBy} />
           ))}
         </tbody>
       </table>
@@ -363,22 +351,19 @@ function Th({ className, active, children }: ThProps) {
 
 interface LeaderRowProps {
   row: LbRow;
+  rank: number;
   sortBy: LbSort;
 }
 
-function LeaderRow({ row, sortBy }: LeaderRowProps) {
-  const name = row.displayName ?? row.creatorId;
-  const platformKey = toPlatformKey(row.primaryPlatform);
+function LeaderRow({ row, rank, sortBy }: LeaderRowProps) {
+  const name = row.name;
+  const platformKey = row.platform;
   const Icon = platformKey ? PLATFORM_ICONS[platformKey] : null;
-  const isWinner = row.rank === 1;
-  // The /creators/[id] route resolves by profile handle. Use the creator's
-  // primary-profile handle; if absent, render no link rather than a slug that
-  // 404s (a display-name slug never matches a handle).
-  const slug = row.primaryHandle ? handleToSlug(row.primaryHandle) : null;
+  const isWinner = rank === 1;
+  const slug = row.slug;
   return (
     <tr className="relative border-b border-borderGlass last:border-b-0 transition-colors duration-150 ease-out hover:bg-white/[0.025] focus-within:bg-white/[0.04]">
       <td className="h-12 pl-2 font-mono tabular-nums">
-        {/* Overlay anchor: absolute inset-0 inside tr (relative) covers whole row */}
         {slug ? (
           <Link
             href={`/creators/${slug}`}
@@ -392,7 +377,7 @@ function LeaderRow({ row, sortBy }: LeaderRowProps) {
             isWinner ? 'text-brand font-semibold' : 'text-fgSubtle'
           )}
         >
-          {String(row.rank).padStart(2, '0')}
+          {String(rank).padStart(2, '0')}
         </span>
       </td>
       <td className="h-12 text-fg font-medium truncate max-w-[260px]">
@@ -409,8 +394,8 @@ function LeaderRow({ row, sortBy }: LeaderRowProps) {
       <NumCell active={sortBy === 'followers'}>
         {compactFormatter.format(row.followers)}
       </NumCell>
-      <NumCell active={sortBy === 'viewsGained'} pr>
-        {formatWindowedValue(row.insufficient, row.viewsGained, compactFormatter.format)}
+      <NumCell active={sortBy === 'totalViews'} pr>
+        {compactFormatter.format(row.totalViews)}
       </NumCell>
     </tr>
   );

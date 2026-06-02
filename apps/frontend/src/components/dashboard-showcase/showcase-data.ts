@@ -1,4 +1,5 @@
 import type { PlatformKey } from '../ui/platform-icons';
+import type { LiveCreatorRow } from '@gitroom/frontend/lib/queries';
 
 export type PlatformFilter = 'all' | PlatformKey;
 
@@ -167,6 +168,35 @@ export const METRICS: Record<PlatformFilter, MetricView> = {
 /** Convert @handle to URL-safe slug used as /creators/[id] param. */
 export function handleToSlug(handle: string): string {
   return handle.replace(/^@/, '').toLowerCase();
+}
+
+/**
+ * Project the synthetic TOP_CREATORS into the live LiveCreatorRow shape so the
+ * demo fallback (pre-launch / zero live data) flows through the exact same
+ * combined-total render path as real data — one code path, no delta fields.
+ */
+export function demoCreatorRows(): LiveCreatorRow[] {
+  return TOP_CREATORS.map((c, i) => ({
+    rank: i + 1,
+    creatorId: c.handle,
+    displayName: c.handle,
+    primaryHandle: handleToSlug(c.handle),
+    primaryPlatform: c.primaryPlatform,
+    followers: c.followers,
+    totalViews: c.totalViews,
+    totalEngagement: c.totalEngagement,
+    platforms: [
+      {
+        platform: c.primaryPlatform,
+        dbPlatform: c.primaryPlatform,
+        handle: handleToSlug(c.handle),
+        followers: c.followers,
+        totalViews: c.totalViews,
+        totalEngagement: c.totalEngagement,
+        postCount: 0,
+      },
+    ],
+  }));
 }
 
 export function getCreatorsForFilter(filter: PlatformFilter): CreatorRow[] {

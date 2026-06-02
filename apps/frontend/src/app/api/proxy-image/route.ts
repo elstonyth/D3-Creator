@@ -189,7 +189,7 @@ export async function GET(request: Request): Promise<Response> {
       headers: {
         // A vanilla UA matters for some CDNs that gate by User-Agent.
         'User-Agent':
-          'Mozilla/5.0 (compatible; D3CreatorImageProxy/0.1; +https://d3-creator.vercel.app)',
+          'Mozilla/5.0 (compatible; D3CreatorImageProxy/0.1; +https://www.d3creator.com)',
         Accept: 'image/*,*/*;q=0.8',
       },
     });
