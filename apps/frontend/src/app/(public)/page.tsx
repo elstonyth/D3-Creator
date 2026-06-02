@@ -1,7 +1,6 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { GlassCard } from '@gitroom/frontend/components/ui/glass-card';
-import { BentoGrid, BentoItem } from '@gitroom/frontend/components/ui/bento-grid';
 import { AuroraButton } from '@gitroom/frontend/components/ui/aurora-button';
 import { Reveal } from '@gitroom/frontend/components/ui/reveal';
 import { ShinyText } from '@gitroom/frontend/components/ui/shiny-text';
@@ -62,7 +61,8 @@ export default async function HomePage() {
   const rows = isLive ? liveRows! : demoCreatorRows();
 
   const summary = summarizeCreatorRows(rows);
-  const topThree = topCreatorRows(rows, 3);
+  const topCreators = topCreatorRows(rows, 5);
+  const combinedEngagement = rows.reduce((s, c) => s + c.totalEngagement, 0);
 
   // Per-platform cards: each platform that has a profile shows its combined
   // totals; platforms with none render "Not yet tracked".
@@ -202,79 +202,61 @@ export default async function HomePage() {
             caption="A snapshot of the dashboard, refreshed continuously."
           />
 
-          <BentoGrid gap="md">
-          <BentoItem colSpan={7} rowSpan={2} tabletColSpan={6}>
-            <GlassCard
-              variant="base"
-              padding="lg"
-              radius="2xl"
-              className="h-full flex flex-col"
-            >
-              <div className="flex items-start justify-between mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,400px)] gap-4 items-stretch">
+            {/* Top creators — top 5, by followers (no platform column) */}
+            <GlassCard variant="base" padding="md" radius="2xl" className="flex flex-col">
+              <div className="flex items-end justify-between mb-4">
                 <div className="flex flex-col gap-1">
-                  <span className="text-micro uppercase text-fgSubtle tracking-[0.04em]">
-                    Top Creators
-                  </span>
-                  <span className="text-caption text-fgMuted">
-                    Ranked by followers · All platforms
-                  </span>
+                  <span className="text-label text-fg font-medium">Top Creators</span>
+                  <span className="text-body-sm text-fgMuted">By followers · all platforms</span>
                 </div>
                 <Link
                   href="/leaderboard"
-                  className="group text-caption text-fgSubtle hover:text-fg font-mono transition-colors duration-150 ease-out"
+                  className="text-caption text-fgMuted hover:text-fg transition-colors duration-150 ease-out"
                 >
-                  See all{' '}
-                  <span className="inline-block transition-transform duration-150 ease-out group-hover:translate-x-0.5">
-                    →
-                  </span>
+                  See all →
                 </Link>
               </div>
 
-              {/* Top-aligned: rows sit together under the header. flex-1 +
-                  justify-between previously stretched the list to the card's
-                  full height, flinging a short list (e.g. 2 live creators) to
-                  the top and bottom edges. */}
-              <ul className="flex flex-col gap-1">
-                {topThree.map((creator) => {
-                  const Icon = PLATFORM_ICONS[creator.primaryPlatform];
+              <ul>
+                {topCreators.map((creator) => {
                   const isWinner = creator.rank === 1;
+                  const initial =
+                    creator.displayName.trim().charAt(0).toUpperCase() || '?';
                   const slug = creator.primaryHandle
                     ? handleToSlug(creator.primaryHandle)
                     : null;
-                  const rowClass =
-                    'grid grid-cols-[40px_minmax(0,1fr)_auto_120px] gap-4 items-center px-1 py-4 rounded-md transition-colors duration-150 ease-out';
+                  const rowClass = `grid grid-cols-[28px_minmax(0,1fr)_auto] gap-3 items-center px-2 min-h-[52px] rounded-lg border-b border-borderGlass last:border-b-0 transition-colors duration-150 ease-out ${
+                    isWinner ? 'bg-brand/[0.06]' : ''
+                  }`;
                   const cells = (
                     <>
                       <span
-                        className={`font-mono tabular-nums text-[28px] leading-none tracking-[-0.025em] ${
+                        className={`font-mono tabular-nums text-body-sm ${
                           isWinner ? 'text-brand font-semibold' : 'text-fgSubtle'
                         }`}
                       >
                         {String(creator.rank).padStart(2, '0')}
                       </span>
-                      <span className="text-fg font-medium truncate">
-                        {creator.displayName}
-                      </span>
-                      <span className="flex items-center gap-2 text-fgMuted text-caption">
-                        <Icon size={14} />
-                        <span className="hidden sm:inline">
-                          {PLATFORM_LABELS[creator.primaryPlatform]}
+                      <span className="flex items-center gap-3 min-w-0">
+                        <span className="size-8 shrink-0 rounded-full bg-customColor1 border border-borderGlass grid place-items-center text-caption text-fgMuted">
+                          {initial}
+                        </span>
+                        <span className="truncate text-body text-fg font-medium">
+                          {creator.displayName}
                         </span>
                       </span>
-                      <span className="text-right font-mono tabular-nums text-fg">
+                      <span className="text-right font-mono tabular-nums text-body text-fg">
                         {compactFormatter.format(creator.followers)}
                       </span>
                     </>
                   );
                   return (
-                    <li
-                      key={creator.creatorId}
-                      className="border-b border-borderGlass last:border-b-0"
-                    >
+                    <li key={creator.creatorId}>
                       {slug ? (
                         <Link
                           href={`/creators/${slug}`}
-                          className={`${rowClass} hover:bg-white/[0.025] focus-visible:bg-white/[0.04] outline-none`}
+                          className={`${rowClass} hover:bg-white/[0.03] focus-visible:bg-white/[0.05] outline-none`}
                         >
                           {cells}
                         </Link>
@@ -286,25 +268,22 @@ export default async function HomePage() {
                 })}
               </ul>
             </GlassCard>
-          </BentoItem>
 
-          <BentoItem colSpan={5} rowSpan={2} tabletColSpan={6}>
-            <Link href="/dashboard" className="block h-full group">
+            {/* Total views + supporting stats (fills the card) */}
+            <Link href="/dashboard" className="group block">
               <GlassCard
                 variant="base"
                 hover
-                padding="lg"
+                padding="md"
                 radius="2xl"
                 className="h-full flex flex-col"
               >
-                <div className="flex items-start justify-between mb-6">
+                <div className="flex items-end justify-between mb-4">
                   <div className="flex flex-col gap-1">
-                    <span className="text-micro uppercase text-fgSubtle tracking-[0.04em]">
-                      Total Views
-                    </span>
-                    <span className="text-caption text-fgMuted">All platforms</span>
+                    <span className="text-label text-fg font-medium">Total Views</span>
+                    <span className="text-body-sm text-fgMuted">All platforms · recent posts</span>
                   </div>
-                  <span className="text-caption text-fgSubtle font-mono">
+                  <span className="text-caption text-fgMuted">
                     Open{' '}
                     <span className="inline-block transition-transform duration-150 ease-out group-hover:translate-x-0.5">
                       →
@@ -312,18 +291,32 @@ export default async function HomePage() {
                   </span>
                 </div>
 
-                <div className="flex flex-1 flex-col justify-center">
-                  <div className="text-[clamp(32px,4vw,52px)] leading-[1.0] tracking-[-0.03em] font-semibold text-fg tabular-nums">
+                <div className="flex flex-1 flex-col justify-center py-2">
+                  <div className="text-[clamp(34px,4.2vw,52px)] leading-[1.0] tracking-[-0.03em] font-semibold text-fg tabular-nums">
                     {exactFormatter.format(summary.combinedViews)}
                   </div>
-                  <div className="text-caption text-fgMuted mt-3 tabular-nums">
+                  <div className="text-caption text-fgMuted mt-2">
                     views across tracked recent posts
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-4 border-t border-borderGlass">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-caption text-fgSubtle">Combined followers</span>
+                    <span className="text-heading text-fg tabular-nums">
+                      {compactFormatter.format(summary.combinedFollowers)}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-caption text-fgSubtle">Total engagement</span>
+                    <span className="text-heading text-fg tabular-nums">
+                      {compactFormatter.format(combinedEngagement)}
+                    </span>
                   </div>
                 </div>
               </GlassCard>
             </Link>
-          </BentoItem>
-          </BentoGrid>
+          </div>
         </Reveal>
       </section>
 
