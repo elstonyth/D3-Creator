@@ -19,7 +19,7 @@ import {
 } from '@d3/database';
 import { requireAdmin } from '@gitroom/frontend/lib/auth';
 import { isUuid } from '@gitroom/frontend/lib/ids';
-import { validateDisplayName, validatePassword } from '@gitroom/frontend/lib/account-validation';
+import { validateDisplayName, validateEmail, validatePassword } from '@gitroom/frontend/lib/account-validation';
 
 export interface ActionResult {
   ok: boolean;
@@ -200,6 +200,108 @@ export async function removeCreatorUrl(
     }
     revalidateCreator(creatorId);
     return { ok: true, message: 'URL removed.' };
+  } catch (error: unknown) {
+    return { ok: false, message: getErrorMessage(error) };
+  }
+}
+
+/**
+ * Provision a login for an EXISTING creator that has none (created before the
+ * admin-provisioning flow, e.g. seeded by the scraper as a bare creator row).
+ *
+ * Mirrors createCreator, but binds to the existing creator instead of making a
+ * new one: the signup trigger inserts an empty creator_link, which we upsert to
+ * point at this creator (NOT ensureCreatorForUser — that would spawn a second
+ * creator). Owner claims are backfilled for the creator's existing profiles so
+ * the login reaches full parity with an agency-provisioned one (claims-based
+ * /me path + accurate admin ownerCount), not just the creator_id fallback.
+ *
+ * The auth user is never rolled back on a downstream failure — the login is the
+ * valuable artifact and the helpers are idempotent, so a retry heals the rest.
+ */
+export async function addCreatorLogin(
+  _prev: PasswordResetResult | null,
+  formData: FormData,
+): Promise<PasswordResetResult> {
+  try {
+    await requireAdmin();
+    const creatorId = String(formData.get('creator_id') ?? '');
+    if (!isUuid(creatorId)) return { ok: false, message: 'Invalid creator id.' };
+
+    const emailRes = validateEmail(String(formData.get('email') ?? ''));
+    if (!emailRes.ok) return { ok: false, message: emailRes.error };
+    const email = emailRes.value;
+
+    const typed = String(formData.get('password') ?? '');
+    const password = typed.length ? typed : generatePassword();
+    const pwRes = validatePassword(password);
+    if (!pwRes.ok) return { ok: false, message: pwRes.error };
+
+    const admin = getSupabaseAdmin();
+
+    // Confirm the creator exists (and grab its name for the login metadata).
+    const creatorRes = await admin
+      .from('creator')
+      .select('id, display_name')
+      .eq('id', creatorId)
+      .maybeSingle();
+    if (creatorRes.error || !creatorRes.data) {
+      return { ok: false, message: 'Creator not found.' };
+    }
+    const displayName = (creatorRes.data as { display_name: string }).display_name;
+
+    // 1. Auth login. Trigger assigns role='creator' + empty creator_link.
+    const created = await admin.auth.admin.createUser({
+      email,
+      password: pwRes.value,
+      email_confirm: true,
+      user_metadata: { display_name: displayName },
+    });
+    if (created.error || !created.data.user) {
+      return { ok: false, message: created.error?.message ?? 'Could not create the login.' };
+    }
+    const userId = created.data.user.id;
+
+    // 2. Bind the login to THIS creator (overwrite the trigger's empty link).
+    const linked = await admin
+      .from('creator_link')
+      .upsert(
+        { user_id: userId, creator_id: creatorId, onboarding_completed: true },
+        { onConflict: 'user_id' },
+      );
+    if (linked.error) {
+      console.error('[admin/addCreatorLogin] creator_link upsert', linked.error);
+      return {
+        ok: false,
+        message: `Login created, but linking it to the creator failed: ${linked.error.message}. Retry to heal.`,
+        credentials: { email, password: pwRes.value },
+      };
+    }
+
+    // 3. Backfill owner claims for the creator's existing profiles (parity with
+    //    createCreator). Idempotent — safe on retry.
+    const profilesRes = await admin.from('profile').select('id').eq('creator_id', creatorId);
+    if (profilesRes.error) {
+      console.error('[admin/addCreatorLogin] profile fetch', profilesRes.error);
+    }
+    for (const p of (profilesRes.data ?? []) as { id: string }[]) {
+      const claimRes = await addProfileClaim({
+        user_id: userId,
+        profile_id: p.id,
+        claim_kind: 'owner',
+        claimed_via: 'admin_assigned',
+      });
+      if (claimRes.ok !== true) {
+        console.error('[admin/addCreatorLogin] claim', p.id, claimRes.error);
+      }
+    }
+
+    revalidateCreator(creatorId);
+    return {
+      ok: true,
+      message: 'Login created.',
+      credentials: { email, password: pwRes.value },
+    };
   } catch (error: unknown) {
     return { ok: false, message: getErrorMessage(error) };
   }

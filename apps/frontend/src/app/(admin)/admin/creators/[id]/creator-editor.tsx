@@ -17,6 +17,7 @@ import {
   addCreatorUrl,
   editCreatorUrl,
   removeCreatorUrl,
+  addCreatorLogin,
   resetCreatorPassword,
   deleteCreator,
   type ActionResult,
@@ -153,7 +154,7 @@ function LoginsSection({ creatorId, logins }: { creatorId: string; logins: Admin
     <section className={SECTION}>
       <h2 className="text-heading text-fg">Login &amp; password</h2>
       {logins.length === 0 ? (
-        <p className="text-body text-fgMuted">No login linked to this creator.</p>
+        <AddLoginRow creatorId={creatorId} />
       ) : (
         <ul className="flex flex-col gap-4">
           {logins.map((l) => (
@@ -162,6 +163,30 @@ function LoginsSection({ creatorId, logins }: { creatorId: string; logins: Admin
         </ul>
       )}
     </section>
+  );
+}
+
+function AddLoginRow({ creatorId }: { creatorId: string }) {
+  const [state, action] = useActionState(addCreatorLogin, null as PasswordResetResult | null);
+  const formRef = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    if (state?.ok) formRef.current?.reset();
+  }, [state]);
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-body text-fgMuted">No login linked — create one to give this creator portal access.</p>
+      <form ref={formRef} action={action} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <input type="hidden" name="creator_id" value={creatorId} />
+        <Input name="email" type="email" required placeholder="creator@email.com" className="flex-1" />
+        {/* type="text" is intentional — admin sees/copies the password to share it once */}
+        <Input name="password" type="text" placeholder="Password (blank = generate)" minLength={8} maxLength={72} className="flex-1" />
+        <Save label="Create login" />
+      </form>
+      {state && !state.ok && <span className={ERR}>{state.message}</span>}
+      {state?.ok && state.credentials && (
+        <CredentialsPanel email={state.credentials.email} password={state.credentials.password} />
+      )}
+    </div>
   );
 }
 
