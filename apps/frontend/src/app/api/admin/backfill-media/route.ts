@@ -73,6 +73,15 @@ export async function GET(request: Request): Promise<Response> {
   // hits this route with no query string). ?only=posts / ?only=avatars isolates
   // a single pass.
   const only = url.searchParams.get('only');
+  // Reject typos (e.g. ?only=avatar): an unrecognized value must NOT silently
+  // fall through to running BOTH passes — that turns a scoped run into a full
+  // write run. Only null (no param), 'posts', or 'avatars' are valid.
+  if (only !== null && only !== 'posts' && only !== 'avatars') {
+    return NextResponse.json(
+      { error: "invalid 'only' parameter; expected 'posts' or 'avatars'" },
+      { status: 400 },
+    );
+  }
   const doPosts = only !== 'avatars';
   const doAvatars = only !== 'posts';
   const sb = getSupabaseAdmin();

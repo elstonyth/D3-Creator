@@ -362,6 +362,13 @@ export async function persistAvatarForProfile(
       .select('avatar_url')
       .eq('id', creatorId)
       .maybeSingle();
+    // A read failure must NOT be treated as "unpersisted" — that would let a
+    // transient error overwrite the backfill's chosen avatar on the scrape path.
+    // Preserve the guard: skip the update and let the next scrape/backfill retry.
+    if (cur.error) {
+      console.error('[media] creator avatar_url read failed', creatorId, cur.error.message);
+      return { persisted, creatorUpdated: false };
+    }
     const existing = (cur.data?.avatar_url as string | null | undefined) ?? null;
     // Already pointing at our Storage — leave it (and the backfill's best pick).
     if (existing && isAlreadyPersisted(existing)) {
@@ -527,14 +534,20 @@ export async function backfillCreatorAvatars(dryRun = false): Promise<AvatarBack
     for (const cand of candidates) {
       // Force-set (onlyIfUnpersisted=false): the backfill is the authority on
       // which avatar a creator gets — the highest-follower one that's still live.
-      const { persisted } = await persistAvatarForProfile(cand.pid, cand.avatar, false);
-      if (persisted) {
+      // Require creatorUpdated too: a persisted URL whose creator write failed
+      // hasn't actually healed creator.avatar_url, so keep trying fallbacks.
+      const { persisted, creatorUpdated } = await persistAvatarForProfile(
+        cand.pid,
+        cand.avatar,
+        false,
+      );
+      if (persisted && creatorUpdated) {
         result.persisted++;
         done = true;
         break;
       }
     }
-    if (!done) result.failed++; // every candidate URL was dead/expired
+    if (!done) result.failed++; // every candidate URL was dead/expired or unwritable
   }
 
   return result;
