@@ -1446,7 +1446,7 @@ Expected: lint clean, jest green, no type errors.
 - [ ] **Step 4: Browser e2e against the local stack (Playwright MCP)**
 
 Force-local dev server (kill any existing `next dev` in `apps/frontend` first — Next 16 allows one per dir), then drive the editor:
-```
+```powershell
 $env:NEXT_PUBLIC_SUPABASE_URL="http://127.0.0.1:54321"; $env:NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="<sb_publishable_…>"; $env:SUPABASE_URL="http://127.0.0.1:54321"; $env:SUPABASE_SERVICE_ROLE_KEY="<sb_secret_…>"; $env:CRON_SECRET="local-dev"; pnpm --filter ./apps/frontend exec next dev -p 4300
 ```
 Walk: seed/login admin → provision a creator → open `/admin/creators/<id>` via the "Manage" link → rename → add a URL (incl. a short link) → re-point a URL → reset password (confirm reveal) → confirm Approve is hidden/blocked on an owned profile (seed a pending claim) → delete creator → land on `/admin/profiles`. Clean up all test rows + the dev server afterward.

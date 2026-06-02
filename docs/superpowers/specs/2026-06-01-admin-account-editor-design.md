@@ -60,7 +60,7 @@ Each creator card on `/admin/profiles` gains a **"Manage"** link to
 
 ### Data fetch — `lib/admin-creators.ts`
 New `getAdminCreatorDetail(admin, creatorId)` returns:
-```
+```typescript
 {
   creator: { id, displayName, avatarUrl },
   profiles: AdminProfileRow[],          // reuse existing shape (owner/tracker/pending counts)

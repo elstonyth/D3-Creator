@@ -325,7 +325,10 @@ export async function getAdminCreatorDetail(
       id: p.id,
       platform: p.platform,
       handle: p.handle,
-      displayName: p.display_name,
+      // Same resolver as getAdminCreatorsData (display_name → handle). Snapshot
+      // raw isn't fetched here (the editor doesn't render this field), so FB
+      // numeric-handle profiles fall back to the handle rather than the raw name.
+      displayName: resolveProfileName(p.display_name, null, p.handle),
       profileUrl: p.profile_url,
       scrapeStatus: p.scrape_status,
       followers: null,
