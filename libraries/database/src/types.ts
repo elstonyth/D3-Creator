@@ -61,8 +61,6 @@ export interface ProfileSnapshotRow {
   total_posts: number | null;
   total_views: number | null;
   total_likes: number | null;
-  /** Permanent Storage avatar URL (or a still-valid CDN URL pending backfill). */
-  avatar_url: string | null;
   raw: unknown;
 }
 

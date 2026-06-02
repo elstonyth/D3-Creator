@@ -313,8 +313,8 @@ export default async function HomePage() {
                 </div>
 
                 <div className="flex flex-1 flex-col justify-center">
-                  <div className="text-[clamp(40px,5vw,64px)] leading-[0.98] tracking-[-0.035em] font-semibold text-fg tabular-nums">
-                    {compactFormatter.format(summary.combinedViews)}
+                  <div className="text-[clamp(32px,4vw,52px)] leading-[1.0] tracking-[-0.03em] font-semibold text-fg tabular-nums">
+                    {exactFormatter.format(summary.combinedViews)}
                   </div>
                   <div className="text-caption text-fgMuted mt-3 tabular-nums">
                     views across tracked recent posts
@@ -406,7 +406,7 @@ export default async function HomePage() {
             />
             <StatCell
               label="Total Views"
-              value={compactFormatter.format(summary.combinedViews)}
+              value={exactFormatter.format(summary.combinedViews)}
               note="across tracked recent posts"
             />
           </dl>

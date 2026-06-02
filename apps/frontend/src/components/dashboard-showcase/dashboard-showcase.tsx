@@ -140,7 +140,7 @@ export function DashboardShowcase({ creators }: DashboardShowcaseProps = {}) {
         <BentoItem colSpan={8} rowSpan={2} tabletColSpan={6}>
           <HeroViewsCard
             filter={filter}
-            value={compactFormatter.format(totalViews)}
+            value={exactFormatter.format(totalViews)}
           />
         </BentoItem>
 

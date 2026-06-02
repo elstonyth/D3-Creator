@@ -11,7 +11,7 @@
  */
 
 import { getSupabaseAdmin } from './supabase-server';
-import { avatarUrlFromRaw, persistAvatar } from './media';
+import { avatarUrlFromRaw, persistAvatar, withPersistedAvatar } from './media';
 import type { ProfileRow, ScrapeStatus } from './types';
 
 /** Shape returned by the scraper layer (mirror of @d3/scrapers NormalizedProfileSnapshot). */
@@ -66,16 +66,19 @@ export async function upsertProfileSnapshot(
   const sb = getSupabaseAdmin();
 
   // Persist the avatar to Storage (best-effort) so it survives CDN signature
-  // expiry — same rationale as post media. If the copy fails we keep the raw
-  // CDN URL (still valid for hours/days; healed later by /api/admin/
-  // backfill-avatars). The scrape NEVER fails because an avatar couldn't copy.
-  const rawAvatar = avatarUrlFromRaw(snap.raw);
-  let avatar_url: string | null = rawAvatar;
+  // expiry — same rationale as post media. On success we rewrite the avatar
+  // field INSIDE `raw` to the permanent Storage URL (no extra column needed —
+  // the read path already reads the avatar from raw). A failure leaves the
+  // original CDN URL (still valid for hours/days; the next daily scrape
+  // re-persists it). The scrape NEVER fails because an avatar couldn't copy.
+  let raw = snap.raw;
+  const rawAvatar = avatarUrlFromRaw(raw);
   if (rawAvatar) {
     try {
-      avatar_url = (await persistAvatar(profileId, rawAvatar)) ?? rawAvatar;
+      const permanent = await persistAvatar(profileId, rawAvatar);
+      if (permanent && permanent !== rawAvatar) raw = withPersistedAvatar(raw, permanent);
     } catch {
-      avatar_url = rawAvatar;
+      // Keep the original raw (CDN avatar) — healed on the next scrape.
     }
   }
 
@@ -89,8 +92,7 @@ export async function upsertProfileSnapshot(
         total_posts: snap.total_posts,
         total_views: snap.total_views,
         total_likes: snap.total_likes,
-        avatar_url,
-        raw: snap.raw,
+        raw,
       },
       { onConflict: 'profile_id,captured_date', ignoreDuplicates: false },
     )

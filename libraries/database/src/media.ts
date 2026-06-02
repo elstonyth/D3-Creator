@@ -246,25 +246,42 @@ export async function persistMediaForPosts<
 // scrape time). One object per profile, overwritten each scrape.
 // ---------------------------------------------------------------------------
 
-/**
- * Pull the avatar URL out of a scraped profile `raw` blob, tolerating the
- * different field names each adapter writes. Mirrors the avatar precedence in
- * the frontend's extractRawProfileFields so persisted + fallback avatars agree.
- */
+// Avatar field names each adapter writes, in the SAME precedence as the
+// frontend's extractRawProfileFields — so persisted + fallback avatars agree.
+const AVATAR_RAW_KEYS = [
+  'profile_pic_url',
+  'avatar_url',
+  'profile_pic',
+  'profilePicUrlHD',
+  'profilePicUrl',
+] as const;
+
+/** Pull the avatar URL out of a scraped profile `raw` blob (null if none). */
 export function avatarUrlFromRaw(raw: unknown): string | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
-  const candidates = [
-    r.profile_pic_url,
-    r.avatar_url,
-    r.profile_pic,
-    r.profilePicUrlHD,
-    r.profilePicUrl,
-  ];
-  for (const c of candidates) {
-    if (typeof c === 'string' && c.length > 0) return c;
+  for (const k of AVATAR_RAW_KEYS) {
+    const v = r[k];
+    if (typeof v === 'string' && v.length > 0) return v;
   }
   return null;
+}
+
+/**
+ * Return a copy of `raw` with the avatar field rewritten to `persistedUrl`.
+ * Overwrites the first present avatar key (the one avatarUrlFromRaw reads), so
+ * the read path (extractRawProfileFields) picks up the permanent Storage URL —
+ * with NO new column or migration. Falls back to setting `avatar_url`.
+ */
+export function withPersistedAvatar(raw: unknown, persistedUrl: string): unknown {
+  if (!raw || typeof raw !== 'object') return raw;
+  const r = raw as Record<string, unknown>;
+  for (const k of AVATAR_RAW_KEYS) {
+    if (typeof r[k] === 'string' && (r[k] as string).length > 0) {
+      return { ...r, [k]: persistedUrl };
+    }
+  }
+  return { ...r, avatar_url: persistedUrl };
 }
 
 /**

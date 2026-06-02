@@ -128,7 +128,7 @@ export function LeaderboardShowcase({
         />
         <SummaryStat
           label="Total Views"
-          value={compactFormatter.format(stats.totalViews)}
+          value={exactFormatter.format(stats.totalViews)}
           note="across tracked recent posts"
         />
       </div>

@@ -432,13 +432,13 @@ export interface CreatorDetail {
  */
 async function latestSnapshotsForProfiles(
   profileIds: string[],
-): Promise<Map<string, { followers: number | null; following: number | null; total_posts: number | null; total_views: number | null; total_likes: number | null; captured_at: string; avatar_url: string | null; raw: unknown }>> {
-  const map = new Map<string, { followers: number | null; following: number | null; total_posts: number | null; total_views: number | null; total_likes: number | null; captured_at: string; avatar_url: string | null; raw: unknown }>();
+): Promise<Map<string, { followers: number | null; following: number | null; total_posts: number | null; total_views: number | null; total_likes: number | null; captured_at: string; raw: unknown }>> {
+  const map = new Map<string, { followers: number | null; following: number | null; total_posts: number | null; total_views: number | null; total_likes: number | null; captured_at: string; raw: unknown }>();
   if (profileIds.length === 0) return map;
   const sb = getSupabaseRead();
   const res = await sb
     .from('profile_snapshot')
-    .select('profile_id, followers, following, total_posts, total_views, total_likes, captured_at, avatar_url, raw')
+    .select('profile_id, followers, following, total_posts, total_views, total_likes, captured_at, raw')
     .in('profile_id', profileIds)
     .order('captured_at', { ascending: false });
   if (res.error) {
@@ -454,7 +454,6 @@ async function latestSnapshotsForProfiles(
         total_views: row.total_views,
         total_likes: row.total_likes,
         captured_at: row.captured_at,
-        avatar_url: row.avatar_url,
         raw: row.raw,
       });
     }
@@ -585,7 +584,7 @@ export async function getCreatorByHandle(
     const rawFromSnap = snap?.raw;
     const fromPost = extractRawProfileFields(rawFromPost);
     const fromSnap = extractRawProfileFields(rawFromSnap);
-    if (!bestAvatar) bestAvatar = resolveMediaUrl(snap?.avatar_url ?? fromPost.avatarUrl ?? fromSnap.avatarUrl);
+    if (!bestAvatar) bestAvatar = resolveMediaUrl(fromPost.avatarUrl ?? fromSnap.avatarUrl);
     if (!bestFullName) bestFullName = fromPost.fullName ?? fromSnap.fullName;
     if (!bestBio) bestBio = fromPost.biography ?? fromSnap.biography;
 
