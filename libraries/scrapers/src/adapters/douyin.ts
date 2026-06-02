@@ -139,8 +139,11 @@ interface DyMultiStatsResponse {
 
 /**
  * Backfill real per-video stats (play/digg/share) the feed omits. Batched by
- * STATS_BATCH and keyed by aweme_id. Returns an empty map if there are no ids.
- * Errors propagate to the caller, which decides whether to degrade.
+ * STATS_BATCH and keyed by aweme_id. Resilient per chunk: a failing chunk is
+ * logged and skipped (those posts degrade to feed values) while already-fetched
+ * chunks are preserved — so one transient error doesn't zero the whole window.
+ * Never throws on a chunk failure; returns whatever stats it gathered (empty
+ * map if there are no ids or every chunk failed).
  */
 async function fetchVideoStats(
   awemeIds: string[],
@@ -149,14 +152,22 @@ async function fetchVideoStats(
   const map = new Map<string, DyVideoStat>();
   for (let i = 0; i < awemeIds.length; i += STATS_BATCH) {
     const chunk = awemeIds.slice(i, i + STATS_BATCH);
-    const data = await tikhubGet<DyMultiStatsResponse>({
-      path: '/api/v1/douyin/app/v3/fetch_multi_video_statistics',
-      query: { aweme_ids: chunk.join(',') },
-      platform: PLATFORM,
-      profileUrl,
-    });
-    for (const s of data.statistics_list ?? []) {
-      if (s.aweme_id) map.set(s.aweme_id, s);
+    try {
+      const data = await tikhubGet<DyMultiStatsResponse>({
+        path: '/api/v1/douyin/app/v3/fetch_multi_video_statistics',
+        query: { aweme_ids: chunk.join(',') },
+        platform: PLATFORM,
+        profileUrl,
+      });
+      for (const s of data.statistics_list ?? []) {
+        if (s.aweme_id) map.set(s.aweme_id, s);
+      }
+    } catch (err) {
+      // Degrade only this chunk's posts to feed values, but stay observable.
+      console.warn(
+        `[douyin] stats chunk failed for ${profileUrl} (offset ${i}); degrading those posts to feed values`,
+        err,
+      );
     }
   }
   return map;
@@ -289,26 +300,16 @@ export const douyinAdapter: PlatformAdapter = {
     }
 
     // Backfill real view/like/share counts the feed omits (feed play_count=0).
-    // Best-effort: if the stats endpoint fails, fall back to feed values rather
-    // than sinking the whole profile snapshot — views degrade to 0, not error.
+    // fetchVideoStats degrades per chunk and never throws, so a stats failure
+    // never sinks the snapshot — affected posts just fall back to feed values.
     const awemeList = postsResp.aweme_list ?? [];
     const awemeIds = awemeList
       .map((a) => a.aweme_id)
       .filter((id): id is string => Boolean(id));
-    let statsMap = new Map<string, DyVideoStat>();
-    if (awemeIds.length > 0) {
-      try {
-        statsMap = await fetchVideoStats(awemeIds, profileUrl);
-      } catch (err) {
-        // Degrade to feed values (views→0) but stay observable: a systemic
-        // stats-endpoint outage would otherwise silently zero every profile.
-        console.warn(
-          `[douyin] stats backfill failed for ${profileUrl}; degrading views/likes/shares to feed values`,
-          err,
-        );
-        statsMap = new Map();
-      }
-    }
+    const statsMap =
+      awemeIds.length > 0
+        ? await fetchVideoStats(awemeIds, profileUrl)
+        : new Map<string, DyVideoStat>();
 
     const posts: NormalizedPostSnapshot[] = [];
     for (const a of awemeList) {
