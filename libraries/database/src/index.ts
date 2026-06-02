@@ -40,9 +40,12 @@ export {
 export {
   persistPostMedia,
   persistMediaForPosts,
+  persistAvatarForProfile,
+  backfillCreatorAvatars,
   POST_MEDIA_BUCKET,
   POST_MEDIA_DEADLINE_MS,
 } from './media';
+export type { AvatarBackfillResult } from './media';
 export type {
   Platform,
   ScrapeStatus,

@@ -11,7 +11,7 @@
  */
 
 import { getSupabaseAdmin } from './supabase-server';
-import { avatarUrlFromRaw, persistAvatar, withPersistedAvatar } from './media';
+import { avatarUrlFromRaw, persistAvatarForProfile, withPersistedAvatar } from './media';
 import type { ProfileRow, ScrapeStatus } from './types';
 
 /** Shape returned by the scraper layer (mirror of @d3/scrapers NormalizedProfileSnapshot). */
@@ -66,19 +66,23 @@ export async function upsertProfileSnapshot(
   const sb = getSupabaseAdmin();
 
   // Persist the avatar to Storage (best-effort) so it survives CDN signature
-  // expiry — same rationale as post media. On success we rewrite the avatar
-  // field INSIDE `raw` to the permanent Storage URL (no extra column needed —
-  // the read path already reads the avatar from raw). A failure leaves the
-  // original CDN URL (still valid for hours/days; the next daily scrape
-  // re-persists it). The scrape NEVER fails because an avatar couldn't copy.
+  // expiry — same rationale as post media. On success we (a) point the
+  // creator's `avatar_url` column at the permanent Storage URL — that column is
+  // what the windowed RPC, admin views, and public creator page read, so this
+  // is what removes the proxy hop + expired-CDN 502 — and (b) rewrite the
+  // avatar field INSIDE `raw` too, so raw-based readers also get the permanent
+  // URL. `onlyIfUnpersisted` keeps a daily scrape from clobbering the backfill's
+  // best (highest-follower) pick. A failure leaves the original CDN URL (still
+  // valid for hours/days; the next daily scrape/backfill re-persists it). The
+  // scrape NEVER fails because an avatar couldn't copy.
   let raw = snap.raw;
   const rawAvatar = avatarUrlFromRaw(raw);
   if (rawAvatar) {
     try {
-      const permanent = await persistAvatar(profileId, rawAvatar);
-      if (permanent && permanent !== rawAvatar) raw = withPersistedAvatar(raw, permanent);
+      const { persisted } = await persistAvatarForProfile(profileId, rawAvatar, true);
+      if (persisted && persisted !== rawAvatar) raw = withPersistedAvatar(raw, persisted);
     } catch {
-      // Keep the original raw (CDN avatar) — healed on the next scrape.
+      // Keep the original raw (CDN avatar) — healed on the next scrape/backfill.
     }
   }
 
