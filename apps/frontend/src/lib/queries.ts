@@ -23,6 +23,33 @@ function dbPlatformToKey(platform: string): PlatformKey {
 }
 
 /**
+ * Fetch EVERY row of a query, paging past PostgREST's response cap.
+ *
+ * PostgREST caps a single response at ~1000 rows regardless of `.limit()`, so a
+ * naive `.limit(5000)` silently truncates once a table exceeds 1000 rows — which
+ * undercounts any SUM/aggregate built from it (e.g. total views). We page with
+ * `.range()` until a short page comes back. The caller MUST order by a stable
+ * total order (e.g. `captured_at desc, id desc`) so pages don't overlap or skip.
+ */
+async function fetchAllRows<T>(
+  buildPage: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<{ rows: T[]; error: { message: string } | null }> {
+  const PAGE = 1000;
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const res = await buildPage(from, from + PAGE - 1);
+    if (res.error) return { rows, error: res.error };
+    const page = res.data ?? [];
+    rows.push(...page);
+    if (page.length < PAGE) break;
+  }
+  return { rows, error: null };
+}
+
+/**
  * Combined totals for one of a creator's platform profiles. The public site
  * shows totals (current followers + Σ current views across tracked posts), never
  * deltas — so these need no historical baseline and never read "Building history".
@@ -101,36 +128,56 @@ export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
     profilesByCreator.get(p.creator_id)!.push(p);
   }
 
-  // 2. Latest snapshot per profile (followers).
-  const snaps = await sb
-    .from('profile_snapshot')
-    .select('profile_id, captured_at, followers')
-    .order('captured_at', { ascending: false })
-    .limit(5000);
+  // 2. Latest snapshot per profile (followers). Paged so a >1000-row
+  // profile_snapshot table isn't silently capped (which would drop profiles).
+  const snaps = await fetchAllRows<{
+    profile_id: string;
+    captured_at: string;
+    followers: number | null;
+  }>((from, to) =>
+    sb
+      .from('profile_snapshot')
+      .select('profile_id, captured_at, followers')
+      .order('captured_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, to),
+  );
   if (snaps.error) {
     console.error('[queries] getLiveCreatorRows snaps', snaps.error);
     return null;
   }
   const latestFollowers = new Map<string, number>();
-  for (const s of snaps.data ?? []) {
+  for (const s of snaps.rows) {
     if (!latestFollowers.has(s.profile_id)) latestFollowers.set(s.profile_id, s.followers ?? 0);
   }
 
   // 3. Latest snapshot per distinct post → combined views + engagement per
   // profile. Dedup to the newest row per post (captured_at DESC) so a post
-  // snapshotted across multiple days isn't counted once per day.
-  const posts = await sb
-    .from('post_snapshot')
-    .select('profile_id, external_post_id, captured_at, likes, comments, shares, views')
-    .order('captured_at', { ascending: false })
-    .limit(5000);
+  // snapshotted across multiple days isn't counted once per day. Paged: post_
+  // snapshot routinely exceeds PostgREST's 1000-row cap, which would otherwise
+  // undercount total views.
+  const posts = await fetchAllRows<{
+    profile_id: string;
+    external_post_id: string;
+    likes: number | null;
+    comments: number | null;
+    shares: number | null;
+    views: number | null;
+  }>((from, to) =>
+    sb
+      .from('post_snapshot')
+      .select('profile_id, external_post_id, captured_at, likes, comments, shares, views')
+      .order('captured_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, to),
+  );
   if (posts.error) {
     console.error('[queries] getLiveCreatorRows posts', posts.error);
     return null;
   }
   const seenPost = new Set<string>();
   const byProfile = new Map<string, { totalViews: number; totalEng: number; count: number }>();
-  for (const p of posts.data ?? []) {
+  for (const p of posts.rows) {
     const key = `${p.profile_id}:${p.external_post_id}`;
     if (seenPost.has(key)) continue;
     seenPost.add(key);
@@ -288,13 +335,28 @@ export async function getTopContent(limit = 20): Promise<TopContentRow[]> {
     (creatorsRes.data ?? []).map((c) => [c.id, c.display_name as string | null]),
   );
 
-  const posts = await sb
-    .from('post_snapshot')
-    .select(
-      'profile_id, external_post_id, captured_at, posted_at, views, likes, comments, shares, caption_excerpt, media_url',
-    )
-    .order('captured_at', { ascending: false })
-    .limit(5000);
+  // Paged: post_snapshot exceeds PostgREST's 1000-row cap, so a single fetch
+  // would silently drop posts and skew the top-by-views ranking.
+  const posts = await fetchAllRows<{
+    profile_id: string;
+    external_post_id: string;
+    posted_at: string | null;
+    views: number | null;
+    likes: number | null;
+    comments: number | null;
+    shares: number | null;
+    caption_excerpt: string | null;
+    media_url: string | null;
+  }>((from, to) =>
+    sb
+      .from('post_snapshot')
+      .select(
+        'profile_id, external_post_id, captured_at, posted_at, views, likes, comments, shares, caption_excerpt, media_url',
+      )
+      .order('captured_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, to),
+  );
   if (posts.error) {
     console.error('[queries] getTopContent posts', posts.error);
     return [];
@@ -302,7 +364,7 @@ export async function getTopContent(limit = 20): Promise<TopContentRow[]> {
 
   const seen = new Set<string>();
   const out: TopContentRow[] = [];
-  for (const p of posts.data ?? []) {
+  for (const p of posts.rows) {
     const prof = profMap.get(p.profile_id);
     if (!prof) continue; // rednote-excluded / unknown profile
     const key = `${p.profile_id}:${p.external_post_id}`;
