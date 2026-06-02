@@ -3,7 +3,6 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import clsx from 'clsx';
-import { BentoGrid, BentoItem } from '../ui/bento-grid';
 import { GlassCard } from '../ui/glass-card';
 import {
   PLATFORM_ICONS,
@@ -33,61 +32,49 @@ const TABS: TabDef[] = [
   // xiaohongshu archived — hidden from the platform filter.
 ];
 
-// The 4 active platforms shown in the breakdown strip (rednote archived).
 const BREAKDOWN_PLATFORMS: PlatformKey[] = ['instagram', 'tiktok', 'douyin', 'facebook'];
+// Dashboard is a summary — show the top slice; the leaderboard has the full list.
+const TOP_CREATORS_LIMIT = 10;
 
 function filterLabel(filter: PlatformFilter): string {
   return filter === 'all' ? 'All platforms' : PLATFORM_LABELS[filter];
 }
 
-/** A single creator row resolved for the active filter (combined totals). */
 interface DisplayRow {
   key: string;
   name: string;
   slug: string | null;
-  platform: PlatformKey | null;
   followers: number;
   totalViews: number;
-  totalEngagement: number;
 }
 
-/**
- * Resolve creators for a platform filter. For "all" we use the creator-level
- * combined totals; for a specific platform we use that creator's matching
- * per-platform slot (so a multi-platform creator contributes only that
- * platform's followers/views — never its whole audience).
- */
+/** Resolve creators for the active filter; per-platform slot when filtered. */
 function resolveRows(creators: LiveCreatorRow[], filter: PlatformFilter): DisplayRow[] {
   if (filter === 'all') {
     return creators.map((c) => ({
       key: c.creatorId,
       name: c.displayName,
       slug: c.primaryHandle ? handleToSlug(c.primaryHandle) : null,
-      platform: c.primaryPlatform,
       followers: c.followers,
       totalViews: c.totalViews,
-      totalEngagement: c.totalEngagement,
     }));
   }
-  const out: DisplayRow[] = [];
-  for (const c of creators) {
+  return creators.flatMap((c) => {
     const slot = c.platforms.find((p) => p.platform === filter);
-    if (!slot) continue;
-    out.push({
-      key: c.creatorId,
-      name: c.displayName,
-      slug: slot.handle ? handleToSlug(slot.handle) : null,
-      platform: filter,
-      followers: slot.followers,
-      totalViews: slot.totalViews,
-      totalEngagement: slot.totalEngagement,
-    });
-  }
-  return out;
+    if (!slot) return [];
+    return [
+      {
+        key: c.creatorId,
+        name: c.displayName,
+        slug: slot.handle ? handleToSlug(slot.handle) : null,
+        followers: slot.followers,
+        totalViews: slot.totalViews,
+      },
+    ];
+  });
 }
 
 export interface DashboardShowcaseProps {
-  /** Live combined-total creator rows (with per-platform slots). */
   creators?: LiveCreatorRow[] | null;
 }
 
@@ -100,21 +87,26 @@ export function DashboardShowcase({ creators }: DashboardShowcaseProps = {}) {
   );
 
   const rows = useMemo(() => resolveRows(baseCreators, filter), [baseCreators, filter]);
-
   const totalFollowers = useMemo(() => rows.reduce((s, r) => s + r.followers, 0), [rows]);
   const totalViews = useMemo(() => rows.reduce((s, r) => s + r.totalViews, 0), [rows]);
   const totalEngagement = useMemo(
-    () => rows.reduce((s, r) => s + r.totalEngagement, 0),
-    [rows],
+    () =>
+      filter === 'all'
+        ? baseCreators.reduce((s, c) => s + c.totalEngagement, 0)
+        : baseCreators.reduce(
+            (s, c) => s + (c.platforms.find((p) => p.platform === filter)?.totalEngagement ?? 0),
+            0,
+          ),
+    [baseCreators, filter],
   );
 
-  // Top creators for the active filter, ranked by combined views.
-  const topCreators = useMemo<DisplayRow[]>(
-    () => [...rows].sort((a, b) => b.totalViews - a.totalViews),
+  // Top creators by followers (dashboard summary — capped).
+  const topCreators = useMemo(
+    () => [...rows].sort((a, b) => b.followers - a.followers).slice(0, TOP_CREATORS_LIMIT),
     [rows],
   );
+  const hasMore = rows.length > TOP_CREATORS_LIMIT;
 
-  // Per-platform breakdown derived from each creator's platform slots.
   const breakdown = useMemo(() => {
     const map = new Map<PlatformKey, { followers: number; totalViews: number }>();
     for (const c of baseCreators) {
@@ -133,45 +125,33 @@ export function DashboardShowcase({ creators }: DashboardShowcaseProps = {}) {
   }, [baseCreators]);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <PlatformTabBar value={filter} onChange={setFilter} />
 
-      <BentoGrid gap="md">
-        <BentoItem colSpan={8} rowSpan={2} tabletColSpan={6}>
-          <HeroViewsCard
-            filter={filter}
-            value={exactFormatter.format(totalViews)}
-          />
-        </BentoItem>
+      {/* Compact stats row */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatTile
+          label="Total Views"
+          value={exactFormatter.format(totalViews)}
+          note={`${filterLabel(filter)} · recent posts`}
+        />
+        <StatTile
+          label="Total Followers"
+          value={compactFormatter.format(totalFollowers)}
+          note={`${exactFormatter.format(totalFollowers)} tracked`}
+        />
+        <StatTile
+          label="Total Engagement"
+          value={compactFormatter.format(totalEngagement)}
+          note="likes, comments & shares"
+        />
+      </div>
 
-        <BentoItem colSpan={4} rowSpan={1} tabletColSpan={3}>
-          <MetricCard
-            label="Total Followers"
-            value={compactFormatter.format(totalFollowers)}
-            note={`${exactFormatter.format(totalFollowers)} tracked`}
-          />
-        </BentoItem>
-
-        <BentoItem colSpan={4} rowSpan={1} tabletColSpan={3}>
-          <MetricCard
-            label="Total Engagement"
-            value={compactFormatter.format(totalEngagement)}
-            note="likes, comments & shares"
-          />
-        </BentoItem>
-
-        <BentoItem colSpan={7} rowSpan={2} tabletColSpan={6}>
-          <LeaderboardCard rows={topCreators} filter={filter} />
-        </BentoItem>
-
-        <BentoItem colSpan={5} rowSpan={2} tabletColSpan={6}>
-          <PlatformBreakdownCard
-            activeFilter={filter}
-            onSelect={setFilter}
-            rows={breakdown}
-          />
-        </BentoItem>
-      </BentoGrid>
+      {/* Content row — top creators + platform breakdown */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-4 items-start">
+        <TopCreatorsCard rows={topCreators} filter={filter} hasMore={hasMore} />
+        <PlatformBreakdownCard activeFilter={filter} onSelect={setFilter} rows={breakdown} />
+      </div>
 
       {!isLive && (
         <p className="text-caption text-fgSubtle text-center pt-2 tabular-nums">
@@ -184,12 +164,13 @@ export function DashboardShowcase({ creators }: DashboardShowcaseProps = {}) {
 
 // --- Tab bar --------------------------------------------------------------
 
-interface PlatformTabBarProps {
+function PlatformTabBar({
+  value,
+  onChange,
+}: {
   value: PlatformFilter;
   onChange: (next: PlatformFilter) => void;
-}
-
-function PlatformTabBar({ value, onChange }: PlatformTabBarProps) {
+}) {
   return (
     <div
       role="tablist"
@@ -223,136 +204,129 @@ function PlatformTabBar({ value, onChange }: PlatformTabBarProps) {
   );
 }
 
-// --- Hero card ------------------------------------------------------------
+// --- Stat tile ------------------------------------------------------------
 
-interface HeroViewsCardProps {
-  filter: PlatformFilter;
-  value: string;
-}
-
-function HeroViewsCard({ filter, value }: HeroViewsCardProps) {
+function StatTile({ label, value, note }: { label: string; value: string; note: string }) {
   return (
-    <GlassCard variant="base" padding="lg" radius="2xl" className="h-full flex flex-col">
-      <div className="flex items-start justify-between mb-6">
-        <div className="flex flex-col gap-1">
-          <span className="text-micro uppercase text-fgSubtle tracking-[0.04em]">
-            Total Views
-          </span>
-          <span className="text-caption text-fgMuted">{filterLabel(filter)}</span>
-        </div>
+    <GlassCard variant="base" padding="md" radius="2xl" className="flex flex-col gap-1.5">
+      <span className="text-label text-fgMuted">{label}</span>
+      <div className="text-[clamp(26px,3.2vw,40px)] leading-[1.04] tracking-[-0.025em] font-semibold text-fg tabular-nums">
+        {value}
       </div>
-
-      <div className="flex flex-1 flex-col justify-center">
-        <div className="text-[clamp(48px,7vw,92px)] leading-[0.98] tracking-[-0.035em] font-semibold text-fg tabular-nums">
-          {value}
-        </div>
-        <div className="text-caption text-fgMuted mt-3 tabular-nums">
-          views across tracked recent posts
-        </div>
-      </div>
+      <p className="text-caption text-fgSubtle tabular-nums">{note}</p>
     </GlassCard>
   );
 }
 
-// --- Metric card ----------------------------------------------------------
+// --- Top creators ---------------------------------------------------------
 
-interface MetricCardProps {
-  label: string;
-  value: string;
-  note: string;
-}
+const GRID = 'grid grid-cols-[32px_minmax(0,1fr)_96px_88px] gap-3 items-center';
 
-function MetricCard({ label, value, note }: MetricCardProps) {
-  return (
-    <GlassCard variant="base" padding="lg" radius="2xl" className="h-full flex flex-col">
-      <span className="text-micro uppercase text-fgSubtle tracking-[0.04em] mb-5">
-        {label}
-      </span>
-      <div className="flex items-baseline gap-3 mb-2">
-        <div className="text-[clamp(28px,3vw,38px)] leading-[1.02] tracking-[-0.025em] font-semibold text-fg tabular-nums">
-          {value}
-        </div>
-      </div>
-      <p className="text-caption text-fgMuted mt-auto tabular-nums">{note}</p>
-    </GlassCard>
-  );
-}
-
-// --- Leaderboard (dense text list) ----------------------------------------
-
-interface LeaderboardCardProps {
+function TopCreatorsCard({
+  rows,
+  filter,
+  hasMore,
+}: {
   rows: DisplayRow[];
   filter: PlatformFilter;
-}
-
-function LeaderboardCard({ rows, filter }: LeaderboardCardProps) {
+  hasMore: boolean;
+}) {
   return (
-    <GlassCard variant="base" padding="lg" radius="2xl" className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-5">
+    <GlassCard variant="base" padding="md" radius="2xl" className="flex flex-col">
+      <div className="flex items-end justify-between mb-4">
         <div className="flex flex-col gap-1">
-          <span className="text-micro uppercase text-fgSubtle tracking-[0.04em]">
-            Top Creators
-          </span>
-          <span className="text-caption text-fgMuted">
-            Ranked by views · {filterLabel(filter)}
+          <span className="text-label text-fg font-medium">Top Creators</span>
+          <span className="text-body-sm text-fgMuted">
+            {filterLabel(filter)} · by followers
           </span>
         </div>
+        <Link
+          href="/leaderboard"
+          className="text-caption text-fgMuted hover:text-fg transition-colors"
+        >
+          See all →
+        </Link>
       </div>
 
       {rows.length === 0 ? (
-        <div className="flex-1 grid place-items-center text-body-sm text-fgMuted py-12">
+        <div className="grid place-items-center text-body-sm text-fgMuted py-12">
           No creators on this platform yet.
         </div>
       ) : (
-        <ul className="flex-1 flex flex-col">
-          <li
+        <>
+          <div
             aria-hidden
-            className="grid grid-cols-[28px_minmax(0,1fr)_92px_82px] gap-3 px-1 py-2 text-micro uppercase tracking-[0.04em] text-fgSubtle border-b border-borderGlass"
+            className={`${GRID} px-2 pb-2 text-micro uppercase tracking-[0.04em] text-fgSubtle border-b border-borderGlass`}
           >
             <span>#</span>
             <span>Creator</span>
             <span className="text-right">Followers</span>
             <span className="text-right">Views</span>
-          </li>
-
-          {rows.map((row, i) => {
-            const cellClass =
-              'grid grid-cols-[28px_minmax(0,1fr)_92px_82px] gap-3 px-1 py-3 items-center text-body-sm transition-colors duration-150 ease-out rounded-md';
-            const cells = (
-              <>
-                <span className="font-mono tabular-nums text-fgSubtle">
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <span className="text-fg truncate font-medium">{row.name}</span>
-                <span className="text-right font-mono tabular-nums text-fg">
-                  {compactFormatter.format(row.followers)}
-                </span>
-                <span className="text-right font-mono tabular-nums text-fg">
-                  {compactFormatter.format(row.totalViews)}
-                </span>
-              </>
-            );
-            return (
-              <li
-                key={row.key}
-                className="border-b border-borderGlass last:border-b-0"
-              >
-                {row.slug ? (
-                  <Link
-                    href={`/creators/${row.slug}`}
-                    className={`${cellClass} hover:bg-white/[0.025] focus-visible:bg-white/[0.04] outline-none`}
-                  >
-                    {cells}
-                  </Link>
-                ) : (
-                  <div className={cellClass}>{cells}</div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+          </div>
+          <ul>
+            {rows.map((row, i) => (
+              <CreatorRow key={row.key} row={row} rank={i + 1} />
+            ))}
+          </ul>
+          {hasMore && (
+            <Link
+              href="/leaderboard"
+              className="mt-3 text-center text-caption text-fgMuted hover:text-fg transition-colors"
+            >
+              View the full leaderboard →
+            </Link>
+          )}
+        </>
       )}
     </GlassCard>
+  );
+}
+
+function CreatorRow({ row, rank }: { row: DisplayRow; rank: number }) {
+  const isWinner = rank === 1;
+  const initial = row.name.trim().charAt(0).toUpperCase() || '?';
+  const cells = (
+    <>
+      <span
+        className={clsx(
+          'font-mono tabular-nums text-body-sm',
+          isWinner ? 'text-brand font-semibold' : 'text-fgSubtle',
+        )}
+      >
+        {String(rank).padStart(2, '0')}
+      </span>
+      <span className="flex items-center gap-3 min-w-0">
+        <span className="size-8 shrink-0 rounded-full bg-customColor1 border border-borderGlass grid place-items-center text-caption text-fgMuted">
+          {initial}
+        </span>
+        <span className="truncate text-body text-fg font-medium">{row.name}</span>
+      </span>
+      <span className="text-right font-mono tabular-nums text-body text-fg">
+        {compactFormatter.format(row.followers)}
+      </span>
+      <span className="text-right font-mono tabular-nums text-body-sm text-fgMuted">
+        {compactFormatter.format(row.totalViews)}
+      </span>
+    </>
+  );
+  const rowClass = clsx(
+    GRID,
+    'px-2 min-h-[52px] rounded-lg transition-colors duration-150 ease-out border-b border-borderGlass last:border-b-0',
+    isWinner && 'bg-brand/[0.06]',
+  );
+  return (
+    <li>
+      {row.slug ? (
+        <Link
+          href={`/creators/${row.slug}`}
+          className={`${rowClass} hover:bg-white/[0.03] focus-visible:bg-white/[0.05] outline-none`}
+        >
+          {cells}
+        </Link>
+      ) : (
+        <div className={rowClass}>{cells}</div>
+      )}
+    </li>
   );
 }
 
@@ -364,30 +338,24 @@ interface BreakdownRow {
   totalViews: number;
 }
 
-interface PlatformBreakdownCardProps {
-  activeFilter: PlatformFilter;
-  onSelect: (filter: PlatformFilter) => void;
-  rows: BreakdownRow[];
-}
-
 function PlatformBreakdownCard({
   activeFilter,
   onSelect,
   rows,
-}: PlatformBreakdownCardProps) {
+}: {
+  activeFilter: PlatformFilter;
+  onSelect: (filter: PlatformFilter) => void;
+  rows: BreakdownRow[];
+}) {
   const max = Math.max(1, ...rows.map((p) => p.followers));
   return (
-    <GlassCard variant="base" padding="lg" radius="2xl" className="h-full flex flex-col">
-      <div className="flex flex-col gap-1 mb-5">
-        <span className="text-micro uppercase text-fgSubtle tracking-[0.04em]">
-          Platform Breakdown
-        </span>
-        <span className="text-caption text-fgMuted">
-          Followers + total views by platform
-        </span>
+    <GlassCard variant="base" padding="md" radius="2xl" className="flex flex-col">
+      <div className="flex flex-col gap-1 mb-4">
+        <span className="text-label text-fg font-medium">Platform Breakdown</span>
+        <span className="text-body-sm text-fgMuted">Followers + views by platform</span>
       </div>
 
-      <ul className="flex-1 flex flex-col gap-3">
+      <ul className="flex flex-col gap-2.5">
         {rows.map((row) => {
           const Icon = PLATFORM_ICONS[row.platform];
           const widthPct = (row.followers / max) * 100;
@@ -399,7 +367,7 @@ function PlatformBreakdownCard({
                 type="button"
                 onClick={() => onSelect(row.platform)}
                 className={clsx(
-                  'w-full text-left rounded-xl border px-3 py-3 transition-colors duration-150 ease-out',
+                  'w-full text-left rounded-xl border px-3 py-2.5 transition-colors duration-150 ease-out',
                   isFocused
                     ? 'bg-customColor16 border-borderGlassStrong'
                     : 'bg-transparent border-borderGlass hover:border-borderGlassStrong hover:bg-white/[0.025]',
@@ -431,11 +399,9 @@ function PlatformBreakdownCard({
                   />
                 </div>
 
-                <div className="flex items-center justify-end mt-2 text-caption text-fgMuted font-mono tabular-nums">
-                  <span className="text-fg">
-                    {isEmpty
-                      ? 'Not yet tracked'
-                      : `${compactFormatter.format(row.totalViews)} views`}
+                <div className="flex items-center justify-end mt-1.5 text-caption text-fgMuted font-mono tabular-nums">
+                  <span className="text-fgMuted">
+                    {isEmpty ? 'Not yet tracked' : `${compactFormatter.format(row.totalViews)} views`}
                   </span>
                 </div>
               </button>

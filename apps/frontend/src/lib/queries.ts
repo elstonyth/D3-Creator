@@ -312,12 +312,11 @@ export function platformBreakdownFromRows(
 // ---------- Top content (public leaderboard) ----------
 
 /**
- * Top posts ranked by CURRENT views (combined total, no delta). Returns the
- * shared TopContentRow shape so it's a drop-in for the <ViewLeaderboard>
- * component; viewsGained is set equal to currentViews (the component renders
- * currentViews). Dedups to the newest snapshot per post.
+ * Load every tracked post as a TopContentRow, deduped to the newest snapshot
+ * per post. UNSORTED — callers rank it (by views or interactions). Paged past
+ * PostgREST's 1000-row cap so no post is silently dropped.
  */
-export async function getTopContent(limit = 20): Promise<TopContentRow[]> {
+async function loadContentRows(): Promise<TopContentRow[]> {
   const sb = getSupabaseRead();
 
   const profiles = await sb
@@ -325,7 +324,7 @@ export async function getTopContent(limit = 20): Promise<TopContentRow[]> {
     .select('id, creator_id, platform, handle')
     .neq('platform', 'rednote'); // xiaohongshu archived
   if (profiles.error || !profiles.data || profiles.data.length === 0) {
-    if (profiles.error) console.error('[queries] getTopContent profiles', profiles.error);
+    if (profiles.error) console.error('[queries] loadContentRows profiles', profiles.error);
     return [];
   }
   const profMap = new Map(profiles.data.map((p) => [p.id, p]));
@@ -335,8 +334,6 @@ export async function getTopContent(limit = 20): Promise<TopContentRow[]> {
     (creatorsRes.data ?? []).map((c) => [c.id, c.display_name as string | null]),
   );
 
-  // Paged: post_snapshot exceeds PostgREST's 1000-row cap, so a single fetch
-  // would silently drop posts and skew the top-by-views ranking.
   const posts = await fetchAllRows<{
     profile_id: string;
     external_post_id: string;
@@ -358,7 +355,7 @@ export async function getTopContent(limit = 20): Promise<TopContentRow[]> {
       .range(from, to),
   );
   if (posts.error) {
-    console.error('[queries] getTopContent posts', posts.error);
+    console.error('[queries] loadContentRows posts', posts.error);
     return [];
   }
 
@@ -388,8 +385,34 @@ export async function getTopContent(limit = 20): Promise<TopContentRow[]> {
       shares: p.shares ?? 0,
     });
   }
-  out.sort((a, b) => b.currentViews - a.currentViews);
-  return out.slice(0, limit);
+  return out;
+}
+
+/** Σ public interactions for a post — likes + comments + shares. */
+export function postInteractions(r: TopContentRow): number {
+  return r.likes + r.comments + r.shares;
+}
+
+/** Top posts ranked by current views (drop-in for <ViewLeaderboard>). */
+export async function getTopContent(limit = 20): Promise<TopContentRow[]> {
+  const rows = await loadContentRows();
+  return [...rows].sort((a, b) => b.currentViews - a.currentViews).slice(0, limit);
+}
+
+/**
+ * Top content ranked two ways from a SINGLE fetch: by views and by interactions
+ * (likes + comments + shares). Powers the leaderboard's two content grids.
+ */
+export async function getTopContentRankings(
+  limit = 12,
+): Promise<{ byViews: TopContentRow[]; byInteractions: TopContentRow[] }> {
+  const rows = await loadContentRows();
+  return {
+    byViews: [...rows].sort((a, b) => b.currentViews - a.currentViews).slice(0, limit),
+    byInteractions: [...rows]
+      .sort((a, b) => postInteractions(b) - postInteractions(a))
+      .slice(0, limit),
+  };
 }
 
 // ---------- Creator detail (Task 5 step 3) ----------
