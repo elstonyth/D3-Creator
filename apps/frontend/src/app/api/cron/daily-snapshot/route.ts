@@ -1,9 +1,14 @@
 /**
- * Daily snapshot cron — runs once every 24h via Vercel Cron.
+ * Snapshot cron — runs hourly via Vercel Cron (requires the Pro plan;
+ * Hobby rejects sub-daily schedules at deploy validation).
  *
- * Schedule lives in vercel.json. v1 picks 02:00 UTC (mid-window of spec's
- * 00:00-06:00 stagger). The spec's 6-hour staggered window is deferred to
- * Plan-wins-over-spec MVP.
+ * Schedule lives in vercel.json ("0 * * * *"). Each tick processes the
+ * PROFILES_PER_RUN least-recently-scraped profiles; setProfileStatus stamps
+ * last_scraped_at on every attempt, so a scraped profile sorts to the back
+ * and the next tick advances to the next batch. Profiles already attempted
+ * today (UTC) are skipped, so hourly ticks drain the roster (~81 profiles)
+ * within a day and then no-op for the rest of the day — one scrape per profile
+ * per day, no re-scraping. Was daily (02:00 UTC) but 5/day starved the tail.
  *
  * Auth model:
  *   Production: Vercel Cron requests carry x-vercel-cron-signature; we ALSO
@@ -115,8 +120,21 @@ export async function GET(request: Request): Promise<Response> {
     return a.last_scraped_at.localeCompare(b.last_scraped_at);
   });
 
-  const totalEligible = ordered.length;
-  const profiles = ordered.slice(0, PROFILES_PER_RUN);
+  // Drop profiles already attempted today (UTC) so the hourly cadence stays one
+  // scrape per profile per day: once the roster is drained, later ticks find
+  // nothing due and no-op instead of looping back to re-scrape the day's
+  // earliest profiles — which would burn paid upstream calls (Facebook ~20x
+  // TikHub). last_scraped_at is stamped on every attempt and shares the UTC day
+  // boundary with the snapshot dedup key (captured_date = CURRENT_DATE).
+  // PostgREST returns timestamptz as UTC ISO, so the leading YYYY-MM-DD is the
+  // UTC date — compare by prefix (no Date parsing, can't throw on a bad value).
+  const todayUtc = startedAt.toISOString().slice(0, 10);
+  const due = ordered.filter(
+    (p) => (p.last_scraped_at ?? '').slice(0, 10) !== todayUtc,
+  );
+
+  const totalEligible = due.length;
+  const profiles = due.slice(0, PROFILES_PER_RUN);
   const skipped = Math.max(0, totalEligible - profiles.length);
 
   if (totalEligible > PROFILES_PER_RUN) {
