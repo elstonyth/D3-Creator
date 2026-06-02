@@ -317,3 +317,238 @@ export async function persistAvatar(
   const pub = sb.storage.from(POST_MEDIA_BUCKET).getPublicUrl(key);
   return pub.data.publicUrl ?? null;
 }
+
+/**
+ * Persist a profile's avatar to Storage AND point its creator's `avatar_url`
+ * column at the permanent URL. That column is what the windowed RPC, the admin
+ * views, and the public creator page all read — so writing the persisted URL
+ * there is what actually removes the proxy hop (and the expired-CDN 502) from
+ * those surfaces, with no read-path change needed.
+ *
+ * onlyIfUnpersisted=true (scrape path): only overwrites creator.avatar_url when
+ * it's currently empty or still a CDN URL, so a daily scrape never clobbers an
+ * already-persisted (and possibly higher-follower) avatar the backfill picked.
+ * The Storage object is keyed per profile and upserted every scrape, so the
+ * bytes behind an already-persisted URL stay fresh regardless.
+ *
+ * Returns the persisted Storage URL (or null on fetch/upload failure) and
+ * whether the creator row was updated.
+ */
+export async function persistAvatarForProfile(
+  profileId: string,
+  sourceUrl: string,
+  onlyIfUnpersisted = false,
+): Promise<{ persisted: string | null; creatorUpdated: boolean }> {
+  const persisted = await persistAvatar(profileId, sourceUrl);
+  if (!persisted) return { persisted: null, creatorUpdated: false };
+
+  const sb = getSupabaseAdmin();
+  const prof = await sb
+    .from('profile')
+    .select('creator_id')
+    .eq('id', profileId)
+    .maybeSingle();
+  const creatorId = (prof.data?.creator_id as string | null | undefined) ?? null;
+  if (prof.error || !creatorId) {
+    if (prof.error) {
+      console.error('[media] avatar creator lookup failed', profileId, prof.error.message);
+    }
+    return { persisted, creatorUpdated: false };
+  }
+
+  if (onlyIfUnpersisted) {
+    const cur = await sb
+      .from('creator')
+      .select('avatar_url')
+      .eq('id', creatorId)
+      .maybeSingle();
+    // A read failure must NOT be treated as "unpersisted" — that would let a
+    // transient error overwrite the backfill's chosen avatar on the scrape path.
+    // Preserve the guard: skip the update and let the next scrape/backfill retry.
+    if (cur.error) {
+      console.error('[media] creator avatar_url read failed', creatorId, cur.error.message);
+      return { persisted, creatorUpdated: false };
+    }
+    const existing = (cur.data?.avatar_url as string | null | undefined) ?? null;
+    // Already pointing at our Storage — leave it (and the backfill's best pick).
+    if (existing && isAlreadyPersisted(existing)) {
+      return { persisted, creatorUpdated: false };
+    }
+  }
+
+  const upd = await sb.from('creator').update({ avatar_url: persisted }).eq('id', creatorId);
+  if (upd.error) {
+    console.error('[media] creator avatar_url update failed', creatorId, upd.error.message);
+    return { persisted, creatorUpdated: false };
+  }
+  return { persisted, creatorUpdated: true };
+}
+
+export interface AvatarBackfillResult {
+  dryRun: boolean;
+  /** Creators whose avatar_url is empty or still a CDN URL. */
+  candidate_creators: number;
+  /** Avatar copied to Storage + creator.avatar_url updated. */
+  persisted: number;
+  /** Had a candidate avatar, but every source URL was dead/expired. */
+  failed: number;
+  /** Creator had no avatar in any profile's latest snapshot. */
+  no_avatar: number;
+}
+
+/**
+ * Page a PostgREST select past its ~1000-row response cap. `select(from, to)`
+ * must return a query already filtered + ordered by a STABLE key and ranged to
+ * [from, to]; we keep requesting pages until one comes back short. Mirrors the
+ * post-media backfill's paging (and queries.ts `fetchAllRows`) so a large
+ * creator / profile set is never silently truncated.
+ */
+async function fetchAllRows<T>(
+  select: (
+    from: number,
+    to: number,
+  ) => Promise<{ data: T[] | null; error: { message: string } | null }>,
+  label: string,
+): Promise<T[]> {
+  const PAGE = 1000;
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await select(from, from + PAGE - 1);
+    if (error) throw new Error(`${label}: ${error.message}`);
+    const page = data ?? [];
+    out.push(...page);
+    if (page.length < PAGE) break;
+  }
+  return out;
+}
+
+/**
+ * Backfill creator avatars — copy each not-yet-persisted creator's best avatar
+ * into Storage and point creator.avatar_url at the permanent URL. The "best"
+ * avatar is the highest-follower profile's latest-snapshot avatar; if that
+ * source URL is already dead it falls back to the next profile. Idempotent:
+ * creators already on a Storage URL are skipped, and expired-everywhere
+ * creators are left for a fresh scrape to recover. Mirrors persistMediaForPosts
+ * / the post-media backfill, for avatars.
+ */
+export async function backfillCreatorAvatars(dryRun = false): Promise<AvatarBackfillResult> {
+  const sb = getSupabaseAdmin();
+
+  // Page past the PostgREST row cap — a deployment can have >1000 creators, and
+  // an unpaged select would only see the first page (making the backfill + the
+  // daily cron silently skip every creator beyond it).
+  const creators = await fetchAllRows<{ id: string; avatar_url: string | null }>(
+    async (from, to) => {
+      const r = await sb
+        .from('creator')
+        .select('id, avatar_url')
+        .order('id', { ascending: true })
+        .range(from, to);
+      return { data: r.data, error: r.error };
+    },
+    'backfillCreatorAvatars creators',
+  );
+  const needing = creators.filter((c) => {
+    const a = c.avatar_url ?? null;
+    return !a || !isAlreadyPersisted(a);
+  });
+
+  const result: AvatarBackfillResult = {
+    dryRun,
+    candidate_creators: needing.length,
+    persisted: 0,
+    failed: 0,
+    no_avatar: 0,
+  };
+  if (dryRun || needing.length === 0) return result;
+
+  const creatorIds = needing.map((c) => c.id);
+  // Page profiles too — >1000 profiles across the candidate creators would
+  // otherwise be truncated, mis-marking creators as no_avatar or picking a
+  // lower-priority avatar.
+  const profiles = await fetchAllRows<{ id: string; creator_id: string }>(
+    async (from, to) => {
+      const r = await sb
+        .from('profile')
+        .select('id, creator_id')
+        .in('creator_id', creatorIds)
+        .order('id', { ascending: true })
+        .range(from, to);
+      return { data: r.data, error: r.error };
+    },
+    'backfillCreatorAvatars profiles',
+  );
+  const profIds = profiles.map((p) => p.id);
+  if (profIds.length === 0) {
+    result.no_avatar = needing.length;
+    return result;
+  }
+
+  // Latest snapshot raw + followers per profile (paged; first row per profile,
+  // ordered captured_date desc, is the latest).
+  const latest = new Map<string, { raw: unknown; followers: number | null }>();
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const snapRes = await sb
+      .from('profile_snapshot')
+      .select('profile_id, followers, raw, captured_date')
+      .in('profile_id', profIds)
+      .order('captured_date', { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (snapRes.error) {
+      throw new Error(`backfillCreatorAvatars snapshots: ${snapRes.error.message}`);
+    }
+    const page = snapRes.data ?? [];
+    for (const r of page) {
+      const pid = r.profile_id as string;
+      if (!latest.has(pid)) {
+        latest.set(pid, { raw: r.raw, followers: (r.followers as number | null) ?? null });
+      }
+    }
+    if (page.length < PAGE) break;
+  }
+
+  const profsByCreator = new Map<string, string[]>();
+  for (const p of profiles) {
+    const arr = profsByCreator.get(p.creator_id) ?? [];
+    arr.push(p.id);
+    profsByCreator.set(p.creator_id, arr);
+  }
+
+  for (const c of needing) {
+    const cid = c.id;
+    const candidates = (profsByCreator.get(cid) ?? [])
+      .map((pid) => {
+        const snap = latest.get(pid);
+        return { pid, followers: snap?.followers ?? 0, avatar: avatarUrlFromRaw(snap?.raw) };
+      })
+      .filter((x): x is { pid: string; followers: number; avatar: string } => !!x.avatar)
+      .sort((a, b) => b.followers - a.followers);
+
+    if (candidates.length === 0) {
+      result.no_avatar++;
+      continue;
+    }
+
+    let done = false;
+    for (const cand of candidates) {
+      // Force-set (onlyIfUnpersisted=false): the backfill is the authority on
+      // which avatar a creator gets — the highest-follower one that's still live.
+      // Require creatorUpdated too: a persisted URL whose creator write failed
+      // hasn't actually healed creator.avatar_url, so keep trying fallbacks.
+      const { persisted, creatorUpdated } = await persistAvatarForProfile(
+        cand.pid,
+        cand.avatar,
+        false,
+      );
+      if (persisted && creatorUpdated) {
+        result.persisted++;
+        done = true;
+        break;
+      }
+    }
+    if (!done) result.failed++; // every candidate URL was dead/expired or unwritable
+  }
+
+  return result;
+}
