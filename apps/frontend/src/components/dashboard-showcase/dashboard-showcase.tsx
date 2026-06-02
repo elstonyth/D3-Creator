@@ -13,7 +13,6 @@ import {
 import {
   compactFormatter,
   exactFormatter,
-  percentFormatter,
   handleToSlug,
   demoCreatorRows,
   type PlatformFilter,
@@ -108,8 +107,6 @@ export function DashboardShowcase({ creators }: DashboardShowcaseProps = {}) {
     () => rows.reduce((s, r) => s + r.totalEngagement, 0),
     [rows],
   );
-  const engagementRate = totalViews > 0 ? totalEngagement / totalViews : 0;
-  const activeCreators = rows.length;
 
   // Top creators for the active filter, ranked by combined views.
   const topCreators = useMemo<DisplayRow[]>(
@@ -157,9 +154,9 @@ export function DashboardShowcase({ creators }: DashboardShowcaseProps = {}) {
 
         <BentoItem colSpan={4} rowSpan={1} tabletColSpan={3}>
           <MetricCard
-            label="Engagement"
-            value={percentFormatter.format(engagementRate)}
-            note={`across ${activeCreators} creator${activeCreators === 1 ? '' : 's'}`}
+            label="Total Engagement"
+            value={compactFormatter.format(totalEngagement)}
+            note="likes, comments & shares"
           />
         </BentoItem>
 
@@ -310,28 +307,23 @@ function LeaderboardCard({ rows, filter }: LeaderboardCardProps) {
         <ul className="flex-1 flex flex-col">
           <li
             aria-hidden
-            className="grid grid-cols-[28px_minmax(0,1fr)_44px_92px_82px] gap-3 px-1 py-2 text-micro uppercase tracking-[0.04em] text-fgSubtle border-b border-borderGlass"
+            className="grid grid-cols-[28px_minmax(0,1fr)_92px_82px] gap-3 px-1 py-2 text-micro uppercase tracking-[0.04em] text-fgSubtle border-b border-borderGlass"
           >
             <span>#</span>
             <span>Creator</span>
-            <span className="text-right">Plat</span>
             <span className="text-right">Followers</span>
             <span className="text-right">Views</span>
           </li>
 
           {rows.map((row, i) => {
-            const Icon = row.platform ? PLATFORM_ICONS[row.platform] : null;
             const cellClass =
-              'grid grid-cols-[28px_minmax(0,1fr)_44px_92px_82px] gap-3 px-1 py-3 items-center text-body-sm transition-colors duration-150 ease-out rounded-md';
+              'grid grid-cols-[28px_minmax(0,1fr)_92px_82px] gap-3 px-1 py-3 items-center text-body-sm transition-colors duration-150 ease-out rounded-md';
             const cells = (
               <>
                 <span className="font-mono tabular-nums text-fgSubtle">
                   {String(i + 1).padStart(2, '0')}
                 </span>
                 <span className="text-fg truncate font-medium">{row.name}</span>
-                <span className="flex justify-end items-center text-fgMuted">
-                  {Icon ? <Icon size={14} /> : null}
-                </span>
                 <span className="text-right font-mono tabular-nums text-fg">
                   {compactFormatter.format(row.followers)}
                 </span>
