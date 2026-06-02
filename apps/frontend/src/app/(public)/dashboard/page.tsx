@@ -1,10 +1,6 @@
 import { Metadata } from 'next';
 import { DashboardShowcase } from '@gitroom/frontend/components/dashboard-showcase/dashboard-showcase';
-import { getPlatformBreakdown } from '@gitroom/frontend/lib/queries';
-import {
-  getCreatorMetricsWindowed,
-  type CreatorMetricWindowRow,
-} from '@gitroom/frontend/lib/metrics-windowed';
+import { getLiveCreatorRows, type LiveCreatorRow } from '@gitroom/frontend/lib/queries';
 
 // ISR: 1h cache, see (public)/page.tsx for rationale.
 export const revalidate = 3600;
@@ -12,26 +8,16 @@ export const revalidate = 3600;
 export const metadata: Metadata = {
   title: 'Dashboard — D3 Creator',
   description:
-    'Live overview of every creator we grow at D3 — views, followers, and growth across Instagram, TikTok, Facebook, and Douyin.',
+    'Live overview of every creator we grow at D3 — combined views and followers across Instagram, TikTok, Facebook, and Douyin.',
 };
 
 export default async function DashboardPage() {
-  const [metrics30d, metricsLifetime, livePlatformBreakdown] = await Promise.all([
-    getCreatorMetricsWindowed('30d').catch((e) => {
-      console.error('[dashboard] 30d', e);
-      return [] as CreatorMetricWindowRow[];
-    }),
-    getCreatorMetricsWindowed('lifetime').catch((e) => {
-      console.error('[dashboard] lifetime', e);
-      return [] as CreatorMetricWindowRow[];
-    }),
-    getPlatformBreakdown().catch((e) => {
-      console.error('[dashboard] breakdown', e);
-      return null;
-    }),
-  ]);
+  const creators = await getLiveCreatorRows().catch((e) => {
+    console.error('[dashboard] creators', e);
+    return null as LiveCreatorRow[] | null;
+  });
 
-  const isLive = metrics30d.length > 0;
+  const isLive = !!(creators && creators.length > 0);
 
   return (
     <div className="flex flex-col gap-10 pt-12 pb-24">
@@ -49,17 +35,13 @@ export default async function DashboardPage() {
         </p>
         {isLive && (
           <p className="mt-4 text-caption text-fgSubtle">
-            Tracking {metrics30d.length} creator{metrics30d.length === 1 ? '' : 's'} ·
-            growth metrics fill in after 14 days of snapshots.
+            Tracking {creators!.length} creator{creators!.length === 1 ? '' : 's'} ·
+            combined followers and views across every platform.
           </p>
         )}
       </header>
 
-      <DashboardShowcase
-        metrics30d={metrics30d}
-        metricsLifetime={metricsLifetime}
-        livePlatformBreakdown={livePlatformBreakdown}
-      />
+      <DashboardShowcase creators={creators} />
     </div>
   );
 }

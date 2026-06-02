@@ -65,7 +65,7 @@ function isAllowedImageHost(host: string): boolean {
 }
 
 const PROXY_UA =
-  'Mozilla/5.0 (compatible; D3CreatorImageProxy/0.1; +https://d3-creator.vercel.app)';
+  'Mozilla/5.0 (compatible; D3CreatorImageProxy/0.1; +https://www.d3creator.com)';
 
 /** Map an image content-type to a file extension (cosmetic — the stored
  *  content-type is what governs serving). Defaults to jpg. */
@@ -238,4 +238,82 @@ export async function persistMediaForPosts<
   );
   await Promise.all(workers);
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Avatar persistence — same problem as post media (signed social-CDN URLs
+// expire → broken images), same fix (copy into our public Storage bucket at
+// scrape time). One object per profile, overwritten each scrape.
+// ---------------------------------------------------------------------------
+
+// Avatar field names each adapter writes, in the SAME precedence as the
+// frontend's extractRawProfileFields — so persisted + fallback avatars agree.
+const AVATAR_RAW_KEYS = [
+  'profile_pic_url',
+  'avatar_url',
+  'profile_pic',
+  'profilePicUrlHD',
+  'profilePicUrl',
+] as const;
+
+/** Pull the avatar URL out of a scraped profile `raw` blob (null if none). */
+export function avatarUrlFromRaw(raw: unknown): string | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  for (const k of AVATAR_RAW_KEYS) {
+    const v = r[k];
+    if (typeof v === 'string' && v.length > 0) return v;
+  }
+  return null;
+}
+
+/**
+ * Return a copy of `raw` with the avatar field rewritten to `persistedUrl`.
+ * Overwrites the first present avatar key (the one avatarUrlFromRaw reads), so
+ * the read path (extractRawProfileFields) picks up the permanent Storage URL —
+ * with NO new column or migration. Falls back to setting `avatar_url`.
+ */
+export function withPersistedAvatar(raw: unknown, persistedUrl: string): unknown {
+  if (!raw || typeof raw !== 'object') return raw;
+  const r = raw as Record<string, unknown>;
+  for (const k of AVATAR_RAW_KEYS) {
+    if (typeof r[k] === 'string' && (r[k] as string).length > 0) {
+      return { ...r, [k]: persistedUrl };
+    }
+  }
+  return { ...r, avatar_url: persistedUrl };
+}
+
+/**
+ * Copy a profile avatar into Storage and return its permanent public URL. One
+ * object per profile (avatars/<profileId>.<ext>), upserted so each scrape
+ * overwrites with the freshest avatar. Same best-effort contract as
+ * persistPostMedia: returns the source unchanged if it's already a Storage URL,
+ * or null if the bytes couldn't be fetched/uploaded.
+ */
+export async function persistAvatar(
+  profileId: string,
+  sourceUrl: string,
+): Promise<string | null> {
+  if (isAlreadyPersisted(sourceUrl)) return sourceUrl;
+
+  const img = await fetchImage(sourceUrl);
+  if (!img) return null;
+
+  const sb = getSupabaseAdmin();
+  const key = `avatars/${sanitizeKeySegment(profileId)}.${extFromContentType(
+    img.contentType,
+  )}`;
+
+  const up = await sb.storage.from(POST_MEDIA_BUCKET).upload(key, img.body, {
+    contentType: img.contentType,
+    upsert: true,
+  });
+  if (up.error) {
+    console.error('[media] avatar upload failed', key, up.error.message);
+    return null;
+  }
+
+  const pub = sb.storage.from(POST_MEDIA_BUCKET).getPublicUrl(key);
+  return pub.data.publicUrl ?? null;
 }

@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import { GlassCard } from '@gitroom/frontend/components/ui/glass-card';
+import { SITE_URL, SITE_DOMAIN, CONTACT_EMAIL } from '@gitroom/frontend/lib/site';
 
 export const dynamic = 'force-static';
 export const revalidate = false;
@@ -33,7 +34,7 @@ export default function TermsPage() {
       <p className={paragraph}>
         These Terms of Service (&ldquo;<span className={inlineStrong}>Terms</span>&rdquo;) form a binding agreement between you (&ldquo;you&rdquo; or &ldquo;User&rdquo;) and{' '}
         <span className={inlineStrong}>D3 Creator</span> (&ldquo;D3 Creator&rdquo;, &ldquo;we&rdquo;, &ldquo;our&rdquo;, or &ldquo;us&rdquo;) governing your access to and use of the D3 Creator website at{' '}
-        <a className={linkClass} href="https://d3-creator.vercel.app">d3-creator.vercel.app</a>{' '}
+        <a className={linkClass} href={SITE_URL}>{SITE_DOMAIN}</a>{' '}
         and our related social media analytics services (collectively, the &ldquo;Service&rdquo;).
       </p>
       <p className={paragraph}>
@@ -52,13 +53,13 @@ export default function TermsPage() {
 
       <h2 className={sectionTitle}>2. Description of the Service</h2>
       <p className={paragraph}>
-        D3 Creator is a self-serve social media analytics platform that allows you to connect your own social media accounts and view your analytics in a single dashboard. The Service currently supports analytics for Instagram, Facebook, TikTok, Douyin, and Xiaohongshu (RedNote). We may add or remove supported platforms from time to time.
+        D3 Creator is an agency-managed social media analytics platform. Agencies provision creator accounts and add the public social profiles they manage; creators sign in to view combined analytics across those profiles in a single dashboard. The Service currently supports analytics for Instagram, Facebook, TikTok, and Douyin. Public self-signup is not available — accounts are created by your agency. We may add or remove supported platforms from time to time.
       </p>
 
       <h2 className={sectionTitle}>3. User Accounts and Registration</h2>
       <h3 className={subTitle}>3.1 Account Creation</h3>
       <p className={paragraph}>
-        To use most features of the Service, you must register for an account. You agree to provide accurate, current, and complete information during registration and to keep your account information up to date.
+        Accounts are provisioned by your agency; public self-registration is not available. You agree to keep your account credentials secure and your contact information accurate and up to date.
       </p>
       <h3 className={subTitle}>3.2 Account Security</h3>
       <p className={paragraph}>
@@ -66,7 +67,7 @@ export default function TermsPage() {
       </p>
       <h3 className={subTitle}>3.3 One Account Per Person</h3>
       <p className={paragraph}>
-        You may not create multiple accounts to circumvent restrictions, abuse free-tier limits, or impersonate another person. We reserve the right to suspend duplicate accounts.
+        You may not create or use multiple accounts to circumvent restrictions or impersonate another person. We reserve the right to suspend duplicate accounts.
       </p>
 
       <h2 className={sectionTitle}>4. Acceptable Use Policy</h2>
@@ -75,7 +76,7 @@ export default function TermsPage() {
       </p>
       <ul className="list-disc pl-6 mb-3">
         <li className={bullet}>Use the Service for any unlawful purpose, or in violation of any local, national, or international law.</li>
-        <li className={bullet}>Connect or analyze social media accounts that you do not own or are not authorized to access.</li>
+        <li className={bullet}>Track or analyze social profiles that you do not own or are not authorized to track.</li>
         <li className={bullet}>Attempt to gain unauthorized access to any part of the Service, its systems, or its data.</li>
         <li className={bullet}>Interfere with or disrupt the Service, including by introducing malware, conducting denial-of-service attacks, or excessive automated requests.</li>
         <li className={bullet}>Reverse engineer, decompile, or disassemble any part of the Service, except where permitted by law.</li>
@@ -85,25 +86,19 @@ export default function TermsPage() {
         <li className={bullet}>Violate the terms of service of any connected social media platform (such as Meta or TikTok) through your use of the Service.</li>
       </ul>
 
-      <h2 className={sectionTitle}>5. Social Media Account Connections</h2>
-      <h3 className={subTitle}>5.1 Your Own Accounts</h3>
+      <h2 className={sectionTitle}>5. Tracked Social Profiles</h2>
+      <h3 className={subTitle}>5.1 Profiles You Own</h3>
       <p className={paragraph}>
-        The Service is designed for you to connect <span className={inlineStrong}>your own</span> social media accounts. You represent and warrant that you own, or have explicit written permission to access and analyze, every social media account you connect to the Service.
+        D3 Creator tracks public social profiles that are added on your behalf by your agency. You represent and warrant that you own, or have explicit permission to have us track and analyze, every profile associated with your account.
       </p>
-      <h3 className={subTitle}>5.2 OAuth Connections (Instagram, Facebook, TikTok)</h3>
+      <h3 className={subTitle}>5.2 Public Data Only — No Account Login</h3>
       <p className={paragraph}>
-        For OAuth-supported platforms, you connect your account by logging in through the platform&rsquo;s official authorization flow. You may revoke our access at any time from within your D3 Creator dashboard or directly from the social platform&rsquo;s settings. Your continued use of these connections is also subject to each platform&rsquo;s own terms and policies (for example, the{' '}
-        <a className={linkClass} href="https://developers.facebook.com/terms/" target="_blank" rel="noopener noreferrer">Meta Platform Terms</a>{' '}and the{' '}
-        <a className={linkClass} href="https://developers.tiktok.com/terms-of-service" target="_blank" rel="noopener noreferrer">TikTok Developer Terms of Service</a>).
-      </p>
-      <h3 className={subTitle}>5.3 URL-Based Connections (Douyin and Xiaohongshu)</h3>
-      <p className={paragraph}>
-        For Douyin and Xiaohongshu (RedNote), you may submit a public profile URL. The Service will display <span className={inlineStrong}>publicly available data only</span>; private insights are not available for these platforms. You must have the right to share and analyze the data accessible at any URL you submit.
+        We do <span className={inlineStrong}>not</span> use OAuth and never log in to your social accounts. For every supported platform (Instagram, Facebook, TikTok, Douyin), the Service collects <span className={inlineStrong}>publicly available data only</span> from the public profile URL, using trusted third-party data providers. Your use of the Service must comply with each platform&rsquo;s own terms and all applicable laws.
       </p>
 
       <h2 className={sectionTitle}>6. Analytics Data</h2>
       <p className={paragraph}>
-        The Service displays analytics data obtained through (a) the official APIs of social media platforms for which you have granted authorization, and (b) publicly available data sourced through trusted third-party providers. We do not guarantee:
+        The Service displays analytics derived from publicly available social media data, collected through trusted third-party data providers. We do not guarantee:
       </p>
       <ul className="list-disc pl-6 mb-3">
         <li className={bullet}>The accuracy, completeness, or timeliness of any analytics data displayed.</li>
@@ -130,7 +125,7 @@ export default function TermsPage() {
 
       <h2 className={sectionTitle}>8. Third-Party Services</h2>
       <p className={paragraph}>
-        The Service integrates with third-party services including Meta (Facebook and Instagram), TikTok, Apify, Supabase, and Vercel. Your use of these third-party services is governed by their own terms and privacy policies. We are not responsible for the practices, availability, or content of any third party.
+        The Service relies on third-party services including TikHub and BrightData (public social-data collection), Supabase (database and storage), and Vercel (hosting). Your use of these third-party services is governed by their own terms and privacy policies. We are not responsible for the practices, availability, or content of any third party.
       </p>
 
       <h2 className={sectionTitle}>9. No Guarantee of Uptime or Availability</h2>
@@ -171,7 +166,7 @@ export default function TermsPage() {
       <h2 className={sectionTitle}>13. Termination</h2>
       <h3 className={subTitle}>13.1 Termination by You</h3>
       <p className={paragraph}>
-        You may stop using the Service and delete your account at any time from your account settings. Upon deletion, we will process your data in accordance with our{' '}
+        You may stop using the Service at any time and ask your agency to close your account. Upon deletion, we will process your data in accordance with our{' '}
         <a className={linkClass} href="/privacy">Privacy Policy</a>.
       </p>
       <h3 className={subTitle}>13.2 Termination by Us</h3>
@@ -222,8 +217,8 @@ export default function TermsPage() {
         </p>
         <p className="text-body-sm text-fgMuted">
           Email:{' '}
-          <a className={linkClass} href="mailto:legal@d3-creator.vercel.app">
-            legal@d3-creator.vercel.app
+          <a className={linkClass} href={`mailto:${CONTACT_EMAIL}`}>
+            {CONTACT_EMAIL}
           </a>
         </p>
       </GlassCard>
