@@ -233,6 +233,97 @@ export function validateProfileUrl(
 }
 
 /**
+ * SSRF guard for resolveShortLink's redirect following. resolveShortLink chases
+ * Location headers from allowlisted short-link services; this blocks any hop
+ * whose host is a loopback/private/link-local/cloud-metadata address so the
+ * server never fetches an internal endpoint. Hostname/IP-literal check only —
+ * does NOT defend against DNS rebinding (a public name resolving to a private
+ * IP); acceptable given hops originate from reputable allowlisted platforms.
+ */
+function isPrivateOrLoopbackHost(hostname: string): boolean {
+  const h = hostname.toLowerCase().replace(/^\[|\]$/g, ''); // strip IPv6 brackets
+  if (h === 'localhost' || h.endsWith('.localhost')) return true;
+  const m = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (m) {
+    const a = Number(m[1]);
+    const b = Number(m[2]);
+    if (a === 0 || a === 127 || a === 10) return true;
+    if (a === 169 && b === 254) return true; // link-local + cloud metadata
+    if (a === 172 && b >= 16 && b <= 31) return true; // private
+    if (a === 192 && b === 168) return true; // private
+    return false;
+  }
+  // IPv6 loopback / link-local / unique-local
+  if (h === '::1' || h.startsWith('fe80') || h.startsWith('fc') || h.startsWith('fd')) return true;
+  return false;
+}
+
+/**
+ * Resolve an allowlisted short/redirector link to its final URL so it can be
+ * validated like any normal profile URL. Only hosts in SHORTLINK_HOSTS trigger
+ * a network round-trip; everything else returns unchanged with no fetch.
+ *
+ * Return contract: on success, returns the resolved (possibly URL-normalised)
+ * final URL after following redirects; only on failure (network error, timeout,
+ * redirect loop, or hop cap exceeded) does it return the original `rawUrl`
+ * unchanged.
+ *
+ * Safety: we only INITIATE requests to known short-link domains, follow at most
+ * 5 redirects with a 3s timeout, and never throw — on any failure we return the
+ * original input so the caller's validateProfileUrl rejects it with the usual
+ * short-link message (fail closed). The final URL is still validated downstream
+ * (must be a known platform PROFILE host), so a redirect elsewhere is rejected.
+ */
+export async function resolveShortLink(
+  rawUrl: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string> {
+  let u: URL;
+  try {
+    u = new URL(ensureScheme(rawUrl.trim()));
+  } catch {
+    return rawUrl;
+  }
+  if (!SHORTLINK_HOSTS.some((s) => s.re.test(u.hostname))) return rawUrl;
+
+  let current = u.toString();
+  for (let hop = 0; hop < 5; hop++) {
+    let host: string;
+    try {
+      host = new URL(current).hostname;
+    } catch {
+      return rawUrl; // unparseable → fail closed
+    }
+    if (isPrivateOrLoopbackHost(host)) return rawUrl; // SSRF guard → fail closed
+    let res: Response;
+    try {
+      res = await fetchImpl(current, {
+        method: 'GET',
+        redirect: 'manual',
+        signal: AbortSignal.timeout(3000),
+      });
+    } catch {
+      return rawUrl; // network error / timeout → fail closed
+    }
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get('location');
+      if (!loc) return rawUrl;
+      let next: string;
+      try {
+        next = new URL(loc, current).toString();
+      } catch {
+        return rawUrl;
+      }
+      if (next === current) return rawUrl; // self-loop
+      current = next;
+      continue;
+    }
+    return current; // non-redirect → resolved
+  }
+  return rawUrl; // exceeded redirect cap
+}
+
+/**
  * Fold a handle for cross-platform fuzzy matching used by Auto-Discovery.
  *
  * Steps:
