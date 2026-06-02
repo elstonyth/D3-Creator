@@ -1,6 +1,7 @@
 import '../global.scss';
 import { ReactNode } from 'react';
 import Link from 'next/link';
+import { Analytics } from '@vercel/analytics/next';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { SignOutButton } from '@gitroom/frontend/components/auth/signout-button';
 import { Footer } from '@gitroom/frontend/components/ui/footer';
@@ -114,6 +115,7 @@ export default async function PublicLayout({ children }: { children: ReactNode }
             }}
           />
         </div>
+        <Analytics />
       </body>
     </html>
   );
