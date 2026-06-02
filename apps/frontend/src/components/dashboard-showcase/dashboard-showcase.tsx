@@ -464,18 +464,18 @@ function PlatformBreakdownCard({
   onSelect: (filter: PlatformFilter) => void;
   rows: BreakdownRow[];
 }) {
-  const max = Math.max(1, ...rows.map((p) => p.followers));
+  const max = Math.max(1, ...rows.map((p) => p.totalViews));
   return (
     <GlassCard variant="base" padding="md" radius="2xl" className="flex flex-col">
       <div className="flex flex-col gap-1 mb-4">
         <span className="text-label text-fg font-medium">Platform Breakdown</span>
-        <span className="text-body-sm text-fgMuted">Followers + views by platform</span>
+        <span className="text-body-sm text-fgMuted">Views + followers by platform</span>
       </div>
 
       <ul className="flex flex-col gap-2.5">
         {rows.map((row) => {
           const Icon = PLATFORM_ICONS[row.platform];
-          const widthPct = (row.followers / max) * 100;
+          const widthPct = (row.totalViews / max) * 100;
           const isFocused = activeFilter === row.platform;
           const isEmpty = row.followers === 0 && row.totalViews === 0;
           return (
@@ -502,7 +502,7 @@ function PlatformBreakdownCard({
                     </span>
                   </div>
                   <span className="text-body-sm font-mono tabular-nums text-fg">
-                    {isEmpty ? '—' : compactFormatter.format(row.followers)}
+                    {isEmpty ? '—' : `${exactFormatter.format(row.totalViews)} views`}
                   </span>
                 </div>
 
@@ -518,7 +518,7 @@ function PlatformBreakdownCard({
 
                 <div className="flex items-center justify-end mt-1.5 text-caption text-fgMuted font-mono tabular-nums">
                   <span className="text-fgMuted">
-                    {isEmpty ? 'Not yet tracked' : `${compactFormatter.format(row.totalViews)} views`}
+                    {isEmpty ? 'Not yet tracked' : `${compactFormatter.format(row.followers)} followers`}
                   </span>
                 </div>
               </button>

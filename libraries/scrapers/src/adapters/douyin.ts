@@ -4,11 +4,19 @@
  * Endpoints used:
  *   GET /api/v1/douyin/web/handler_user_profile?sec_user_id=<sec_uid>
  *   GET /api/v1/douyin/web/fetch_user_post_videos?sec_user_id=<sec_uid>&count=30
+ *   GET /api/v1/douyin/app/v3/fetch_multi_video_statistics?aweme_ids=<id,id,…>
  *
  * Douyin is the mainland-China ByteDance app — different product from
  * international TikTok (different domain douyin.com, different APIs). Both
  * web endpoints accept the sec_uid that lives in the profile URL path
  * (douyin.com/user/<sec_uid>) so we don't need an extra lookup.
+ *
+ * VIEW COUNTS: the fetch_user_post_videos FEED returns statistics.play_count=0
+ * for every post (Douyin hides play counts in the feed). The real numbers come
+ * only from the dedicated app/v3 fetch_multi_video_statistics endpoint, keyed
+ * by aweme_id. So we collect the window's aweme_ids and make a second (batched)
+ * call to backfill real views/likes/shares. That stats endpoint does NOT return
+ * comment_count, so comments still come from the feed.
  *
  * Output mapping:
  *   Profile
@@ -17,11 +25,12 @@
  *     - total_posts:  user.aweme_count (lifetime)
  *     - total_likes:  user.total_favorited (lifetime — Douyin exposes this on
  *                     the profile, unlike TikTok which only exposes via app v3)
- *     - total_views:  sum of statistics.play_count across the fetched window
- *                     (Douyin does NOT expose a lifetime view count).
+ *     - total_views:  sum of real play_count (from fetch_multi_video_statistics)
+ *                     across the fetched window (Douyin has no lifetime view count).
  *   Post
  *     - content_type: 'short' (Douyin is short-form video only)
- *     - shares:       statistics.share_count
+ *     - views/likes/shares: from fetch_multi_video_statistics (feed fallback)
+ *     - comments:     statistics.comment_count (feed — not in the stats endpoint)
  *
  * Migrated from Apify Actor zen-studio/douyin-profile-scraper (2026-05-28).
  */
@@ -38,6 +47,9 @@ import type {
 const PLATFORM = 'douyin';
 const POSTS_PER_SCRAPE = 30;
 const CAPTION_LIMIT = 280;
+/** Max aweme_ids per fetch_multi_video_statistics call — chunk to stay under
+ *  any batch cap and keep each request small. */
+const STATS_BATCH = 20;
 
 /** Extract sec_uid from a normalized douyin.com URL: /user/<sec_uid>. */
 function extractSecUid(profileUrl: string): string {
@@ -112,6 +124,44 @@ interface DyPostsResponse {
   max_cursor?: number | string;
 }
 
+/** fetch_multi_video_statistics row — note: NO comment_count field. */
+interface DyVideoStat {
+  aweme_id?: string;
+  play_count?: number | null;
+  digg_count?: number | null;
+  share_count?: number | null;
+  download_count?: number | null;
+}
+
+interface DyMultiStatsResponse {
+  statistics_list?: DyVideoStat[];
+}
+
+/**
+ * Backfill real per-video stats (play/digg/share) the feed omits. Batched by
+ * STATS_BATCH and keyed by aweme_id. Returns an empty map if there are no ids.
+ * Errors propagate to the caller, which decides whether to degrade.
+ */
+async function fetchVideoStats(
+  awemeIds: string[],
+  profileUrl: string,
+): Promise<Map<string, DyVideoStat>> {
+  const map = new Map<string, DyVideoStat>();
+  for (let i = 0; i < awemeIds.length; i += STATS_BATCH) {
+    const chunk = awemeIds.slice(i, i + STATS_BATCH);
+    const data = await tikhubGet<DyMultiStatsResponse>({
+      path: '/api/v1/douyin/app/v3/fetch_multi_video_statistics',
+      query: { aweme_ids: chunk.join(',') },
+      platform: PLATFORM,
+      profileUrl,
+    });
+    for (const s of data.statistics_list ?? []) {
+      if (s.aweme_id) map.set(s.aweme_id, s);
+    }
+  }
+  return map;
+}
+
 function truncate(s: string | null | undefined, n: number): string | null {
   if (!s) return null;
   return s.length <= n ? s : s.slice(0, n - 1) + '…';
@@ -140,18 +190,24 @@ function unwrapTimestamp(t: number | null | undefined): string | null {
   return null;
 }
 
-function mapPost(a: DyAweme): NormalizedPostSnapshot | null {
+function mapPost(
+  a: DyAweme,
+  statsMap: Map<string, DyVideoStat>,
+): NormalizedPostSnapshot | null {
   const externalId = a.aweme_id;
   if (!externalId) return null;
-  const stats = a.statistics ?? {};
+  const feed = a.statistics ?? {};
+  const stat = statsMap.get(externalId);
   return {
     external_post_id: externalId,
     posted_at: unwrapTimestamp(a.create_time),
     caption_excerpt: truncate(a.desc, CAPTION_LIMIT),
-    views: stats.play_count ?? null,
-    likes: stats.digg_count ?? null,
-    comments: stats.comment_count ?? null,
-    shares: stats.share_count ?? null,
+    // play_count is ONLY reliable from the stats endpoint (feed is always 0).
+    views: stat?.play_count ?? feed.play_count ?? null,
+    likes: stat?.digg_count ?? feed.digg_count ?? null,
+    // comment_count is not in the stats endpoint — feed is the only source.
+    comments: feed.comment_count ?? null,
+    shares: stat?.share_count ?? feed.share_count ?? null,
     media_url: pickCover(a.video),
     content_type: 'short',
     raw: a,
@@ -232,9 +288,25 @@ export const douyinAdapter: PlatformAdapter = {
       throw new ProfileNotFoundError(PLATFORM, profileUrl);
     }
 
+    // Backfill real view/like/share counts the feed omits (feed play_count=0).
+    // Best-effort: if the stats endpoint fails, fall back to feed values rather
+    // than sinking the whole profile snapshot — views degrade to 0, not error.
+    const awemeList = postsResp.aweme_list ?? [];
+    const awemeIds = awemeList
+      .map((a) => a.aweme_id)
+      .filter((id): id is string => Boolean(id));
+    let statsMap = new Map<string, DyVideoStat>();
+    if (awemeIds.length > 0) {
+      try {
+        statsMap = await fetchVideoStats(awemeIds, profileUrl);
+      } catch {
+        statsMap = new Map();
+      }
+    }
+
     const posts: NormalizedPostSnapshot[] = [];
-    for (const a of postsResp.aweme_list ?? []) {
-      const mapped = mapPost(a);
+    for (const a of awemeList) {
+      const mapped = mapPost(a, statsMap);
       if (mapped) posts.push(mapped);
     }
 
