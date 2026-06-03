@@ -350,6 +350,10 @@ module.exports = {
         minCustom: { raw: '(min-height: 800px)' },
         custom: { raw: '(max-height: 800px)' },
         xs: { max: '401px' },
+        // Ultra-narrow phones (old iPhone SE/5 ≈320px, small Androids ≈360px).
+        // Below this, full-digit showcase columns are too wide — drop secondary
+        // cells so creator names stay readable.
+        tiny: { max: '374px' },
       },
       transitionTimingFunction: {
         // Linear uses ease-out exclusively. Spring/liquid mapped to ease-out (anti-slop).

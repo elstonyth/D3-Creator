@@ -259,6 +259,17 @@ export const compactFormatter = new Intl.NumberFormat('en-US', {
 
 export const exactFormatter = new Intl.NumberFormat('en-US');
 
+/**
+ * Showcase number style: spell millions out in full ("29,973,333") for the
+ * "wow" factor, but keep sub-million values compact ("683.4K"). Used for the
+ * follower / view / engagement totals on the home, dashboard, and leaderboard
+ * showcase. Per-post content views use the plain compactFormatter instead
+ * (always abbreviated) — see view-leaderboard.tsx.
+ */
+export function formatShowcase(n: number): string {
+  return n >= 1_000_000 ? exactFormatter.format(n) : compactFormatter.format(n);
+}
+
 export const percentFormatter = new Intl.NumberFormat('en-US', {
   style: 'percent',
   maximumFractionDigits: 1,

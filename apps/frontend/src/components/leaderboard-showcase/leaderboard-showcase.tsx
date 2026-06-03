@@ -6,8 +6,8 @@ import clsx from 'clsx';
 import { GlassCard } from '../ui/glass-card';
 import { PLATFORM_ICONS, PLATFORM_LABELS } from '../ui/platform-icons';
 import {
-  compactFormatter,
   exactFormatter,
+  formatShowcase,
   handleToSlug,
   demoCreatorRows,
   type PlatformFilter,
@@ -23,11 +23,11 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   { value: 'all', label: 'All Platforms' },
+  { value: 'facebook', label: PLATFORM_LABELS.facebook },
   { value: 'instagram', label: PLATFORM_LABELS.instagram },
   { value: 'tiktok', label: PLATFORM_LABELS.tiktok },
   { value: 'douyin', label: PLATFORM_LABELS.douyin },
-  { value: 'facebook', label: PLATFORM_LABELS.facebook },
-  // xiaohongshu archived — hidden from the platform filter.
+  // xiaohongshu (RedNote) archived — hidden from the platform filter.
 ];
 
 function filterLabel(filter: PlatformFilter): string {
@@ -69,8 +69,8 @@ function resolveRows(creators: LiveCreatorRow[], filter: PlatformFilter): LbRow[
             },
           ];
         });
-  // Top-followers ranking.
-  return rows.sort((a, b) => b.followers - a.followers);
+  // Top-views ranking.
+  return rows.sort((a, b) => b.totalViews - a.totalViews);
 }
 
 export interface LeaderboardShowcaseProps {
@@ -109,27 +109,28 @@ export function LeaderboardShowcase({
     <div className="flex flex-col gap-5">
       <PlatformTabBar value={filter} onChange={setFilter} />
 
-      {/* Summary — compact tiles, readable labels */}
-      <div className="grid grid-cols-3 gap-3 sm:gap-4">
+      {/* Summary — readable labels. Stacks on mobile so full-digit million
+          totals (e.g. 30,053,805) aren't clipped in a cramped 3-up row. */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <SummaryStat
           label="Total Followers"
-          value={compactFormatter.format(stats.followers)}
+          value={formatShowcase(stats.followers)}
           note={`${exactFormatter.format(stats.creators)} creator${stats.creators === 1 ? '' : 's'}`}
         />
         <SummaryStat
           label="Total Views"
-          value={exactFormatter.format(stats.views)}
+          value={formatShowcase(stats.views)}
           note="across recent posts"
         />
         <SummaryStat
           label="Total Engagement"
-          value={compactFormatter.format(stats.engagement)}
+          value={formatShowcase(stats.engagement)}
           note="likes, comments & shares"
         />
       </div>
 
       {/* Ranking 1 — Top creators by followers */}
-      <RankSection title="Top Creators" subtitle={`${filterLabel(filter)} · by followers`}>
+      <RankSection title="Top Creators" subtitle={`${filterLabel(filter)} · by views`}>
         {rows.length === 0 ? (
           <EmptyRow label="No creators on this platform yet." />
         ) : (
@@ -245,7 +246,12 @@ function EmptyRow({ label }: { label: string }) {
 
 // --- Creator table (rank · avatar+name · followers · views) ---------------
 
-const GRID = 'grid grid-cols-[32px_minmax(0,1fr)_104px_104px] gap-3 items-center';
+// On ultra-narrow phones (≤374px, e.g. old iPhone SE/5) the full-digit Views
+// column would starve the name to nothing, so the `tiny:` variant drops the
+// secondary Followers column (and the avatar, below) — rank + name + the primary
+// Views metric always stay legible.
+const GRID =
+  'grid grid-cols-[32px_minmax(0,1fr)_auto_auto] tiny:grid-cols-[32px_minmax(0,1fr)_auto] gap-3 items-center';
 
 function CreatorTable({ rows }: { rows: LbRow[] }) {
   return (
@@ -256,8 +262,8 @@ function CreatorTable({ rows }: { rows: LbRow[] }) {
       >
         <span>#</span>
         <span>Creator</span>
-        <span className="text-right">Followers</span>
         <span className="text-right">Views</span>
+        <span className="tiny:hidden text-right">Followers</span>
       </div>
       <ul>
         {rows.map((row, i) => (
@@ -282,16 +288,16 @@ function CreatorRow({ row, rank }: { row: LbRow; rank: number }) {
         {String(rank).padStart(2, '0')}
       </span>
       <span className="flex items-center gap-3 min-w-0">
-        <span className="size-8 shrink-0 rounded-full bg-customColor1 border border-borderGlass grid place-items-center text-caption text-fgMuted">
+        <span className="size-8 shrink-0 rounded-full bg-customColor1 border border-borderGlass grid tiny:hidden place-items-center text-caption text-fgMuted">
           {initial}
         </span>
         <span className="truncate text-body text-fg font-medium">{row.name}</span>
       </span>
       <span className="text-right font-mono tabular-nums text-body text-fg">
-        {compactFormatter.format(row.followers)}
+        {formatShowcase(row.totalViews)}
       </span>
-      <span className="text-right font-mono tabular-nums text-body-sm text-fgMuted">
-        {compactFormatter.format(row.totalViews)}
+      <span className="tiny:hidden text-right font-mono tabular-nums text-body-sm text-fgMuted">
+        {formatShowcase(row.followers)}
       </span>
     </>
   );

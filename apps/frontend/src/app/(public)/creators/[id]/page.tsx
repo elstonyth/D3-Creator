@@ -19,11 +19,11 @@ export const revalidate = 3600;
 type Params = { id: string };
 
 const SUPPORTED: PlatformKey[] = [
+  'facebook',
   'instagram',
   'tiktok',
   'douyin',
-  'facebook',
-  // xiaohongshu archived — hidden from the per-creator platform list.
+  // xiaohongshu (RedNote) archived — hidden from the per-creator platform list.
 ];
 
 const compact = new Intl.NumberFormat('en-US', {
