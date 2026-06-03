@@ -14,6 +14,83 @@ import { getSupabaseAdmin } from './supabase-server';
 import { avatarUrlFromRaw, persistAvatarForProfile, withPersistedAvatar } from './media';
 import type { ProfileRow, ScrapeStatus } from './types';
 
+/** A deep backfill can upsert hundreds of fat-`raw` rows at once. A single
+ *  statement of that size exceeds Postgres' statement_timeout and the whole
+ *  batch is canceled (observed 2026-06-03 on the largest catalogs). Splitting
+ *  into bounded chunks keeps each statement well under the limit. */
+const POST_UPSERT_CHUNK = 50;
+
+// Postgres rejects two things inside otherwise-valid JSON/text that scraped
+// payloads can contain, and either aborts the whole UPSERT:
+//   1. an embedded NUL byte (text & jsonb both reject it), and
+//   2. a lone (unpaired) UTF-16 surrogate — produced when a caption truncation
+//      slices an emoji's surrogate pair in half. Both surface as "invalid input
+//      syntax for type json". We strip the NUL and any lone surrogate while
+//      keeping valid emoji pairs. (Literals are built from char codes so no
+//      NUL/surrogate ever has to appear in this source file.)
+const NUL = String.fromCharCode(0);
+const ESCAPED_NUL = JSON.stringify(NUL).slice(1, -1); // "" as it appears in stringified JSON
+const SURROGATE_ESCAPE = String.fromCharCode(92) + 'ud'; // "\ud" — prefix of every surrogate escape
+
+/** Drop NUL bytes and lone surrogates from a string; keep valid surrogate pairs. */
+function scrubText(s: string): string {
+  let needs = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c === 0 || (c >= 0xd800 && c <= 0xdfff)) {
+      needs = true;
+      break;
+    }
+  }
+  if (!needs) return s; // fast path — the overwhelming majority of fields
+  let out = '';
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c === 0) continue; // NUL
+    if (c >= 0xd800 && c <= 0xdbff) {
+      const n = s.charCodeAt(i + 1);
+      if (n >= 0xdc00 && n <= 0xdfff) {
+        out += s[i] + s[i + 1]; // valid pair — keep both halves
+        i++;
+        continue;
+      }
+      continue; // lone high surrogate
+    }
+    if (c >= 0xdc00 && c <= 0xdfff) continue; // lone low surrogate
+    out += s[i];
+  }
+  return out;
+}
+
+/** Deep-scrub every string (and key) so a poisoned field can't 400 the jsonb write. */
+function scrubDeep(v: unknown): unknown {
+  if (typeof v === 'string') return scrubText(v);
+  if (Array.isArray(v)) return v.map(scrubDeep);
+  if (v && typeof v === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const k of Object.keys(v)) out[scrubText(k)] = scrubDeep((v as Record<string, unknown>)[k]);
+    return out;
+  }
+  return v;
+}
+
+/** Sanitize a value bound for a jsonb column. Cheap stringify check first; only
+ *  pay the deep-walk when a NUL or surrogate escape is actually present. */
+function sanitizeJsonForPg(value: unknown): unknown {
+  let json: string;
+  try {
+    json = JSON.stringify(value);
+  } catch {
+    return value; // non-serializable — leave as-is (shouldn't happen for raw)
+  }
+  if (json === undefined) return value;
+  const lower = json.toLowerCase();
+  if (lower.indexOf(ESCAPED_NUL) === -1 && lower.indexOf(SURROGATE_ESCAPE) === -1) {
+    return value; // fast path — no NUL, no surrogates at all
+  }
+  return scrubDeep(value);
+}
+
 /** Shape returned by the scraper layer (mirror of @d3/scrapers NormalizedProfileSnapshot). */
 export interface ProfileSnapshotInput {
   followers: number | null;
@@ -130,26 +207,37 @@ export async function upsertPostSnapshots(
     profile_id: profileId,
     external_post_id: p.external_post_id,
     posted_at: p.posted_at,
-    caption_excerpt: p.caption_excerpt,
+    // Strip NUL + lone surrogates so one poisoned field can't 400 the batch.
+    caption_excerpt: p.caption_excerpt === null ? null : scrubText(p.caption_excerpt),
     views: p.views,
     likes: p.likes,
     comments: p.comments,
     shares: p.shares,
     media_url: p.media_url,
     content_type: p.content_type,
-    raw: p.raw,
+    raw: sanitizeJsonForPg(p.raw),
   }));
-  const res = await sb
-    .from('post_snapshot')
-    .upsert(rows, {
-      onConflict: 'profile_id,external_post_id,captured_date',
-      ignoreDuplicates: false,
-    })
-    .select('id');
-  if (res.error) {
-    throw new Error(`upsertPostSnapshots failed: ${res.error.message}`);
+
+  // Chunk the UPSERT: a deep backfill's hundreds of fat-`raw` rows in one
+  // statement exceed Postgres' statement_timeout (the whole batch is canceled).
+  // Rows are already de-duped, so each external_post_id lands in exactly one
+  // chunk — no cross-chunk ON CONFLICT collision.
+  let written = 0;
+  for (let i = 0; i < rows.length; i += POST_UPSERT_CHUNK) {
+    const chunk = rows.slice(i, i + POST_UPSERT_CHUNK);
+    const res = await sb
+      .from('post_snapshot')
+      .upsert(chunk, {
+        onConflict: 'profile_id,external_post_id,captured_date',
+        ignoreDuplicates: false,
+      })
+      .select('id');
+    if (res.error) {
+      throw new Error(`upsertPostSnapshots failed: ${res.error.message}`);
+    }
+    written += res.data?.length ?? 0;
   }
-  return { written: res.data?.length ?? 0 };
+  return { written };
 }
 
 /** Update profile.scrape_status + last_scraped_at after a scrape attempt. */
