@@ -22,7 +22,6 @@ import {
   getLiveCreatorRows,
   summarizeCreatorRows,
   platformBreakdownFromRows,
-  topCreatorRows,
   type LivePlatformBreakdown,
 } from '@gitroom/frontend/lib/queries';
 
@@ -61,7 +60,12 @@ export default async function HomePage() {
   const rows = isLive ? liveRows! : demoCreatorRows();
 
   const summary = summarizeCreatorRows(rows);
-  const topCreators = topCreatorRows(rows, 5);
+  // Top 5 by views — matches the views-first ranking on the dashboard and
+  // leaderboard so the public showcase is consistent end to end.
+  const topCreators = [...rows]
+    .sort((a, b) => b.totalViews - a.totalViews)
+    .slice(0, 5)
+    .map((r, i) => ({ ...r, rank: i + 1 }));
   const combinedEngagement = rows.reduce((s, c) => s + c.totalEngagement, 0);
 
   // Per-platform cards: each platform that has a profile shows its combined
@@ -208,7 +212,7 @@ export default async function HomePage() {
               <div className="flex items-end justify-between mb-4">
                 <div className="flex flex-col gap-1">
                   <span className="text-label text-fg font-medium">Top Creators</span>
-                  <span className="text-body-sm text-fgMuted">By followers · all platforms</span>
+                  <span className="text-body-sm text-fgMuted">By views · all platforms</span>
                 </div>
                 <Link
                   href="/leaderboard"
@@ -247,7 +251,7 @@ export default async function HomePage() {
                         </span>
                       </span>
                       <span className="text-right font-mono tabular-nums text-body text-fg">
-                        {formatShowcase(creator.followers)}
+                        {formatShowcase(creator.totalViews)}
                       </span>
                     </>
                   );
