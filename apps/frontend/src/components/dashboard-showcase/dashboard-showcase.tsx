@@ -39,6 +39,7 @@ const BREAKDOWN_PLATFORMS: PlatformKey[] = ['facebook', 'instagram', 'tiktok', '
 // Dashboard is a summary — show the top slice; the leaderboard has the full list.
 const TOP_CREATORS_LIMIT = 10;
 
+/** Human-readable label for the active platform filter ("All platforms" or the platform name). */
 function filterLabel(filter: PlatformFilter): string {
   return filter === 'all' ? 'All platforms' : PLATFORM_LABELS[filter];
 }
@@ -92,6 +93,11 @@ export interface DashboardShowcaseProps {
   deltas?: { views?: number; followers?: number; engagement?: number };
 }
 
+/**
+ * Public dashboard showcase: platform filter, headline totals with a sparkline,
+ * top-creators table, and per-platform breakdown. Falls back to synthetic demo
+ * rows until live creator data exists.
+ */
 export function DashboardShowcase({
   creators,
   viewsTrend: propViewsTrend,
@@ -227,6 +233,7 @@ export function DashboardShowcase({
 
 // --- Tab bar --------------------------------------------------------------
 
+/** Platform filter tab bar (All + one tab per platform) for the dashboard showcase. */
 function PlatformTabBar({
   value,
   onChange,
@@ -343,6 +350,7 @@ function DeltaChip({ value, period = 'recent' }: { value: number; period?: strin
 const GRID =
   'grid grid-cols-[32px_minmax(0,1fr)_auto] sm:grid-cols-[32px_minmax(0,1fr)_auto_auto] gap-3 items-center';
 
+/** Card listing the top creators by views for the active filter, with a link to the full leaderboard. */
 function TopCreatorsCard({
   rows,
   filter,
@@ -403,6 +411,7 @@ function TopCreatorsCard({
   );
 }
 
+/** One ranked creator row (rank · name · views · followers); links to the creator page when a slug exists. */
 function CreatorRow({ row, rank }: { row: DisplayRow; rank: number }) {
   const isWinner = rank === 1;
   const initial = row.name.trim().charAt(0).toUpperCase() || '?';
@@ -459,6 +468,7 @@ interface BreakdownRow {
   totalViews: number;
 }
 
+/** Per-platform views/followers breakdown with a proportional bar; selecting a platform sets the active filter. */
 function PlatformBreakdownCard({
   activeFilter,
   onSelect,

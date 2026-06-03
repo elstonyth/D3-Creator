@@ -48,6 +48,11 @@ const PLATFORM_ORDER: PlatformKey[] = [
   // xiaohongshu (RedNote) archived — hidden from the platform strip.
 ];
 
+/**
+ * Public landing page: live hero, manifesto, top-creators preview, platform
+ * coverage cards, and the stat strip. Fetches live creator rows on each request
+ * (ISR, hourly) and falls back to synthetic demo rows on error or when empty.
+ */
 export default async function HomePage() {
   // One fetch → derive the summary, top creators, and platform breakdown. When
   // there is no live data yet, the synthetic demo rows flow through the SAME
@@ -453,6 +458,7 @@ interface SectionLabelProps {
   caption?: string;
 }
 
+/** Eyebrow + title + optional caption heading block for a landing-page section. */
 function SectionLabel({ eyebrow, title, caption }: SectionLabelProps) {
   return (
     <div className="mb-6 flex flex-col gap-1.5">
@@ -473,6 +479,7 @@ interface StatCellProps {
   note: string;
 }
 
+/** Single stat cell (label · value · note) in the bottom stats strip. */
 function StatCell({ label, value, note }: StatCellProps) {
   return (
     <div className="p-6 sm:p-8 flex flex-col gap-3">

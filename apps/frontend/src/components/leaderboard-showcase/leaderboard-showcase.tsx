@@ -31,6 +31,7 @@ const TABS: TabDef[] = [
   // xiaohongshu (RedNote) archived — hidden from the platform filter.
 ];
 
+/** Human-readable label for the active platform filter ("All platforms" or the platform name). */
 function filterLabel(filter: PlatformFilter): string {
   return filter === 'all' ? 'All platforms' : PLATFORM_LABELS[filter];
 }
@@ -45,6 +46,7 @@ interface LbRow {
   totalEngagement: number;
 }
 
+/** Resolve creators for the active filter into ranked rows with combined totals, sorted by views (desc). */
 function resolveRows(creators: LiveCreatorRow[], filter: PlatformFilter): LbRow[] {
   const rows: LbRow[] =
     filter === 'all'
@@ -80,6 +82,11 @@ export interface LeaderboardShowcaseProps {
   topByInteractions?: TopContentRow[] | null;
 }
 
+/**
+ * Public leaderboard showcase: summary tiles, top creators by views, and
+ * top content by views and by interactions. Falls back to synthetic demo rows
+ * until live creator data exists.
+ */
 export function LeaderboardShowcase({
   liveCreators,
   topByViews,
@@ -171,6 +178,7 @@ interface PlatformTabBarProps {
   onChange: (next: PlatformFilter) => void;
 }
 
+/** Platform filter tab bar (All + one tab per platform) for the leaderboard showcase. */
 function PlatformTabBar({ value, onChange }: PlatformTabBarProps) {
   return (
     <div
@@ -207,6 +215,7 @@ function PlatformTabBar({ value, onChange }: PlatformTabBarProps) {
 
 // --- Summary stat (compact metric tile) -----------------------------------
 
+/** Compact metric tile (label · value · note) used in the leaderboard summary row. */
 function SummaryStat({ label, value, note }: { label: string; value: string; note: string }) {
   return (
     <GlassCard variant="base" padding="md" radius="2xl" className="flex flex-col gap-1.5">
@@ -221,6 +230,7 @@ function SummaryStat({ label, value, note }: { label: string; value: string; not
 
 // --- Ranking section wrapper ----------------------------------------------
 
+/** Titled card wrapper for a ranking section (title · subtitle · content). */
 function RankSection({
   title,
   subtitle,
@@ -241,6 +251,7 @@ function RankSection({
   );
 }
 
+/** Empty-state placeholder shown when a ranking section has no rows. */
 function EmptyRow({ label }: { label: string }) {
   return <div className="grid place-items-center text-body-sm text-fgMuted py-12">{label}</div>;
 }
@@ -253,6 +264,7 @@ function EmptyRow({ label }: { label: string }) {
 const GRID =
   'grid grid-cols-[32px_minmax(0,1fr)_auto] sm:grid-cols-[32px_minmax(0,1fr)_auto_auto] gap-3 items-center';
 
+/** Ranked creator table (rank · avatar+name · views · followers) for the active filter. */
 function CreatorTable({ rows }: { rows: LbRow[] }) {
   return (
     <div className="flex flex-col">
@@ -274,6 +286,7 @@ function CreatorTable({ rows }: { rows: LbRow[] }) {
   );
 }
 
+/** One ranked creator row (rank · name · views · followers); links to the creator page when a slug exists. */
 function CreatorRow({ row, rank }: { row: LbRow; rank: number }) {
   const isWinner = rank === 1;
   const initial = row.name.trim().charAt(0).toUpperCase() || '?';
