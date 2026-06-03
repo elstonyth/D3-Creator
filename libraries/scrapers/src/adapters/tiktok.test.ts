@@ -98,3 +98,68 @@ test('sanity: a healthy profile with posts still maps correctly', async () => {
   expect(res.posts).toHaveLength(1);
   expect(res.posts[0].external_post_id).toBe('a1');
 });
+
+// --- Deep-backfill pagination (2026-06-03) ---
+// The default scrape stays a single cheap page (cron cost unchanged); passing
+// { maxPosts } follows the v2 max_cursor / has_more cursor to capture deep
+// back-catalog posts (e.g. an old viral video beyond the recent window).
+
+const aweme = (id: string) => ({
+  aweme_id: id,
+  create_time: 1716800000,
+  statistics: { play_count: 1, digg_count: 1, comment_count: 0, share_count: 0 },
+});
+
+test('deep mode (maxPosts) paginates via max_cursor across pages', async () => {
+  mockGet.mockImplementation(async (opts: any) => {
+    if (opts.path.includes('handler_user_profile')) return healthyProfile;
+    const cursor = Number(opts.query?.max_cursor ?? 0);
+    if (cursor === 0) return { aweme_list: [aweme('a1'), aweme('a2')], has_more: 1, max_cursor: 100 };
+    if (cursor === 100) return { aweme_list: [aweme('a3'), aweme('a4')], has_more: 1, max_cursor: 200 };
+    if (cursor === 200) return { aweme_list: [aweme('a5')], has_more: 0, max_cursor: 300 };
+    return { aweme_list: [], has_more: 0 };
+  });
+
+  const res = await tiktokAdapter.scrape(PROFILE_URL, { maxPosts: 100 });
+  expect(res.posts.map((p) => p.external_post_id)).toEqual(['a1', 'a2', 'a3', 'a4', 'a5']);
+});
+
+test('default scrape fetches a single posts page and ignores has_more (cron stays cheap)', async () => {
+  let postsCalls = 0;
+  mockGet.mockImplementation(async (opts: any) => {
+    if (opts.path.includes('handler_user_profile')) return healthyProfile;
+    postsCalls++;
+    return { aweme_list: [aweme('a1')], has_more: 1, max_cursor: 100 };
+  });
+
+  const res = await tiktokAdapter.scrape(PROFILE_URL);
+  expect(postsCalls).toBe(1);
+  expect(res.posts).toHaveLength(1);
+});
+
+test('deep mode stops at maxPosts even if more pages remain', async () => {
+  mockGet.mockImplementation(async (opts: any) => {
+    if (opts.path.includes('handler_user_profile')) return healthyProfile;
+    const n = Number(opts.query?.max_cursor ?? 0);
+    return { aweme_list: [aweme('x' + n)], has_more: 1, max_cursor: n + 1 };
+  });
+
+  const res = await tiktokAdapter.scrape(PROFILE_URL, { maxPosts: 3 });
+  expect(res.posts).toHaveLength(3);
+});
+
+test('deep mode paginates the sec_uid fallback when unique_id yields nothing', async () => {
+  // unique_id returns empty -> sec_uid fallback kicks in -> then deep mode must
+  // keep paginating on the sec_uid key (not silently fall back to one page).
+  mockGet.mockImplementation(async (opts: any) => {
+    if (opts.path.includes('handler_user_profile')) return healthyProfile;
+    if (opts.query?.unique_id) return { aweme_list: [], has_more: 0 };
+    const cursor = Number(opts.query?.max_cursor ?? 0);
+    if (cursor === 0) return { aweme_list: [aweme('s1'), aweme('s2')], has_more: 1, max_cursor: 50 };
+    if (cursor === 50) return { aweme_list: [aweme('s3')], has_more: 0, max_cursor: 60 };
+    return { aweme_list: [], has_more: 0 };
+  });
+
+  const res = await tiktokAdapter.scrape(PROFILE_URL, { maxPosts: 100 });
+  expect(res.posts.map((p) => p.external_post_id)).toEqual(['s1', 's2', 's3']);
+});

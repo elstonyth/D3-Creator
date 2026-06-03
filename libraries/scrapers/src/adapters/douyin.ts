@@ -41,6 +41,7 @@ import type {
   NormalizedPostSnapshot,
   NormalizedProfileSnapshot,
   PlatformAdapter,
+  ScrapeOptions,
   ScrapeResult,
 } from '../types';
 
@@ -265,8 +266,16 @@ function mapProfile(
 export const douyinAdapter: PlatformAdapter = {
   platform: 'douyin',
   sourceId: 'tikhub:douyin/web',
-  async scrape(profileUrl: string): Promise<ScrapeResult> {
+  async scrape(profileUrl: string, opts: ScrapeOptions = {}): Promise<ScrapeResult> {
     const secUid = extractSecUid(profileUrl);
+
+    const fetchPostsPage = (maxCursor: number | string) =>
+      tikhubGet<DyPostsResponse>({
+        path: '/api/v1/douyin/web/fetch_user_post_videos',
+        query: { sec_user_id: secUid, count: POSTS_PER_SCRAPE, max_cursor: maxCursor },
+        platform: PLATFORM,
+        profileUrl,
+      });
 
     const [profileResp, postsResp] = await Promise.all([
       tikhubGet<DyProfileResponse>({
@@ -275,12 +284,7 @@ export const douyinAdapter: PlatformAdapter = {
         platform: PLATFORM,
         profileUrl,
       }),
-      tikhubGet<DyPostsResponse>({
-        path: '/api/v1/douyin/web/fetch_user_post_videos',
-        query: { sec_user_id: secUid, count: POSTS_PER_SCRAPE, max_cursor: '0' },
-        platform: PLATFORM,
-        profileUrl,
-      }).catch((err) => {
+      fetchPostsPage('0').catch((err) => {
         // Posts are supplementary — a private/missing posts tab must not sink
         // the profile snapshot. The profile response below still decides
         // not_found. Degrade to empty posts.
@@ -299,10 +303,41 @@ export const douyinAdapter: PlatformAdapter = {
       throw new ProfileNotFoundError(PLATFORM, profileUrl);
     }
 
+    const awemeList = postsResp.aweme_list ?? [];
+
+    // Deep backfill: when maxPosts is set, follow the feed's max_cursor /
+    // has_more cursor to pull deep back-catalog posts. The default (no maxPosts)
+    // stays a single page so the daily cron's per-profile cost is unchanged.
+    // The view-stats backfill below then runs over the FULL collected window.
+    const { maxPosts } = opts;
+    if (maxPosts !== undefined && awemeList.length > 0) {
+      const MAX_PAGES = 100; // safety bound against a non-advancing cursor
+      let pages = 0;
+      let cursor: number | string | undefined = postsResp.max_cursor;
+      let hasMore = Boolean(postsResp.has_more);
+      while (awemeList.length < maxPosts && hasMore && cursor !== undefined && pages < MAX_PAGES) {
+        pages += 1;
+        let next: DyPostsResponse;
+        try {
+          next = await fetchPostsPage(cursor);
+        } catch {
+          // A mid-pagination failure must not discard the posts already
+          // collected — stop here and keep what we have.
+          break;
+        }
+        const items = next.aweme_list ?? [];
+        if (items.length === 0) break;
+        awemeList.push(...items);
+        if (next.max_cursor === cursor) break; // cursor not advancing — avoid a loop
+        cursor = next.max_cursor;
+        hasMore = Boolean(next.has_more);
+      }
+      if (awemeList.length > maxPosts) awemeList.length = maxPosts;
+    }
+
     // Backfill real view/like/share counts the feed omits (feed play_count=0).
     // fetchVideoStats degrades per chunk and never throws, so a stats failure
     // never sinks the snapshot — affected posts just fall back to feed values.
-    const awemeList = postsResp.aweme_list ?? [];
     const awemeIds = awemeList
       .map((a) => a.aweme_id)
       .filter((id): id is string => Boolean(id));

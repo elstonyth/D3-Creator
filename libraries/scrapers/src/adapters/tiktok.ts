@@ -31,6 +31,7 @@ import type {
   NormalizedPostSnapshot,
   NormalizedProfileSnapshot,
   PlatformAdapter,
+  ScrapeOptions,
   ScrapeResult,
 } from '../types';
 
@@ -229,8 +230,19 @@ function mapProfile(
 export const tiktokAdapter: PlatformAdapter = {
   platform: 'tiktok',
   sourceId: 'tikhub:tiktok/app/v3',
-  async scrape(profileUrl: string): Promise<ScrapeResult> {
+  async scrape(profileUrl: string, opts: ScrapeOptions = {}): Promise<ScrapeResult> {
     const handle = extractHandle(profileUrl);
+
+    // v3 of this endpoint currently returns 400 universally on TikHub (verified
+    // 2026-05-28, same backend issue as IG v3 get_user_posts); v2 returns the
+    // same shape on a healthy worker. Swap back once TikHub fixes their backend.
+    const fetchPostsPage = (pageQuery: Record<string, unknown>) =>
+      tikhubGet<TtPostsResponse>({
+        path: '/api/v1/tiktok/app/v3/fetch_user_post_videos_v2',
+        query: { count: POSTS_PER_SCRAPE, max_cursor: 0, ...pageQuery },
+        platform: PLATFORM,
+        profileUrl,
+      });
 
     const [profileResp, postsResp] = await Promise.all([
       tikhubGet<TtProfileResponse>({
@@ -239,16 +251,7 @@ export const tiktokAdapter: PlatformAdapter = {
         platform: PLATFORM,
         profileUrl,
       }),
-      tikhubGet<TtPostsResponse>({
-        // v3 of this endpoint currently returns 400 universally on TikHub
-        // (verified 2026-05-28, same backend issue as IG v3 get_user_posts).
-        // v2 returns the same response shape, just on a healthy worker.
-        // Swap back to _v3 once TikHub fixes their backend.
-        path: '/api/v1/tiktok/app/v3/fetch_user_post_videos_v2',
-        query: { unique_id: handle, count: POSTS_PER_SCRAPE, max_cursor: 0 },
-        platform: PLATFORM,
-        profileUrl,
-      }).catch((err) => {
+      fetchPostsPage({ unique_id: handle }).catch((err) => {
         // Posts are supplementary. A private OR not-found error from the posts
         // endpoint must not sink an otherwise-healthy profile — the profile
         // response below still decides genuine private/not_found. Degrade to
@@ -276,16 +279,19 @@ export const tiktokAdapter: PlatformAdapter = {
     // sec_uid we already have from the profile response. Keeps the common case
     // fast (one parallel call) and only pays a second request for the few
     // accounts TikHub's unique_id worker can't resolve.
+    //
+    // Track which key produced posts (`pageKey`) and the cursor state of the
+    // response that produced them (`cursorResp`) so the deep-backfill loop below
+    // continues paginating on the *same* key.
     let awemeList = postsResp.aweme_list ?? [];
+    let pageKey: Record<string, unknown> = { unique_id: handle };
+    let cursorResp: TtPostsResponse = postsResp;
     if (awemeList.length === 0 && user.sec_uid) {
       try {
-        const bySec = await tikhubGet<TtPostsResponse>({
-          path: '/api/v1/tiktok/app/v3/fetch_user_post_videos_v2',
-          query: { sec_user_id: user.sec_uid, count: POSTS_PER_SCRAPE, max_cursor: 0 },
-          platform: PLATFORM,
-          profileUrl,
-        });
+        const bySec = await fetchPostsPage({ sec_user_id: user.sec_uid });
         awemeList = bySec.aweme_list ?? [];
+        pageKey = { sec_user_id: user.sec_uid };
+        cursorResp = bySec;
       } catch (err) {
         // Posts are supplementary and the profile is already validated above,
         // so a failed fallback must not sink the snapshot — keep posts empty.
@@ -298,6 +304,36 @@ export const tiktokAdapter: PlatformAdapter = {
           err,
         );
       }
+    }
+
+    // Deep backfill: when maxPosts is set, follow the v2 max_cursor / has_more
+    // cursor to pull deep back-catalog posts (e.g. an old viral video beyond the
+    // recent window). The default (no maxPosts) stays a single page so the daily
+    // cron's per-profile cost is unchanged.
+    const { maxPosts } = opts;
+    if (maxPosts !== undefined && awemeList.length > 0) {
+      const MAX_PAGES = 100; // safety bound against a non-advancing cursor
+      let pages = 0;
+      let cursor: number | string | undefined = cursorResp.max_cursor;
+      let hasMore = Boolean(cursorResp.has_more);
+      while (awemeList.length < maxPosts && hasMore && cursor !== undefined && pages < MAX_PAGES) {
+        pages += 1;
+        let next: TtPostsResponse;
+        try {
+          next = await fetchPostsPage({ ...pageKey, max_cursor: cursor });
+        } catch {
+          // A mid-pagination failure must not discard the posts already
+          // collected — stop here and keep what we have.
+          break;
+        }
+        const items = next.aweme_list ?? [];
+        if (items.length === 0) break;
+        awemeList.push(...items);
+        if (next.max_cursor === cursor) break; // cursor not advancing — avoid a loop
+        cursor = next.max_cursor;
+        hasMore = Boolean(next.has_more);
+      }
+      if (awemeList.length > maxPosts) awemeList.length = maxPosts;
     }
 
     const posts: NormalizedPostSnapshot[] = [];
