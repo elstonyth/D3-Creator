@@ -18,6 +18,7 @@ import {
   placeholderDeltaPct,
   type PlatformFilter,
 } from './showcase-data';
+import { ShowcaseNumber } from './showcase-number';
 import type { LiveCreatorRow } from '@gitroom/frontend/lib/queries';
 
 interface TabDef {
@@ -38,6 +39,7 @@ const BREAKDOWN_PLATFORMS: PlatformKey[] = ['facebook', 'instagram', 'tiktok', '
 // Dashboard is a summary — show the top slice; the leaderboard has the full list.
 const TOP_CREATORS_LIMIT = 10;
 
+/** Human-readable label for the active platform filter ("All platforms" or the platform name). */
 function filterLabel(filter: PlatformFilter): string {
   return filter === 'all' ? 'All platforms' : PLATFORM_LABELS[filter];
 }
@@ -91,6 +93,11 @@ export interface DashboardShowcaseProps {
   deltas?: { views?: number; followers?: number; engagement?: number };
 }
 
+/**
+ * Public dashboard showcase: platform filter, headline totals with a sparkline,
+ * top-creators table, and per-platform breakdown. Falls back to synthetic demo
+ * rows until live creator data exists.
+ */
 export function DashboardShowcase({
   creators,
   viewsTrend: propViewsTrend,
@@ -226,6 +233,7 @@ export function DashboardShowcase({
 
 // --- Tab bar --------------------------------------------------------------
 
+/** Platform filter tab bar (All + one tab per platform) for the dashboard showcase. */
 function PlatformTabBar({
   value,
   onChange,
@@ -336,13 +344,13 @@ function DeltaChip({ value, period = 'recent' }: { value: number; period?: strin
 
 // --- Top creators ---------------------------------------------------------
 
-// On ultra-narrow phones (≤374px, e.g. old iPhone SE/5) the full-digit Views
-// column would starve the name to nothing, so the `tiny:` variant drops the
-// secondary Followers column (and the avatar, below) — rank + name + the primary
-// Views metric always stay legible.
+// Phones (< sm / 640px) show only rank · name · Views so the creator name is
+// never truncated by the secondary Followers column; Followers returns at sm+.
+// The avatar additionally drops on ultra-narrow phones (≤374px) via `tiny:`.
 const GRID =
-  'grid grid-cols-[32px_minmax(0,1fr)_auto_auto] tiny:grid-cols-[32px_minmax(0,1fr)_auto] gap-3 items-center';
+  'grid grid-cols-[32px_minmax(0,1fr)_auto] sm:grid-cols-[32px_minmax(0,1fr)_auto_auto] gap-3 items-center';
 
+/** Card listing the top creators by views for the active filter, with a link to the full leaderboard. */
 function TopCreatorsCard({
   rows,
   filter,
@@ -382,7 +390,7 @@ function TopCreatorsCard({
             <span>#</span>
             <span>Creator</span>
             <span className="text-right">Views</span>
-            <span className="tiny:hidden text-right">Followers</span>
+            <span className="hidden sm:block text-right">Followers</span>
           </div>
           <ul>
             {rows.map((row, i) => (
@@ -403,6 +411,7 @@ function TopCreatorsCard({
   );
 }
 
+/** One ranked creator row (rank · name · views · followers); links to the creator page when a slug exists. */
 function CreatorRow({ row, rank }: { row: DisplayRow; rank: number }) {
   const isWinner = rank === 1;
   const initial = row.name.trim().charAt(0).toUpperCase() || '?';
@@ -423,10 +432,10 @@ function CreatorRow({ row, rank }: { row: DisplayRow; rank: number }) {
         <span className="truncate text-body text-fg font-medium">{row.name}</span>
       </span>
       <span className="text-right font-mono tabular-nums text-body text-fg">
-        {formatShowcase(row.totalViews)}
+        <ShowcaseNumber value={row.totalViews} />
       </span>
-      <span className="tiny:hidden text-right font-mono tabular-nums text-body-sm text-fgMuted">
-        {formatShowcase(row.followers)}
+      <span className="hidden sm:block text-right font-mono tabular-nums text-body-sm text-fgMuted">
+        <ShowcaseNumber value={row.followers} />
       </span>
     </>
   );
@@ -459,6 +468,7 @@ interface BreakdownRow {
   totalViews: number;
 }
 
+/** Per-platform views/followers breakdown with a proportional bar; selecting a platform sets the active filter. */
 function PlatformBreakdownCard({
   activeFilter,
   onSelect,
