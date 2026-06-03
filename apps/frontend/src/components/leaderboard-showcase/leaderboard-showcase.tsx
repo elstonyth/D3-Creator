@@ -12,6 +12,7 @@ import {
   demoCreatorRows,
   type PlatformFilter,
 } from '../dashboard-showcase/showcase-data';
+import { ShowcaseNumber } from '../dashboard-showcase/showcase-number';
 import type { LiveCreatorRow } from '@gitroom/frontend/lib/queries';
 import type { TopContentRow } from '@gitroom/frontend/lib/metrics-windowed';
 import { ViewLeaderboard } from './view-leaderboard';
@@ -246,12 +247,11 @@ function EmptyRow({ label }: { label: string }) {
 
 // --- Creator table (rank · avatar+name · followers · views) ---------------
 
-// On ultra-narrow phones (≤374px, e.g. old iPhone SE/5) the full-digit Views
-// column would starve the name to nothing, so the `tiny:` variant drops the
-// secondary Followers column (and the avatar, below) — rank + name + the primary
-// Views metric always stay legible.
+// Phones (< sm / 640px) show only rank · name · Views so the creator name is
+// never truncated by the secondary Followers column; Followers returns at sm+.
+// The avatar additionally drops on ultra-narrow phones (≤374px) via `tiny:`.
 const GRID =
-  'grid grid-cols-[32px_minmax(0,1fr)_auto_auto] tiny:grid-cols-[32px_minmax(0,1fr)_auto] gap-3 items-center';
+  'grid grid-cols-[32px_minmax(0,1fr)_auto] sm:grid-cols-[32px_minmax(0,1fr)_auto_auto] gap-3 items-center';
 
 function CreatorTable({ rows }: { rows: LbRow[] }) {
   return (
@@ -263,7 +263,7 @@ function CreatorTable({ rows }: { rows: LbRow[] }) {
         <span>#</span>
         <span>Creator</span>
         <span className="text-right">Views</span>
-        <span className="tiny:hidden text-right">Followers</span>
+        <span className="hidden sm:block text-right">Followers</span>
       </div>
       <ul>
         {rows.map((row, i) => (
@@ -294,10 +294,10 @@ function CreatorRow({ row, rank }: { row: LbRow; rank: number }) {
         <span className="truncate text-body text-fg font-medium">{row.name}</span>
       </span>
       <span className="text-right font-mono tabular-nums text-body text-fg">
-        {formatShowcase(row.totalViews)}
+        <ShowcaseNumber value={row.totalViews} />
       </span>
-      <span className="tiny:hidden text-right font-mono tabular-nums text-body-sm text-fgMuted">
-        {formatShowcase(row.followers)}
+      <span className="hidden sm:block text-right font-mono tabular-nums text-body-sm text-fgMuted">
+        <ShowcaseNumber value={row.followers} />
       </span>
     </>
   );

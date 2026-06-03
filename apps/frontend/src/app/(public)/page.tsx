@@ -18,6 +18,7 @@ import {
   handleToSlug,
   demoCreatorRows,
 } from '@gitroom/frontend/components/dashboard-showcase/showcase-data';
+import { ShowcaseNumber } from '@gitroom/frontend/components/dashboard-showcase/showcase-number';
 import {
   getLiveCreatorRows,
   summarizeCreatorRows,
@@ -251,7 +252,7 @@ export default async function HomePage() {
                         </span>
                       </span>
                       <span className="text-right font-mono tabular-nums text-body text-fg">
-                        {formatShowcase(creator.totalViews)}
+                        <ShowcaseNumber value={creator.totalViews} />
                       </span>
                     </>
                   );
