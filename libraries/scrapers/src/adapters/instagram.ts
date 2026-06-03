@@ -2,16 +2,17 @@
  * Instagram adapter — TikHub REST.
  *
  * Endpoints used:
- *   GET /api/v1/instagram/v3/get_user_profile?username=<handle>
+ *   GET /api/v1/instagram/v1/fetch_user_info_by_username?username=<handle>
  *   GET /api/v1/instagram/v2/fetch_user_posts?username=<handle>
  *
- * Note the version mix: the V3 profile endpoint is healthy and returns
- * follower/following/media totals; the V3 posts endpoint
- * (/api/v1/instagram/v3/get_user_posts) is currently broken on TikHub's
- * backend (returns generic 400 for every username, charged or otherwise —
- * verified 2026-05-28). The V2 fetch_user_posts endpoint covers the same
- * post fields and is healthy, so we use it instead. Switch back to V3
- * when TikHub fixes the backend.
+ * Endpoint history: the V3 get_user_posts endpoint broke on TikHub's backend
+ * (generic 400 for every username — verified 2026-05-28), so posts come from
+ * V2 fetch_user_posts. The V3 get_user_profile endpoint then ALSO started
+ * returning 400 (verified 2026-06-03 — V2 posts stayed 200), so the profile
+ * now comes from V1 fetch_user_info_by_username, which is healthy. That
+ * endpoint nests the user under `data.user` and reports counts via the
+ * GraphQL-style edge_followed_by / edge_follow / edge_owner_to_timeline_media
+ * (no flat *_count fields) — both shapes are tolerated below.
  *
  * V2 returns up to ~12 posts by default — smaller window than the spec's
  * "up to 30" target but still useful for the engagement rollup. Pagination
@@ -35,6 +36,7 @@ import type {
   NormalizedPostSnapshot,
   NormalizedProfileSnapshot,
   PlatformAdapter,
+  ScrapeOptions,
   ScrapeResult,
 } from '../types';
 
@@ -81,6 +83,8 @@ interface IgUser {
 
 interface IgProfileResponse {
   user?: IgUser;
+  /** V1 fetch_user_info_by_username nests the user under data.user. */
+  data?: { user?: IgUser };
   /** Some IG endpoints return the user object directly at root. */
   pk?: string | number;
   username?: string;
@@ -144,6 +148,10 @@ interface IgPostsResponse {
     items?: IgPost[];
     pagination_token?: string | null;
   };
+  /** v2 fetch_user_posts cursor — a SIBLING of `data` on the unwrapped
+   *  envelope (verified 2026-06-03), not nested inside it. Pass it back as the
+   *  `pagination_token` query param to page deeper. */
+  pagination_token?: string | null;
   /** Some endpoints nest under data.user.edge_owner_to_timeline_media.edges */
   edges?: { node?: IgPost }[];
   num_results?: number;
@@ -229,9 +237,10 @@ function mapPost(p: IgPost): NormalizedPostSnapshot | null {
   };
 }
 
-/** Unwrap TikHub's profile response, which may carry .user or be the user itself. */
+/** Unwrap TikHub's profile response. V1 fetch_user_info_by_username nests the
+ *  user under data.user; older endpoints used .user or returned it at root. */
 function unwrapUser(resp: IgProfileResponse): IgUser {
-  return resp.user ?? (resp as unknown as IgUser);
+  return resp.data?.user ?? resp.user ?? (resp as unknown as IgUser);
 }
 
 /**
@@ -294,24 +303,27 @@ function mapProfile(
 export const instagramAdapter: PlatformAdapter = {
   platform: 'instagram',
   sourceId: 'tikhub:instagram/v3',
-  async scrape(profileUrl: string): Promise<ScrapeResult> {
+  async scrape(profileUrl: string, opts: ScrapeOptions = {}): Promise<ScrapeResult> {
     const handle = extractHandle(profileUrl);
 
-    // Parallel: profile (v3 — healthy) + recent posts (v2 — v3 backend
+    const fetchPostsPage = (paginationToken?: string) =>
+      tikhubGet<IgPostsResponse>({
+        path: '/api/v1/instagram/v2/fetch_user_posts',
+        query: { username: handle, pagination_token: paginationToken },
+        platform: PLATFORM,
+        profileUrl,
+      });
+
+    // Parallel: profile (v3 — healthy) + first posts page (v2 — v3 backend
     // currently returns 400 universally; see file header).
-    const [profileResp, postsResp] = await Promise.all([
+    const [profileResp, firstPosts] = await Promise.all([
       tikhubGet<IgProfileResponse>({
-        path: '/api/v1/instagram/v3/get_user_profile',
+        path: '/api/v1/instagram/v1/fetch_user_info_by_username',
         query: { username: handle },
         platform: PLATFORM,
         profileUrl,
       }),
-      tikhubGet<IgPostsResponse>({
-        path: '/api/v1/instagram/v2/fetch_user_posts',
-        query: { username: handle },
-        platform: PLATFORM,
-        profileUrl,
-      }).catch((err) => {
+      fetchPostsPage().catch((err) => {
         // Posts are supplementary — a private/missing posts tab must not sink
         // the profile snapshot (followers etc.). The profile response below
         // still decides not_found/private. Degrade to empty posts.
@@ -323,7 +335,7 @@ export const instagramAdapter: PlatformAdapter = {
     ]);
 
     const user = unwrapUser(profileResp);
-    if (!user || (!user.username && !user.pk)) {
+    if (!user || (!user.username && !user.pk && !user.id)) {
       throw new ProfileNotFoundError(PLATFORM, profileUrl);
     }
     if (user.is_private) {
@@ -333,7 +345,37 @@ export const instagramAdapter: PlatformAdapter = {
       throw new ProfilePrivateError(PLATFORM, profileUrl);
     }
 
-    const rawPosts = unwrapPosts(postsResp);
+    const rawPosts: IgPost[] = [...unwrapPosts(firstPosts)];
+    let token = firstPosts.pagination_token ?? null;
+
+    // Deep backfill: when maxPosts is set, follow the v2 pagination_token to
+    // pull deep back-catalog posts (e.g. an old viral reel beyond the recent
+    // window). The default (no maxPosts) stays a single page so the daily
+    // cron's per-profile cost is unchanged.
+    const { maxPosts } = opts;
+    if (maxPosts !== undefined) {
+      const MAX_PAGES = 100; // safety bound against a non-advancing cursor
+      let pages = 0;
+      while (rawPosts.length < maxPosts && token && pages < MAX_PAGES) {
+        pages += 1;
+        let pageResp: IgPostsResponse;
+        try {
+          pageResp = await fetchPostsPage(token);
+        } catch {
+          // A mid-pagination failure must not discard the posts already
+          // collected — stop here and keep what we have.
+          break;
+        }
+        const items = unwrapPosts(pageResp);
+        if (items.length === 0) break;
+        rawPosts.push(...items);
+        const next = pageResp.pagination_token ?? null;
+        if (next === token) break; // cursor not advancing — avoid an infinite loop
+        token = next;
+      }
+      if (rawPosts.length > maxPosts) rawPosts.length = maxPosts;
+    }
+
     const posts: NormalizedPostSnapshot[] = [];
     for (const p of rawPosts) {
       const mapped = mapPost(p);

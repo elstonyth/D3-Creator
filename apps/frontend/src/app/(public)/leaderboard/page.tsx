@@ -22,7 +22,7 @@ export default async function LeaderboardPage() {
       console.error('[leaderboard] creators', e);
       return null as LiveCreatorRow[] | null;
     }),
-    getTopContentRankings(12).catch((e) => {
+    getTopContentRankings(50).catch((e) => {
       console.error('[leaderboard] top content', e);
       return { byViews: [] as TopContentRow[], byInteractions: [] as TopContentRow[] };
     }),

@@ -47,10 +47,19 @@ export interface ScrapeResult {
   posts: NormalizedPostSnapshot[];
 }
 
+/** Optional per-scrape knobs. Adapters MAY honor these; those that don't
+ *  simply ignore them and behave as the default (shallow) scrape. */
+export interface ScrapeOptions {
+  /** Deep-backfill: fetch up to this many posts by following the source's
+   *  pagination cursor. Omitted = single-page shallow fetch (the default,
+   *  which keeps the daily cron's per-profile cost unchanged). */
+  maxPosts?: number;
+}
+
 /** Adapter contract — every platform implements this. */
 export interface PlatformAdapter {
   platform: Platform;
   /** Scraper source identifier, e.g. 'tikhub:instagram/v3' or 'brightdata:<dataset-id>' */
   sourceId: string;
-  scrape(profileUrl: string): Promise<ScrapeResult>;
+  scrape(profileUrl: string, opts?: ScrapeOptions): Promise<ScrapeResult>;
 }

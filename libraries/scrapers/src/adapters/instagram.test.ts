@@ -23,7 +23,7 @@ test('a numeric-string taken_at is coerced to ISO instead of breaking the post w
   // Pre-fix the raw string "1716800000" was passed straight to a timestamptz
   // column, throwing and failing the whole post batch.
   mockGet.mockImplementation(async (opts: any) => {
-    if (opts.path.includes('get_user_profile')) return healthyProfile;
+    if (opts.path.includes('fetch_user_info_by_username')) return healthyProfile;
     return postsWith({ pk: 'p1', code: 'abc', like_count: 1, taken_at: '1716800000' });
   });
 
@@ -34,7 +34,7 @@ test('a numeric-string taken_at is coerced to ISO instead of breaking the post w
 
 test('a numeric taken_at still works (no regression)', async () => {
   mockGet.mockImplementation(async (opts: any) => {
-    if (opts.path.includes('get_user_profile')) return healthyProfile;
+    if (opts.path.includes('fetch_user_info_by_username')) return healthyProfile;
     return postsWith({ pk: 'p2', code: 'def', like_count: 1, taken_at: 1716800000 });
   });
 
@@ -44,7 +44,7 @@ test('a numeric taken_at still works (no regression)', async () => {
 
 test('a real ISO date string passes through unchanged', async () => {
   mockGet.mockImplementation(async (opts: any) => {
-    if (opts.path.includes('get_user_profile')) return healthyProfile;
+    if (opts.path.includes('fetch_user_info_by_username')) return healthyProfile;
     return postsWith({ pk: 'p3', code: 'ghi', like_count: 1, taken_at: '2024-05-27T10:00:00.000Z' });
   });
 
@@ -54,7 +54,7 @@ test('a real ISO date string passes through unchanged', async () => {
 
 test('a malformed taken_at string falls back to taken_at_timestamp instead of breaking the write', async () => {
   mockGet.mockImplementation(async (opts: any) => {
-    if (opts.path.includes('get_user_profile')) return healthyProfile;
+    if (opts.path.includes('fetch_user_info_by_username')) return healthyProfile;
     return postsWith({ pk: 'p4', code: 'jkl', like_count: 1, taken_at: 'not-a-date', taken_at_timestamp: 1716800000 });
   });
 
@@ -64,11 +64,84 @@ test('a malformed taken_at string falls back to taken_at_timestamp instead of br
 
 test('a malformed taken_at string with no fallback yields null (never a non-timestamp string)', async () => {
   mockGet.mockImplementation(async (opts: any) => {
-    if (opts.path.includes('get_user_profile')) return healthyProfile;
+    if (opts.path.includes('fetch_user_info_by_username')) return healthyProfile;
     return postsWith({ pk: 'p5', code: 'mno', like_count: 1, taken_at: 'not-a-date' });
   });
 
   const res = await instagramAdapter.scrape(PROFILE_URL);
   expect(res.posts).toHaveLength(1);
   expect(res.posts[0].posted_at).toBeNull();
+});
+
+// --- Deep-backfill pagination (2026-06-03) ---
+// The default scrape stays a single cheap page (cron cost unchanged); passing
+// { maxPosts } follows the v2 pagination_token to capture deep back-catalog
+// posts (e.g. an old viral reel beyond the recent-12 window).
+
+test('deep mode (maxPosts) paginates via pagination_token across pages', async () => {
+  mockGet.mockImplementation(async (opts: any) => {
+    if (opts.path.includes('fetch_user_info_by_username')) return healthyProfile;
+    const token = opts.query?.pagination_token;
+    if (!token)
+      return { data: { items: [{ pk: 'p1', code: 'a', taken_at: 1 }, { pk: 'p2', code: 'b', taken_at: 1 }] }, pagination_token: 't1' };
+    if (token === 't1')
+      return { data: { items: [{ pk: 'p3', code: 'c', taken_at: 1 }, { pk: 'p4', code: 'd', taken_at: 1 }] }, pagination_token: 't2' };
+    if (token === 't2')
+      return { data: { items: [{ pk: 'p5', code: 'e', taken_at: 1 }] }, pagination_token: null };
+    return { data: { items: [] } };
+  });
+
+  const res = await instagramAdapter.scrape(PROFILE_URL, { maxPosts: 100 });
+  expect(res.posts.map((p) => p.external_post_id)).toEqual(['a', 'b', 'c', 'd', 'e']);
+});
+
+test('default scrape fetches a single page and ignores pagination_token (cron stays cheap)', async () => {
+  let postsCalls = 0;
+  mockGet.mockImplementation(async (opts: any) => {
+    if (opts.path.includes('fetch_user_info_by_username')) return healthyProfile;
+    postsCalls++;
+    return { data: { items: [{ pk: 'p1', code: 'a', taken_at: 1 }] }, pagination_token: 't1' };
+  });
+
+  const res = await instagramAdapter.scrape(PROFILE_URL);
+  expect(postsCalls).toBe(1);
+  expect(res.posts).toHaveLength(1);
+});
+
+test('deep mode stops at maxPosts even if more pages remain', async () => {
+  mockGet.mockImplementation(async (opts: any) => {
+    if (opts.path.includes('fetch_user_info_by_username')) return healthyProfile;
+    const n = Number(opts.query?.pagination_token ?? 0);
+    return { data: { items: [{ pk: 'x' + n, code: 'x' + n, taken_at: 1 }] }, pagination_token: String(n + 1) };
+  });
+
+  const res = await instagramAdapter.scrape(PROFILE_URL, { maxPosts: 3 });
+  expect(res.posts).toHaveLength(3);
+});
+
+// --- Profile endpoint swap (2026-06-03): v3/fetch_user_info_by_username started 400ing on
+// TikHub; v1/fetch_user_info_by_username is healthy. Its user sits under
+// data.user and reports counts via edge_* (no flat *_count fields). ---
+
+test('resolves profile via v1 fetch_user_info_by_username (user under data.user, edge_* counts)', async () => {
+  mockGet.mockImplementation(async (opts: any) => {
+    if (opts.path.includes('fetch_user_info_by_username'))
+      return {
+        data: {
+          user: {
+            username: 'nasa',
+            id: '9',
+            edge_followed_by: { count: 4200 },
+            edge_follow: { count: 7 },
+            edge_owner_to_timeline_media: { count: 88 },
+          },
+        },
+      };
+    return { data: { items: [] } };
+  });
+
+  const res = await instagramAdapter.scrape(PROFILE_URL);
+  expect(res.profile.followers).toBe(4200);
+  expect(res.profile.following).toBe(7);
+  expect(res.profile.total_posts).toBe(88);
 });

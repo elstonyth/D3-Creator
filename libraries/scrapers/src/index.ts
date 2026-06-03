@@ -19,6 +19,7 @@ export type {
   Platform,
   PlatformAdapter,
   ScrapeResult,
+  ScrapeOptions,
   NormalizedProfileSnapshot,
   NormalizedPostSnapshot,
   ContentType,
