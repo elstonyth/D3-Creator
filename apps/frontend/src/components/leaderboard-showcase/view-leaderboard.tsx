@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
 import clsx from 'clsx';
 import { GlassCard } from '../ui/glass-card';
 import { EmptyState } from '../ui/empty-state';
+import { Button } from '../ui/button';
 import { PLATFORM_ICONS, type PlatformKey } from '../ui/platform-icons';
 import { compactFormatter } from '../dashboard-showcase/showcase-data';
 import { buildPostUrl, postInteractions } from '../../lib/queries';
@@ -21,12 +23,21 @@ export interface ViewLeaderboardProps {
   metric?: 'views' | 'interactions';
 }
 
+const PAGE_SIZE = 12;
+
 export function ViewLeaderboard({
   rows,
   title = 'Top Content',
   subtitle = 'Top posts by views',
   metric = 'views',
 }: ViewLeaderboardProps) {
+  const [page, setPage] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  // Clamp in case `rows` shrank since the last render (keeps page in range).
+  const current = Math.min(page, totalPages - 1);
+  const start = current * PAGE_SIZE;
+  const pageRows = rows.slice(start, start + PAGE_SIZE);
+
   return (
     <GlassCard variant="base" padding="md" radius="2xl" className="flex flex-col">
       <div className="flex flex-col gap-1 mb-5">
@@ -37,16 +48,52 @@ export function ViewLeaderboard({
       {rows.length === 0 ? (
         <EmptyState size="sm" title="No content ranked yet — building history…" />
       ) : (
-        <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-          {rows.map((row, i) => (
-            <ContentCard
-              key={`${row.externalPostId}-${i}`}
-              row={row}
-              rank={i + 1}
-              metric={metric}
-            />
-          ))}
-        </ul>
+        <>
+          <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+            {pageRows.map((row, i) => {
+              const rank = start + i + 1;
+              return (
+                <ContentCard
+                  key={`${row.externalPostId}-${rank}`}
+                  row={row}
+                  rank={rank}
+                  metric={metric}
+                />
+              );
+            })}
+          </ul>
+
+          {totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between gap-3 border-t border-borderGlass pt-4">
+              <span className="text-caption text-fgSubtle tabular-nums">
+                {`${start + 1}–${start + pageRows.length} of ${rows.length}`}
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={current === 0}
+                  aria-label="Previous page"
+                >
+                  Prev
+                </Button>
+                <span className="text-caption text-fgMuted tabular-nums min-w-[64px] text-center">
+                  {`Page ${current + 1} / ${totalPages}`}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={current >= totalPages - 1}
+                  aria-label="Next page"
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </GlassCard>
   );
