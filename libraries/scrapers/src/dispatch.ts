@@ -11,7 +11,7 @@
  * Instagram → TikTok → Facebook → RedNote → Douyin.
  */
 
-import type { Platform, PlatformAdapter, ScrapeResult } from './types';
+import type { Platform, PlatformAdapter, ScrapeResult, ScrapeOptions } from './types';
 
 // Adapters are imported lazily inside runScraper() so the dispatch table
 // doesn't pull every actor's parsing code into a single function bundle.
@@ -29,13 +29,14 @@ const ADAPTER_LOADERS: Record<Platform, () => Promise<PlatformAdapter>> = {
 export async function runScraper(
   platform: Platform,
   profileUrl: string,
+  opts?: ScrapeOptions,
 ): Promise<ScrapeResult> {
   const loader = ADAPTER_LOADERS[platform];
   if (!loader) {
     throw new Error(`Unknown platform: ${platform}`);
   }
   const adapter = await loader();
-  return adapter.scrape(profileUrl);
+  return adapter.scrape(profileUrl, opts);
 }
 
 export const SUPPORTED_PLATFORMS: readonly Platform[] = Object.keys(

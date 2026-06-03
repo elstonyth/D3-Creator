@@ -99,3 +99,6 @@ dynamicconfig/
 .playwright-mcp/
 e2e-screenshots/
 .vstate.txt
+
+# D3 — one-off local verification/backfill scratch scripts (never commit)
+.verify-scratch/
