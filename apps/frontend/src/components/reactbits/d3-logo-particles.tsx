@@ -61,8 +61,13 @@ export function D3LogoParticles({
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = size * dpr;
     canvas.height = size * dpr;
+    // Display at `size`, but let the canvas shrink with its container
+    // (className `max-w-full`) while preserving the square 1:1 ratio. With a
+    // fixed inline height the logo gets squished on narrow screens (width caps
+    // to the container, height does not); `height: auto` scales from the square
+    // drawing buffer instead, so the silhouette keeps its original proportions.
     canvas.style.width = `${size}px`;
-    canvas.style.height = `${size}px`;
+    canvas.style.height = 'auto';
     ctx.scale(dpr, dpr);
 
     let particles: Particle[] = [];
@@ -179,7 +184,14 @@ export function D3LogoParticles({
 
     const updateMouse = (clientX: number, clientY: number) => {
       const rect = canvas.getBoundingClientRect();
-      mouse.current = { x: clientX - rect.left, y: clientY - rect.top };
+      // The canvas may render smaller than `size` (responsive shrink), so map
+      // pointer coords back into the particle coordinate space (0..size); the
+      // ratio is square, so one scale factor covers both axes.
+      const scale = rect.width > 0 ? size / rect.width : 1;
+      mouse.current = {
+        x: (clientX - rect.left) * scale,
+        y: (clientY - rect.top) * scale,
+      };
     };
 
     const onMouseMove = (e: MouseEvent) => updateMouse(e.clientX, e.clientY);

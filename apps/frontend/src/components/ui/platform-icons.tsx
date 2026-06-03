@@ -118,10 +118,10 @@ export const PLATFORM_LABELS: Record<PlatformKey, string> = {
  *   platform; use it to drop archived rows when reading.
  */
 export const VISIBLE_PLATFORMS: PlatformKey[] = [
+  'facebook',
   'instagram',
   'tiktok',
   'douyin',
-  'facebook',
 ];
 
 /** DB platform strings (profile.platform values) that are archived/hidden. */

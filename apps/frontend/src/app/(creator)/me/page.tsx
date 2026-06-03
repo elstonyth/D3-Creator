@@ -20,7 +20,7 @@ import {
 import { WindowTabs } from './window-tabs';
 import { CreatorStats } from './creator-stats';
 
-const SUPPORTED_PLATFORMS: PlatformKey[] = ['instagram', 'tiktok', 'facebook', 'douyin'];
+const SUPPORTED_PLATFORMS: PlatformKey[] = ['facebook', 'instagram', 'tiktok', 'douyin'];
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

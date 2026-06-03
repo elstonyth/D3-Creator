@@ -10,8 +10,7 @@ import {
   type PlatformKey,
 } from '../ui/platform-icons';
 import {
-  compactFormatter,
-  exactFormatter,
+  formatShowcase,
   percentFormatter,
   handleToSlug,
   demoCreatorRows,
@@ -28,14 +27,14 @@ interface TabDef {
 
 const TABS: TabDef[] = [
   { value: 'all', label: 'All Platforms' },
+  { value: 'facebook', label: PLATFORM_LABELS.facebook },
   { value: 'instagram', label: PLATFORM_LABELS.instagram },
   { value: 'tiktok', label: PLATFORM_LABELS.tiktok },
   { value: 'douyin', label: PLATFORM_LABELS.douyin },
-  { value: 'facebook', label: PLATFORM_LABELS.facebook },
-  // xiaohongshu archived — hidden from the platform filter.
+  // xiaohongshu (RedNote) archived — hidden from the platform filter.
 ];
 
-const BREAKDOWN_PLATFORMS: PlatformKey[] = ['instagram', 'tiktok', 'douyin', 'facebook'];
+const BREAKDOWN_PLATFORMS: PlatformKey[] = ['facebook', 'instagram', 'tiktok', 'douyin'];
 // Dashboard is a summary — show the top slice; the leaderboard has the full list.
 const TOP_CREATORS_LIMIT = 10;
 
@@ -135,9 +134,9 @@ export function DashboardShowcase({
   const followersDelta = propDeltas?.followers ?? placeholderDeltaPct(totalFollowers);
   const engagementDelta = propDeltas?.engagement ?? placeholderDeltaPct(totalEngagement);
 
-  // Top creators by followers (dashboard summary — capped).
+  // Top creators by views (dashboard summary — capped).
   const topCreators = useMemo(
-    () => [...rows].sort((a, b) => b.followers - a.followers).slice(0, TOP_CREATORS_LIMIT),
+    () => [...rows].sort((a, b) => b.totalViews - a.totalViews).slice(0, TOP_CREATORS_LIMIT),
     [rows],
   );
   const hasMore = rows.length > TOP_CREATORS_LIMIT;
@@ -173,7 +172,7 @@ export function DashboardShowcase({
           </div>
           <div className="flex items-center gap-6">
             <div className="text-[clamp(48px,6.5vw,84px)] leading-[0.98] tracking-[-0.035em] font-semibold text-fg tabular-nums">
-              {exactFormatter.format(totalViews)}
+              {formatShowcase(totalViews)}
             </div>
             <Sparkline
               data={viewsTrend}
@@ -189,12 +188,12 @@ export function DashboardShowcase({
           <span className="text-label text-fgMuted">Total Followers</span>
           <div className="flex items-baseline gap-2.5">
             <div className="text-[clamp(28px,3vw,38px)] leading-none tracking-[-0.025em] font-semibold text-fg tabular-nums">
-              {compactFormatter.format(totalFollowers)}
+              {formatShowcase(totalFollowers)}
             </div>
             <DeltaChip value={followersDelta} />
           </div>
           <p className="text-caption text-fgSubtle tabular-nums">
-            {`${exactFormatter.format(totalFollowers)} tracked`}
+            {`${filterLabel(filter)} · tracked`}
           </p>
         </div>
 
@@ -202,7 +201,7 @@ export function DashboardShowcase({
           <span className="text-label text-fgMuted">Total Engagement</span>
           <div className="flex items-baseline gap-2.5">
             <div className="text-[clamp(28px,3vw,38px)] leading-none tracking-[-0.025em] font-semibold text-fg tabular-nums">
-              {compactFormatter.format(totalEngagement)}
+              {formatShowcase(totalEngagement)}
             </div>
             <DeltaChip value={engagementDelta} />
           </div>
@@ -337,7 +336,12 @@ function DeltaChip({ value, period = 'recent' }: { value: number; period?: strin
 
 // --- Top creators ---------------------------------------------------------
 
-const GRID = 'grid grid-cols-[32px_minmax(0,1fr)_96px_88px] gap-3 items-center';
+// On ultra-narrow phones (≤374px, e.g. old iPhone SE/5) the full-digit Views
+// column would starve the name to nothing, so the `tiny:` variant drops the
+// secondary Followers column (and the avatar, below) — rank + name + the primary
+// Views metric always stay legible.
+const GRID =
+  'grid grid-cols-[32px_minmax(0,1fr)_auto_auto] tiny:grid-cols-[32px_minmax(0,1fr)_auto] gap-3 items-center';
 
 function TopCreatorsCard({
   rows,
@@ -354,7 +358,7 @@ function TopCreatorsCard({
         <div className="flex flex-col gap-1">
           <span className="text-label text-fg font-medium">Top Creators</span>
           <span className="text-body-sm text-fgMuted">
-            {filterLabel(filter)} · by followers
+            {filterLabel(filter)} · by views
           </span>
         </div>
         <Link
@@ -377,8 +381,8 @@ function TopCreatorsCard({
           >
             <span>#</span>
             <span>Creator</span>
-            <span className="text-right">Followers</span>
             <span className="text-right">Views</span>
+            <span className="tiny:hidden text-right">Followers</span>
           </div>
           <ul>
             {rows.map((row, i) => (
@@ -413,16 +417,16 @@ function CreatorRow({ row, rank }: { row: DisplayRow; rank: number }) {
         {String(rank).padStart(2, '0')}
       </span>
       <span className="flex items-center gap-3 min-w-0">
-        <span className="size-8 shrink-0 rounded-full bg-customColor1 border border-borderGlass grid place-items-center text-caption text-fgMuted">
+        <span className="size-8 shrink-0 rounded-full bg-customColor1 border border-borderGlass grid tiny:hidden place-items-center text-caption text-fgMuted">
           {initial}
         </span>
         <span className="truncate text-body text-fg font-medium">{row.name}</span>
       </span>
       <span className="text-right font-mono tabular-nums text-body text-fg">
-        {compactFormatter.format(row.followers)}
+        {formatShowcase(row.totalViews)}
       </span>
-      <span className="text-right font-mono tabular-nums text-body-sm text-fgMuted">
-        {compactFormatter.format(row.totalViews)}
+      <span className="tiny:hidden text-right font-mono tabular-nums text-body-sm text-fgMuted">
+        {formatShowcase(row.followers)}
       </span>
     </>
   );
@@ -502,7 +506,7 @@ function PlatformBreakdownCard({
                     </span>
                   </div>
                   <span className="text-body-sm font-mono tabular-nums text-fg">
-                    {isEmpty ? '—' : `${exactFormatter.format(row.totalViews)} views`}
+                    {isEmpty ? '—' : `${formatShowcase(row.totalViews)} views`}
                   </span>
                 </div>
 
@@ -518,7 +522,7 @@ function PlatformBreakdownCard({
 
                 <div className="flex items-center justify-end mt-1.5 text-caption text-fgMuted font-mono tabular-nums">
                   <span className="text-fgMuted">
-                    {isEmpty ? 'Not yet tracked' : `${compactFormatter.format(row.followers)} followers`}
+                    {isEmpty ? 'Not yet tracked' : `${formatShowcase(row.followers)} followers`}
                   </span>
                 </div>
               </button>

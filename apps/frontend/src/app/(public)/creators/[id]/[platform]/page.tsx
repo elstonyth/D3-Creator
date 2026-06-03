@@ -18,11 +18,11 @@ export const revalidate = 3600;
 type Params = { id: string; platform: string };
 
 const VALID: PlatformKey[] = [
+  'facebook',
   'instagram',
   'tiktok',
   'douyin',
-  'facebook',
-  // xiaohongshu archived — its per-platform route now 404s (notFound).
+  // xiaohongshu (RedNote) archived — its per-platform route now 404s (notFound).
 ];
 
 const compact = new Intl.NumberFormat('en-US', {

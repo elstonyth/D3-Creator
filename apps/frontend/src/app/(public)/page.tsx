@@ -13,8 +13,8 @@ import {
   type PlatformKey,
 } from '@gitroom/frontend/components/ui/platform-icons';
 import {
-  compactFormatter,
   exactFormatter,
+  formatShowcase,
   handleToSlug,
   demoCreatorRows,
 } from '@gitroom/frontend/components/dashboard-showcase/showcase-data';
@@ -41,11 +41,11 @@ export const metadata: Metadata = {
 };
 
 const PLATFORM_ORDER: PlatformKey[] = [
+  'facebook',
   'instagram',
   'tiktok',
   'douyin',
-  'facebook',
-  // xiaohongshu archived — hidden from the platform strip.
+  // xiaohongshu (RedNote) archived — hidden from the platform strip.
 ];
 
 export default async function HomePage() {
@@ -247,7 +247,7 @@ export default async function HomePage() {
                         </span>
                       </span>
                       <span className="text-right font-mono tabular-nums text-body text-fg">
-                        {compactFormatter.format(creator.followers)}
+                        {formatShowcase(creator.followers)}
                       </span>
                     </>
                   );
@@ -293,7 +293,7 @@ export default async function HomePage() {
 
                 <div className="flex flex-1 flex-col justify-center py-2">
                   <div className="text-[clamp(34px,4.2vw,52px)] leading-[1.0] tracking-[-0.03em] font-semibold text-fg tabular-nums">
-                    {exactFormatter.format(summary.combinedViews)}
+                    {formatShowcase(summary.combinedViews)}
                   </div>
                   <div className="text-caption text-fgMuted mt-2">
                     views across tracked recent posts
@@ -304,13 +304,13 @@ export default async function HomePage() {
                   <div className="flex flex-col gap-0.5">
                     <span className="text-caption text-fgSubtle">Combined followers</span>
                     <span className="text-heading text-fg tabular-nums">
-                      {compactFormatter.format(summary.combinedFollowers)}
+                      {formatShowcase(summary.combinedFollowers)}
                     </span>
                   </div>
                   <div className="flex flex-col gap-0.5">
                     <span className="text-caption text-fgSubtle">Total engagement</span>
                     <span className="text-heading text-fg tabular-nums">
-                      {compactFormatter.format(combinedEngagement)}
+                      {formatShowcase(combinedEngagement)}
                     </span>
                   </div>
                 </div>
@@ -325,7 +325,7 @@ export default async function HomePage() {
         <Reveal>
           <SectionLabel
             eyebrow="Coverage"
-            title="Five platforms. One showcase."
+            title="Four platforms. One showcase."
             caption="Every creator we manage, every platform we run."
           />
 
@@ -366,12 +366,12 @@ export default async function HomePage() {
                       {PLATFORM_LABELS[platform]}
                     </span>
                     <span className="text-[clamp(20px,2vw,24px)] leading-none tracking-[-0.02em] font-semibold text-fg tabular-nums">
-                      {isEmpty ? '—' : compactFormatter.format(followers)}
+                      {isEmpty ? '—' : formatShowcase(followers)}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between text-caption text-fgMuted font-mono tabular-nums pt-3 border-t border-borderGlass">
-                    <span>{isEmpty ? '—' : compactFormatter.format(totalViews)}</span>
+                    <span>{isEmpty ? '—' : formatShowcase(totalViews)}</span>
                     <span>views</span>
                   </div>
                 </GlassCard>
@@ -386,7 +386,7 @@ export default async function HomePage() {
       <section className="w-full pb-20 sm:pb-24 max-w-[1100px] mx-auto">
         <Reveal>
         <GlassCard variant="base" padding="none" radius="2xl">
-          <dl className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-borderGlass">
+          <dl className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-borderGlass">
             <StatCell
               label="Tracked Creators"
               value={exactFormatter.format(summary.trackedCreators)}
@@ -394,12 +394,12 @@ export default async function HomePage() {
             />
             <StatCell
               label="Combined Followers"
-              value={compactFormatter.format(summary.combinedFollowers)}
-              note={`${exactFormatter.format(summary.combinedFollowers)} total`}
+              value={formatShowcase(summary.combinedFollowers)}
+              note="Summed across all profiles"
             />
             <StatCell
               label="Total Views"
-              value={exactFormatter.format(summary.combinedViews)}
+              value={formatShowcase(summary.combinedViews)}
               note="across tracked recent posts"
             />
           </dl>
