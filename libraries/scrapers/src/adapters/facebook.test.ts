@@ -50,12 +50,32 @@ test('default scrape requests num_of_posts=30 (daily cron cost unchanged)', asyn
 test('deep mode passes maxPosts through as num_of_posts (admin one-off backfill)', async () => {
   mockRun.mockResolvedValue([fbItem()]);
 
-  await facebookAdapter.scrape(PROFILE_URL, { maxPosts: 300 });
+  await facebookAdapter.scrape(PROFILE_URL, { maxPosts: 150 });
 
   expect(mockRun.mock.calls[0][0].inputs).toEqual([
-    { url: PROFILE_URL, num_of_posts: 300 },
+    { url: PROFILE_URL, num_of_posts: 150 },
   ]);
 });
+
+test('maxPosts above the cap is clamped to MAX_POSTS_PER_SCRAPE (200)', async () => {
+  mockRun.mockResolvedValue([fbItem()]);
+
+  await facebookAdapter.scrape(PROFILE_URL, { maxPosts: 500 });
+
+  expect(mockRun.mock.calls[0][0].inputs).toEqual([
+    { url: PROFILE_URL, num_of_posts: 200 },
+  ]);
+});
+
+test.each([0, -5, 12.5, NaN])(
+  'an invalid maxPosts (%p) throws and never calls Bright Data',
+  async (bad) => {
+    await expect(
+      facebookAdapter.scrape(PROFILE_URL, { maxPosts: bad as number }),
+    ).rejects.toThrow(/Invalid maxPosts/);
+    expect(mockRun).not.toHaveBeenCalled();
+  },
+);
 
 test('maps profile followers + reel views/engagement from the dataset items', async () => {
   mockRun.mockResolvedValue([fbItem()]);

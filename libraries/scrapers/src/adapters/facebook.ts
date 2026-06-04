@@ -59,6 +59,10 @@ import type {
 const PLATFORM = 'facebook';
 const POSTS_DATASET_ID = 'gd_lkaxegm826bjpoo9m5';
 const POSTS_PER_SCRAPE = 30;
+// Hard upper bound for a deep-backfill request. BrightData bills per delivered
+// record and the 240s budget realistically completes ~100 posts, so this caps
+// worst-case spend/runtime if a caller ever passes an unbounded maxPosts.
+const MAX_POSTS_PER_SCRAPE = 200;
 const CAPTION_LIMIT = 280;
 
 /**
@@ -252,7 +256,24 @@ export const facebookAdapter: PlatformAdapter = {
     // one-off /api/admin/backfill-posts route raises it via maxPosts. Bigger
     // counts also take BrightData longer to collect — keep them under the
     // 240s budget (a modest count both bounds cost and avoids a timeout).
-    const numOfPosts = opts.maxPosts ?? POSTS_PER_SCRAPE;
+    // Validate at the boundary: a 0/negative/non-integer maxPosts would only
+    // produce a misleading BrightData failure, so reject it loudly. Clamp the
+    // upper end so an unbounded value can't run up spend or blow the budget.
+    if (
+      opts.maxPosts != null &&
+      (!Number.isInteger(opts.maxPosts) || opts.maxPosts <= 0)
+    ) {
+      throw new ScrapeError(
+        'failed',
+        `Invalid maxPosts (${opts.maxPosts}); expected a positive integer.`,
+        PLATFORM,
+        profileUrl,
+      );
+    }
+    const numOfPosts = Math.min(
+      opts.maxPosts ?? POSTS_PER_SCRAPE,
+      MAX_POSTS_PER_SCRAPE,
+    );
 
     const items = await runDataset<BdFbPost>({
       datasetId: POSTS_DATASET_ID,
