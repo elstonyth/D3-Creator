@@ -35,6 +35,19 @@ const TABS: TabDef[] = [
   // xiaohongshu (RedNote) archived — hidden from the platform filter.
 ];
 
+/** Time-period filter for the Total Views hero. `caption` feeds the dynamic subline. */
+type ViewPeriod = '1d' | '1w' | '1m' | '3m' | '6m' | '12m' | 'lifetime';
+
+const VIEW_PERIODS: { value: ViewPeriod; label: string; caption: string }[] = [
+  { value: '1d', label: '1D', caption: 'last 24 hours' },
+  { value: '1w', label: '1W', caption: 'last 7 days' },
+  { value: '1m', label: '1M', caption: 'last 30 days' },
+  { value: '3m', label: '3M', caption: 'last 3 months' },
+  { value: '6m', label: '6M', caption: 'last 6 months' },
+  { value: '12m', label: '12M', caption: 'last 12 months' },
+  { value: 'lifetime', label: 'Lifetime', caption: 'all-time, across tracked posts' },
+];
+
 const BREAKDOWN_PLATFORMS: PlatformKey[] = ['facebook', 'instagram', 'tiktok', 'douyin'];
 // Dashboard is a summary — show the top slice; the leaderboard has the full list.
 const TOP_CREATORS_LIMIT = 10;
@@ -94,6 +107,19 @@ export interface DashboardShowcaseProps {
    * placeholders fill in per-metric when omitted. See showcase-data.ts.
    */
   deltas?: { views?: number; followers?: number; engagement?: number };
+  /**
+   * Σ total views of posts PUBLISHED in each window, per platform-key →
+   * window-key, from getDashboardViewTotalsWindowed. OPTIONAL — when omitted (or
+   * a cell is missing) the hero falls back to the cumulative lifetime total.
+   */
+  viewsByWindow?: Record<string, Record<string, number>>;
+  /**
+   * Per-creator windowed views: creatorId → platform-key | 'all' → window-key →
+   * Σ views of that creator's posts published in the window. Drives the Top
+   * Creators ranking per period. OPTIONAL — absent ⇒ ranking falls back to
+   * lifetime totals.
+   */
+  creatorViewsByWindow?: Record<string, Record<string, Record<string, number>>>;
 }
 
 /**
@@ -105,8 +131,11 @@ export function DashboardShowcase({
   creators,
   viewsTrend: propViewsTrend,
   deltas: propDeltas,
+  viewsByWindow,
+  creatorViewsByWindow,
 }: DashboardShowcaseProps = {}) {
   const [filter, setFilter] = useState<PlatformFilter>('all');
+  const [activeViewFilter, setActiveViewFilter] = useState<ViewPeriod>('lifetime');
   const isLive = !!(creators && creators.length > 0);
   const baseCreators = useMemo(
     () => (isLive ? creators! : demoCreatorRows()),
@@ -144,10 +173,22 @@ export function DashboardShowcase({
   const followersDelta = propDeltas?.followers ?? placeholderDeltaPct(totalFollowers);
   const engagementDelta = propDeltas?.engagement ?? placeholderDeltaPct(totalEngagement);
 
-  // Top creators by views (dashboard summary — capped).
+  // Top creators by views for the active period (dashboard summary — capped).
+  // Each row's views are overridden with its windowed value (per creator, for
+  // the active platform filter) and re-ranked, so the list tracks the period
+  // pill. Falls back to the lifetime total when no windowed data is supplied
+  // (demo mode); followers are left untouched (current count, no period analog).
   const topCreators = useMemo(
-    () => [...rows].sort((a, b) => b.totalViews - a.totalViews).slice(0, TOP_CREATORS_LIMIT),
-    [rows],
+    () =>
+      rows
+        .map((r) => ({
+          ...r,
+          totalViews:
+            creatorViewsByWindow?.[r.key]?.[filter]?.[activeViewFilter] ?? r.totalViews,
+        }))
+        .sort((a, b) => b.totalViews - a.totalViews)
+        .slice(0, TOP_CREATORS_LIMIT),
+    [rows, creatorViewsByWindow, filter, activeViewFilter],
   );
   const hasMore = rows.length > TOP_CREATORS_LIMIT;
 
@@ -168,6 +209,27 @@ export function DashboardShowcase({
     }));
   }, [baseCreators]);
 
+  const activeViewCaption =
+    VIEW_PERIODS.find((p) => p.value === activeViewFilter)?.caption ??
+    'all-time, across tracked posts';
+
+  // Real Σ views for the active platform + period. Falls back to the cumulative
+  // sum when no windowed data is supplied (demo mode) or a cell is absent;
+  // `lifetime` from the matrix equals this cumulative total, so they reconcile.
+  const heroViews = viewsByWindow?.[filter]?.[activeViewFilter] ?? totalViews;
+
+  // Per-platform views for the active period (followers stay current — a
+  // follower count has no post-publish-date analog). Falls back to lifetime
+  // per-platform views when no windowed data is supplied.
+  const breakdownWindowed = useMemo(
+    () =>
+      breakdown.map((b) => ({
+        ...b,
+        totalViews: viewsByWindow?.[b.platform]?.[activeViewFilter] ?? b.totalViews,
+      })),
+    [breakdown, viewsByWindow, activeViewFilter],
+  );
+
   return (
     <div className="flex flex-col gap-5">
       <PlatformTabBar value={filter} onChange={setFilter} />
@@ -180,9 +242,39 @@ export function DashboardShowcase({
             <span className="text-label text-fgMuted">Total Views</span>
             <DeltaChip value={viewsDelta} />
           </div>
+
+          {/* Time-period filter — UI-only for now (see activeViewFilter TODO). */}
+          <div
+            role="tablist"
+            aria-label="Total Views time period"
+            className="flex flex-wrap items-center gap-1"
+          >
+            {VIEW_PERIODS.map((period) => {
+              const isActive = period.value === activeViewFilter;
+              return (
+                <button
+                  key={period.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setActiveViewFilter(period.value)}
+                  className={clsx(
+                    'h-7 px-2.5 rounded-lg text-caption whitespace-nowrap',
+                    'transition-colors duration-150 ease-out',
+                    isActive
+                      ? 'bg-glass-subtle text-fg border border-borderGlassStrong'
+                      : 'border border-transparent text-fgMuted hover:text-fg hover:bg-white/[0.04]'
+                  )}
+                >
+                  {period.label}
+                </button>
+              );
+            })}
+          </div>
+
           <div className="flex items-center gap-6">
             <div className="text-[clamp(48px,6.5vw,84px)] leading-[0.98] tracking-[-0.035em] font-semibold text-fg tabular-nums">
-              {formatShowcase(totalViews)}
+              {formatShowcase(heroViews)}
             </div>
             <Sparkline
               data={viewsTrend}
@@ -190,7 +282,7 @@ export function DashboardShowcase({
             />
           </div>
           <p className="text-caption text-fgSubtle tabular-nums">
-            {`${filterLabel(filter)} · all-time, across tracked posts`}
+            {`${filterLabel(filter)} · ${activeViewCaption}`}
           </p>
         </div>
 
@@ -222,7 +314,7 @@ export function DashboardShowcase({
       {/* Content row — top creators + platform breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-4 items-start">
         <TopCreatorsCard rows={topCreators} filter={filter} hasMore={hasMore} />
-        <PlatformBreakdownCard activeFilter={filter} onSelect={setFilter} rows={breakdown} />
+        <PlatformBreakdownCard activeFilter={filter} onSelect={setFilter} rows={breakdownWindowed} />
       </div>
 
       {!isLive && (
