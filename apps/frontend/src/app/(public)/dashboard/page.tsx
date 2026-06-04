@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import { DashboardShowcase } from '@gitroom/frontend/components/dashboard-showcase/dashboard-showcase';
 import { getLiveCreatorRows, type LiveCreatorRow } from '@gitroom/frontend/lib/queries';
+import { getDashboardViewTotalsWindowed } from '@gitroom/frontend/lib/metrics-windowed';
 
 // ISR: 1h cache, see (public)/page.tsx for rationale.
 export const revalidate = 3600;
@@ -12,10 +13,19 @@ export const metadata: Metadata = {
 };
 
 export default async function DashboardPage() {
-  const creators = await getLiveCreatorRows().catch((e) => {
-    console.error('[dashboard] creators', e);
-    return null as LiveCreatorRow[] | null;
-  });
+  const [creators, windowed] = await Promise.all([
+    getLiveCreatorRows().catch((e) => {
+      console.error('[dashboard] creators', e);
+      return null as LiveCreatorRow[] | null;
+    }),
+    // Windowed view totals power the period pills across the hero, platform
+    // breakdown, and Top Creators ranking. Resolves to empty maps on error
+    // (logged inside the helper) so those sections fall back to cumulative.
+    getDashboardViewTotalsWindowed().catch((e) => {
+      console.error('[dashboard] viewsByWindow', e);
+      return undefined;
+    }),
+  ]);
 
   const isLive = !!(creators && creators.length > 0);
 
@@ -41,7 +51,11 @@ export default async function DashboardPage() {
         )}
       </header>
 
-      <DashboardShowcase creators={creators} />
+      <DashboardShowcase
+        creators={creators}
+        viewsByWindow={windowed?.byPlatform}
+        creatorViewsByWindow={windowed?.byCreator}
+      />
     </div>
   );
 }

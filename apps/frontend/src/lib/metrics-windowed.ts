@@ -157,3 +157,63 @@ export async function getTopContentWindowed(
     }),
   );
 }
+
+/**
+ * key → window-key → Σ total views of posts published in that window. Window
+ * keys match the dashboard pills ('1d'/'1w'/'1m'/'3m'/'6m'/'12m'/'lifetime').
+ * A key/window with no posts is simply absent — callers treat missing as 0.
+ */
+export type DashboardViewTotals = Record<string, Record<string, number>>;
+
+/** Both rollups of the per-(creator × platform × window) view totals. */
+export interface DashboardWindowedViews {
+  /** platform-key | 'all' → window → Σ views across creators (hero + breakdown). */
+  byPlatform: DashboardViewTotals;
+  /** creatorId → platform-key | 'all' → window → views (Top Creators re-rank). */
+  byCreator: Record<string, DashboardViewTotals>;
+}
+
+/**
+ * Windowed view totals for the public dashboard — Σ views of posts PUBLISHED in
+ * each window (content-recency, not a growth delta), per creator × platform
+ * (dashboard_view_totals_windowed RPC, one round trip). Rolled up two ways:
+ * `byPlatform` (Σ creators) powers the hero + breakdown; `byCreator` powers the
+ * Top Creators ranking. Both carry a synthetic 'all' bucket. Returns empty maps
+ * on error (logged) so the dashboard falls back to cumulative totals.
+ */
+export async function getDashboardViewTotalsWindowed(
+  opts: WindowedMetricsOpts = {},
+): Promise<DashboardWindowedViews> {
+  const sb = opts.client ?? getSupabaseRead();
+  const { data, error } = await sb.rpc('dashboard_view_totals_windowed', {
+    p_creator_ids: opts.creatorIds ?? null,
+  });
+  if (error) {
+    console.error('[metrics-windowed] dashboard_view_totals_windowed', error);
+    return { byPlatform: {}, byCreator: {} };
+  }
+  const byPlatform: DashboardViewTotals = {};
+  const byCreator: Record<string, DashboardViewTotals> = {};
+  for (const row of (data ?? []) as Record<string, unknown>[]) {
+    const creatorId = row.creator_id as string;
+    const platform = row.platform as string;
+    const win = row.win as string;
+    if (!creatorId || !platform || !win) continue;
+    const total = toNum(row.total_views);
+
+    // Per-platform rollup (Σ creators) + synthetic 'all'.
+    if (!byPlatform[platform]) byPlatform[platform] = {};
+    byPlatform[platform][win] = (byPlatform[platform][win] ?? 0) + total;
+    if (!byPlatform.all) byPlatform.all = {};
+    byPlatform.all[win] = (byPlatform.all[win] ?? 0) + total;
+
+    // Per-creator: per platform + 'all' (Σ this creator's platforms).
+    if (!byCreator[creatorId]) byCreator[creatorId] = {};
+    const c = byCreator[creatorId];
+    if (!c[platform]) c[platform] = {};
+    c[platform][win] = (c[platform][win] ?? 0) + total;
+    if (!c.all) c.all = {};
+    c.all[win] = (c.all[win] ?? 0) + total;
+  }
+  return { byPlatform, byCreator };
+}
