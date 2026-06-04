@@ -278,7 +278,7 @@ function CreatorTable({ rows }: { rows: LbRow[] }) {
         <span>#</span>
         <span>Creator</span>
         <span className="text-right">Views</span>
-        <span className="hidden sm:block text-right">Followers</span>
+        <span className="hidden sm:block text-right sm:pl-6">Followers</span>
       </div>
       <ul>
         {rows.map((row, i) => (
@@ -317,7 +317,7 @@ function CreatorRow({ row, rank }: { row: LbRow; rank: number }) {
       <span className="text-right font-mono tabular-nums text-body text-fg">
         <ShowcaseNumber value={row.totalViews} />
       </span>
-      <span className="hidden sm:block text-right font-mono tabular-nums text-body-sm text-fgMuted">
+      <span className="hidden sm:block text-right sm:pl-6 font-mono tabular-nums text-body-sm text-fgMuted">
         <ShowcaseNumber value={row.followers} />
       </span>
     </>
