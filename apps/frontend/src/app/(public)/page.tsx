@@ -249,8 +249,13 @@ export default async function HomePage() {
                         {String(creator.rank).padStart(2, '0')}
                       </span>
                       <span className="flex items-center gap-3 min-w-0">
-                        <span className="size-8 shrink-0 rounded-full bg-customColor1 border border-borderGlass grid place-items-center text-caption text-fgMuted">
-                          {initial}
+                        <span className="size-8 shrink-0 rounded-full bg-customColor1 border border-borderGlass grid place-items-center overflow-hidden text-caption text-fgMuted">
+                          {creator.avatarUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element -- external avatar, dims vary
+                            <img src={creator.avatarUrl} alt="" className="size-full object-cover" />
+                          ) : (
+                            initial
+                          )}
                         </span>
                         <span className="truncate text-body text-fg font-medium">
                           {creator.displayName}
