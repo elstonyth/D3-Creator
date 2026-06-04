@@ -185,6 +185,18 @@ export async function GET(request: Request): Promise<Response> {
       });
     } catch (err) {
       const status = err instanceof ScrapeError ? err.status : 'failed';
+      const message = err instanceof Error ? err.message : String(err);
+      // Surface the failure in Vercel logs. Without this the per-profile error
+      // is only visible in the JSON response, so a whole-platform outage (e.g.
+      // BrightData "Customer is not active" taking down every Facebook scrape)
+      // stays invisible until someone reads a cron response by hand.
+      console.error('[daily-snapshot] scrape failed', {
+        profile_id: profile.id,
+        platform: profile.platform,
+        handle: profile.handle,
+        status,
+        error: message,
+      });
       try {
         await setProfileStatus(profile.id, status);
       } catch {
@@ -195,7 +207,7 @@ export async function GET(request: Request): Promise<Response> {
         platform: profile.platform,
         handle: profile.handle,
         status,
-        error: err instanceof Error ? err.message : String(err),
+        error: message,
       });
     }
   }

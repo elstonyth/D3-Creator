@@ -52,6 +52,7 @@ import type {
   NormalizedPostSnapshot,
   NormalizedProfileSnapshot,
   PlatformAdapter,
+  ScrapeOptions,
   ScrapeResult,
 } from '../types';
 
@@ -235,7 +236,7 @@ function throwForErrorCode(p: BdFbPost, profileUrl: string): void {
 export const facebookAdapter: PlatformAdapter = {
   platform: 'facebook',
   sourceId: `brightdata:${POSTS_DATASET_ID}`,
-  async scrape(profileUrl: string): Promise<ScrapeResult> {
+  async scrape(profileUrl: string, opts: ScrapeOptions = {}): Promise<ScrapeResult> {
     // Single dataset call. BD's posts collector resolves both vanity and
     // profile.php?id= URLs in ~50s and returns page_followers on each item.
     // Cap at 240s (4 min) to leave ~60s margin under Vercel's 300s Function
@@ -243,9 +244,19 @@ export const facebookAdapter: PlatformAdapter = {
     const FB_BUDGET_MS = 240_000;
     const FB_POLL_MS = 10_000;
 
+    // Deep-backfill knob. BrightData's posts dataset takes `num_of_posts`
+    // directly, so a deeper scrape is just a larger single request — no
+    // client-side cursor loop (unlike the TikHub IG/TikTok/Douyin adapters).
+    // The daily cron passes no opts, so num_of_posts stays POSTS_PER_SCRAPE
+    // (30) and the per-record BrightData bill is unchanged; only the admin
+    // one-off /api/admin/backfill-posts route raises it via maxPosts. Bigger
+    // counts also take BrightData longer to collect — keep them under the
+    // 240s budget (a modest count both bounds cost and avoids a timeout).
+    const numOfPosts = opts.maxPosts ?? POSTS_PER_SCRAPE;
+
     const items = await runDataset<BdFbPost>({
       datasetId: POSTS_DATASET_ID,
-      inputs: [{ url: profileUrl, num_of_posts: POSTS_PER_SCRAPE }],
+      inputs: [{ url: profileUrl, num_of_posts: numOfPosts }],
       platform: PLATFORM,
       profileUrl,
       timeoutMs: FB_BUDGET_MS,
