@@ -72,6 +72,8 @@ export interface LiveCreatorRow {
   creatorId: string;
   /** Display name (creator.display_name, else the primary profile handle). */
   displayName: string;
+  /** Render-ready avatar URL (resolveMediaUrl-resolved); null when none stored. */
+  avatarUrl: string | null;
   /** Highest-follower profile's handle — the slug for /creators/<handle>. */
   primaryHandle: string | null;
   /** Platform of the highest-follower profile (drives the row icon). */
@@ -225,6 +227,7 @@ export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
     rows.push({
       creatorId: c.id,
       displayName: c.display_name ?? primary.handle ?? c.id.slice(0, 8),
+      avatarUrl: resolveMediaUrl(c.avatar_url),
       primaryHandle: primary.handle,
       primaryPlatform: primary.platform,
       followers,
