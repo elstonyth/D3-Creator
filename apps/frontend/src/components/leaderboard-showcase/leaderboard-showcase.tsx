@@ -40,6 +40,7 @@ function filterLabel(filter: PlatformFilter): string {
 interface LbRow {
   key: string;
   name: string;
+  avatarUrl: string | null;
   slug: string | null;
   followers: number;
   totalViews: number;
@@ -53,6 +54,7 @@ function resolveRows(creators: LiveCreatorRow[], filter: PlatformFilter): LbRow[
       ? creators.map((c) => ({
           key: c.creatorId,
           name: c.displayName,
+          avatarUrl: c.avatarUrl,
           slug: c.primaryHandle ? handleToSlug(c.primaryHandle) : null,
           followers: c.followers,
           totalViews: c.totalViews,
@@ -65,6 +67,7 @@ function resolveRows(creators: LiveCreatorRow[], filter: PlatformFilter): LbRow[
             {
               key: c.creatorId,
               name: c.displayName,
+              avatarUrl: c.avatarUrl, // avatar is creator-level, not per-platform
               slug: slot.handle ? handleToSlug(slot.handle) : null,
               followers: slot.followers,
               totalViews: slot.totalViews,
@@ -301,8 +304,13 @@ function CreatorRow({ row, rank }: { row: LbRow; rank: number }) {
         {String(rank).padStart(2, '0')}
       </span>
       <span className="flex items-center gap-3 min-w-0">
-        <span className="size-8 shrink-0 rounded-full bg-customColor1 border border-borderGlass grid tiny:hidden place-items-center text-caption text-fgMuted">
-          {initial}
+        <span className="size-8 shrink-0 rounded-full bg-customColor1 border border-borderGlass grid tiny:hidden place-items-center overflow-hidden text-caption text-fgMuted">
+          {row.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- external avatar, dims vary
+            <img src={row.avatarUrl} alt="" className="size-full object-cover" />
+          ) : (
+            initial
+          )}
         </span>
         <span className="truncate text-body text-fg font-medium">{row.name}</span>
       </span>

@@ -10,6 +10,7 @@ function row(over: Partial<LiveCreatorRow>): LiveCreatorRow {
     rank: 0,
     creatorId: 'c',
     displayName: 'C',
+    avatarUrl: null,
     primaryHandle: 'c',
     primaryPlatform: 'instagram',
     followers: 0,

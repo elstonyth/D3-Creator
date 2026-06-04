@@ -180,6 +180,7 @@ export function demoCreatorRows(): LiveCreatorRow[] {
     rank: i + 1,
     creatorId: c.handle,
     displayName: c.handle,
+    avatarUrl: null,
     primaryHandle: handleToSlug(c.handle),
     primaryPlatform: c.primaryPlatform,
     followers: c.followers,
