@@ -1,35 +1,30 @@
 -- Dashboard "Total Views" period filter — windowed view totals by POST AGE,
 -- broken out PER CREATOR × platform so the whole dashboard (hero, platform
--- breakdown, AND the Top Creators ranking) can follow the active period pill.
+-- breakdown, AND the Top Creators ranking) follows the active period pill.
 --
--- Additive shape note: returns one row per (creator × platform × window). The
--- caller (lib/metrics-windowed.getDashboardViewTotalsWindowed) rolls this up two
--- ways — Σ creators → per-platform (hero + breakdown), and per-creator (Top
--- Creators re-rank). This single function is the sole source of windowed view
--- totals for the dashboard.
+-- Returns one row per (creator × platform × window). The caller
+-- (lib/metrics-windowed.getDashboardViewTotalsWindowed) rolls it up two ways —
+-- Σ creators → per-platform (hero + breakdown), and per-creator (Top Creators
+-- re-rank). Sole source of windowed view totals for the dashboard.
 --
 -- SEMANTIC: total_views(win) = Σ current_views of posts PUBLISHED within the
--- window (posted_at >= today - N). Content-recency, NOT a views-gained delta —
--- needs no snapshot baseline history, so every window yields a distinct, nested
--- total immediately (1D ⊆ 1W ⊆ … ⊆ Lifetime).
+-- window, using ROLLING cutoffs (posted_at >= now() - interval 'N') so "last 24
+-- hours / last 7 days / …" mean exactly that. A calendar `current_date - 1`
+-- would, run after midnight, sweep in ~24–48h of posts under a "last 24 hours"
+-- label and overstate the period. Content-recency, NOT a views-gained delta —
+-- needs no snapshot baseline, so windows are distinct + nested
+-- (1D ⊆ 1W ⊆ … ⊆ Lifetime).
 --   current_views = newest post_snapshot per (profile, external_post_id).
---   posted_at = publish time (verified 100% populated). Lifetime (null window)
---   includes every post.
+--   posted_at = publish time (100% populated). Lifetime (null) = all posts.
+--   now() is the transaction start time, so the function stays STABLE.
 --
--- Intentionally distinct from creator_metrics_windowed's views_gained
--- (migration 20260530000000), which is the leaderboard's growth metric bounded
--- by snapshot history. rednote (xiaohongshu) excluded before aggregation,
--- matching getLiveCreatorRows / the windowed RPCs. p_creator_ids defaults to all
--- (public dashboard); the verification fixture passes it to scope to seeded rows.
---
--- DROP first: the return shape changed (added creator_id, and an earlier
--- revision used a views_gained column), and CREATE OR REPLACE can't alter the
--- OUT columns of an existing function. Safe — only the (unshipped) dashboard
--- hero/cards call it.
+-- Distinct from creator_metrics_windowed's views_gained (migration
+-- 20260530000000), the leaderboard's growth metric. rednote (xiaohongshu)
+-- excluded before aggregation. p_creator_ids defaults to all (public dashboard);
+-- the verify fixture passes it to scope to seeded rows. create-or-replace: the
+-- return shape is unchanged from the deployed function, only the cutoffs change.
 
-drop function if exists public.dashboard_view_totals_windowed(uuid[]);
-
-create function public.dashboard_view_totals_windowed(
+create or replace function public.dashboard_view_totals_windowed(
   p_creator_ids uuid[] default null
 )
 returns table (creator_id uuid, platform text, win text, total_views bigint)
@@ -50,16 +45,17 @@ language sql stable as $$
     join scope_profile sp on sp.id = pp.profile_id
     order by pp.profile_id, pp.external_post_id, pp.captured_date desc
   ),
-  -- 'win' not 'window' (reserved word). null `since` => lifetime (all posts).
+  -- 'win' not 'window' (reserved word). Rolling timestamp cutoffs; null `since`
+  -- => lifetime (all posts).
   windows(win, since) as (
     values
-      ('1d',       current_date - 1),
-      ('1w',       current_date - 7),
-      ('1m',       current_date - 30),
-      ('3m',       current_date - 90),
-      ('6m',       current_date - 180),
-      ('12m',      current_date - 365),
-      ('lifetime', null::date)
+      ('1d',       now() - interval '1 day'),
+      ('1w',       now() - interval '7 days'),
+      ('1m',       now() - interval '30 days'),
+      ('3m',       now() - interval '90 days'),
+      ('6m',       now() - interval '180 days'),
+      ('12m',      now() - interval '365 days'),
+      ('lifetime', null::timestamptz)
   )
   -- Conditional SUM over the full posts × windows cross join (NOT a WHERE
   -- filter) so every (creator × platform × window) yields a row — 0 when no post

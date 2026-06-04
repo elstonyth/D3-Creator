@@ -29,15 +29,19 @@ insert into public.profile (id, creator_id, platform, profile_url, handle) value
   ('00000000-0000-0000-0000-0000000d0002','00000000-0000-0000-0000-0000000c0001',
    'instagram','https://instagram.com/dvt-ig','dvt-ig');
 
--- tiktok: A today(5000), B 20d(2000), C 200d(1000) → 1d/1w=5000; 1m/3m/6m=7000; 12m/life=8000
--- instagram: X 3d(800), Y 400d(300) → 1d=0; 1w..12m=800; lifetime=1100
+-- Rolling cutoffs (posted_at >= now() - interval). posted_at set now()-relative
+-- with clear margins so the bucket boundaries don't depend on time-of-day.
+-- tiktok:    A -2h(5000), B -20d(2000), C -200d(1000)
+--            → 1d/1w=5000; 1m/3m/6m=7000; 12m/lifetime=8000
+-- instagram: X -3d(800), Y -400d(300)
+--            → 1d=0; 1w..12m=800; lifetime=1100
 insert into public.post_snapshot
   (profile_id, external_post_id, captured_date, posted_at, views, likes, comments, shares) values
-  ('00000000-0000-0000-0000-0000000d0001','A', current_date, (current_date - 0)::timestamptz,   5000,0,0,0),
-  ('00000000-0000-0000-0000-0000000d0001','B', current_date, (current_date - 20)::timestamptz,  2000,0,0,0),
-  ('00000000-0000-0000-0000-0000000d0001','C', current_date, (current_date - 200)::timestamptz, 1000,0,0,0),
-  ('00000000-0000-0000-0000-0000000d0002','X', current_date, (current_date - 3)::timestamptz,    800,0,0,0),
-  ('00000000-0000-0000-0000-0000000d0002','Y', current_date, (current_date - 400)::timestamptz,  300,0,0,0);
+  ('00000000-0000-0000-0000-0000000d0001','A', current_date, now() - interval '2 hours',   5000,0,0,0),
+  ('00000000-0000-0000-0000-0000000d0001','B', current_date, now() - interval '20 days',   2000,0,0,0),
+  ('00000000-0000-0000-0000-0000000d0001','C', current_date, now() - interval '200 days',  1000,0,0,0),
+  ('00000000-0000-0000-0000-0000000d0002','X', current_date, now() - interval '3 days',     800,0,0,0),
+  ('00000000-0000-0000-0000-0000000d0002','Y', current_date, now() - interval '400 days',   300,0,0,0);
 
 -- ---- Fixture: creator B (one fresh tiktok post) — proves per-creator split
 insert into public.creator (id, display_name)
@@ -47,7 +51,7 @@ values ('00000000-0000-0000-0000-0000000d0003','00000000-0000-0000-0000-0000000c
         'tiktok','https://tiktok.com/@dvt-tt2','dvt-tt2');
 insert into public.post_snapshot
   (profile_id, external_post_id, captured_date, posted_at, views, likes, comments, shares)
-values ('00000000-0000-0000-0000-0000000d0003','Z', current_date, (current_date - 0)::timestamptz, 999,0,0,0);
+values ('00000000-0000-0000-0000-0000000d0003','Z', current_date, now() - interval '2 hours', 999,0,0,0);
 
 do $$
 declare
