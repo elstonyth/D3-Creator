@@ -442,8 +442,14 @@ function DeltaChip({ value, period = 'recent' }: { value: number; period?: strin
 // Phones (< sm / 640px) show only rank · name · Views so the creator name is
 // never truncated by the secondary Followers column; Followers returns at sm+.
 // The avatar additionally drops on ultra-narrow phones (≤374px) via `tiny:`.
+// Followers uses a `minmax(5rem, auto)` track so every Views value shares one
+// right edge — each row is its own grid, so a plain `auto` Followers width (which
+// varies per row: "31K" vs "150.1K") would jitter the Views column's right edge
+// and misalign the numbers. The 5rem floor fits the "Followers" header label and
+// every current follower count (≤150.1K), so they align; the `auto` ceiling lets a
+// rare 10M+ full-digit value grow the track instead of overflowing into Views.
 const GRID =
-  'grid grid-cols-[32px_minmax(0,1fr)_auto] sm:grid-cols-[32px_minmax(0,1fr)_auto_auto] gap-3 items-center';
+  'grid grid-cols-[32px_minmax(0,1fr)_auto] sm:grid-cols-[32px_minmax(0,1fr)_auto_minmax(5rem,auto)] gap-3 items-center';
 
 /** Card listing the top creators by views for the active filter, with a link to the full leaderboard. */
 function TopCreatorsCard({
