@@ -3,7 +3,10 @@ import { redirect } from 'next/navigation';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { getSupabaseRoute } from '@gitroom/frontend/lib/supabase-route';
 import { resolveCreatorProfiles } from '@gitroom/frontend/lib/creator-metrics';
-import { resolveMediaUrl } from '@gitroom/frontend/lib/media-url';
+import {
+  getTopContentWindowed,
+  type TopContentRow,
+} from '@gitroom/frontend/lib/metrics-windowed';
 import { EmptyState } from '@gitroom/frontend/components/ui/empty-state';
 
 export const dynamic = 'force-dynamic';
@@ -12,16 +15,6 @@ export const revalidate = 0;
 export const metadata: Metadata = {
   title: 'My leaderboard — D3 Creator',
 };
-
-interface PostRow {
-  external_post_id: string;
-  caption_excerpt: string | null;
-  views: number | null;
-  likes: number | null;
-  comments: number | null;
-  posted_at: string | null;
-  media_url: string | null;
-}
 
 export default async function CreatorMeLeaderboardPage() {
   const auth = await getAuthContext();
@@ -47,18 +40,19 @@ export default async function CreatorMeLeaderboardPage() {
   });
   const ids = profiles.map((p) => p.id);
 
-  // Top posts across those profiles, by views.
-  let posts: PostRow[] = [];
+  // Top posts across those profiles, by views. Uses the shared windowed RPC —
+  // the same source as the public leaderboard and the /me dashboard's Top
+  // content — so each post appears once (deduped to its latest snapshot) rather
+  // than once per daily snapshot, which the old raw post_snapshot query did.
+  // 'lifetime' ranks by absolute views (with no baseline, views_gained ==
+  // current_views, so the order is highest-viewed first).
+  let posts: TopContentRow[] = [];
   if (ids.length) {
-    const { data } = await sb
-      .from('post_snapshot')
-      .select(
-        'external_post_id, caption_excerpt, views, likes, comments, posted_at, media_url',
-      )
-      .in('profile_id', ids)
-      .order('views', { ascending: false, nullsFirst: false })
-      .limit(20);
-    posts = (data as PostRow[] | null) ?? [];
+    posts = await getTopContentWindowed('lifetime', {
+      client: sb,
+      profileIds: ids,
+      limit: 20,
+    });
   }
 
   return (
@@ -91,11 +85,11 @@ export default async function CreatorMeLeaderboardPage() {
       ) : (
         <ol className="space-y-2">
           {posts.map((p, i) => {
-            const thumb = resolveMediaUrl(p.media_url);
+            const thumb = p.thumbnailUrl;
             const isWinner = i === 0;
             return (
               <li
-                key={p.external_post_id + i}
+                key={`${p.profileId}:${p.externalPostId}`}
                 className="glass-elevated rounded-xl p-4 flex items-center gap-4"
               >
                 <span
@@ -110,7 +104,7 @@ export default async function CreatorMeLeaderboardPage() {
                     // eslint-disable-next-line @next/next/no-img-element -- proxied, dims vary by platform
                     <img
                       src={thumb}
-                      alt={p.caption_excerpt ?? 'Post thumbnail'}
+                      alt={p.captionExcerpt ?? 'Post thumbnail'}
                       loading="lazy"
                       className="absolute inset-0 size-full object-cover"
                     />
@@ -122,14 +116,14 @@ export default async function CreatorMeLeaderboardPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-body text-fg truncate">
-                    {p.caption_excerpt ?? '(no caption)'}
+                    {p.captionExcerpt ?? '(no caption)'}
                   </p>
                   <p className="text-caption text-fgMuted">
-                    {p.posted_at ? new Date(p.posted_at).toLocaleDateString() : '—'}
+                    {p.postedAt ? new Date(p.postedAt).toLocaleDateString() : '—'}
                   </p>
                 </div>
                 <div className="flex items-center gap-5 shrink-0 text-right tabular-nums">
-                  <PostStat label="views" value={p.views} strong />
+                  <PostStat label="views" value={p.currentViews} strong />
                   <PostStat label="likes" value={p.likes} />
                   <PostStat label="comments" value={p.comments} />
                 </div>
