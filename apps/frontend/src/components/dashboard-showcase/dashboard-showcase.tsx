@@ -476,7 +476,7 @@ function TopCreatorsCard({
 }) {
   return (
     <GlassCard variant="base" padding="md" radius="2xl" className="flex flex-col">
-      <div className="flex items-end justify-between gap-3 mb-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-4">
         <div className="flex flex-col gap-1">
           <span className="text-label text-fg font-medium">Top Creators</span>
           <span className="text-body-sm text-fgMuted">
