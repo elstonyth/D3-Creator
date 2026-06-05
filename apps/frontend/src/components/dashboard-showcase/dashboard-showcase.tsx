@@ -218,6 +218,11 @@ export function DashboardShowcase({
   // `lifetime` from the matrix equals this cumulative total, so they reconcile.
   const heroViews = viewsByWindow?.[filter]?.[activeViewFilter] ?? totalViews;
 
+  // The ▲% delta chip + sparkline are lifetime-cumulative placeholders, not
+  // period-aware — show them only on Lifetime so a windowed headline (e.g. 0 on
+  // 1D) isn't paired with a contradictory upward "growth" trend. See Finding F3.
+  const showViewsTrend = activeViewFilter === 'lifetime';
+
   // Per-platform views for the active period (followers stay current — a
   // follower count has no post-publish-date analog). Falls back to lifetime
   // per-platform views when no windowed data is supplied.
@@ -240,7 +245,7 @@ export function DashboardShowcase({
         <div className="flex flex-col justify-center gap-3 sm:col-span-8 sm:row-span-2">
           <div className="flex items-center gap-3">
             <span className="text-label text-fgMuted">Total Views</span>
-            <DeltaChip value={viewsDelta} />
+            {showViewsTrend && <DeltaChip value={viewsDelta} />}
           </div>
 
           {/* Time-period filter — UI-only for now (see activeViewFilter TODO). */}
@@ -276,10 +281,12 @@ export function DashboardShowcase({
             <div className="text-[clamp(48px,6.5vw,84px)] leading-[0.98] tracking-[-0.035em] font-semibold text-fg tabular-nums">
               {formatShowcase(heroViews)}
             </div>
-            <Sparkline
-              data={viewsTrend}
-              className="hidden h-16 flex-1 self-center text-white/30 sm:block"
-            />
+            {showViewsTrend && (
+              <Sparkline
+                data={viewsTrend}
+                className="hidden h-16 flex-1 self-center text-white/30 sm:block"
+              />
+            )}
           </div>
           <p className="text-caption text-fgSubtle tabular-nums">
             {`${filterLabel(filter)} · ${activeViewCaption}`}
