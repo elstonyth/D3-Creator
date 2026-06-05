@@ -164,7 +164,7 @@ function dated(id: string, postedAt: string | null): PostSnapshotInput {
   return { ...post(id, 1), posted_at: postedAt };
 }
 
-test('drops posts published before the 2025-01-01 window, keeps boundary/in-window/undated', async () => {
+test('drops posts published before the 2025-01-01 window, keeps boundary/in-window/undated/unparseable', async () => {
   let captured: any[] = [];
   mockAdmin.mockReturnValue({
     from: () => ({
@@ -179,12 +179,18 @@ test('drops posts published before the 2025-01-01 window, keeps boundary/in-wind
     dated('old', '2024-12-16T00:00:00Z'), // before window -> dropped
     dated('boundary', '2025-01-01T00:00:00Z'), // exactly the start -> kept (>= cutoff)
     dated('recent', '2026-03-01T10:00:00Z'), // in window -> kept
-    dated('undated', null), // cannot date -> kept
+    dated('undated', null), // null date -> kept
+    dated('unparseable', 'not-a-valid-date'), // unparseable date -> kept (never drop what we can't date)
   ]);
 
-  expect(captured.map((r) => r.external_post_id).sort()).toEqual(['boundary', 'recent', 'undated']);
+  expect(captured.map((r) => r.external_post_id).sort()).toEqual([
+    'boundary',
+    'recent',
+    'undated',
+    'unparseable',
+  ]);
   expect(captured.map((r) => r.external_post_id)).not.toContain('old');
-  expect(res.written).toBe(3);
+  expect(res.written).toBe(4);
 });
 
 test('skips the DB entirely when every post is before the data window', async () => {
