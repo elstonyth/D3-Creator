@@ -426,22 +426,6 @@ export async function getTopContent(limit = 20): Promise<TopContentRow[]> {
 }
 
 /**
- * Top content ranked two ways from a SINGLE fetch: by views and by interactions
- * (likes + comments + shares). Powers the leaderboard's two content grids.
- */
-export async function getTopContentRankings(
-  limit = 12,
-): Promise<{ byViews: TopContentRow[]; byInteractions: TopContentRow[] }> {
-  const rows = await loadContentRows();
-  return {
-    byViews: [...rows].sort((a, b) => b.currentViews - a.currentViews).slice(0, limit),
-    byInteractions: [...rows]
-      .sort((a, b) => postInteractions(b) - postInteractions(a))
-      .slice(0, limit),
-  };
-}
-
-/**
  * Top content ranked two ways (by views, by interactions) for EACH time window,
  * from a SINGLE post fetch. Window = posts PUBLISHED in the window (matches the
  * dashboard pills); `lifetime` = no date filter. Powers the leaderboard's
