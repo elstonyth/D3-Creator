@@ -35,7 +35,6 @@ do $$
 declare
   row_count int;
   r record;
-  cid uuid := '00000000-0000-0000-0000-00000000ed01';
   pid uuid := '00000000-0000-0000-0000-00000000ed02';
 begin
   -- Guard that the fixture actually reproduces the bug: the naive query the page
@@ -49,17 +48,22 @@ begin
     raise exception 'FAIL fixture: expected 2 raw snapshots for post P (the bug input), got %', row_count;
   end if;
 
-  -- Exactly the call the /me leaderboard makes: lifetime window, profile-scoped.
-  -- Scope via the PARAM (creator_ids), not an outer WHERE — the LIMIT is applied
-  -- inside the function, so an outer filter could drop the fixture row.
+  -- Exactly the call /me leaderboard makes: lifetime window, scoped by
+  -- p_profile_ids (the 4th RPC param — what getTopContentWindowed maps
+  -- `profileIds` to), NOT p_creator_ids. Named params so the scoping is
+  -- unambiguous and the test can't silently drift onto the wrong parameter.
+  -- The LIMIT is applied inside the function, so an outer WHERE could drop the
+  -- fixture row — scope via the param instead.
   select count(*) into row_count
-    from public.top_content_windowed('lifetime', 20, array[cid]);
+    from public.top_content_windowed(
+      p_window := 'lifetime', p_limit := 20, p_profile_ids := array[pid]);
   if row_count is distinct from 1 then
     raise exception 'FAIL dedup: top_content_windowed returned % rows for a 2-snapshot single post (expected 1)', row_count;
   end if;
 
   select * into r
-    from public.top_content_windowed('lifetime', 20, array[cid]);
+    from public.top_content_windowed(
+      p_window := 'lifetime', p_limit := 20, p_profile_ids := array[pid]);
   if r.external_post_id is distinct from 'P' then
     raise exception 'FAIL: unexpected post % (expected P)', r.external_post_id;
   end if;
