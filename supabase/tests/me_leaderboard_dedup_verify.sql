@@ -1,0 +1,65 @@
+-- Regression guard for the /me leaderboard duplicate-posts bug.
+--
+-- The creator leaderboard (apps/frontend/src/app/(creator)/me/leaderboard/page.tsx)
+-- used to read raw post_snapshot rows with no dedup, so a post tracked over N
+-- days appeared N times (once per daily snapshot). It now reads the shared
+-- top_content_windowed RPC, which deduplicates to each post's LATEST snapshot.
+-- This asserts that contract: one post with two daily snapshots yields exactly
+-- ONE leaderboard row, carrying the latest snapshot's numbers (not a stale one).
+--
+-- Runs inside a transaction that is ROLLED BACK at the end — touches no real
+-- data. Raises on the first failed assertion; prints success then rolls back.
+--
+-- Usage:
+--   psql "$DATABASE_URL" -f supabase/tests/me_leaderboard_dedup_verify.sql
+--   supabase db execute --file supabase/tests/me_leaderboard_dedup_verify.sql
+
+begin;
+
+insert into public.creator (id, display_name)
+values ('00000000-0000-0000-0000-00000000ed01','LB-DEDUP Creator');
+
+insert into public.profile (id, creator_id, platform, profile_url, handle)
+values ('00000000-0000-0000-0000-00000000ed02',
+        '00000000-0000-0000-0000-00000000ed01',
+        'instagram','https://instagram.com/lbdedup','lbdedup');
+
+-- ONE post, TWO daily snapshots. The bug listed both; the fix keeps only the
+-- latest (5000 views / 300 likes), not the earlier (1000 / 50).
+insert into public.post_snapshot
+  (profile_id, external_post_id, captured_date, views, likes, comments, shares) values
+  ('00000000-0000-0000-0000-00000000ed02','P', current_date-1, 1000,  50, 10, 5),
+  ('00000000-0000-0000-0000-00000000ed02','P', current_date-0, 5000, 300, 150, 50);
+
+do $$
+declare
+  rows int;
+  r record;
+  cid uuid := '00000000-0000-0000-0000-00000000ed01';
+begin
+  -- Exactly the call the /me leaderboard makes: lifetime window, profile-scoped.
+  -- Scope via the PARAM (creator_ids), not an outer WHERE — the LIMIT is applied
+  -- inside the function, so an outer filter could drop the fixture row.
+  select count(*) into rows
+    from public.top_content_windowed('lifetime', 20, array[cid]);
+  if rows is distinct from 1 then
+    raise exception 'FAIL dedup: top_content_windowed returned % rows for a 2-snapshot single post (expected 1)', rows;
+  end if;
+
+  select * into r
+    from public.top_content_windowed('lifetime', 20, array[cid]);
+  if r.external_post_id is distinct from 'P' then
+    raise exception 'FAIL: unexpected post % (expected P)', r.external_post_id;
+  end if;
+  -- Latest snapshot wins — never the stale earlier row.
+  if r.current_views is distinct from 5000 then
+    raise exception 'FAIL: current_views = % (expected 5000, the latest snapshot — not 1000)', r.current_views;
+  end if;
+  if r.likes is distinct from 300 or r.comments is distinct from 150 or r.shares is distinct from 50 then
+    raise exception 'FAIL: latest-snapshot interactions wrong (got likes=%, comments=%, shares=%; expected 300/150/50)', r.likes, r.comments, r.shares;
+  end if;
+
+  raise notice 'ME-LEADERBOARD DEDUP ASSERTIONS PASSED';
+end $$;
+
+rollback;
