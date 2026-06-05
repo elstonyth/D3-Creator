@@ -106,6 +106,26 @@ export interface SiteSummary {
  *
  * Returns null if DB has zero creators-with-profiles (caller falls back to demo).
  */
+/**
+ * Max views per (profile_id, external_post_id) across all snapshots. Views are
+ * monotonic — a transient bad re-scrape (e.g. a stats endpoint momentarily
+ * returning 0, as happened to Douyin during a TikHub-credit outage) must not
+ * lower a post's recorded views below an earlier snapshot. Pairs with the
+ * newest-row dedup: keep the newest row for likes/caption/thumbnail, but take
+ * MAX(views) so one bad snapshot can't undercount the leaderboard.
+ */
+function maxViewsPerPost(
+  rows: ReadonlyArray<{ profile_id: string; external_post_id: string; views: number | null }>,
+): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const p of rows) {
+    const key = `${p.profile_id}:${p.external_post_id}`;
+    const v = p.views ?? 0;
+    if (v > (m.get(key) ?? -1)) m.set(key, v);
+  }
+  return m;
+}
+
 export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
   const sb = getSupabaseRead();
 
@@ -178,13 +198,14 @@ export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
     return null;
   }
   const seenPost = new Set<string>();
+  const maxViews = maxViewsPerPost(posts.rows);
   const byProfile = new Map<string, { totalViews: number; totalEng: number; count: number }>();
   for (const p of posts.rows) {
     const key = `${p.profile_id}:${p.external_post_id}`;
     if (seenPost.has(key)) continue;
     seenPost.add(key);
     const cur = byProfile.get(p.profile_id) ?? { totalViews: 0, totalEng: 0, count: 0 };
-    cur.totalViews += p.views ?? 0;
+    cur.totalViews += maxViews.get(key) ?? 0;
     cur.totalEng += (p.likes ?? 0) + (p.comments ?? 0) + (p.shares ?? 0);
     cur.count += 1;
     byProfile.set(p.profile_id, cur);
@@ -363,6 +384,7 @@ async function loadContentRows(): Promise<TopContentRow[]> {
   }
 
   const seen = new Set<string>();
+  const maxViews = maxViewsPerPost(posts.rows);
   const out: TopContentRow[] = [];
   for (const p of posts.rows) {
     const prof = profMap.get(p.profile_id);
@@ -370,7 +392,7 @@ async function loadContentRows(): Promise<TopContentRow[]> {
     const key = `${p.profile_id}:${p.external_post_id}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const views = p.views ?? 0;
+    const views = maxViews.get(key) ?? (p.views ?? 0);
     out.push({
       externalPostId: p.external_post_id,
       profileId: p.profile_id,
