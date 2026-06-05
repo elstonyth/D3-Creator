@@ -93,6 +93,17 @@ test('maps profile followers + reel views/engagement from the dataset items', as
   expect(res.posts[0].comments).toBe(5);
 });
 
+test('a reel prefers play_count over the lower video_view_count (FB displays plays)', async () => {
+  mockRun.mockResolvedValue([
+    fbItem({ post_id: 'r2', play_count: 1142280, video_view_count: 692463 }),
+  ]);
+
+  const res = await facebookAdapter.scrape(PROFILE_URL);
+
+  expect(res.posts[0].views).toBe(1142280);
+  expect(res.profile.total_views).toBe(1142280);
+});
+
 test('an image post (no views) maps with null views, not zero', async () => {
   mockRun.mockResolvedValue([
     fbItem({

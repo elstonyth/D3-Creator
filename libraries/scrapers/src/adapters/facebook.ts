@@ -126,7 +126,16 @@ function truncate(s: string | null | undefined, n: number): string | null {
 }
 
 function pickViews(p: BdFbPost): number | null {
-  return p.video_view_count ?? p.play_count ?? p.num_views ?? null;
+  // FB Reels expose BOTH a lower `video_view_count` (3s+ video views) and the
+  // higher `play_count` that FB actually shows on the reel (counts replays).
+  // Preferring video_view_count undercounted every reel (e.g. 692,463 stored vs
+  // FB's displayed 1,142,280). Take the max of whatever count fields are
+  // present so our number matches FB's public count and a partial/stale field
+  // can never undercount. Image posts carry none → null (not 0).
+  const counts = [p.play_count, p.video_view_count, p.num_views].filter(
+    (v): v is number => typeof v === 'number',
+  );
+  return counts.length ? Math.max(...counts) : null;
 }
 
 function pickContentType(p: BdFbPost): ContentType {
