@@ -33,17 +33,29 @@ insert into public.post_snapshot
 
 do $$
 declare
-  rows int;
+  row_count int;
   r record;
   cid uuid := '00000000-0000-0000-0000-00000000ed01';
+  pid uuid := '00000000-0000-0000-0000-00000000ed02';
 begin
+  -- Guard that the fixture actually reproduces the bug: the naive query the page
+  -- USED to run (raw post_snapshot for the post) returns one row per daily
+  -- snapshot — here 2. If this ever drops to 1, the fixture no longer exercises
+  -- the dedup path and the assertion below would pass vacuously.
+  select count(*) into row_count
+    from public.post_snapshot
+    where profile_id = pid and external_post_id = 'P';
+  if row_count is distinct from 2 then
+    raise exception 'FAIL fixture: expected 2 raw snapshots for post P (the bug input), got %', row_count;
+  end if;
+
   -- Exactly the call the /me leaderboard makes: lifetime window, profile-scoped.
   -- Scope via the PARAM (creator_ids), not an outer WHERE — the LIMIT is applied
   -- inside the function, so an outer filter could drop the fixture row.
-  select count(*) into rows
+  select count(*) into row_count
     from public.top_content_windowed('lifetime', 20, array[cid]);
-  if rows is distinct from 1 then
-    raise exception 'FAIL dedup: top_content_windowed returned % rows for a 2-snapshot single post (expected 1)', rows;
+  if row_count is distinct from 1 then
+    raise exception 'FAIL dedup: top_content_windowed returned % rows for a 2-snapshot single post (expected 1)', row_count;
   end if;
 
   select * into r

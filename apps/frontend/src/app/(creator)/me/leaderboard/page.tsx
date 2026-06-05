@@ -89,7 +89,7 @@ export default async function CreatorMeLeaderboardPage() {
             const isWinner = i === 0;
             return (
               <li
-                key={p.externalPostId + i}
+                key={`${p.profileId}:${p.externalPostId}`}
                 className="glass-elevated rounded-xl p-4 flex items-center gap-4"
               >
                 <span
