@@ -18,6 +18,7 @@ import {
   placeholderDeltaPct,
   type PlatformFilter,
 } from './showcase-data';
+import { VIEW_PERIODS, type ViewPeriod } from '@gitroom/frontend/lib/view-periods';
 import { ShowcaseNumber } from './showcase-number';
 import type { LiveCreatorRow } from '@gitroom/frontend/lib/queries';
 
@@ -35,18 +36,8 @@ const TABS: TabDef[] = [
   // xiaohongshu (RedNote) archived — hidden from the platform filter.
 ];
 
-/** Time-period filter for the Total Views hero. `caption` feeds the dynamic subline. */
-type ViewPeriod = '1d' | '1w' | '1m' | '3m' | '6m' | '12m' | 'lifetime';
-
-const VIEW_PERIODS: { value: ViewPeriod; label: string; caption: string }[] = [
-  { value: '1d', label: '1D', caption: 'last 24 hours' },
-  { value: '1w', label: '1W', caption: 'last 7 days' },
-  { value: '1m', label: '1M', caption: 'last 30 days' },
-  { value: '3m', label: '3M', caption: 'last 3 months' },
-  { value: '6m', label: '6M', caption: 'last 6 months' },
-  { value: '12m', label: '12M', caption: 'last 12 months' },
-  { value: 'lifetime', label: 'Lifetime', caption: 'all-time, across tracked posts' },
-];
+/** Sort key for the Top Creators list (re-rank by views or by followers). */
+type CreatorSort = 'views' | 'followers';
 
 const BREAKDOWN_PLATFORMS: PlatformKey[] = ['facebook', 'instagram', 'tiktok', 'douyin'];
 // Dashboard is a summary — show the top slice; the leaderboard has the full list.
@@ -136,6 +127,7 @@ export function DashboardShowcase({
 }: DashboardShowcaseProps = {}) {
   const [filter, setFilter] = useState<PlatformFilter>('all');
   const [activeViewFilter, setActiveViewFilter] = useState<ViewPeriod>('lifetime');
+  const [creatorSort, setCreatorSort] = useState<CreatorSort>('views');
   const isLive = !!(creators && creators.length > 0);
   const baseCreators = useMemo(
     () => (isLive ? creators! : demoCreatorRows()),
@@ -186,9 +178,13 @@ export function DashboardShowcase({
           totalViews:
             creatorViewsByWindow?.[r.key]?.[filter]?.[activeViewFilter] ?? r.totalViews,
         }))
-        .sort((a, b) => b.totalViews - a.totalViews)
+        .sort((a, b) =>
+          creatorSort === 'followers'
+            ? b.followers - a.followers
+            : b.totalViews - a.totalViews,
+        )
         .slice(0, TOP_CREATORS_LIMIT),
-    [rows, creatorViewsByWindow, filter, activeViewFilter],
+    [rows, creatorViewsByWindow, filter, activeViewFilter, creatorSort],
   );
   const hasMore = rows.length > TOP_CREATORS_LIMIT;
 
@@ -320,7 +316,13 @@ export function DashboardShowcase({
 
       {/* Content row — top creators + platform breakdown */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-4 items-start">
-        <TopCreatorsCard rows={topCreators} filter={filter} hasMore={hasMore} />
+        <TopCreatorsCard
+          rows={topCreators}
+          filter={filter}
+          hasMore={hasMore}
+          sort={creatorSort}
+          onSortChange={setCreatorSort}
+        />
         <PlatformBreakdownCard activeFilter={filter} onSelect={setFilter} rows={breakdownWindowed} />
       </div>
 
@@ -463,26 +465,55 @@ function TopCreatorsCard({
   rows,
   filter,
   hasMore,
+  sort,
+  onSortChange,
 }: {
   rows: DisplayRow[];
   filter: PlatformFilter;
   hasMore: boolean;
+  sort: CreatorSort;
+  onSortChange: (next: CreatorSort) => void;
 }) {
   return (
     <GlassCard variant="base" padding="md" radius="2xl" className="flex flex-col">
-      <div className="flex items-end justify-between mb-4">
+      <div className="flex items-end justify-between gap-3 mb-4">
         <div className="flex flex-col gap-1">
           <span className="text-label text-fg font-medium">Top Creators</span>
           <span className="text-body-sm text-fgMuted">
-            {filterLabel(filter)} · by views
+            {filterLabel(filter)} · by {sort === 'followers' ? 'followers' : 'views'}
           </span>
         </div>
-        <Link
-          href="/leaderboard"
-          className="text-caption text-fgMuted hover:text-fg transition-colors"
-        >
-          See all →
-        </Link>
+        <div className="flex items-center gap-3">
+          <div role="tablist" aria-label="Sort creators" className="flex items-center gap-1">
+            {(['views', 'followers'] as const).map((value) => {
+              const isActive = value === sort;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => onSortChange(value)}
+                  className={clsx(
+                    'h-7 px-2.5 rounded-lg text-caption whitespace-nowrap',
+                    'transition-colors duration-150 ease-out',
+                    isActive
+                      ? 'bg-glass-subtle text-fg border border-borderGlassStrong'
+                      : 'border border-transparent text-fgMuted hover:text-fg hover:bg-white/[0.04]'
+                  )}
+                >
+                  {value === 'followers' ? 'Followers' : 'Views'}
+                </button>
+              );
+            })}
+          </div>
+          <Link
+            href="/leaderboard"
+            className="text-caption text-fgMuted hover:text-fg transition-colors whitespace-nowrap"
+          >
+            See all →
+          </Link>
+        </div>
       </div>
 
       {rows.length === 0 ? (

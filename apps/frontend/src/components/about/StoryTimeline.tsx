@@ -12,27 +12,27 @@ interface Milestone {
 // Placeholder milestones — swap with the real D3 history when available.
 const MILESTONES: Milestone[] = [
   {
-    year: '2021',
+    year: '2023',
     title: 'D3 founded in Malaysia',
     body: 'Started as a content production studio focused on turning attention into business — not vanity, not motivation.',
   },
   {
-    year: '2022',
+    year: '2024',
     title: 'First creator hits 100K followers',
     body: 'Proof the system works. The first of many — and the moment we started counting outcomes, not impressions.',
   },
   {
-    year: '2023',
+    year: '2025',
     title: 'Multi-platform expansion',
     body: 'Operations expand to TikTok, Instagram, Facebook, and Douyin. Four platforms, one playbook.',
   },
   {
-    year: '2024',
-    title: '50+ creators in the ecosystem',
-    body: 'The studio crosses fifty active creators, all measured against real outcomes: leads, sales, brand value.',
+    year: '2026',
+    title: '20+ creators in the ecosystem',
+    body: 'The studio crosses twenty active creators, all measured against real outcomes: leads, sales, brand value.',
   },
   {
-    year: '2026',
+    year: 'now',
     title: 'D3 Creator goes public',
     body: 'Live leaderboard launches. Every number visible, nothing hidden. The thesis on display.',
   },
@@ -48,13 +48,13 @@ export function StoryTimeline() {
     >
       <header className="mb-12 max-w-[760px]">
         <p className="text-micro uppercase text-fgSubtle tracking-[0.35em] mb-3">
-          Since 2021
+          Since 2023
         </p>
         <h2
           id="about-timeline-heading"
           className="text-display-2 text-fg tracking-[-0.03em] leading-[1.08]"
         >
-          Five years of building creators that actually{' '}
+          Three years of building creators that actually{' '}
           <span className="text-brand">generate business</span>.
         </h2>
         <p className="text-body-lg text-fgMuted mt-6">
