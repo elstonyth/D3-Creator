@@ -2,6 +2,7 @@ import '../global.scss';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Analytics } from '@vercel/analytics/next';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { SignOutButton } from '@gitroom/frontend/components/auth/signout-button';
 import NavLink from '@gitroom/frontend/components/ui/nav-link';
@@ -57,6 +58,7 @@ export default async function CreatorLayout({ children }: { children: ReactNode 
         <main className="relative z-10 flex-1 w-full">
           <div className="max-w-[1200px] mx-auto px-6 md:px-8">{children}</div>
         </main>
+        <Analytics />
       </body>
     </html>
   );

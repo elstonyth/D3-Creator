@@ -1,6 +1,7 @@
 import '../global.scss';
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
+import { Analytics } from '@vercel/analytics/next';
 
 export const metadata: Metadata = {
   title: 'Sign in — D3 Creator',
@@ -20,7 +21,10 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         <link rel="icon" href="/d3-logo.png?v=3" type="image/png" />
         <meta name="darkreader-lock" />
       </head>
-      <body className="dark bg-canvas text-fg font-sans antialiased">{children}</body>
+      <body className="dark bg-canvas text-fg font-sans antialiased">
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
