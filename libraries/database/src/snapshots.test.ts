@@ -154,3 +154,58 @@ test('strips lone surrogates (split emoji) from caption + raw but keeps valid pa
   // The valid emoji pair must survive the scrub (only the lone half is dropped).
   expect((row.raw as { desc: string }).desc).toBe(`keep ${emoji} drop  end`);
 });
+
+// --- Data-window guard (2026-06-05) ---
+// The product's data window starts 2025-01-01. A one-time cleanup deleted the
+// pre-2025 backlog; the writer must drop pre-window posts so a re-scrape can't
+// re-introduce them (a Douyin heal had re-added 4 Dec-2024 reels). A post we
+// cannot date (null posted_at) is kept — never silently drop an undatable post.
+function dated(id: string, postedAt: string | null): PostSnapshotInput {
+  return { ...post(id, 1), posted_at: postedAt };
+}
+
+test('drops posts published before the 2025-01-01 window, keeps boundary/in-window/undated/unparseable', async () => {
+  let captured: any[] = [];
+  mockAdmin.mockReturnValue({
+    from: () => ({
+      upsert: (rows: any[]) => {
+        captured = rows;
+        return { select: () => ({ data: rows.map((_, i) => ({ id: i })), error: null }) };
+      },
+    }),
+  });
+
+  const res = await upsertPostSnapshots('profile-1', [
+    dated('old', '2024-12-16T00:00:00Z'), // before window -> dropped
+    dated('boundary', '2025-01-01T00:00:00Z'), // exactly the start -> kept (>= cutoff)
+    dated('recent', '2026-03-01T10:00:00Z'), // in window -> kept
+    dated('undated', null), // null date -> kept
+    dated('unparseable', 'not-a-valid-date'), // unparseable date -> kept (never drop what we can't date)
+  ]);
+
+  expect(captured.map((r) => r.external_post_id).sort()).toEqual([
+    'boundary',
+    'recent',
+    'undated',
+    'unparseable',
+  ]);
+  expect(captured.map((r) => r.external_post_id)).not.toContain('old');
+  expect(res.written).toBe(4);
+});
+
+test('skips the DB entirely when every post is before the data window', async () => {
+  let upsertCalled = false;
+  mockAdmin.mockReturnValue({
+    from: () => ({
+      upsert: (rows: any[]) => {
+        upsertCalled = true;
+        return { select: () => ({ data: rows.map((_, i) => ({ id: i })), error: null }) };
+      },
+    }),
+  });
+
+  const res = await upsertPostSnapshots('profile-1', [dated('a', '2024-06-01T00:00:00Z')]);
+
+  expect(res.written).toBe(0);
+  expect(upsertCalled).toBe(false); // returns before touching the DB
+});

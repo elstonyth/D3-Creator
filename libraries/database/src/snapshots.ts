@@ -20,6 +20,25 @@ import type { ProfileRow, ScrapeStatus } from './types';
  *  into bounded chunks keeps each statement well under the limit. */
 const POST_UPSERT_CHUNK = 50;
 
+/** The product's data window starts here. Posts published before this date are
+ *  out of scope and dropped on write: a one-time cleanup deleted the pre-2025
+ *  backlog, but without this guard any re-scrape (daily cron or admin backfill)
+ *  would re-introduce old posts a platform still returns among a profile's
+ *  recent items. Only post_snapshot is windowed — profile_snapshot is a daily
+ *  aggregate with no post date. */
+export const DATA_WINDOW_START = '2025-01-01';
+const DATA_WINDOW_START_MS = Date.parse(`${DATA_WINDOW_START}T00:00:00Z`);
+
+/** True only when posted_at definitively parses to an instant before the data
+ *  window. A null or unparseable date returns false — never silently drop a
+ *  post we cannot date. Comparing instants (not strings) matches the DB's
+ *  `posted_at < '2025-01-01'` semantics across timezone offsets. */
+function isBeforeDataWindow(postedAt: string | null): boolean {
+  if (!postedAt) return false;
+  const t = Date.parse(postedAt);
+  return !Number.isNaN(t) && t < DATA_WINDOW_START_MS;
+}
+
 // Postgres rejects two things inside otherwise-valid JSON/text that scraped
 // payloads can contain, and either aborts the whole UPSERT:
 //   1. an embedded NUL byte (text & jsonb both reject it), and
@@ -193,6 +212,19 @@ export async function upsertPostSnapshots(
   posts: PostSnapshotInput[],
 ): Promise<{ written: number }> {
   if (posts.length === 0) return { written: 0 };
+
+  // Enforce the data window on the write path so a re-scrape can't re-introduce
+  // the pre-2025 backlog the one-time cleanup removed. Dropping here (the single
+  // chokepoint for every writer: cron, admin backfill, manual scrape) covers
+  // all paths at once.
+  const inWindow = posts.filter((p) => !isBeforeDataWindow(p.posted_at));
+  if (inWindow.length < posts.length) {
+    console.warn(
+      `[upsertPostSnapshots] profile ${profileId}: skipped ${posts.length - inWindow.length} post(s) published before ${DATA_WINDOW_START}`,
+    );
+  }
+  if (inWindow.length === 0) return { written: 0 };
+
   const sb = getSupabaseAdmin();
   // De-duplicate by external_post_id before the batch UPSERT. Every row shares
   // the same (profile_id, captured_date), so two rows with the same
@@ -202,7 +234,7 @@ export async function upsertPostSnapshots(
   // routinely repeat a post (a pinned item also appearing in the timeline).
   // Last write wins, matching this writer's documented idempotent intent.
   const byId = new Map<string, PostSnapshotInput>();
-  for (const p of posts) byId.set(p.external_post_id, p);
+  for (const p of inWindow) byId.set(p.external_post_id, p);
   const rows = [...byId.values()].map((p) => ({
     profile_id: profileId,
     external_post_id: p.external_post_id,
