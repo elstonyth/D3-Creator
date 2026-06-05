@@ -2,10 +2,9 @@ import { Metadata } from 'next';
 import { LeaderboardShowcase } from '@gitroom/frontend/components/leaderboard-showcase/leaderboard-showcase';
 import {
   getLiveCreatorRows,
-  getTopContentRankings,
+  getTopContentRankingsWindowed,
   type LiveCreatorRow,
 } from '@gitroom/frontend/lib/queries';
-import type { TopContentRow } from '@gitroom/frontend/lib/metrics-windowed';
 
 // ISR: 1h cache, see (public)/page.tsx for rationale.
 export const revalidate = 3600;
@@ -22,9 +21,9 @@ export default async function LeaderboardPage() {
       console.error('[leaderboard] creators', e);
       return null as LiveCreatorRow[] | null;
     }),
-    getTopContentRankings(50).catch((e) => {
+    getTopContentRankingsWindowed(50).catch((e) => {
       console.error('[leaderboard] top content', e);
-      return { byViews: [] as TopContentRow[], byInteractions: [] as TopContentRow[] };
+      return null;
     }),
   ]);
 
@@ -46,8 +45,7 @@ export default async function LeaderboardPage() {
 
       <LeaderboardShowcase
         liveCreators={creators}
-        topByViews={content.byViews}
-        topByInteractions={content.byInteractions}
+        topContentByWindow={content}
       />
     </div>
   );

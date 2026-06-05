@@ -15,6 +15,7 @@ import {
 import { ShowcaseNumber } from '../dashboard-showcase/showcase-number';
 import type { LiveCreatorRow } from '@gitroom/frontend/lib/queries';
 import type { TopContentRow } from '@gitroom/frontend/lib/metrics-windowed';
+import { VIEW_PERIODS, type ViewPeriod } from '@gitroom/frontend/lib/view-periods';
 import { ViewLeaderboard } from './view-leaderboard';
 
 interface TabDef {
@@ -79,10 +80,15 @@ function resolveRows(creators: LiveCreatorRow[], filter: PlatformFilter): LbRow[
   return rows.sort((a, b) => b.totalViews - a.totalViews);
 }
 
+/** Top content ranked by views and by interactions, per time window. */
+export type TopContentByWindow = Record<
+  ViewPeriod,
+  { byViews: TopContentRow[]; byInteractions: TopContentRow[] }
+>;
+
 export interface LeaderboardShowcaseProps {
   liveCreators?: LiveCreatorRow[] | null;
-  topByViews?: TopContentRow[] | null;
-  topByInteractions?: TopContentRow[] | null;
+  topContentByWindow?: TopContentByWindow | null;
 }
 
 /**
@@ -92,10 +98,10 @@ export interface LeaderboardShowcaseProps {
  */
 export function LeaderboardShowcase({
   liveCreators,
-  topByViews,
-  topByInteractions,
+  topContentByWindow,
 }: LeaderboardShowcaseProps = {}) {
   const [filter, setFilter] = useState<PlatformFilter>('all');
+  const [contentPeriod, setContentPeriod] = useState<ViewPeriod>('lifetime');
   const isLive = !!(liveCreators && liveCreators.length > 0);
   const baseCreators = useMemo(
     () => (isLive ? liveCreators! : demoCreatorRows()),
@@ -115,6 +121,8 @@ export function LeaderboardShowcase({
     }
     return { creators: rows.length, followers, views, engagement };
   }, [rows]);
+
+  const content = topContentByWindow?.[contentPeriod];
 
   return (
     <div className="flex flex-col gap-5">
@@ -149,9 +157,12 @@ export function LeaderboardShowcase({
         )}
       </RankSection>
 
+      {/* Time filter governing both content rankings (posts published in window) */}
+      <ContentPeriodBar value={contentPeriod} onChange={setContentPeriod} />
+
       {/* Ranking 2 — Top content by views */}
       <ViewLeaderboard
-        rows={topByViews ?? []}
+        rows={content?.byViews ?? []}
         title="Top Content"
         subtitle="Most-viewed posts"
         metric="views"
@@ -159,7 +170,7 @@ export function LeaderboardShowcase({
 
       {/* Ranking 3 — Top content by interactions */}
       <ViewLeaderboard
-        rows={topByInteractions ?? []}
+        rows={content?.byInteractions ?? []}
         title="Top Engaging Content"
         subtitle="Most likes, comments & shares"
         metric="interactions"
@@ -212,6 +223,50 @@ function PlatformTabBar({ value, onChange }: PlatformTabBarProps) {
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// --- Content time-period bar ----------------------------------------------
+
+/** Shared time filter for both content rankings. Window = posts PUBLISHED in it. */
+function ContentPeriodBar({
+  value,
+  onChange,
+}: {
+  value: ViewPeriod;
+  onChange: (next: ViewPeriod) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+      <span className="text-caption text-fgSubtle">Posted in</span>
+      <div
+        role="tablist"
+        aria-label="Content time period"
+        className="flex flex-wrap items-center gap-1"
+      >
+        {VIEW_PERIODS.map((period) => {
+          const isActive = period.value === value;
+          return (
+            <button
+              key={period.value}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => onChange(period.value)}
+              className={clsx(
+                'h-7 px-2.5 rounded-lg text-caption whitespace-nowrap',
+                'transition-colors duration-150 ease-out',
+                isActive
+                  ? 'bg-glass-subtle text-fg border border-borderGlassStrong'
+                  : 'border border-transparent text-fgMuted hover:text-fg hover:bg-white/[0.04]'
+              )}
+            >
+              {period.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

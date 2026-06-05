@@ -16,6 +16,7 @@ import { getSupabaseRead } from './supabase-server';
 import { resolveMediaUrl } from './media-url';
 import type { TopContentRow } from './metrics-windowed';
 import type { PlatformKey } from '@gitroom/frontend/components/ui/platform-icons';
+import { VIEW_PERIODS, viewPeriodCutoff, type ViewPeriod } from './view-periods';
 
 // DB stores 'rednote'; showcase uses 'xiaohongshu' — single map point.
 function dbPlatformToKey(platform: string): PlatformKey {
@@ -425,19 +426,34 @@ export async function getTopContent(limit = 20): Promise<TopContentRow[]> {
 }
 
 /**
- * Top content ranked two ways from a SINGLE fetch: by views and by interactions
- * (likes + comments + shares). Powers the leaderboard's two content grids.
+ * Top content ranked two ways (by views, by interactions) for EACH time window,
+ * from a SINGLE post fetch. Window = posts PUBLISHED in the window (matches the
+ * dashboard pills); `lifetime` = no date filter. Powers the leaderboard's
+ * time-filtered content grids. Posts with no postedAt appear only under `lifetime`.
  */
-export async function getTopContentRankings(
+export async function getTopContentRankingsWindowed(
   limit = 12,
-): Promise<{ byViews: TopContentRow[]; byInteractions: TopContentRow[] }> {
+): Promise<Record<ViewPeriod, { byViews: TopContentRow[]; byInteractions: TopContentRow[] }>> {
   const rows = await loadContentRows();
-  return {
-    byViews: [...rows].sort((a, b) => b.currentViews - a.currentViews).slice(0, limit),
-    byInteractions: [...rows]
-      .sort((a, b) => postInteractions(b) - postInteractions(a))
-      .slice(0, limit),
-  };
+  const nowMs = Date.now();
+  const out = {} as Record<
+    ViewPeriod,
+    { byViews: TopContentRow[]; byInteractions: TopContentRow[] }
+  >;
+  for (const { value: period } of VIEW_PERIODS) {
+    const cutoff = viewPeriodCutoff(period, nowMs);
+    const inWindow =
+      cutoff == null
+        ? rows
+        : rows.filter((r) => r.postedAt != null && Date.parse(r.postedAt) >= cutoff);
+    out[period] = {
+      byViews: [...inWindow].sort((a, b) => b.currentViews - a.currentViews).slice(0, limit),
+      byInteractions: [...inWindow]
+        .sort((a, b) => postInteractions(b) - postInteractions(a))
+        .slice(0, limit),
+    };
+  }
+  return out;
 }
 
 // ---------- Creator detail (Task 5 step 3) ----------
