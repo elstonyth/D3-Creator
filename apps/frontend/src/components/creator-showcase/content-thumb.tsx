@@ -136,7 +136,9 @@ export function ContentThumb({ post, onOpen }: ContentThumbProps) {
               ↗ {formatCompact(post.metrics.shares)}
             </span>
           )}
-          <span>{relativeTime(post.publishedAt)}</span>
+          {/* suppressHydrationWarning: relativeTime() reads "now", so the server
+              and client renders differ by ~seconds for very-recent posts. */}
+          <span suppressHydrationWarning>{relativeTime(post.publishedAt)}</span>
         </div>
       </div>
 

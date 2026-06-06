@@ -19,6 +19,7 @@ import {
   demoCreatorRows,
 } from '@gitroom/frontend/components/dashboard-showcase/showcase-data';
 import { ShowcaseNumber } from '@gitroom/frontend/components/dashboard-showcase/showcase-number';
+import { ImageWithFallback } from '@gitroom/frontend/components/ui/image-with-fallback';
 import {
   getLiveCreatorRows,
   summarizeCreatorRows,
@@ -250,12 +251,12 @@ export default async function HomePage() {
                       </span>
                       <span className="flex items-center gap-3 min-w-0">
                         <span className="size-8 shrink-0 rounded-full bg-customColor1 border border-borderGlass grid place-items-center overflow-hidden text-caption text-fgMuted">
-                          {creator.avatarUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element -- external avatar, dims vary
-                            <img src={creator.avatarUrl} alt="" className="size-full object-cover" />
-                          ) : (
-                            initial
-                          )}
+                          <ImageWithFallback
+                            src={creator.avatarUrl}
+                            alt=""
+                            className="size-full object-cover"
+                            fallback={initial}
+                          />
                         </span>
                         <span className="truncate text-body text-fg font-medium">
                           {creator.displayName}
@@ -381,13 +382,13 @@ export default async function HomePage() {
                       {PLATFORM_LABELS[platform]}
                     </span>
                     <span className="text-[clamp(20px,2vw,24px)] leading-none tracking-[-0.02em] font-semibold text-fg tabular-nums">
-                      {isEmpty ? '—' : formatShowcase(followers)}
+                      {isEmpty ? '—' : formatShowcase(totalViews)}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between text-caption text-fgMuted font-mono tabular-nums pt-3 border-t border-borderGlass">
-                    <span>{isEmpty ? '—' : formatShowcase(totalViews)}</span>
-                    <span>views</span>
+                    <span>{isEmpty ? '—' : formatShowcase(followers)}</span>
+                    <span>followers</span>
                   </div>
                 </GlassCard>
               </Link>
