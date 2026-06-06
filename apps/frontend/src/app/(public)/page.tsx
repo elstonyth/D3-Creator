@@ -382,13 +382,13 @@ export default async function HomePage() {
                       {PLATFORM_LABELS[platform]}
                     </span>
                     <span className="text-[clamp(20px,2vw,24px)] leading-none tracking-[-0.02em] font-semibold text-fg tabular-nums">
-                      {isEmpty ? '—' : formatShowcase(followers)}
+                      {isEmpty ? '—' : formatShowcase(totalViews)}
                     </span>
                   </div>
 
                   <div className="flex items-center justify-between text-caption text-fgMuted font-mono tabular-nums pt-3 border-t border-borderGlass">
-                    <span>{isEmpty ? '—' : formatShowcase(totalViews)}</span>
-                    <span>views</span>
+                    <span>{isEmpty ? '—' : formatShowcase(followers)}</span>
+                    <span>followers</span>
                   </div>
                 </GlassCard>
               </Link>
