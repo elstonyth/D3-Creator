@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { GlassCard } from '@gitroom/frontend/components/ui/glass-card';
 import { BentoGrid, BentoItem } from '@gitroom/frontend/components/ui/bento-grid';
+import { ImageWithFallback } from '@gitroom/frontend/components/ui/image-with-fallback';
 import {
   PLATFORM_ICONS,
   PLATFORM_LABELS,
@@ -74,16 +75,12 @@ export default async function CreatorPage({
       <header className="flex items-start justify-between gap-6 flex-wrap">
         <div className="flex items-center gap-5">
           <div className="size-20 rounded-2xl glass-subtle border border-borderGlass overflow-hidden flex items-center justify-center text-heading text-brand font-semibold shrink-0">
-            {creator.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={creator.avatarUrl}
-                alt={creator.displayName}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              creator.displayName.charAt(0).toUpperCase()
-            )}
+            <ImageWithFallback
+              src={creator.avatarUrl}
+              alt={creator.displayName}
+              className="w-full h-full object-cover"
+              fallback={creator.displayName.charAt(0).toUpperCase()}
+            />
           </div>
           <div>
             <span className="inline-flex items-center px-2.5 py-1 rounded-full glass-subtle border border-borderGlass text-caption text-fgMuted mb-3">

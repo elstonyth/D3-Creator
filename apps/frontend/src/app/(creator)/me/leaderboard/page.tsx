@@ -8,6 +8,7 @@ import {
   type TopContentRow,
 } from '@gitroom/frontend/lib/metrics-windowed';
 import { EmptyState } from '@gitroom/frontend/components/ui/empty-state';
+import { ImageWithFallback } from '@gitroom/frontend/components/ui/image-with-fallback';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -100,19 +101,17 @@ export default async function CreatorMeLeaderboardPage() {
                   {i + 1}
                 </span>
                 <div className="relative size-14 rounded-md overflow-hidden bg-customColor1 shrink-0">
-                  {thumb ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- proxied, dims vary by platform
-                    <img
-                      src={thumb}
-                      alt={p.captionExcerpt ?? 'Post thumbnail'}
-                      loading="lazy"
-                      className="absolute inset-0 size-full object-cover"
-                    />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-caption text-fgSubtle">
-                      —
-                    </div>
-                  )}
+                  <ImageWithFallback
+                    src={thumb}
+                    alt={p.captionExcerpt ?? 'Post thumbnail'}
+                    loading="lazy"
+                    className="absolute inset-0 size-full object-cover"
+                    fallback={
+                      <div className="absolute inset-0 flex items-center justify-center text-caption text-fgSubtle">
+                        —
+                      </div>
+                    }
+                  />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-body text-fg truncate">

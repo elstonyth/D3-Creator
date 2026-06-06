@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import clsx from 'clsx';
 import { GlassCard } from '../ui/glass-card';
+import { ImageWithFallback } from '../ui/image-with-fallback';
 import {
   PLATFORM_ICONS,
   PLATFORM_LABELS,
@@ -566,12 +567,12 @@ function CreatorRow({ row, rank }: { row: DisplayRow; rank: number }) {
       </span>
       <span className="flex items-center gap-3 min-w-0">
         <span className="size-8 shrink-0 rounded-full bg-customColor1 border border-borderGlass grid tiny:hidden place-items-center overflow-hidden text-caption text-fgMuted">
-          {row.avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- external avatar, dims vary
-            <img src={row.avatarUrl} alt="" className="size-full object-cover" />
-          ) : (
-            initial
-          )}
+          <ImageWithFallback
+            src={row.avatarUrl}
+            alt=""
+            className="size-full object-cover"
+            fallback={initial}
+          />
         </span>
         <span className="truncate text-body text-fg font-medium">{row.name}</span>
       </span>
