@@ -8,6 +8,7 @@ import {
   type TopContentRow,
 } from '@gitroom/frontend/lib/metrics-windowed';
 import { EmptyState } from '@gitroom/frontend/components/ui/empty-state';
+import { PLATFORM_ICONS, type PlatformKey } from '@gitroom/frontend/components/ui/platform-icons';
 import { ImageWithFallback } from '@gitroom/frontend/components/ui/image-with-fallback';
 
 export const dynamic = 'force-dynamic';
@@ -120,6 +121,16 @@ export default async function CreatorMeLeaderboardPage() {
                   <p className="text-caption text-fgMuted">
                     {p.postedAt ? new Date(p.postedAt).toLocaleDateString() : '—'}
                   </p>
+                  {p.alsoOn && p.alsoOn.length > 0 && (
+                    <div className="mt-1 flex items-center gap-1 text-fgSubtle">
+                      <span className="text-caption">also on</span>
+                      {p.alsoOn.map((plat) => {
+                        const AlsoIcon =
+                          PLATFORM_ICONS[(plat === 'rednote' ? 'xiaohongshu' : plat) as PlatformKey];
+                        return AlsoIcon ? <AlsoIcon key={plat} size={12} /> : null;
+                      })}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-5 shrink-0 text-right tabular-nums">
                   <PostStat label="views" value={p.currentViews} strong />

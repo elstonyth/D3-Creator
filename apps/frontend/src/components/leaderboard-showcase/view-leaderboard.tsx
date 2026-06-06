@@ -159,6 +159,15 @@ function ContentCard({
           <div className="text-caption text-fgSubtle truncate mt-0.5">
             {row.creatorName ?? row.handle ?? ''}
           </div>
+          {row.alsoOn && row.alsoOn.length > 0 && (
+            <div className="flex items-center gap-1 mt-1 text-fgSubtle">
+              <span className="text-micro">also on</span>
+              {row.alsoOn.map((p) => {
+                const AlsoIcon = PLATFORM_ICONS[toPlatformKey(p)];
+                return AlsoIcon ? <AlsoIcon key={p} size={11} /> : null;
+              })}
+            </div>
+          )}
         </div>
       </a>
     </li>

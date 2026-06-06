@@ -56,6 +56,12 @@ export interface TopContentRow {
   likes: number;
   comments: number;
   shares: number;
+  /** Normalized video length in whole seconds (post_snapshot.duration_seconds);
+   *  null for images / posts without a duration. Cross-platform de-dup key. */
+  durationSeconds?: number | null;
+  /** Other platforms this same content ran on (db platform strings), set when
+   *  cross-platform duplicates were collapsed into this row. */
+  alsoOn?: string[];
 }
 
 export interface WindowedMetricsOpts {
@@ -154,6 +160,10 @@ export async function getTopContentWindowed(
       likes: toNum(r.likes),
       comments: toNum(r.comments),
       shares: toNum(r.shares),
+      // Other platforms this same content ran on (cross-platform dedup, RPC-side).
+      // Empty array (singleton) → undefined so the UI's `alsoOn?.length` guard is clean.
+      alsoOn:
+        Array.isArray(r.also_on) && r.also_on.length ? (r.also_on as string[]) : undefined,
     }),
   );
 }
