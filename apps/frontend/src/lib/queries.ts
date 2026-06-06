@@ -570,6 +570,15 @@ function extractRawProfileFields(raw: unknown): {
 }
 
 /**
+ * Escape Postgres LIKE/ILIKE wildcards so a user-supplied handle is matched
+ * literally. Without this, `_`/`%` in the route param act as wildcards and can
+ * resolve the WRONG creator (mirrors escapeLikePattern in libraries/database).
+ */
+function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
+
+/**
  * Resolve a creator by any of their profile handles. Returns null when no
  * profile.handle matches and no creator.display_name matches.
  */
@@ -582,7 +591,7 @@ export async function getCreatorByHandle(
   const profileRes = await sb
     .from('profile')
     .select('id, creator_id, platform, profile_url, handle, nickname, scrape_status')
-    .ilike('handle', handle)
+    .ilike('handle', escapeLikePattern(handle))
     .neq('platform', 'rednote') // xiaohongshu archived — its handles 404
     .limit(1)
     .maybeSingle();
@@ -808,6 +817,10 @@ export async function getCreatorPlatformDetail(
     )
     .eq('profile_id', slot.profileId)
     .order('captured_at', { ascending: false })
+    // posted_at tiebreak: a deep backfill writes many posts under a single
+    // captured_at, so without this the fetched 60 (and thus the displayed 30)
+    // would be an arbitrary slice rather than the newest-published posts.
+    .order('posted_at', { ascending: false, nullsFirst: false })
     .limit(60);
 
   if (postsRes.error) {
