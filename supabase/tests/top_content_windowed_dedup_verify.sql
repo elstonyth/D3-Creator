@@ -39,7 +39,12 @@ insert into public.post_snapshot
   -- Two captionless videos, SAME 100s duration -> must stay separate (no hook to
   -- prove they are the same content).
   ('00000000-0000-0000-0000-0000000fcd03','C_ig', 200,null,                               '{"video_duration":100}'),
-  ('00000000-0000-0000-0000-0000000fcd04','C_tt', 100,null,                               '{"video_duration":100}');
+  ('00000000-0000-0000-0000-0000000fcd04','C_tt', 100,null,                               '{"video_duration":100}'),
+  -- Two NO-duration posts (images: raw carries no duration field) with the SAME
+  -- hook -> must stay separate. Hook alone must not merge without a duration
+  -- signal (else unrelated posts sharing an intro line over-merge).
+  ('00000000-0000-0000-0000-0000000fcd02','D_fb',  50,'gamma hook',    '{}'),
+  ('00000000-0000-0000-0000-0000000fcd03','D_ig',  40,'gamma hook #x', '{}');
 
 do $$
 declare
@@ -47,19 +52,20 @@ declare
   r record;
   cid uuid := '00000000-0000-0000-0000-0000000fcd01';
 begin
-  -- Fixture guard: 6 raw post rows exist (the un-deduped input).
+  -- Fixture guard: 8 raw post rows exist (the un-deduped input).
   select count(*) into total
     from public.post_snapshot ps join public.profile p on p.id = ps.profile_id
     where p.creator_id = cid;
-  if total is distinct from 6 then
-    raise exception 'FAIL fixture: expected 6 raw post rows, got %', total;
+  if total is distinct from 8 then
+    raise exception 'FAIL fixture: expected 8 raw post rows, got %', total;
   end if;
 
-  -- Collapse: 6 posts -> 4 content groups (VideoA ×3 -> 1, VideoB, two captionless).
+  -- Collapse: 8 posts -> 6 content groups (VideoA ×3 -> 1; VideoB; two captionless
+  -- videos; two no-duration images — the last four never merge).
   select count(*) into total from public.top_content_windowed(
     p_window := 'lifetime', p_limit := 50, p_creator_ids := array[cid]);
-  if total is distinct from 4 then
-    raise exception 'FAIL collapse: expected 4 deduped rows, got %', total;
+  if total is distinct from 6 then
+    raise exception 'FAIL collapse: expected 6 deduped rows, got %', total;
   end if;
 
   -- VideoA collapses to the highest-views copy (FB / 5000), other platforms in also_on.
@@ -101,6 +107,15 @@ begin
     where external_post_id in ('C_ig','C_tt');
   if total is distinct from 2 then
     raise exception 'FAIL captionless: expected 2 separate captionless rows, got %', total;
+  end if;
+
+  -- No-duration guard: two no-duration posts sharing a hook stay separate (the
+  -- hook alone must not merge without a duration signal).
+  select count(*) into total from public.top_content_windowed(
+    p_window := 'lifetime', p_limit := 50, p_creator_ids := array[cid])
+    where external_post_id in ('D_fb','D_ig');
+  if total is distinct from 2 then
+    raise exception 'FAIL no-duration: expected 2 separate no-duration rows, got %', total;
   end if;
 
   raise notice 'TOP-CONTENT-WINDOWED DEDUP ASSERTIONS PASSED';

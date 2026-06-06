@@ -24,20 +24,19 @@ function captionKey(caption: string | null): string {
 
 /**
  * Stable identity for a piece of content across platforms: same creator + same
- * whole-second duration + same caption hook => same video. Both signals are
- * required — duration alone over-merges (different videos share an exact-second
- * length) and the hook alone can merge templated intros. Captionless videos fall
- * back to a per-row key (never merge); posts with no duration (images) key on the
- * hook alone, else a per-row key — so nothing is ever wrongly fused.
+ * whole-second duration + same caption hook => same video. BOTH signals are
+ * required to merge — duration alone over-merges (different videos share an
+ * exact-second length) and the hook alone over-merges unrelated posts that share
+ * an intro line. Anything missing either (captionless videos, no-duration
+ * images/carousels) falls back to a per-row key that never merges: a leftover
+ * duplicate is safer than fusing distinct content.
  */
 export function contentKey(r: TopContentRow): string {
   const hook = captionKey(r.captionExcerpt);
-  if (r.durationSeconds != null) {
-    return hook
-      ? `${r.creatorId}|d${r.durationSeconds}|${hook}`
-      : `${r.creatorId}|d${r.durationSeconds}|u${r.profileId}|${r.externalPostId}`;
+  if (r.durationSeconds != null && hook) {
+    return `${r.creatorId}|d${r.durationSeconds}|${hook}`;
   }
-  return hook ? `${r.creatorId}|c${hook}` : `${r.creatorId}|u${r.profileId}|${r.externalPostId}`;
+  return `${r.creatorId}|u${r.profileId}|${r.externalPostId}`;
 }
 
 /**

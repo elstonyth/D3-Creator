@@ -45,9 +45,13 @@ describe('contentKey', () => {
     );
   });
 
-  it('keys image posts (no duration) on the caption hook alone', () => {
-    expect(contentKey(mk({ durationSeconds: null, captionExcerpt: '散钱就能，吃到梦加拉餐' }))).toBe(
-      contentKey(mk({ durationSeconds: null, captionExcerpt: '散钱就能，吃到梦加拉餐 #foodie' })),
+  it('never merges no-duration posts (images) even with the same caption hook', () => {
+    // No duration => no reliable cross-platform signal; the hook alone would
+    // over-merge unrelated posts sharing an intro line, so they stay separate.
+    expect(
+      contentKey(mk({ profileId: 'p1', externalPostId: 'e1', durationSeconds: null, captionExcerpt: '散钱就能，吃到梦加拉餐' })),
+    ).not.toBe(
+      contentKey(mk({ profileId: 'p2', externalPostId: 'e2', durationSeconds: null, captionExcerpt: '散钱就能，吃到梦加拉餐 #foodie' })),
     );
   });
 

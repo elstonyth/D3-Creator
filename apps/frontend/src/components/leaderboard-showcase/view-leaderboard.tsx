@@ -164,7 +164,7 @@ function ContentCard({
               <span className="text-micro">also on</span>
               {row.alsoOn.map((p) => {
                 const AlsoIcon = PLATFORM_ICONS[toPlatformKey(p)];
-                return <AlsoIcon key={p} size={11} />;
+                return AlsoIcon ? <AlsoIcon key={p} size={11} /> : null;
               })}
             </div>
           )}
