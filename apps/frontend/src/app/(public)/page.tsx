@@ -19,6 +19,7 @@ import {
   demoCreatorRows,
 } from '@gitroom/frontend/components/dashboard-showcase/showcase-data';
 import { ShowcaseNumber } from '@gitroom/frontend/components/dashboard-showcase/showcase-number';
+import { ImageWithFallback } from '@gitroom/frontend/components/ui/image-with-fallback';
 import {
   getLiveCreatorRows,
   summarizeCreatorRows,
@@ -250,12 +251,12 @@ export default async function HomePage() {
                       </span>
                       <span className="flex items-center gap-3 min-w-0">
                         <span className="size-8 shrink-0 rounded-full bg-customColor1 border border-borderGlass grid place-items-center overflow-hidden text-caption text-fgMuted">
-                          {creator.avatarUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element -- external avatar, dims vary
-                            <img src={creator.avatarUrl} alt="" className="size-full object-cover" />
-                          ) : (
-                            initial
-                          )}
+                          <ImageWithFallback
+                            src={creator.avatarUrl}
+                            alt=""
+                            className="size-full object-cover"
+                            fallback={initial}
+                          />
                         </span>
                         <span className="truncate text-body text-fg font-medium">
                           {creator.displayName}
