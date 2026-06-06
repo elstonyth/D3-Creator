@@ -118,6 +118,7 @@ describe('getTopContentWindowed', () => {
           caption_excerpt: 'hi', media_url: 'https://cdn.example.com/x.jpg',
           posted_at: '2026-05-01T00:00:00Z', views_gained: 4000,
           current_views: 5000, likes: 200, comments: 50, shares: 50,
+          also_on: ['instagram', 'facebook'],
         },
       ],
     });
@@ -130,6 +131,7 @@ describe('getTopContentWindowed', () => {
     );
     expect(rows[0].externalPostId).toBe('A');
     expect(rows[0].viewsGained).toBe(4000);
+    expect(rows[0].alsoOn).toEqual(['instagram', 'facebook']);
   });
 
   it('leaves null media_url as null and defaults limit to 20', async () => {
@@ -148,6 +150,7 @@ describe('getTopContentWindowed', () => {
       p_window: '7d', p_limit: 20, p_creator_ids: null, p_profile_ids: null,
     });
     expect(rows[0].thumbnailUrl).toBeNull();
+    expect(rows[0].alsoOn).toBeUndefined();
   });
 
   it('returns [] on error', async () => {

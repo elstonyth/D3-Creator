@@ -17,6 +17,7 @@ import { resolveMediaUrl } from './media-url';
 import type { TopContentRow } from './metrics-windowed';
 import type { PlatformKey } from '@gitroom/frontend/components/ui/platform-icons';
 import { VIEW_PERIODS, viewPeriodCutoff, type ViewPeriod } from './view-periods';
+import { collapseByContent } from './content-dedup';
 
 // DB stores 'rednote'; showcase uses 'xiaohongshu' — single map point.
 function dbPlatformToKey(platform: string): PlatformKey {
@@ -369,11 +370,12 @@ async function loadContentRows(): Promise<TopContentRow[]> {
     shares: number | null;
     caption_excerpt: string | null;
     media_url: string | null;
+    duration_seconds: number | null;
   }>((from, to) =>
     sb
       .from('post_snapshot')
       .select(
-        'profile_id, external_post_id, captured_at, posted_at, views, likes, comments, shares, caption_excerpt, media_url',
+        'profile_id, external_post_id, captured_at, posted_at, views, likes, comments, shares, caption_excerpt, media_url, duration_seconds',
       )
       .order('captured_at', { ascending: false })
       .order('id', { ascending: false })
@@ -409,6 +411,7 @@ async function loadContentRows(): Promise<TopContentRow[]> {
       likes: p.likes ?? 0,
       comments: p.comments ?? 0,
       shares: p.shares ?? 0,
+      durationSeconds: p.duration_seconds ?? null,
     });
   }
   return out;
@@ -446,9 +449,14 @@ export async function getTopContentRankingsWindowed(
       cutoff == null
         ? rows
         : rows.filter((r) => r.postedAt != null && Date.parse(r.postedAt) >= cutoff);
+    // Collapse cross-platform duplicates (same creator + duration + caption hook)
+    // per metric — a content group's most-viewed and most-engaging copies can be
+    // on different platforms — then rank the survivors and take the top N.
     out[period] = {
-      byViews: [...inWindow].sort((a, b) => b.currentViews - a.currentViews).slice(0, limit),
-      byInteractions: [...inWindow]
+      byViews: collapseByContent(inWindow, (r) => r.currentViews)
+        .sort((a, b) => b.currentViews - a.currentViews)
+        .slice(0, limit),
+      byInteractions: collapseByContent(inWindow, postInteractions)
         .sort((a, b) => postInteractions(b) - postInteractions(a))
         .slice(0, limit),
     };
