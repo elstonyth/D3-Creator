@@ -35,6 +35,7 @@ import {
   upsertPostSnapshots,
   upsertProfileSnapshot,
 } from '@d3/database';
+import { withTimeout } from '@gitroom/frontend/lib/with-timeout';
 
 // Cap dev/manual invocations to a reasonable budget. Vercel Functions
 // default 300s timeout; spec says max 5 parallel concurrent Apify runs.
@@ -58,6 +59,22 @@ const PROFILES_PER_RUN = 5;
 // Wall-clock reserved at the end of the budget for the snapshot upsert +
 // status write that must run even when media persistence is skipped.
 const WRAPUP_RESERVE_MS = 15_000;
+
+// Per-scrape wall-clock ceiling. A healthy scrape is ~50s; 120s leaves slack
+// for a slow-but-live upstream while capping a HUNG one. runScraper takes no
+// AbortSignal, so without this a single unresponsive scrape consumes the whole
+// 300s window and the function is killed mid-loop (HTTP 504) — stamping no
+// status, so the profile is retried next tick and can hang again. See
+// lib/with-timeout.ts.
+const SCRAPE_TIMEOUT_MS = 120_000;
+
+// Floor for starting a scrape: don't begin one unless at least a typical
+// scrape's worth of budget remains. A scrape started with too little budget
+// would time out and be stamped 'failed', and because the due-filter keys on
+// last_scraped_at's UTC *date*, that false failure would skip the (healthy)
+// profile until tomorrow. Below this floor, defer the rest of the batch to the
+// next hourly tick instead.
+const MIN_SCRAPE_BUDGET_MS = 60_000;
 
 interface ProfileResult {
   profile_id: string;
@@ -148,10 +165,27 @@ export async function GET(request: Request): Promise<Response> {
   const results: ProfileResult[] = [];
 
   for (const profile of profiles) {
+    // Cap each scrape by the smaller of SCRAPE_TIMEOUT_MS and the function's
+    // remaining wall-clock (reserving WRAPUP_RESERVE_MS for the upsert + status
+    // write). A single hung upstream then can't burn the whole 300s window and
+    // 504 the tick. When too little budget remains to finish a scrape, stop and
+    // let the next hourly tick take the rest — recording a false 'failed' here
+    // would skip a healthy profile until tomorrow (the due-filter is per-day).
+    const scrapeBudgetMs =
+      maxDuration * 1000 - (Date.now() - startedAt.getTime()) - WRAPUP_RESERVE_MS;
+    if (scrapeBudgetMs < MIN_SCRAPE_BUDGET_MS) {
+      console.warn('[daily-snapshot] budget low, deferring remainder', {
+        deferred: profiles.length - results.length,
+        budget_ms: Math.max(0, scrapeBudgetMs),
+      });
+      break;
+    }
+    const scrapeTimeoutMs = Math.min(SCRAPE_TIMEOUT_MS, scrapeBudgetMs);
+
     try {
-      const { profile: snap, posts } = await runScraper(
-        profile.platform,
-        profile.profile_url,
+      const { profile: snap, posts } = await withTimeout(
+        runScraper(profile.platform, profile.profile_url),
+        scrapeTimeoutMs,
       );
 
       await upsertProfileSnapshot(profile.id, snap);
@@ -218,7 +252,8 @@ export async function GET(request: Request): Promise<Response> {
     finished_at: finishedAt.toISOString(),
     elapsed_ms: finishedAt.getTime() - startedAt.getTime(),
     total_eligible: totalEligible,
-    processed: profiles.length,
+    processed: results.length,
+    deferred: profiles.length - results.length,
     skipped,
     capacity_per_run: PROFILES_PER_RUN,
     by_status: results.reduce<Record<string, number>>((acc, r) => {
