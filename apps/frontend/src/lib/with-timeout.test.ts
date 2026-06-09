@@ -22,12 +22,17 @@ describe('withTimeout', () => {
   it('does not emit an unhandledRejection when the loser rejects after the timeout', async () => {
     const handler = jest.fn();
     process.on('unhandledRejection', handler);
-    const slowReject = new Promise((_resolve, reject) =>
-      setTimeout(() => reject(new Error('late upstream error')), 20),
-    );
-    await expect(withTimeout(slowReject, 5)).rejects.toBeInstanceOf(TimeoutError);
-    await delay(40); // let `slowReject` reject well after the race already settled
-    process.off('unhandledRejection', handler);
-    expect(handler).not.toHaveBeenCalled();
+    try {
+      const slowReject = new Promise((_resolve, reject) =>
+        setTimeout(() => reject(new Error('late upstream error')), 20),
+      );
+      await expect(withTimeout(slowReject, 5)).rejects.toBeInstanceOf(TimeoutError);
+      await delay(40); // let `slowReject` reject well after the race already settled
+      expect(handler).not.toHaveBeenCalled();
+    } finally {
+      // Always remove the listener, even if an assertion above throws, so it
+      // can't leak into later tests.
+      process.off('unhandledRejection', handler);
+    }
   });
 });
