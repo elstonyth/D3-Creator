@@ -29,7 +29,8 @@ describe('scrapeTimeoutMsFor', () => {
     // wrapper cap must exceed that, or every legitimately-slow FB scrape is
     // killed by withTimeout and stamped 'failed' (the post-PR-#38 outage:
     // all 21 FB profiles failing every attempt since 2026-06-09).
-    expect(FACEBOOK_SCRAPE_TIMEOUT_MS).toBeGreaterThanOrEqual(240_000);
+    // Strictly greater: at exactly 240s the wrapper and adapter would race.
+    expect(FACEBOOK_SCRAPE_TIMEOUT_MS).toBeGreaterThan(240_000);
   });
 
   it('fits the facebook cap plus the wrap-up reserve inside the 300s function budget', () => {
