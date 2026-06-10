@@ -36,6 +36,13 @@ import {
   upsertProfileSnapshot,
 } from '@d3/database';
 import { withTimeout } from '@gitroom/frontend/lib/with-timeout';
+import {
+  MIN_SCRAPE_BUDGET_MS,
+  WRAPUP_RESERVE_MS,
+  minScrapeBudgetMsFor,
+  orderFacebookFirst,
+  scrapeTimeoutMsFor,
+} from '@gitroom/frontend/lib/scrape-budget';
 
 // Cap dev/manual invocations to a reasonable budget. Vercel Functions
 // default 300s timeout; spec says max 5 parallel concurrent Apify runs.
@@ -56,25 +63,10 @@ export const dynamic = 'force-dynamic';
 // See https://vercel.com/docs/queues
 const PROFILES_PER_RUN = 5;
 
-// Wall-clock reserved at the end of the budget for the snapshot upsert +
-// status write that must run even when media persistence is skipped.
-const WRAPUP_RESERVE_MS = 15_000;
-
-// Per-scrape wall-clock ceiling. A healthy scrape is ~50s; 120s leaves slack
-// for a slow-but-live upstream while capping a HUNG one. runScraper takes no
-// AbortSignal, so without this a single unresponsive scrape consumes the whole
-// 300s window and the function is killed mid-loop (HTTP 504) — stamping no
-// status, so the profile is retried next tick and can hang again. See
-// lib/with-timeout.ts.
-const SCRAPE_TIMEOUT_MS = 120_000;
-
-// Floor for starting a scrape: don't begin one unless at least a typical
-// scrape's worth of budget remains. A scrape started with too little budget
-// would time out and be stamped 'failed', and because the due-filter keys on
-// last_scraped_at's UTC *date*, that false failure would skip the (healthy)
-// profile until tomorrow. Below this floor, defer the rest of the batch to the
-// next hourly tick instead.
-const MIN_SCRAPE_BUDGET_MS = 60_000;
+// Per-scrape timeout caps, start floors, and the wrap-up reserve live in
+// lib/scrape-budget.ts. They are platform-aware: Facebook's Bright Data
+// collector needs up to ~250s, everything else keeps the 120s cap — a flat
+// 120s cap (PR #38) falsely failed every Facebook scrape.
 
 interface ProfileResult {
   profile_id: string;
@@ -151,7 +143,11 @@ export async function GET(request: Request): Promise<Response> {
   );
 
   const totalEligible = due.length;
-  const profiles = due.slice(0, PROFILES_PER_RUN);
+  // Facebook first within the batch: only ~1 FB scrape fits per tick at its
+  // 250s cap, so it must start while the full wall-clock window remains — an
+  // FB profile reached mid-batch would only ever see a partial window and be
+  // deferred every tick.
+  const profiles = orderFacebookFirst(due.slice(0, PROFILES_PER_RUN));
   const skipped = Math.max(0, totalEligible - profiles.length);
 
   if (totalEligible > PROFILES_PER_RUN) {
@@ -165,7 +161,7 @@ export async function GET(request: Request): Promise<Response> {
   const results: ProfileResult[] = [];
 
   for (const profile of profiles) {
-    // Cap each scrape by the smaller of SCRAPE_TIMEOUT_MS and the function's
+    // Cap each scrape by the smaller of its platform's cap and the function's
     // remaining wall-clock (reserving WRAPUP_RESERVE_MS for the upsert + status
     // write). A single hung upstream then can't burn the whole 300s window and
     // 504 the tick. When too little budget remains to finish a scrape, stop and
@@ -180,7 +176,24 @@ export async function GET(request: Request): Promise<Response> {
       });
       break;
     }
-    const scrapeTimeoutMs = Math.min(SCRAPE_TIMEOUT_MS, scrapeBudgetMs);
+    // Platform floor: Facebook needs its full window up front — starting it on
+    // a partial one would falsely fail it (and still bill Bright Data for the
+    // abandoned records). Skip WITHOUT stamping so the profile stays due, and
+    // let cheaper platforms later in the batch use the remaining budget.
+    const platformFloorMs = minScrapeBudgetMsFor(profile.platform);
+    if (scrapeBudgetMs < platformFloorMs) {
+      console.warn('[daily-snapshot] budget below platform floor, deferring', {
+        profile_id: profile.id,
+        platform: profile.platform,
+        floor_ms: platformFloorMs,
+        budget_ms: scrapeBudgetMs,
+      });
+      continue;
+    }
+    const scrapeTimeoutMs = Math.min(
+      scrapeTimeoutMsFor(profile.platform),
+      scrapeBudgetMs,
+    );
 
     try {
       const { profile: snap, posts } = await withTimeout(
