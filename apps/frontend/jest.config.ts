@@ -21,6 +21,12 @@ const config: Config = {
     ],
   },
   testMatch: ['<rootDir>/src/**/*.{test,spec}.{ts,tsx}'],
+  // Mirror the `@gitroom/frontend/*` path alias from tsconfig.base.json so
+  // component tests can import modules that use it (ts-jest does not apply
+  // tsconfig `paths` to runtime resolution on its own).
+  moduleNameMapper: {
+    '^@gitroom/frontend/(.*)$': '<rootDir>/src/$1',
+  },
 };
 
 export default config;
