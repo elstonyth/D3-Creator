@@ -499,26 +499,44 @@ export interface CreatorDetail {
 }
 
 /**
- * Pick the latest snapshot per profile_id from a recent slice of snapshots.
- * Shared between getCreatorByHandle and getCreatorPlatformDetail.
+ * Latest snapshot per profile_id. Shared between getCreatorByHandle and
+ * getCreatorPlatformDetail.
+ *
+ * One `.limit(1)` query per profile (a creator has ≤5, one per platform) —
+ * NOT a single unbounded `.in()` over full history: PostgREST caps a response
+ * at ~1000 rows, so once the profiles' combined daily history exceeded the cap
+ * the oldest-updated profile's latest row silently fell off the page and the
+ * creator page rendered null followers. A per-profile error is logged and
+ * skipped so one bad profile doesn't blank the others.
+ *
+ * Exported for unit tests (queries.latest-snapshots.test.ts).
  */
-async function latestSnapshotsForProfiles(
+export async function latestSnapshotsForProfiles(
   profileIds: string[],
 ): Promise<Map<string, { followers: number | null; following: number | null; total_posts: number | null; total_views: number | null; total_likes: number | null; captured_at: string; raw: unknown }>> {
   const map = new Map<string, { followers: number | null; following: number | null; total_posts: number | null; total_views: number | null; total_likes: number | null; captured_at: string; raw: unknown }>();
   if (profileIds.length === 0) return map;
   const sb = getSupabaseRead();
-  const res = await sb
-    .from('profile_snapshot')
-    .select('profile_id, followers, following, total_posts, total_views, total_likes, captured_at, raw')
-    .in('profile_id', profileIds)
-    .order('captured_at', { ascending: false });
-  if (res.error) {
-    console.error('[queries] latestSnapshotsForProfiles', res.error);
-    return map;
-  }
-  for (const row of res.data ?? []) {
-    if (!map.has(row.profile_id)) {
+  // Dedupe defensively — a repeated id would just burn a redundant query.
+  const uniqueIds = Array.from(new Set(profileIds));
+  const results = await Promise.all(
+    uniqueIds.map((profileId) =>
+      sb
+        .from('profile_snapshot')
+        .select('profile_id, followers, following, total_posts, total_views, total_likes, captured_at, raw')
+        .eq('profile_id', profileId)
+        .order('captured_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(1),
+    ),
+  );
+  for (const res of results) {
+    if (res.error) {
+      console.error('[queries] latestSnapshotsForProfiles', res.error);
+      continue;
+    }
+    const row = res.data?.[0];
+    if (row && !map.has(row.profile_id)) {
       map.set(row.profile_id, {
         followers: row.followers,
         following: row.following,

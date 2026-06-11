@@ -295,23 +295,37 @@ export const facebookAdapter: PlatformAdapter = {
 
     const first = items[0];
     if (!first) {
-      // No rows at all — unknown/blocked profile, or a profile with zero posts
-      // (the posts collector returns nothing, so we can't read page_followers).
-      // Surface as not_found so the row is badged and the cron retries.
-      throw new ProfileNotFoundError(PLATFORM, profileUrl);
+      // No rows at all — Bright Data can deliver an empty `ready` snapshot
+      // transiently (block/timeout on their side), and a live page with zero
+      // recent posts also returns nothing. Neither proves a dead page, and
+      // the cron's due-filter excludes `not_found` PERMANENTLY (it needs a
+      // human reset), so surface as retryable `failed`. `not_found` is
+      // reserved for an explicit per-row error_code (throwForErrorCode).
+      throw new ScrapeError(
+        'failed',
+        'Bright Data delivered no rows — empty/blocked collection or a page with no recent posts; retrying next tick',
+        PLATFORM,
+        profileUrl,
+      );
     }
 
     // A per-row error_code is BD telling us why a specific URL failed.
     throwForErrorCode(first, profileUrl);
 
-    // No page identity at all → treat as not_found.
+    // No error code but no page identity either → malformed/placeholder row,
+    // not a confirmed dead page. Retryable for the same reason as above.
     if (
       first.page_followers == null &&
       !first.page_name &&
       !first.profile_id &&
       !first.post_id
     ) {
-      throw new ProfileNotFoundError(PLATFORM, profileUrl);
+      throw new ScrapeError(
+        'failed',
+        'Bright Data row carries no page identity — treating as transient; retrying next tick',
+        PLATFORM,
+        profileUrl,
+      );
     }
 
     const posts: NormalizedPostSnapshot[] = [];

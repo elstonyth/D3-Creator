@@ -79,6 +79,33 @@ test('default scrape fetches a single posts page (cron stays cheap)', async () =
   expect(res.posts).toHaveLength(1);
 });
 
+test('a failed stats backfill degrades views to null — never the feed\'s bogus 0', async () => {
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  try {
+    mockGet.mockImplementation(async (opts: any) => {
+      if (opts.path.includes('handler_user_profile')) return healthyProfile;
+      if (opts.path.includes('fetch_multi_video_statistics')) {
+        throw new Error('TikHub 500');
+      }
+      return { aweme_list: [aweme('d1'), aweme('d2')], has_more: 0 };
+    });
+
+    const res = await douyinAdapter.scrape(PROFILE_URL);
+
+    // The feed always reports play_count=0 (Douyin hides views there), so
+    // falling back to it would WRITE "0 views" for posts with possibly
+    // millions — a wrong real value that poisons the snapshot time series.
+    // Views must be null (unknown), and the profile window total too.
+    expect(res.posts.map((p) => p.views)).toEqual([null, null]);
+    expect(res.profile.total_views).toBeNull();
+    // Engagement counts the feed DOES report truthfully still flow through.
+    expect(res.posts[0].likes).toBe(1);
+    expect(res.posts[0].comments).toBe(1);
+  } finally {
+    warn.mockRestore();
+  }
+});
+
 test('deep mode stops at maxPosts even if more pages remain', async () => {
   mockGet.mockImplementation(async (opts: any) => {
     if (opts.path.includes('handler_user_profile')) return healthyProfile;

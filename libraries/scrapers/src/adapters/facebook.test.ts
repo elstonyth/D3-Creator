@@ -8,6 +8,7 @@
  * backfill route) may request more.
  */
 import { facebookAdapter } from './facebook';
+import { ScrapeError } from '../errors';
 
 jest.mock('../brightdata-client', () => ({ runDataset: jest.fn() }));
 
@@ -76,6 +77,39 @@ test.each([0, -5, 12.5, NaN])(
     expect(mockRun).not.toHaveBeenCalled();
   },
 );
+
+// A zero-row delivery is NOT proof of a dead page — Bright Data can return an
+// empty `ready` snapshot transiently (block/timeout on their side), and a live
+// page with zero recent posts also yields no rows. The cron's due-filter
+// permanently excludes `not_found` profiles (human reset required), so empty
+// deliveries must surface as retryable `failed`. `not_found` is reserved for
+// an explicit per-row error_code (throwForErrorCode).
+test('an empty delivery is a retryable failure, not a permanent not_found', async () => {
+  mockRun.mockResolvedValue([]);
+
+  const err = await facebookAdapter.scrape(PROFILE_URL).catch((e) => e);
+
+  expect(err).toBeInstanceOf(ScrapeError);
+  expect((err as ScrapeError).status).toBe('failed');
+});
+
+test('a row with no error code and no page identity is retryable, not not_found', async () => {
+  mockRun.mockResolvedValue([{}]);
+
+  const err = await facebookAdapter.scrape(PROFILE_URL).catch((e) => e);
+
+  expect(err).toBeInstanceOf(ScrapeError);
+  expect((err as ScrapeError).status).toBe('failed');
+});
+
+test('an explicit dead-page error_code still maps to not_found', async () => {
+  mockRun.mockResolvedValue([{ error_code: 'dead_page', error: 'page deleted' }]);
+
+  const err = await facebookAdapter.scrape(PROFILE_URL).catch((e) => e);
+
+  expect(err).toBeInstanceOf(ScrapeError);
+  expect((err as ScrapeError).status).toBe('not_found');
+});
 
 test('maps profile followers + reel views/engagement from the dataset items', async () => {
   mockRun.mockResolvedValue([fbItem()]);

@@ -134,7 +134,6 @@
     "bottleneck": "^2.19.5",
     "bs58": "^6.0.0",
     "bufferutil": "^4.0.8",
-    "canvas": "^2.11.2",
     "chart.js": "^4.4.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
