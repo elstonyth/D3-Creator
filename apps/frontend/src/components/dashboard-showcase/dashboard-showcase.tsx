@@ -49,6 +49,18 @@ function filterLabel(filter: PlatformFilter): string {
   return filter === 'all' ? 'All platforms' : PLATFORM_LABELS[filter];
 }
 
+// Windowed-views cell resolution contract (DashboardViewTotals in
+// lib/metrics-windowed.ts): the RPC emits no row for a key/window with no
+// posts — with live windowed data a missing CELL means 0. The cumulative
+// fallback applies ONLY when no windowed data was loaded at all (demo mode, or
+// the RPC errored and returned empty maps). Falling back per-cell would render
+// lifetime views under a "last 24 hours" caption. NOTE: the resolution is
+// inlined at each use site (`live ? cell ?? 0 : cumulative`) rather than
+// extracted into a helper — passing prop-derived values to a function makes
+// the React Compiler assume the props graph may be mutated, bailing it out of
+// the whole component (react-hooks/preserve-manual-memoization). Covered by
+// dashboard-showcase.test.tsx instead.
+
 interface DisplayRow {
   key: string;
   name: string;
@@ -101,15 +113,19 @@ export interface DashboardShowcaseProps {
   deltas?: { views?: number; followers?: number; engagement?: number };
   /**
    * Σ total views of posts PUBLISHED in each window, per platform-key →
-   * window-key, from getDashboardViewTotalsWindowed. OPTIONAL — when omitted (or
-   * a cell is missing) the hero falls back to the cumulative lifetime total.
+   * window-key, from getDashboardViewTotalsWindowed. OPTIONAL — when omitted or
+   * empty (demo mode / RPC error) the hero falls back to the cumulative
+   * lifetime total. When populated, a missing cell means "no posts in that
+   * window" and renders as 0 — never the cumulative fallback, which would
+   * mislabel lifetime views as a short period.
    */
   viewsByWindow?: Record<string, Record<string, number>>;
   /**
    * Per-creator windowed views: creatorId → platform-key | 'all' → window-key →
    * Σ views of that creator's posts published in the window. Drives the Top
-   * Creators ranking per period. OPTIONAL — absent ⇒ ranking falls back to
-   * lifetime totals.
+   * Creators ranking per period. OPTIONAL — absent/empty ⇒ ranking falls back
+   * to lifetime totals; when populated, a creator/window with no posts ranks
+   * with 0, never with its lifetime total.
    */
   creatorViewsByWindow?: Record<string, Record<string, Record<string, number>>>;
 }
@@ -166,18 +182,29 @@ export function DashboardShowcase({
   const followersDelta = propDeltas?.followers ?? placeholderDeltaPct(totalFollowers);
   const engagementDelta = propDeltas?.engagement ?? placeholderDeltaPct(totalEngagement);
 
+  // Windowed view matrices: live (populated) vs absent/empty (demo mode or RPC
+  // error). When live, a MISSING cell means "no posts in that window" → 0; the
+  // cumulative fallback applies only when the whole matrix is absent. Inlined
+  // (not isWindowedLive()) so the React Compiler doesn't have to assume the
+  // call mutates the prop, which would bail it out of the whole component.
+  const winLive = !!viewsByWindow && Object.keys(viewsByWindow).length > 0;
+  const creatorWinLive =
+    !!creatorViewsByWindow && Object.keys(creatorViewsByWindow).length > 0;
+
   // Top creators by views for the active period (dashboard summary — capped).
   // Each row's views are overridden with its windowed value (per creator, for
   // the active platform filter) and re-ranked, so the list tracks the period
-  // pill. Falls back to the lifetime total when no windowed data is supplied
-  // (demo mode); followers are left untouched (current count, no period analog).
+  // pill. A creator with no posts in the window ranks with 0 — falling back to
+  // lifetime would let them outrank real in-window activity. Followers are
+  // left untouched (current count, no period analog).
   const topCreators = useMemo(
     () =>
       rows
         .map((r) => ({
           ...r,
-          totalViews:
-            creatorViewsByWindow?.[r.key]?.[filter]?.[activeViewFilter] ?? r.totalViews,
+          totalViews: creatorWinLive
+            ? creatorViewsByWindow?.[r.key]?.[filter]?.[activeViewFilter] ?? 0
+            : r.totalViews,
         }))
         .sort((a, b) =>
           creatorSort === 'followers'
@@ -185,7 +212,7 @@ export function DashboardShowcase({
             : b.totalViews - a.totalViews,
         )
         .slice(0, TOP_CREATORS_LIMIT),
-    [rows, creatorViewsByWindow, filter, activeViewFilter, creatorSort],
+    [rows, creatorWinLive, creatorViewsByWindow, filter, activeViewFilter, creatorSort],
   );
   const hasMore = rows.length > TOP_CREATORS_LIMIT;
 
@@ -210,10 +237,14 @@ export function DashboardShowcase({
     VIEW_PERIODS.find((p) => p.value === activeViewFilter)?.caption ??
     'all-time, across tracked posts';
 
-  // Real Σ views for the active platform + period. Falls back to the cumulative
-  // sum when no windowed data is supplied (demo mode) or a cell is absent;
-  // `lifetime` from the matrix equals this cumulative total, so they reconcile.
-  const heroViews = viewsByWindow?.[filter]?.[activeViewFilter] ?? totalViews;
+  // Real Σ views for the active platform + period. Cumulative fallback ONLY
+  // when no windowed data was loaded (demo mode / RPC error); with live data a
+  // missing cell is a real 0 ("nothing posted in this window") — the old `??
+  // cumulative` here rendered lifetime views under a "last 24 hours" caption.
+  // `lifetime` from the matrix equals the cumulative total, so they reconcile.
+  const heroViews = winLive
+    ? viewsByWindow?.[filter]?.[activeViewFilter] ?? 0
+    : totalViews;
 
   // The ▲% delta chip + sparkline are lifetime-cumulative placeholders, not
   // period-aware — show them only on Lifetime so a windowed headline (e.g. 0 on
@@ -222,14 +253,17 @@ export function DashboardShowcase({
 
   // Per-platform views for the active period (followers stay current — a
   // follower count has no post-publish-date analog). Falls back to lifetime
-  // per-platform views when no windowed data is supplied.
+  // per-platform views only when no windowed data is supplied; a platform with
+  // no posts in the window shows 0.
   const breakdownWindowed = useMemo(
     () =>
       breakdown.map((b) => ({
         ...b,
-        totalViews: viewsByWindow?.[b.platform]?.[activeViewFilter] ?? b.totalViews,
+        totalViews: winLive
+          ? viewsByWindow?.[b.platform]?.[activeViewFilter] ?? 0
+          : b.totalViews,
       })),
-    [breakdown, viewsByWindow, activeViewFilter],
+    [breakdown, winLive, viewsByWindow, activeViewFilter],
   );
 
   return (
