@@ -517,8 +517,10 @@ export async function latestSnapshotsForProfiles(
   const map = new Map<string, { followers: number | null; following: number | null; total_posts: number | null; total_views: number | null; total_likes: number | null; captured_at: string; raw: unknown }>();
   if (profileIds.length === 0) return map;
   const sb = getSupabaseRead();
+  // Dedupe defensively — a repeated id would just burn a redundant query.
+  const uniqueIds = Array.from(new Set(profileIds));
   const results = await Promise.all(
-    profileIds.map((profileId) =>
+    uniqueIds.map((profileId) =>
       sb
         .from('profile_snapshot')
         .select('profile_id, followers, following, total_posts, total_views, total_likes, captured_at, raw')

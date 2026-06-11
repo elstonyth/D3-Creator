@@ -86,6 +86,18 @@ test('one profile erroring does not drop the others', async () => {
   }
 });
 
+test('duplicate profile ids are deduped to a single query', async () => {
+  const { client, from } = fakeClient({
+    a: { data: [snap('a', 100)], error: null },
+  });
+  mockRead.mockReturnValue(client);
+
+  const map = await latestSnapshotsForProfiles(['a', 'a', 'a']);
+
+  expect(map.get('a')?.followers).toBe(100);
+  expect(from).toHaveBeenCalledTimes(1);
+});
+
 test('empty profileIds short-circuits without touching the client', async () => {
   const { client, from } = fakeClient({});
   mockRead.mockReturnValue(client);
