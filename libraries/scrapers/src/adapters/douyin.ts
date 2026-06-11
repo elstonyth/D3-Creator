@@ -29,7 +29,11 @@
  *                     across the fetched window (Douyin has no lifetime view count).
  *   Post
  *     - content_type: 'short' (Douyin is short-form video only)
- *     - views/likes/shares: from fetch_multi_video_statistics (feed fallback)
+ *     - views:        from fetch_multi_video_statistics ONLY (the feed's
+ *                     play_count is always 0, so it is never a fallback —
+ *                     a missing stat stays null rather than becoming a fake 0)
+ *     - likes/shares: from fetch_multi_video_statistics (feed fallback — the
+ *                     feed reports these truthfully, unlike play_count)
  *     - comments:     statistics.comment_count (feed — not in the stats endpoint)
  *
  * Migrated from Apify Actor zen-studio/douyin-profile-scraper (2026-05-28).
@@ -214,8 +218,11 @@ function mapPost(
     external_post_id: externalId,
     posted_at: unwrapTimestamp(a.create_time),
     caption_excerpt: truncate(a.desc, CAPTION_LIMIT),
-    // play_count is ONLY reliable from the stats endpoint (feed is always 0).
-    views: stat?.play_count ?? feed.play_count ?? null,
+    // play_count is ONLY reliable from the stats endpoint — the feed always
+    // reports 0, so it must NEVER be a fallback for views: writing that 0
+    // would record a real-looking "0 views" (and a fake cliff in the profile
+    // total) whenever a stats chunk fails. Unknown stays null.
+    views: stat?.play_count ?? null,
     likes: stat?.digg_count ?? feed.digg_count ?? null,
     // comment_count is not in the stats endpoint — feed is the only source.
     comments: feed.comment_count ?? null,
