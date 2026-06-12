@@ -4,6 +4,13 @@
  * Endpoints used:
  *   GET /api/v1/instagram/v1/fetch_user_info_by_username?username=<handle>
  *   GET /api/v1/instagram/v2/fetch_user_posts?username=<handle>
+ *   GET /api/v1/instagram/v2/fetch_user_reels?username=<handle>
+ *
+ * The grid feed (fetch_user_posts) misses reels the creator hid from the
+ * profile grid — found 2026-06-12 when a 937K-view reel (DVGYK3-ExJn) was
+ * absent from 266 captured posts. The reels feed is fetched as a second
+ * supplementary page (same response envelope) and merged by external id;
+ * the grid version wins when a post appears in both.
  *
  * Endpoint history: the V3 get_user_posts endpoint broke on TikHub's backend
  * (generic 400 for every username — verified 2026-05-28), so posts come from
@@ -30,7 +37,11 @@
  */
 
 import { tikhubGet } from '../tikhub-client';
-import { ProfileNotFoundError, ProfilePrivateError, ScrapeError } from '../errors';
+import {
+  ProfileNotFoundError,
+  ProfilePrivateError,
+  ScrapeError,
+} from '../errors';
 import type {
   ContentType,
   NormalizedPostSnapshot,
@@ -113,8 +124,8 @@ interface IgImageVersions {
 interface IgPost {
   pk?: string | number;
   id?: string;
-  code?: string;             // shortcode for /p/{code}
-  shortcode?: string;        // alternate name
+  code?: string; // shortcode for /p/{code}
+  shortcode?: string; // alternate name
   /** 1 = image, 2 = video, 8 = carousel album. */
   media_type?: number;
   /** 'clips' for reels, 'feed' for posts, 'igtv' for longform. */
@@ -189,7 +200,10 @@ function unwrapTimestamp(p: IgPost): string | null {
     }
   }
   // Fall back to the numeric taken_at_timestamp field.
-  if (typeof p.taken_at_timestamp === 'number' && Number.isFinite(p.taken_at_timestamp)) {
+  if (
+    typeof p.taken_at_timestamp === 'number' &&
+    Number.isFinite(p.taken_at_timestamp)
+  ) {
     return new Date(p.taken_at_timestamp * 1000).toISOString();
   }
   return null;
@@ -199,7 +213,10 @@ function pickContentType(p: IgPost): ContentType {
   const product = (p.product_type || '').toLowerCase();
   if (product === 'clips') return 'reel';
   if (product === 'igtv' || p.media_type === 2) return 'video';
-  if (p.media_type === 8 || (Array.isArray(p.carousel_media) && p.carousel_media.length > 0)) {
+  if (
+    p.media_type === 8 ||
+    (Array.isArray(p.carousel_media) && p.carousel_media.length > 0)
+  ) {
     return 'image';
   }
   return 'image';
@@ -217,12 +234,17 @@ function pickMediaUrl(p: IgPost): string | null {
 }
 
 function mapPost(p: IgPost): NormalizedPostSnapshot | null {
-  const externalId = p.code ?? p.shortcode ?? (p.pk !== undefined ? String(p.pk) : p.id);
+  const externalId =
+    p.code ?? p.shortcode ?? (p.pk !== undefined ? String(p.pk) : p.id);
   if (!externalId) return null;
   // v2 prefers ig_play_count; v3 uses play_count; older payloads use view_count
   // or video_view_count. Fall through in that order.
   const views =
-    p.play_count ?? p.ig_play_count ?? p.view_count ?? p.video_view_count ?? null;
+    p.play_count ??
+    p.ig_play_count ??
+    p.view_count ??
+    p.video_view_count ??
+    null;
   return {
     external_post_id: externalId,
     posted_at: unwrapTimestamp(p),
@@ -255,9 +277,7 @@ function unwrapPosts(resp: IgPostsResponse): IgPost[] {
   if (Array.isArray(v2Items) && v2Items.length > 0) return v2Items;
   if (Array.isArray(resp.items) && resp.items.length > 0) return resp.items;
   if (Array.isArray(resp.edges) && resp.edges.length > 0) {
-    return resp.edges
-      .map((e) => e.node)
-      .filter((n): n is IgPost => Boolean(n));
+    return resp.edges.map((e) => e.node).filter((n): n is IgPost => Boolean(n));
   }
   return [];
 }
@@ -282,7 +302,8 @@ function mapProfile(
   }
   const followers = user.follower_count ?? user.edge_followed_by?.count ?? null;
   const following = user.following_count ?? user.edge_follow?.count ?? null;
-  const totalPosts = user.media_count ?? user.edge_owner_to_timeline_media?.count ?? null;
+  const totalPosts =
+    user.media_count ?? user.edge_owner_to_timeline_media?.count ?? null;
   return {
     followers,
     following,
@@ -300,10 +321,47 @@ function mapProfile(
   };
 }
 
+/**
+ * Collect a feed's items, following pagination_token only in deep mode.
+ * No maxPosts → first page as-is (cron stays cheap). A mid-pagination failure
+ * keeps what was already collected.
+ */
+async function collectFeed(
+  first: IgPostsResponse,
+  fetchPage: (token: string) => Promise<IgPostsResponse>,
+  maxPosts: number | undefined,
+): Promise<IgPost[]> {
+  const items: IgPost[] = [...unwrapPosts(first)];
+  if (maxPosts === undefined) return items;
+  let token = first.pagination_token ?? null;
+  const MAX_PAGES = 100; // safety bound against a non-advancing cursor
+  let pages = 0;
+  while (items.length < maxPosts && token && pages < MAX_PAGES) {
+    pages += 1;
+    let pageResp: IgPostsResponse;
+    try {
+      pageResp = await fetchPage(token);
+    } catch {
+      break;
+    }
+    const pageItems = unwrapPosts(pageResp);
+    if (pageItems.length === 0) break;
+    items.push(...pageItems);
+    const next = pageResp.pagination_token ?? null;
+    if (next === token) break; // cursor not advancing — avoid an infinite loop
+    token = next;
+  }
+  if (items.length > maxPosts) items.length = maxPosts;
+  return items;
+}
+
 export const instagramAdapter: PlatformAdapter = {
   platform: 'instagram',
   sourceId: 'tikhub:instagram/v3',
-  async scrape(profileUrl: string, opts: ScrapeOptions = {}): Promise<ScrapeResult> {
+  async scrape(
+    profileUrl: string,
+    opts: ScrapeOptions = {},
+  ): Promise<ScrapeResult> {
     const handle = extractHandle(profileUrl);
 
     const fetchPostsPage = (paginationToken?: string) =>
@@ -314,9 +372,18 @@ export const instagramAdapter: PlatformAdapter = {
         profileUrl,
       });
 
+    const fetchReelsPage = (paginationToken?: string) =>
+      tikhubGet<IgPostsResponse>({
+        path: '/api/v1/instagram/v2/fetch_user_reels',
+        query: { username: handle, pagination_token: paginationToken },
+        platform: PLATFORM,
+        profileUrl,
+      });
+
     // Parallel: profile (v3 — healthy) + first posts page (v2 — v3 backend
-    // currently returns 400 universally; see file header).
-    const [profileResp, firstPosts] = await Promise.all([
+    // currently returns 400 universally; see file header) + first reels page
+    // (v2 — catches reels hidden from the profile grid).
+    const [profileResp, firstPosts, firstReels] = await Promise.all([
       tikhubGet<IgProfileResponse>({
         path: '/api/v1/instagram/v1/fetch_user_info_by_username',
         query: { username: handle },
@@ -327,11 +394,17 @@ export const instagramAdapter: PlatformAdapter = {
         // Posts are supplementary — a private/missing posts tab must not sink
         // the profile snapshot (followers etc.). The profile response below
         // still decides not_found/private. Degrade to empty posts.
-        if (err instanceof ProfilePrivateError || err instanceof ProfileNotFoundError) {
+        if (
+          err instanceof ProfilePrivateError ||
+          err instanceof ProfileNotFoundError
+        ) {
           return {} as IgPostsResponse;
         }
         throw err;
       }),
+      // The reels feed is strictly supplementary on top of the grid feed —
+      // any failure degrades to grid-only rather than sinking the scrape.
+      fetchReelsPage().catch(() => ({}) as IgPostsResponse),
     ]);
 
     const user = unwrapUser(profileResp);
@@ -345,41 +418,24 @@ export const instagramAdapter: PlatformAdapter = {
       throw new ProfilePrivateError(PLATFORM, profileUrl);
     }
 
-    const rawPosts: IgPost[] = [...unwrapPosts(firstPosts)];
-    let token = firstPosts.pagination_token ?? null;
-
     // Deep backfill: when maxPosts is set, follow the v2 pagination_token to
     // pull deep back-catalog posts (e.g. an old viral reel beyond the recent
-    // window). The default (no maxPosts) stays a single page so the daily
-    // cron's per-profile cost is unchanged.
+    // window). The default (no maxPosts) stays a single page per feed so the
+    // daily cron's per-profile cost is bounded. maxPosts applies per feed.
     const { maxPosts } = opts;
-    if (maxPosts !== undefined) {
-      const MAX_PAGES = 100; // safety bound against a non-advancing cursor
-      let pages = 0;
-      while (rawPosts.length < maxPosts && token && pages < MAX_PAGES) {
-        pages += 1;
-        let pageResp: IgPostsResponse;
-        try {
-          pageResp = await fetchPostsPage(token);
-        } catch {
-          // A mid-pagination failure must not discard the posts already
-          // collected — stop here and keep what we have.
-          break;
-        }
-        const items = unwrapPosts(pageResp);
-        if (items.length === 0) break;
-        rawPosts.push(...items);
-        const next = pageResp.pagination_token ?? null;
-        if (next === token) break; // cursor not advancing — avoid an infinite loop
-        token = next;
-      }
-      if (rawPosts.length > maxPosts) rawPosts.length = maxPosts;
-    }
+    const rawPosts = await collectFeed(firstPosts, fetchPostsPage, maxPosts);
+    const rawReels = await collectFeed(firstReels, fetchReelsPage, maxPosts);
 
+    // Merge grid + reels by external id — the grid version wins when a post
+    // appears in both feeds, reels-only posts are appended after.
     const posts: NormalizedPostSnapshot[] = [];
-    for (const p of rawPosts) {
+    const seen = new Set<string>();
+    for (const p of [...rawPosts, ...rawReels]) {
       const mapped = mapPost(p);
-      if (mapped) posts.push(mapped);
+      if (mapped && !seen.has(mapped.external_post_id)) {
+        seen.add(mapped.external_post_id);
+        posts.push(mapped);
+      }
     }
 
     return {
