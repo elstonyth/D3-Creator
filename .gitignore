@@ -102,3 +102,15 @@ e2e-screenshots/
 
 # D3 — one-off local verification/backfill scratch scripts (never commit)
 .verify-scratch/
+
+# D3 — local billing/receipt scripts (contain hardcoded API keys, personal data)
+gen_summary.py
+gen_cost_report.py
+monthly_cost_report.py
+fetch_receipts.py
+outlook_token_setup.py
+tikhub_invoice_download.py
+tikhub_session_setup.py
+download.html
+*_D3-Cost-Summary.pdf
+*_D3-Cost-Summary.txt
