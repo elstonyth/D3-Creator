@@ -16,7 +16,10 @@ import {
 import { ShowcaseNumber } from '../dashboard-showcase/showcase-number';
 import type { LiveCreatorRow } from '@gitroom/frontend/lib/queries';
 import type { TopContentRow } from '@gitroom/frontend/lib/metrics-windowed';
-import { VIEW_PERIODS, type ViewPeriod } from '@gitroom/frontend/lib/view-periods';
+import {
+  VIEW_PERIODS,
+  type ViewPeriod,
+} from '@gitroom/frontend/lib/view-periods';
 import { ViewLeaderboard } from './view-leaderboard';
 
 interface TabDef {
@@ -50,7 +53,10 @@ interface LbRow {
 }
 
 /** Resolve creators for the active filter into ranked rows with combined totals, sorted by views (desc). */
-function resolveRows(creators: LiveCreatorRow[], filter: PlatformFilter): LbRow[] {
+function resolveRows(
+  creators: LiveCreatorRow[],
+  filter: PlatformFilter,
+): LbRow[] {
   const rows: LbRow[] =
     filter === 'all'
       ? creators.map((c) => ({
@@ -109,7 +115,10 @@ export function LeaderboardShowcase({
     [isLive, liveCreators],
   );
 
-  const rows = useMemo(() => resolveRows(baseCreators, filter), [baseCreators, filter]);
+  const rows = useMemo(
+    () => resolveRows(baseCreators, filter),
+    [baseCreators, filter],
+  );
 
   const stats = useMemo(() => {
     let followers = 0;
@@ -150,7 +159,10 @@ export function LeaderboardShowcase({
       </div>
 
       {/* Ranking 1 — Top creators by followers */}
-      <RankSection title="Top Creators" subtitle={`${filterLabel(filter)} · by views`}>
+      <RankSection
+        title="Top Creators"
+        subtitle={`${filterLabel(filter)} · by views`}
+      >
         {rows.length === 0 ? (
           <EmptyRow label="No creators on this platform yet." />
         ) : (
@@ -179,7 +191,8 @@ export function LeaderboardShowcase({
 
       {!isLive && (
         <p className="text-caption text-fgSubtle text-center pt-2 tabular-nums">
-          Showcase preview · synthetic data. Live numbers replace this the moment the scraper switches on.
+          Showcase preview · synthetic data. Live numbers replace this the
+          moment the scraper switches on.
         </p>
       )}
     </div>
@@ -216,7 +229,7 @@ function PlatformTabBar({ value, onChange }: PlatformTabBarProps) {
               'transition-colors duration-150 ease-out',
               isActive
                 ? 'bg-customColor16 text-fg border border-borderGlassStrong'
-                : 'border border-transparent text-fgMuted hover:text-fg hover:bg-white/[0.04]'
+                : 'border border-transparent text-fgMuted hover:text-fg hover:bg-white/[0.04]',
             )}
           >
             {Icon ? <Icon size={14} /> : null}
@@ -260,7 +273,7 @@ function ContentPeriodBar({
                 'transition-colors duration-150 ease-out',
                 isActive
                   ? 'bg-glass-subtle text-fg border border-borderGlassStrong'
-                  : 'border border-transparent text-fgMuted hover:text-fg hover:bg-white/[0.04]'
+                  : 'border border-transparent text-fgMuted hover:text-fg hover:bg-white/[0.04]',
               )}
             >
               {period.label}
@@ -275,9 +288,22 @@ function ContentPeriodBar({
 // --- Summary stat (compact metric tile) -----------------------------------
 
 /** Compact metric tile (label · value · note) used in the leaderboard summary row. */
-function SummaryStat({ label, value, note }: { label: string; value: string; note: string }) {
+function SummaryStat({
+  label,
+  value,
+  note,
+}: {
+  label: string;
+  value: string;
+  note: string;
+}) {
   return (
-    <GlassCard variant="base" padding="md" radius="2xl" className="flex flex-col gap-1.5">
+    <GlassCard
+      variant="base"
+      padding="md"
+      radius="2xl"
+      className="flex flex-col gap-1.5"
+    >
       <span className="text-label text-fgMuted">{label}</span>
       <div className="text-[clamp(22px,2.4vw,30px)] leading-[1.05] tracking-[-0.02em] font-semibold text-fg tabular-nums">
         {value}
@@ -300,7 +326,12 @@ function RankSection({
   children: React.ReactNode;
 }) {
   return (
-    <GlassCard variant="base" padding="md" radius="2xl" className="flex flex-col">
+    <GlassCard
+      variant="base"
+      padding="md"
+      radius="2xl"
+      className="flex flex-col"
+    >
       <div className="flex flex-col gap-1 mb-4">
         <span className="text-label text-fg font-medium">{title}</span>
         <span className="text-body-sm text-fgMuted">{subtitle}</span>
@@ -312,7 +343,11 @@ function RankSection({
 
 /** Empty-state placeholder shown when a ranking section has no rows. */
 function EmptyRow({ label }: { label: string }) {
-  return <div className="grid place-items-center text-body-sm text-fgMuted py-12">{label}</div>;
+  return (
+    <div className="grid place-items-center text-body-sm text-fgMuted py-12">
+      {label}
+    </div>
+  );
 }
 
 // --- Creator table (rank · avatar+name · followers · views) ---------------
@@ -374,10 +409,12 @@ function CreatorRow({ row, rank }: { row: LbRow; rank: number }) {
             fallback={initial}
           />
         </span>
-        <span className="truncate text-body text-fg font-medium">{row.name}</span>
+        <span className="truncate text-body text-fg font-medium">
+          {row.name}
+        </span>
       </span>
       <span className="text-right font-mono tabular-nums text-body text-fg">
-        <ShowcaseNumber value={row.totalViews} />
+        <ShowcaseNumber value={row.totalViews} exact />
       </span>
       <span className="hidden sm:block text-right sm:pl-6 font-mono tabular-nums text-body-sm text-fgMuted">
         <ShowcaseNumber value={row.followers} />
