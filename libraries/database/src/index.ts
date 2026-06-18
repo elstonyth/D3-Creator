@@ -30,6 +30,15 @@ export {
   type FindOrCreateResult,
 } from './claim';
 export {
+  attachOwnedProfile,
+  upsertOAuthConnection,
+  revokeOAuthConnection,
+  deleteMetaConnectionsForUser,
+  ownedProfileUrl,
+  type OAuthPlatform,
+  type EncryptedBlob,
+} from './oauth';
+export {
   listScrapeableProfiles,
   upsertProfileSnapshot,
   upsertPostSnapshots,
