@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from '@d3/database';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { isUuid } from '@gitroom/frontend/lib/ids';
 import { getAdminCreatorDetail } from '@gitroom/frontend/lib/admin-creators';
+import { CreatorConnections } from '@gitroom/frontend/components/admin/creator-connections';
 import { CreatorEditor } from './creator-editor';
 
 export const dynamic = 'force-dynamic';
@@ -40,12 +41,16 @@ export default async function AdminCreatorEditorPage({
         <h1 className="text-display-2 text-fg mb-4">{detail.displayName}</h1>
         <p className="text-body-lg text-fgMuted">
           Manage this creator&apos;s name, social URLs, and login.{' '}
-          <Link href="/admin/profiles" className="text-aurora-cta underline underline-offset-4">
+          <Link
+            href="/admin/profiles"
+            className="text-aurora-cta underline underline-offset-4"
+          >
             ← Back to accounts
           </Link>
         </p>
       </header>
       <CreatorEditor detail={detail} />
+      <CreatorConnections creatorId={id} />
     </div>
   );
 }
