@@ -84,6 +84,32 @@ try {
     .eq('profile_id', profileId)
     .single();
   check('readback views', read?.views === 1500);
+
+  // TikTok account row uses the same table (platform check now allows it).
+  const tt = await upsertProfileInsight({
+    profile_id: profileId,
+    captured_date: today,
+    platform: 'tiktok',
+    reach: null,
+    views: 4321,
+    accounts_engaged: null,
+    total_interactions: 990000,
+    page_engagements: null,
+    follower_delta: null,
+    follower_total: 41230,
+    raw: { demo: true },
+  });
+  check('tiktok profile insight upsert', tt.ok === true);
+  const { data: ttRead } = await db
+    .from('owned_profile_insight')
+    .select('platform, follower_total')
+    .eq('profile_id', profileId)
+    .eq('platform', 'tiktok')
+    .maybeSingle();
+  check(
+    'tiktok row stored',
+    ttRead?.platform === 'tiktok' && ttRead?.follower_total === 41230,
+  );
 } finally {
   if (profileId) {
     await db.from('owned_post_insight').delete().eq('profile_id', profileId);

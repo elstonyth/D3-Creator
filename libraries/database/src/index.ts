@@ -43,6 +43,7 @@ export {
   replaceAudienceDemographics,
   upsertPostInsight,
   setConnectionStatus,
+  updateConnectionTokens,
   type ProfileInsightInput,
   type DemographicInput,
   type PostInsightInput,

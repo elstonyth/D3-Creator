@@ -1,6 +1,7 @@
 // libraries/database/src/owned-insights.ts
 import { getSupabaseAdmin } from './supabase-server';
 import type { Result } from './types';
+import type { EncryptedBlob } from './oauth';
 
 export interface ProfileInsightInput {
   profile_id: string;
@@ -8,7 +9,7 @@ export interface ProfileInsightInput {
    *  JS clock and the DB `current_date` default can never disagree at a TZ/
    *  midnight boundary. ISO date (YYYY-MM-DD). */
   captured_date: string;
-  platform: 'instagram' | 'facebook';
+  platform: 'instagram' | 'facebook' | 'tiktok';
   reach: number | null;
   views: number | null;
   accounts_engaged: number | null;
@@ -96,6 +97,35 @@ export async function setConnectionStatus(
   const { error } = await db
     .from('oauth_connection')
     .update({ status })
+    .eq('id', connection_id);
+  return error
+    ? { ok: false, error: error.message }
+    : { ok: true, value: true };
+}
+
+export async function updateConnectionTokens(
+  connection_id: string,
+  input: {
+    access: EncryptedBlob;
+    refresh: EncryptedBlob;
+    access_expires_at: string;
+    refresh_expires_at: string;
+  },
+): Promise<Result<true>> {
+  const db = getSupabaseAdmin();
+  const { error } = await db
+    .from('oauth_connection')
+    .update({
+      access_ct: input.access.ct,
+      access_iv: input.access.iv,
+      access_tag: input.access.tag,
+      refresh_ct: input.refresh.ct,
+      refresh_iv: input.refresh.iv,
+      refresh_tag: input.refresh.tag,
+      access_expires_at: input.access_expires_at,
+      refresh_expires_at: input.refresh_expires_at,
+      last_refreshed_at: new Date().toISOString(),
+    })
     .eq('id', connection_id);
   return error
     ? { ok: false, error: error.message }
