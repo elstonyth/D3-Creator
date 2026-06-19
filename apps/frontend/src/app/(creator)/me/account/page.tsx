@@ -56,10 +56,14 @@ export default async function AccountPage() {
       <section className="glass-subtle border border-borderGlass rounded-2xl p-6 flex flex-col gap-4">
         <div>
           <h2 className="text-heading text-fg">Profile</h2>
-          <p className="text-body text-fgMuted mt-1">The name shown for your creator across D3.</p>
+          <p className="text-body text-fgMuted mt-1">
+            The name shown for your creator across D3.
+          </p>
         </div>
         <div className="flex flex-col gap-1.5">
-          <div className="text-body text-fg">{displayName || 'Not set yet'}</div>
+          <div className="text-body text-fg">
+            {displayName || 'Not set yet'}
+          </div>
           <span className="text-caption text-fgSubtle">
             Managed by your agency — contact them to change it.
           </span>
@@ -86,6 +90,12 @@ export default async function AccountPage() {
             ? 'No accounts yet — your agency adds them for you.'
             : `${tracked} account${tracked === 1 ? '' : 's'} managed by your agency.`}
         </p>
+        <a
+          href="/me/connections"
+          className="text-caption text-aurora-cta underline underline-offset-4 mt-1"
+        >
+          Connect an account for deeper insights →
+        </a>
       </section>
     </div>
   );
