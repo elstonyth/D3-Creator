@@ -39,6 +39,15 @@ export {
   type EncryptedBlob,
 } from './oauth';
 export {
+  upsertProfileInsight,
+  replaceAudienceDemographics,
+  upsertPostInsight,
+  setConnectionStatus,
+  type ProfileInsightInput,
+  type DemographicInput,
+  type PostInsightInput,
+} from './owned-insights';
+export {
   listScrapeableProfiles,
   upsertProfileSnapshot,
   upsertPostSnapshots,

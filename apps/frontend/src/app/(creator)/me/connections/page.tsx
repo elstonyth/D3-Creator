@@ -6,6 +6,8 @@ import { cookies } from 'next/headers';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { getSupabaseRoute } from '@gitroom/frontend/lib/supabase-route';
 import { getMyConnections } from '@gitroom/frontend/lib/oauth-connections';
+import { getMyOwnedInsights } from '@gitroom/frontend/lib/owned-insights';
+import { InsightsPanel } from '@gitroom/frontend/components/insights/insights-panel';
 import { ConnectButtons } from './connect-buttons';
 import { MetaPicker, type MetaTargetView } from './meta-picker';
 import { DisconnectButton } from './disconnect-button';
@@ -37,6 +39,18 @@ export default async function ConnectionsPage({
 
   const sb = await getSupabaseRoute();
   const connections = await getMyConnections(sb);
+  // Pull insights for each owned profile the user has (owner claims). The RPC is
+  // owner-guarded, so a non-owned profile returns null and is skipped.
+  const { data: claims } = await sb
+    .from('profile_claim')
+    .select('profile_id')
+    .eq('claim_kind', 'owner');
+  const insightsByProfile = await Promise.all(
+    (claims ?? []).map(async (c) => ({
+      profileId: c.profile_id as string,
+      data: await getMyOwnedInsights(sb, c.profile_id as string),
+    })),
+  );
   const sp = await searchParams;
   const picker =
     sp.pick === 'meta'
@@ -102,6 +116,12 @@ export default async function ConnectionsPage({
           </ul>
         )}
       </section>
+
+      {insightsByProfile
+        .filter((x) => x.data)
+        .map((x) => (
+          <InsightsPanel key={x.profileId} data={x.data!} />
+        ))}
 
       <section className="glass-subtle border border-borderGlass rounded-2xl p-6 flex flex-col gap-4">
         <h2 className="text-heading text-fg">Add a connection</h2>

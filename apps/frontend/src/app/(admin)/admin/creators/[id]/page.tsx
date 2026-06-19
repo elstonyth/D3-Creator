@@ -5,8 +5,11 @@ import Link from 'next/link';
 import { getSupabaseAdmin } from '@d3/database';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { isUuid } from '@gitroom/frontend/lib/ids';
+import { getSupabaseRoute } from '@gitroom/frontend/lib/supabase-route';
 import { getAdminCreatorDetail } from '@gitroom/frontend/lib/admin-creators';
+import { getAdminOwnedInsights } from '@gitroom/frontend/lib/owned-insights';
 import { CreatorConnections } from '@gitroom/frontend/components/admin/creator-connections';
+import { InsightsPanel } from '@gitroom/frontend/components/insights/insights-panel';
 import { CreatorEditor } from './creator-editor';
 
 export const dynamic = 'force-dynamic';
@@ -31,6 +34,18 @@ export default async function AdminCreatorEditorPage({
   const detail = await getAdminCreatorDetail(getSupabaseAdmin(), id);
   if (!detail) notFound();
 
+  const sb = await getSupabaseRoute();
+  const { data: profs } = await getSupabaseAdmin()
+    .from('profile')
+    .select('id')
+    .eq('creator_id', id);
+  const adminInsights = await Promise.all(
+    (profs ?? []).map(async (p) => ({
+      profileId: p.id as string,
+      data: await getAdminOwnedInsights(sb, p.id as string),
+    })),
+  );
+
   return (
     <div className="flex flex-col gap-10 pt-12 pb-24 max-w-[760px]">
       <header>
@@ -51,6 +66,15 @@ export default async function AdminCreatorEditorPage({
       </header>
       <CreatorEditor detail={detail} />
       <CreatorConnections creatorId={id} />
+      {adminInsights
+        .filter(
+          (x) =>
+            x.data &&
+            (x.data.profile.length > 0 || x.data.demographics.length > 0),
+        )
+        .map((x) => (
+          <InsightsPanel key={x.profileId} data={x.data!} />
+        ))}
     </div>
   );
 }
