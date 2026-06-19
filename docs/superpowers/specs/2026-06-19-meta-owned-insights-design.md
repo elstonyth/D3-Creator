@@ -44,21 +44,23 @@ Pull owner-only Meta insights for **connected** Instagram + Facebook profiles in
 **Security driver:** `profile_snapshot`/`post_snapshot` carry a `public read … to anon` RLS policy. Owner insights must never be anon-readable, so they live in separate tables with **no anon policy** — not as nullable columns on the public tables (which would expose them through the existing public policy).
 
 ```sql
--- account-level daily scalars
+-- account-level daily scalars. Platform-agnostic "headline" columns store the
+-- LIVE v25.0 metrics (see §11); everything else lands in `raw`. Meta removed
+-- impressions→views and the page-reach metric, so those columns do NOT exist.
 create table public.owned_profile_insight (
-  id                bigserial primary key,
-  profile_id        uuid not null references public.profile(id) on delete cascade,
-  captured_date     date not null default current_date,
-  captured_at       timestamptz not null default now(),
-  platform          text not null check (platform in ('instagram','facebook')),
-  reach             bigint,
-  impressions       bigint,
-  profile_views     bigint,
-  accounts_engaged  bigint,
-  follower_count    bigint,
-  page_impressions  bigint,   -- FB only
-  page_engagements  bigint,   -- FB only
-  raw               jsonb,
+  id                  bigserial primary key,
+  profile_id          uuid not null references public.profile(id) on delete cascade,
+  captured_date       date not null default current_date,
+  captured_at         timestamptz not null default now(),
+  platform            text not null check (platform in ('instagram','facebook')),
+  reach               bigint,   -- IG: account reach;  FB: page_total_media_view_unique
+  views               bigint,   -- IG: views (replaces impressions);  FB: page_media_view
+  accounts_engaged    bigint,   -- IG only
+  total_interactions  bigint,   -- IG only
+  page_engagements    bigint,   -- FB: page_post_engagements
+  follower_delta      bigint,   -- IG: follower_count (net daily change)
+  follower_total      bigint,   -- current total followers (IG/FB node followers_count)
+  raw                 jsonb,
   unique (profile_id, captured_date)
 );
 
@@ -80,9 +82,10 @@ create table public.owned_post_insight (
   external_post_id text not null,
   captured_date    date not null default current_date,
   captured_at      timestamptz not null default now(),
-  reach            bigint,
-  impressions      bigint,
-  saves            bigint,
+  views            bigint,   -- IG: media views (replaces impressions);  FB: post_media_view
+  reach            bigint,   -- IG: media reach;  FB: null (post reach deprecated 2026-06-15)
+  saves            bigint,   -- IG: saved
+  interactions     bigint,   -- IG: total_interactions;  FB: post_engaged_users
   raw              jsonb,
   unique (profile_id, external_post_id, captured_date)
 );
@@ -127,11 +130,11 @@ New route, same shape as `daily-snapshot` (Node runtime, `CRON_SECRET` bearer vi
 Per active Meta connection:
 
 1. `getValidToken(connection)` → Page token (or skip + mark expired on 401/190).
-2. **IG** (`platform='instagram'`): account insights (reach, impressions, profile_views, accounts_engaged, follower_count) + `follower_demographics` (age/gender/country/city) + per-media insights (reach, impressions, saved) for recent media.
-3. **FB** (`platform='facebook'`): Page insights (page_impressions, page_post_engagements, followers) + per-post insights (post_impressions, post reach/engaged) for recent posts.
+2. **IG** (`platform='instagram'`): account insights `metric=reach,views,accounts_engaged,total_interactions` (`period=day&metric_type=total_value`) + `follower_count` (`period=day`, no metric_type) + `followers_count` from the IG user node (current total) + `follower_demographics` (`period=lifetime&metric_type=total_value&timeframe=last_90_days&breakdown=` one call each for age/gender/country/city) + per-media `metric=views,reach,saved,total_interactions` for recent media. **Do NOT request `impressions`/`profile_views`** (dead → fail the whole call).
+3. **FB** (`platform='facebook'`): Page insights `metric=page_media_view,page_post_engagements` + `page_total_media_view_unique` (reach) + `followers_count` from the Page node (current total) + per-post `post_media_view` (**requested solo**) and `post_engaged_users,post_clicks,post_reactions_by_type_total`. **Do NOT request `page_impressions`/`page_fans`/`post_impressions`/`*_impressions_unique`** (all deprecated, see §11).
 4. Upsert `owned_profile_insight` (1 row), `owned_audience_demographic` (N rows, replace-by-day), `owned_post_insight` (per post). Store the raw Graph payload in `raw` so re-parsing never needs a re-fetch.
 
-**Graph API guardrail:** Graph metric names and availability change across versions and several legacy IG/FB metrics are deprecated. The fetchers pin `META_GRAPH_VERSION`, and each metric must be verified against the live Graph API (Explorer / a connected dev account) during implementation. Because `raw` is persisted, a metric rename is a parser fix, not a re-ingest. The fetchers degrade gracefully: a metric the API rejects is recorded as null, not a hard failure.
+**Graph API guardrail:** Meta deprecates insight metrics aggressively (a ~85-metric reach round landed 2026-06-15, days before this spec). Fetchers pin `META_GRAPH_VERSION=v25.0` and request **only the live metrics in §11**. Each metric is requested defensively — a per-metric error records `null` for that column and never fails the connection; the full `raw` payload is persisted so a future rename is a parser fix, not a re-ingest. Several FB metrics are medium-confidence (Meta docs render client-side) and **must be re-confirmed in Graph API Explorer against the first real connected account** before the cron is trusted.
 
 ## 7. Display
 
@@ -166,3 +169,28 @@ vercel.json                                              new cron schedule
 - Tokens are only ever decrypted inside the cron (server) via `getValidToken`; never returned by any RPC.
 - The ingest cron uses the same `CRON_SECRET` bearer + timing-safe check as `daily-snapshot`.
 - Per-connection failure isolation: one expired/failing connection never aborts the run.
+
+## 11. Verified Graph API facts (v25.0, confirmed 2026-06-19)
+
+Researched + adversarially verified against current Meta docs. Pin `META_GRAPH_VERSION=v25.0` (Phase 1 `config.ts` has `v21.0`; deprecations are global-date-based so even v21.0 now rejects the dead metrics — bump it). Confidence noted; FB metrics flagged "verify-live" need a real connected account to confirm.
+
+**IG account** — `GET /{ig-user-id}/insights`
+- Live: `reach` (day; total_value or time_series), `views` (day; **requires** `metric_type=total_value`; replaces `impressions`), `accounts_engaged` (day; total_value), `total_interactions` (day; total_value), `follower_count` (day; **no** metric_type; net daily change). Current total followers = IG user node field `followers_count` (`GET /{ig-user-id}?fields=followers_count`).
+- **Dead — never request:** `impressions`, `profile_views` (removed all versions Apr 2025; mixing one in fails the whole call).
+- Gate: account must have >100 followers or metrics error/empty.
+
+**IG demographics** — `GET /{ig-user-id}/insights?metric=follower_demographics&period=lifetime&metric_type=total_value&timeframe=last_90_days&breakdown={age|city|country|gender}`
+- One `breakdown` per call (not comma-combinable) → 4 calls. `timeframe` is **required**. Results at `total_value.breakdowns[].results[]` (each: `dimension_values[]` + `value`). Top-45 groups only; needs >100 followers. (No `reached_audience_demographics` — doesn't exist.)
+
+**IG media** — `GET /{ig-media-id}/insights?metric=views,reach,saved,total_interactions`
+- Live: `views` (replaces `impressions`/`plays`/`video_views`), `reach`, `saved`, `total_interactions`. `period=lifetime` (omit). **No** `metric_type` for media. Don't mix metrics across media types in one call. `impressions` dead for media created ≥2024-07-02.
+
+**FB Page** — `GET /{page-id}/insights` (Page token + `pages_read_engagement`)
+- Live: `page_media_view` (day; replaces `page_impressions`; `breakdown=is_from_ads` splits paid/organic; *verify-live* whether `metric_type=total_value` needed), `page_post_engagements` (day; *verify-live*), `page_total_media_view_unique` (reach replacement, landed 2026-06-15; *verify-live*). Current total followers = Page node field `followers_count` (`GET /{page-id}?fields=followers_count`).
+- **Dead — never request:** `page_impressions` (Nov 2025), `page_fans` (Nov 2025), `page_impressions_unique` (2026-06-15).
+
+**FB post** — `GET /{page-id}_{post-id}/insights`
+- Live: `post_media_view` (replaces `post_impressions`; **request solo** — can't combine with other metrics in one call; `period=lifetime`), `post_engaged_users`, `post_clicks`, `post_reactions_by_type_total` (object keyed by reaction). `period=lifetime` for all.
+- **Dead — never request:** `post_impressions` (Nov 2025), `post_impressions_unique`/reach (2026-06-15).
+
+**Token/permissions:** Facebook-Login flow → Page access token, scopes `instagram_basic` + `instagram_manage_insights` + `pages_read_engagement`; host `graph.facebook.com`. IG account must be Business/Creator linked to the Page; `{ig-user-id}` is the numeric IG business id (Phase 1 stored it as the IG connection's `external_account_id`). Owned accounts only.
