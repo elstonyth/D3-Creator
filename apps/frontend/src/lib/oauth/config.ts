@@ -1,7 +1,7 @@
 // apps/frontend/src/lib/oauth/config.ts
 import { SITE_URL } from '@gitroom/frontend/lib/site';
 
-export const META_GRAPH_VERSION = 'v21.0'; // bump to latest stable if needed
+export const META_GRAPH_VERSION = 'v25.0'; // bump to latest stable if needed
 
 export function metaRedirectUri(): string {
   return `${SITE_URL}/api/oauth/meta/callback`;
