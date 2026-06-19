@@ -19,27 +19,25 @@ function check(name: string, cond: boolean) {
     : (fail++, console.error(`FAIL ${name}`));
 }
 
-const { data: creator } = await db
-  .from('creator')
-  .insert({ display_name: 'OAuth Test' })
-  .select('id')
-  .single();
-if (!creator) {
-  console.error('FAIL: creator insert');
-  process.exit(1);
-}
-const { data: userRow } = await db.auth.admin.createUser({
-  email: `oauth-test-${Date.now()}@example.com`,
-  email_confirm: true,
-});
-if (!userRow?.user) {
-  console.error('FAIL: user insert');
-  process.exit(1);
-}
-const userId = userRow.user.id;
-const creatorId = creator.id;
+let userId = '';
+let creatorId = '';
 
 try {
+  const { data: creator } = await db
+    .from('creator')
+    .insert({ display_name: 'OAuth Test' })
+    .select('id')
+    .single();
+  if (!creator) throw new Error('creator insert failed');
+  creatorId = creator.id;
+
+  const { data: userRow } = await db.auth.admin.createUser({
+    email: `oauth-test-${Date.now()}@example.com`,
+    email_confirm: true,
+  });
+  if (!userRow?.user) throw new Error('user insert failed');
+  userId = userRow.user.id;
+
   const attach = await attachOwnedProfile({
     user_id: userId,
     creator_id: creatorId,
@@ -90,12 +88,19 @@ try {
     'revoked + token wiped',
     after?.status === 'revoked' && after?.access_ct === '',
   );
+} catch (e) {
+  fail++;
+  console.error('FAIL:', e instanceof Error ? e.message : e);
 } finally {
-  await db.from('oauth_connection').delete().eq('user_id', userId);
-  await db.from('profile_claim').delete().eq('user_id', userId);
-  await db.from('profile').delete().eq('creator_id', creatorId);
-  await db.from('creator').delete().eq('id', creatorId);
-  await db.auth.admin.deleteUser(userId);
+  if (userId) {
+    await db.from('oauth_connection').delete().eq('user_id', userId);
+    await db.from('profile_claim').delete().eq('user_id', userId);
+  }
+  if (creatorId) {
+    await db.from('profile').delete().eq('creator_id', creatorId);
+    await db.from('creator').delete().eq('id', creatorId);
+  }
+  if (userId) await db.auth.admin.deleteUser(userId);
 }
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail === 0 ? 0 : 1);
