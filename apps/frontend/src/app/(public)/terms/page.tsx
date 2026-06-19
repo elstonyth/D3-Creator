@@ -32,7 +32,7 @@ export default function TermsPage() {
         </span>
         <h1 className="text-display-2 text-fg mb-4">Terms of Service</h1>
         <p className="text-caption text-fgSubtle">
-          Effective Date: 1 January 2025 · Last Updated: 1 January 2025
+          Effective Date: 1 January 2025 · Last Updated: 18 June 2026
         </p>
       </header>
 

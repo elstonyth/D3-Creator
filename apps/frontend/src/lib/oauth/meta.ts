@@ -64,7 +64,9 @@ export async function exchangeCode(opts: {
     redirect_uri: opts.redirectUri,
     code: opts.code,
   });
-  const res = await fetch(`${GRAPH}/oauth/access_token?${p.toString()}`);
+  const res = await fetch(`${GRAPH}/oauth/access_token?${p.toString()}`, {
+    signal: AbortSignal.timeout(15000),
+  });
   if (!res.ok)
     throw new Error(
       `Meta code exchange failed: ${res.status} ${await res.text()}`,
@@ -83,7 +85,9 @@ export async function exchangeLongLived(opts: {
     client_secret: opts.appSecret,
     fb_exchange_token: opts.shortToken,
   });
-  const res = await fetch(`${GRAPH}/oauth/access_token?${p.toString()}`);
+  const res = await fetch(`${GRAPH}/oauth/access_token?${p.toString()}`, {
+    signal: AbortSignal.timeout(15000),
+  });
   if (!res.ok)
     throw new Error(
       `Meta long-lived exchange failed: ${res.status} ${await res.text()}`,
@@ -106,7 +110,9 @@ export async function listPagesAndIg(userToken: string): Promise<MetaTarget[]> {
     access_token: userToken,
     limit: '100',
   });
-  const res = await fetch(`${GRAPH}/me/accounts?${p.toString()}`);
+  const res = await fetch(`${GRAPH}/me/accounts?${p.toString()}`, {
+    signal: AbortSignal.timeout(15000),
+  });
   if (!res.ok)
     throw new Error(
       `Meta /me/accounts failed: ${res.status} ${await res.text()}`,

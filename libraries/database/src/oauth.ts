@@ -144,9 +144,12 @@ export async function revokeOAuthConnection(input: {
       refresh_tag: null,
     })
     .eq('id', input.connection_id)
-    .eq('user_id', input.user_id); // scope to owner so one user can't revoke another's
+    .eq('user_id', input.user_id) // scope to owner so one user can't revoke another's
+    .select('id');
   if (res.error)
     return { ok: false, error: `Revoke failed: ${res.error.message}` };
+  if (!res.data || res.data.length === 0)
+    return { ok: false, error: 'Connection not found.' };
   return { ok: true, value: true };
 }
 

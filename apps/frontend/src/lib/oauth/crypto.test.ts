@@ -4,8 +4,13 @@ import { encryptToken, decryptToken } from './crypto';
 const KEY = Buffer.alloc(32, 7).toString('base64');
 
 describe('oauth crypto', () => {
+  const prevKey = process.env.OAUTH_ENC_KEY;
   beforeEach(() => {
     process.env.OAUTH_ENC_KEY = KEY;
+  });
+  afterEach(() => {
+    if (prevKey === undefined) delete process.env.OAUTH_ENC_KEY;
+    else process.env.OAUTH_ENC_KEY = prevKey;
   });
 
   it('round-trips a token', () => {

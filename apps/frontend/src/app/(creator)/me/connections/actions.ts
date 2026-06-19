@@ -64,11 +64,12 @@ export async function finalizeMeta(
   if (creator.ok !== true) return { ok: false, message: creator.error };
 
   // Re-fetch page tokens from the long-lived user token (not stored in the cookie).
-  const userToken = decryptToken(stash.userToken);
   let live;
   try {
+    const userToken = decryptToken(stash.userToken);
     live = await listPagesAndIg(userToken);
   } catch {
+    (await cookies()).delete('meta_pending');
     return { ok: false, message: 'Meta fetch failed — reconnect.' };
   }
   const liveById = new Map(live.map((t) => [t.pageId, t]));

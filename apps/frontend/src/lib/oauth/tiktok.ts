@@ -50,6 +50,7 @@ export async function exchangeCode(opts: {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
+    signal: AbortSignal.timeout(15000),
   });
   const json = await res.json();
   if (!res.ok || json.error) {
@@ -75,6 +76,7 @@ export async function refresh(opts: {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
+    signal: AbortSignal.timeout(15000),
   });
   const json = await res.json();
   if (!res.ok || json.error) {
@@ -90,6 +92,7 @@ export async function fetchUserInfo(
 ): Promise<{ open_id: string; display_name: string | null }> {
   const res = await fetch(`${USERINFO}?fields=open_id,display_name`, {
     headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(15000),
   });
   const json = await res.json();
   if (!res.ok || json.error?.code !== 'ok') {

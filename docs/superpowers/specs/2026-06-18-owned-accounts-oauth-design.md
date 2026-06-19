@@ -2,8 +2,8 @@
 
 **Date:** 2026-06-18
 **Status:** Approved design, pre-implementation
-**Predecessor handoff:** `C:\Users\PC\AppData\Local\Temp\d3-oauth-handoff.md`
-**App reference (secrets, console URLs):** `C:\Users\PC\Desktop\d3-oauth-apps.txt`
+**Predecessor handoff:** OAuth handoff notes (kept locally, outside the repo)
+**App reference:** OAuth app reference doc — app IDs and console URLs (kept locally, outside the repo)
 
 ## 1. Goal and boundary
 
@@ -61,13 +61,13 @@ create table public.oauth_connection (
   external_account_id text not null,            -- IG user id / FB page id / TikTok open_id
   account_name        text,                     -- display/handle shown in UI
   scopes              text,
-  -- AES-256-GCM blobs (iv ‖ tag ‖ ciphertext), service-role only:
-  access_ct           bytea not null,
-  access_iv           bytea not null,
-  access_tag          bytea not null,
-  refresh_ct          bytea,                    -- null for Meta Page tokens (no refresh token)
-  refresh_iv          bytea,
-  refresh_tag         bytea,
+  -- AES-256-GCM blobs (base64 text: ciphertext / iv / tag), service-role only:
+  access_ct           text not null,
+  access_iv           text not null,
+  access_tag          text not null,
+  refresh_ct          text,                     -- null for Meta Page tokens (no refresh token)
+  refresh_iv          text,
+  refresh_tag         text,
   access_expires_at   timestamptz,
   refresh_expires_at  timestamptz,
   status              text not null default 'active' check (status in ('active','revoked','expired')),

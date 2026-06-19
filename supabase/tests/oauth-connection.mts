@@ -24,12 +24,20 @@ const { data: creator } = await db
   .insert({ display_name: 'OAuth Test' })
   .select('id')
   .single();
+if (!creator) {
+  console.error('FAIL: creator insert');
+  process.exit(1);
+}
 const { data: userRow } = await db.auth.admin.createUser({
   email: `oauth-test-${Date.now()}@example.com`,
   email_confirm: true,
 });
-const userId = userRow!.user!.id;
-const creatorId = creator!.id;
+if (!userRow?.user) {
+  console.error('FAIL: user insert');
+  process.exit(1);
+}
+const userId = userRow.user.id;
+const creatorId = creator.id;
 
 try {
   const attach = await attachOwnedProfile({
