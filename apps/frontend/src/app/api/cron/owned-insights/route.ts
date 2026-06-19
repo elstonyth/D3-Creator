@@ -22,6 +22,13 @@ import {
   fetchFbPage,
   fetchFbPostInsight,
 } from '@gitroom/frontend/lib/oauth/insights-meta';
+import {
+  fetchUserStats,
+  fetchVideoList,
+  mapTikTokAccount,
+  mapTikTokVideos,
+  sumVideoViews,
+} from '@gitroom/frontend/lib/oauth/insights-tiktok';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,6 +45,10 @@ interface ConnectionRow {
   access_ct: string;
   access_iv: string;
   access_tag: string;
+  refresh_ct: string | null;
+  refresh_iv: string | null;
+  refresh_tag: string | null;
+  access_expires_at: string | null;
   profile_id: string;
   external_account_id: string;
 }
@@ -69,7 +80,7 @@ async function ingestConnection(
   },
   capturedDate: string,
 ) {
-  const token = getValidToken(conn);
+  const token = await getValidToken(conn);
   if (conn.platform === 'instagram') {
     const igId = conn.external_account_id;
     const [account, followerDelta, followerTotal] = await Promise.all([
@@ -128,7 +139,7 @@ async function ingestConnection(
           raw: m,
         });
     }
-  } else {
+  } else if (conn.platform === 'facebook') {
     const pageId = conn.external_account_id;
     const [page, followerTotal] = await Promise.all([
       fetchFbPage(pageId, token).catch(() => null),
@@ -172,6 +183,44 @@ async function ingestConnection(
           raw: fp,
         });
     }
+  } else if (conn.platform === 'tiktok') {
+    const [statsJson, videos] = await Promise.all([
+      fetchUserStats(token).catch(() => ({})),
+      fetchVideoList(token).catch(() => [] as unknown[]),
+    ]);
+    const account = mapTikTokAccount(
+      statsJson as { data?: { user?: Record<string, unknown> } },
+    );
+    const vids = videos as Parameters<typeof mapTikTokVideos>[0];
+    await upsertProfileInsight({
+      profile_id: conn.profile_id,
+      captured_date: capturedDate,
+      platform: 'tiktok',
+      reach: null,
+      views: sumVideoViews(vids),
+      accounts_engaged: null,
+      total_interactions: account.total_interactions,
+      page_engagements: null,
+      follower_delta: null,
+      follower_total: account.follower_total,
+      raw: {
+        account: statsJson,
+        video_count: account.video_count,
+        following_count: account.following_count,
+      },
+    });
+    for (const row of mapTikTokVideos(vids)) {
+      await upsertPostInsight({
+        profile_id: conn.profile_id,
+        external_post_id: row.external_post_id,
+        captured_date: capturedDate,
+        views: row.views,
+        reach: null,
+        saves: null,
+        interactions: row.interactions,
+        raw: row.raw,
+      });
+    }
   }
 }
 
@@ -182,10 +231,10 @@ export async function GET(request: Request): Promise<Response> {
   const { data: conns, error } = await db
     .from('oauth_connection')
     .select(
-      'id, platform, status, access_ct, access_iv, access_tag, profile_id, external_account_id',
+      'id, platform, status, access_ct, access_iv, access_tag, refresh_ct, refresh_iv, refresh_tag, access_expires_at, profile_id, external_account_id',
     )
     .eq('status', 'active')
-    .in('platform', ['instagram', 'facebook']);
+    .in('platform', ['instagram', 'facebook', 'tiktok']);
   if (error)
     return NextResponse.json({ error: error.message }, { status: 500 });
 

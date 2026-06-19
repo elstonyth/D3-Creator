@@ -9,7 +9,7 @@ export interface ProfileInsightInput {
    *  JS clock and the DB `current_date` default can never disagree at a TZ/
    *  midnight boundary. ISO date (YYYY-MM-DD). */
   captured_date: string;
-  platform: 'instagram' | 'facebook';
+  platform: 'instagram' | 'facebook' | 'tiktok';
   reach: number | null;
   views: number | null;
   accounts_engaged: number | null;
