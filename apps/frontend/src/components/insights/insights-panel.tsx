@@ -30,7 +30,11 @@ export function InsightsPanel({ data }: { data: OwnedInsights }) {
           <StatTile label="Views" value={latest.views} />
           <StatTile
             label="Engaged"
-            value={latest.accounts_engaged ?? latest.page_engagements}
+            value={
+              latest.accounts_engaged ??
+              latest.page_engagements ??
+              latest.total_interactions
+            }
           />
           <StatTile label="Followers" value={latest.follower_total} />
         </div>
