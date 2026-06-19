@@ -68,7 +68,7 @@ export async function fetchUserStats(
     signal: AbortSignal.timeout(TIMEOUT),
   });
   const json = await res.json();
-  if (!res.ok || json.error?.code !== 'ok') {
+  if (!res.ok || (json.error && json.error.code !== 'ok')) {
     const err = new Error(`TikTok user/info failed: ${res.status}`) as Error & {
       httpStatus?: number;
     };
@@ -91,7 +91,7 @@ export async function fetchVideoList(token: string): Promise<TikTokVideo[]> {
     signal: AbortSignal.timeout(TIMEOUT),
   });
   const json = await res.json();
-  if (!res.ok || json.error?.code !== 'ok') {
+  if (!res.ok || (json.error && json.error.code !== 'ok')) {
     const err = new Error(
       `TikTok video/list failed: ${res.status}`,
     ) as Error & { httpStatus?: number };

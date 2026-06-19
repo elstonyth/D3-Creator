@@ -35,11 +35,16 @@ export async function getValidToken(c: OAuthConnectionRow): Promise<string> {
     const needsRefresh =
       !c.access_expires_at || expMs - Date.now() < REFRESH_SKEW_MS;
     if (needsRefresh) {
-      if (!c.refresh_ct) throw new Error('no refresh token');
+      // All three blob fields must be present together — a half-written row
+      // (refresh_ct set but iv/tag null) would otherwise fail obscurely inside
+      // decryptToken. Fail explicitly instead.
+      if (!c.refresh_ct || !c.refresh_iv || !c.refresh_tag) {
+        throw new Error('invalid refresh token data');
+      }
       const refreshToken = decryptToken({
         ct: c.refresh_ct,
-        iv: c.refresh_iv as string,
-        tag: c.refresh_tag as string,
+        iv: c.refresh_iv,
+        tag: c.refresh_tag,
       });
       const tok = await tiktokRefresh({
         clientKey: tiktokClientKey(),
@@ -47,7 +52,10 @@ export async function getValidToken(c: OAuthConnectionRow): Promise<string> {
         refreshToken,
       });
       const now = Date.now();
-      await updateConnectionTokens(c.id, {
+      // TikTok has already rotated the refresh token, so if we can't persist the
+      // new pair the connection is desynced — fail loudly rather than return a
+      // token built on un-saved state (the cron then marks the connection bad).
+      const saved = await updateConnectionTokens(c.id, {
         access: encryptToken(tok.access_token),
         refresh: encryptToken(tok.refresh_token),
         access_expires_at: new Date(now + tok.expires_in * 1000).toISOString(),
@@ -55,6 +63,9 @@ export async function getValidToken(c: OAuthConnectionRow): Promise<string> {
           now + tok.refresh_expires_in * 1000,
         ).toISOString(),
       });
+      if (saved.ok !== true) {
+        throw new Error(`failed to persist refreshed token: ${saved.error}`);
+      }
       return tok.access_token;
     }
   }
