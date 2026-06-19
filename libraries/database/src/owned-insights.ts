@@ -4,6 +4,10 @@ import type { Result } from './types';
 
 export interface ProfileInsightInput {
   profile_id: string;
+  /** Single source of truth for the day key — passed by the caller so the
+   *  JS clock and the DB `current_date` default can never disagree at a TZ/
+   *  midnight boundary. ISO date (YYYY-MM-DD). */
+  captured_date: string;
   platform: 'instagram' | 'facebook';
   reach: number | null;
   views: number | null;
@@ -34,23 +38,25 @@ export interface DemographicInput {
   bucket: string;
   value: number;
 }
-/** Replace today's demographics for a profile (delete-then-insert in one day window). */
+/** Replace one day's demographics for a profile (delete-then-insert). The day
+ *  key is passed in (not computed here) so it matches the profile/post upserts
+ *  exactly — see ProfileInsightInput.captured_date. */
 export async function replaceAudienceDemographics(
   profile_id: string,
+  captured_date: string,
   rows: DemographicInput[],
 ): Promise<Result<number>> {
   const db = getSupabaseAdmin();
-  const today = new Date().toISOString().slice(0, 10);
   const del = await db
     .from('owned_audience_demographic')
     .delete()
     .eq('profile_id', profile_id)
-    .eq('captured_date', today);
+    .eq('captured_date', captured_date);
   if (del.error) return { ok: false, error: del.error.message };
   if (rows.length === 0) return { ok: true, value: 0 };
   const ins = await db
     .from('owned_audience_demographic')
-    .insert(rows.map((r) => ({ profile_id, captured_date: today, ...r })));
+    .insert(rows.map((r) => ({ profile_id, captured_date, ...r })));
   return ins.error
     ? { ok: false, error: ins.error.message }
     : { ok: true, value: rows.length };
@@ -59,6 +65,8 @@ export async function replaceAudienceDemographics(
 export interface PostInsightInput {
   profile_id: string;
   external_post_id: string;
+  /** Day key, passed by the caller (see ProfileInsightInput.captured_date). */
+  captured_date: string;
   views: number | null;
   reach: number | null;
   saves: number | null;

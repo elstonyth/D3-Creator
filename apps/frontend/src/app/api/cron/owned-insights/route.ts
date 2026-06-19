@@ -29,6 +29,18 @@ export const maxDuration = 300;
 
 const PER_CONNECTION_MS = 60000;
 const MEDIA_LIMIT = 12; // recent posts to pull per-post insights for
+const MAX_CONCURRENCY = 3; // connections ingested in parallel per batch
+
+interface ConnectionRow {
+  id: string;
+  platform: string;
+  status: string;
+  access_ct: string;
+  access_iv: string;
+  access_tag: string;
+  profile_id: string;
+  external_account_id: string;
+}
 
 function assertAuth(request: Request): Response | null {
   const expected = process.env.CRON_SECRET;
@@ -55,6 +67,7 @@ async function ingestConnection(
     profile_id: string;
     external_account_id: string;
   },
+  capturedDate: string,
 ) {
   const token = getValidToken(conn);
   if (conn.platform === 'instagram') {
@@ -66,6 +79,7 @@ async function ingestConnection(
     ]);
     await upsertProfileInsight({
       profile_id: conn.profile_id,
+      captured_date: capturedDate,
       platform: 'instagram',
       reach: account?.reach ?? null,
       views: account?.views ?? null,
@@ -77,7 +91,17 @@ async function ingestConnection(
       raw: account,
     });
     const demographics = await fetchIgDemographics(igId, token).catch(() => []);
-    await replaceAudienceDemographics(conn.profile_id, demographics);
+    const demoRes = await replaceAudienceDemographics(
+      conn.profile_id,
+      capturedDate,
+      demographics,
+    );
+    if (demoRes.ok !== true) {
+      console.error('[owned-insights] demographics write failed', {
+        profile_id: conn.profile_id,
+        error: demoRes.error,
+      });
+    }
     // recent media → per-post insights
     const db = getSupabaseAdmin();
     const { data: posts } = await db
@@ -96,6 +120,7 @@ async function ingestConnection(
         await upsertPostInsight({
           profile_id: conn.profile_id,
           external_post_id: pid,
+          captured_date: capturedDate,
           views: m.views,
           reach: m.reach,
           saves: m.saves,
@@ -111,6 +136,7 @@ async function ingestConnection(
     ]);
     await upsertProfileInsight({
       profile_id: conn.profile_id,
+      captured_date: capturedDate,
       platform: 'facebook',
       reach: page?.reach ?? null,
       views: page?.views ?? null,
@@ -138,6 +164,7 @@ async function ingestConnection(
         await upsertPostInsight({
           profile_id: conn.profile_id,
           external_post_id: pid,
+          captured_date: capturedDate,
           views: fp.views,
           reach: null,
           saves: null,
@@ -168,7 +195,12 @@ export async function GET(request: Request): Promise<Response> {
     status: string;
     error?: string;
   }> = [];
-  for (const c of conns ?? []) {
+
+  // One day key for the whole run, computed once (UTC) and threaded into every
+  // upsert + the demographics replace, so the JS clock and the DB never disagree.
+  const capturedDate = new Date().toISOString().slice(0, 10);
+
+  async function runOne(c: ConnectionRow) {
     try {
       await withTimeout(
         ingestConnection(
@@ -176,6 +208,7 @@ export async function GET(request: Request): Promise<Response> {
             profile_id: string;
             external_account_id: string;
           },
+          capturedDate,
         ),
         PER_CONNECTION_MS,
       );
@@ -203,9 +236,34 @@ export async function GET(request: Request): Promise<Response> {
       }
     }
   }
+
+  // Process in small concurrent batches and stop launching new ones once too
+  // little wall-clock remains for a full batch — otherwise a large connection
+  // set (each up to PER_CONNECTION_MS) could push the function past maxDuration
+  // and 504 mid-write. The remainder is picked up by the next daily run.
+  const startedAt = Date.now();
+  const RESERVE_MS = 5_000;
+  const queue = [...(conns ?? [])];
+  let deferred = 0;
+  while (queue.length > 0) {
+    if (
+      maxDuration * 1000 - (Date.now() - startedAt) <
+      PER_CONNECTION_MS + RESERVE_MS
+    ) {
+      deferred = queue.length;
+      console.warn('[owned-insights] budget low, deferring remainder', {
+        deferred,
+      });
+      break;
+    }
+    const batch = queue.splice(0, MAX_CONCURRENCY);
+    await Promise.all(batch.map((c) => runOne(c as ConnectionRow)));
+  }
+
   return NextResponse.json(
     {
       processed: results.length,
+      deferred,
       by_status: results.reduce<Record<string, number>>(
         (a, r) => ((a[r.status] = (a[r.status] ?? 0) + 1), a),
         {},

@@ -8,6 +8,7 @@ import {
 } from '../../libraries/database/src/index';
 
 const db = getSupabaseAdmin();
+const today = new Date().toISOString().slice(0, 10);
 let pass = 0,
   fail = 0;
 const check = (n: string, c: boolean) =>
@@ -37,6 +38,7 @@ try {
 
   const pi = await upsertProfileInsight({
     profile_id: profileId,
+    captured_date: today,
     platform: 'instagram',
     reach: 800,
     views: 1500,
@@ -49,13 +51,13 @@ try {
   });
   check('profile insight upsert', pi.ok === true);
 
-  const dem = await replaceAudienceDemographics(profileId, [
+  const dem = await replaceAudienceDemographics(profileId, today, [
     { dimension: 'country', bucket: 'MY', value: 300 },
     { dimension: 'country', bucket: 'SG', value: 120 },
   ]);
   check('demographics replace', dem.ok === true && dem.value === 2);
   // idempotent replace
-  const dem2 = await replaceAudienceDemographics(profileId, [
+  const dem2 = await replaceAudienceDemographics(profileId, today, [
     { dimension: 'country', bucket: 'MY', value: 350 },
   ]);
   const { count } = await db
@@ -67,6 +69,7 @@ try {
   const po = await upsertPostInsight({
     profile_id: profileId,
     external_post_id: 'M1',
+    captured_date: today,
     views: 999,
     reach: 600,
     saves: 22,
