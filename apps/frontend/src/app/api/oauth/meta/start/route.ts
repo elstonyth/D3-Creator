@@ -3,7 +3,11 @@ import { NextResponse } from 'next/server';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { signState } from '@gitroom/frontend/lib/oauth/state';
 import { metaAuthorizeUrl } from '@gitroom/frontend/lib/oauth/meta';
-import { metaAppId, metaRedirectUri } from '@gitroom/frontend/lib/oauth/config';
+import {
+  metaAppId,
+  metaRedirectUri,
+  metaIncludeBusinessPages,
+} from '@gitroom/frontend/lib/oauth/config';
 
 export const runtime = 'nodejs';
 
@@ -25,11 +29,14 @@ export async function GET() {
       ),
     );
   }
+  const scopes = metaIncludeBusinessPages()
+    ? [...SCOPES, 'business_management']
+    : SCOPES;
   const url = metaAuthorizeUrl({
     appId: metaAppId(),
     redirectUri: metaRedirectUri(),
     state: signState(auth.userId),
-    scopes: SCOPES,
+    scopes,
   });
   return NextResponse.redirect(url);
 }
