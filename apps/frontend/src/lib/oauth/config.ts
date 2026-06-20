@@ -29,6 +29,16 @@ export function metaAppSecret(): string {
   if (!v) throw new Error('META_APP_SECRET is not set');
   return v;
 }
+
+/**
+ * Opt-in: also discover Pages owned by a Business Manager portfolio (which never
+ * appear in `/me/accounts`). Requires the `business_management` scope, which in
+ * turn requires Meta App Review + Business Verification for non-test users — so
+ * it stays OFF by default and is enabled per-deployment once that's in place.
+ */
+export function metaIncludeBusinessPages(): boolean {
+  return process.env.META_INCLUDE_BUSINESS_PAGES === 'true';
+}
 export function tiktokClientKey(): string {
   const v = process.env.TIKTOK_CLIENT_KEY;
   if (!v) throw new Error('TIKTOK_CLIENT_KEY is not set');
