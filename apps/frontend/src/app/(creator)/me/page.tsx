@@ -8,9 +8,14 @@ import {
   getCreatorMetricsWindowed,
   getTopContentWindowed,
 } from '@gitroom/frontend/lib/metrics-windowed';
-import { parseWindowParam, WINDOW_LABEL } from '@gitroom/frontend/lib/me-window';
+import {
+  parseWindowParam,
+  WINDOW_LABEL,
+} from '@gitroom/frontend/lib/me-window';
 import { EmptyState } from '@gitroom/frontend/components/ui/empty-state';
 import { ViewLeaderboard } from '@gitroom/frontend/components/leaderboard-showcase/view-leaderboard';
+import { getCreatorPlatformBreakdown } from '@gitroom/frontend/lib/creator-platform-breakdown';
+import { PlatformCards } from '@gitroom/frontend/components/insights/platform-cards';
 import {
   PLATFORM_ICONS,
   PLATFORM_LABELS,
@@ -20,7 +25,12 @@ import {
 import { WindowTabs } from './window-tabs';
 import { CreatorStats } from './creator-stats';
 
-const SUPPORTED_PLATFORMS: PlatformKey[] = ['facebook', 'instagram', 'tiktok', 'douyin'];
+const SUPPORTED_PLATFORMS: PlatformKey[] = [
+  'facebook',
+  'instagram',
+  'tiktok',
+  'douyin',
+];
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -33,7 +43,17 @@ function NoAccountsState() {
   return (
     <EmptyState
       icon={
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <svg
+          width="26"
+          height="26"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.75"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
           <path d="M3 3v18h18" />
           <path d="M7 15l3-3 3 2 4-5" />
         </svg>
@@ -79,9 +99,17 @@ export default async function CreatorMePage({
     // Cookie-aware client (NOT service-role). The windowed RPCs read public-RLS
     // tables; creatorIds scopes the aggregation to this creator.
     const sb = await getSupabaseRoute();
-    const [rows, topContent] = await Promise.all([
-      getCreatorMetricsWindowed(metricWindow, { client: sb, creatorIds: [creatorId] }),
-      getTopContentWindowed(metricWindow, { client: sb, creatorIds: [creatorId], limit: 12 }),
+    const [rows, topContent, platformCards] = await Promise.all([
+      getCreatorMetricsWindowed(metricWindow, {
+        client: sb,
+        creatorIds: [creatorId],
+      }),
+      getTopContentWindowed(metricWindow, {
+        client: sb,
+        creatorIds: [creatorId],
+        limit: 12,
+      }),
+      getCreatorPlatformBreakdown(metricWindow, { client: sb, creatorId }),
     ]);
     const row = rows[0];
     body = !row ? (
@@ -95,6 +123,7 @@ export default async function CreatorMePage({
           title="Top content"
           subtitle={`Top by views · ${WINDOW_LABEL[metricWindow]}`}
         />
+        <PlatformCards cards={platformCards} />
       </div>
     );
   }
