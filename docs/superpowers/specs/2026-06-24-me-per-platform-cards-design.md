@@ -17,7 +17,7 @@ This is an enrichment of `/me`, not a rebuild — the drill-down target already 
 - **Per-platform drill-down**: `/creators/[id]/[platform]` (`(public)/creators/[id]/[platform]/page.tsx`) — `getCreatorPlatformDetail(id, platform)` resolves a creator by handle, shows Followers / Total Views / Total Likes + a `ContentGrid` of recent posts (views, hover-preview, click-to-open). `[id]` is any of the creator's handles; `/creators/[id]` lists platforms and links each to `/creators/{id}/{platform}`.
 - **Owned insights**: `profile_claim` (`claim_kind='owner'`) + `getMyOwnedInsights(client, profileId, days)` → daily `ProfileDay[]` incl. `follower_total` (owner-guarded RPC).
 - **Scraped per-(creator×platform×window) views**: `getDashboardViewTotalsWindowed` → `byCreator[creatorId][platform][window]`.
-- **Scraped per-platform followers + handle**: the creator's profile slots — the `CreatorPlatformSlot` shape (`platform`, `handle`, `followers`) already exposed by `getLiveCreatorRows`.
+- **Scraped per-platform followers + handle**: a `creatorId`-scoped read of `profile` (`id`, `platform`, `handle`, `.neq('platform','rednote')`) plus the latest `profile_snapshot.followers` per profile — no full-table scan.
 - **Platform icons/labels**: `PLATFORM_ICONS` / `PLATFORM_LABELS` / `PlatformKey`. RedNote (`xiaohongshu`) is archived and excluded everywhere.
 
 ## 3. Confirmed decisions
@@ -39,7 +39,7 @@ This is an enrichment of `/me`, not a rebuild — the drill-down target already 
 
 ### 4.1 Resolver (new) — `apps/frontend/src/lib/creator-platform-breakdown.ts`
 
-```
+```ts
 getCreatorPlatformBreakdown(
   window: MetricWindow,
   opts: { client: SupabaseClient; creatorId: string },
@@ -57,14 +57,14 @@ interface PlatformCard {
 
 Resolution:
 
-1. Load the creator's profile slots via `getLiveCreatorRows()` filtered to `creatorId` → each `CreatorPlatformSlot` gives `platform`, `handle`, scraped `followers` (RedNote already excluded). A slot with no `handle` is skipped (can't build the link). _(One existing call; it loads all creators then picks one — negligible at current scale, swap to a creator-scoped query if `/me` perf matters later.)_
-2. Load owner claims: `profile_claim.select('profile_id, profile:profile_id(platform, handle)')` where `claim_kind='owner'` → the connected `{profileId, platform}` set (the same join the Connections page uses).
+1. Load the creator's profile slots with a `creatorId`-scoped read: `profile` (`id`, `platform`, `handle`, `.neq('platform','rednote')`) + the latest `profile_snapshot.followers` per profile. Each slot = `{ profileId, platform, handle, followers }`. A slot with no `handle` is skipped (can't build the link).
+2. Load owner claims `profile_claim.select('profile_id').eq('claim_kind','owner')` (RLS-scoped to this user) and **restrict to this creator's slot `profileId`s** — so a claim on another creator's profile can't attach here.
 3. Scraped window views from `getDashboardViewTotalsWindowed({ client, creatorIds: [creatorId] })` → `byCreator[creatorId][platform][window]`.
 4. Per platform card:
    - `views` = scraped window views (all platforms).
-   - **IG/FB with an owner claim** → `getMyOwnedInsights(client, profileId, 1)`:
+   - **IG/FB whose `slot.profileId` is owner-claimed** → `getMyOwnedInsights(client, slot.profileId, 1)`, wrapped in `.catch` so a transient RPC failure degrades to the scraped/syncing card (never rejecting the page's `Promise.all`):
      - ≥1 owned day → `source: 'owned'`, `followers` = latest `follower_total`.
-     - owner claim but zero owned days → `source: 'scraped'`, scraped followers, `syncing: true`.
+     - zero owned days (or the RPC failed) → `source: 'scraped'`, scraped followers, `syncing: true`.
    - **otherwise** (unconnected IG/FB, TikTok, Douyin) → `source: 'scraped'`, scraped followers.
 5. Order Instagram, Facebook, TikTok, Douyin (owned-capable first); omit platforms the creator does not have.
 
@@ -84,20 +84,20 @@ Resolution:
 
 In the `creatorId` branch, add to the `Promise.all`:
 
-```
-getCreatorPlatformBreakdown(metricWindow, { client: sb, creatorId })
+```ts
+getCreatorPlatformBreakdown(metricWindow, { client: sb, creatorId });
 ```
 
 and render `<PlatformCards cards={cards} />` after `ViewLeaderboard`. Combined KPIs + top content are unchanged.
 
 ## 5. Data flow
 
-```
+```text
 /me  (server)
- ├─ getCreatorMetricsWindowed(creatorId)    → combined KPIs   (scraped, unchanged)
- ├─ getTopContentWindowed(creatorId)        → top content     (scraped, unchanged)
- └─ getCreatorPlatformBreakdown(creatorId)  → per-platform cards
-       ├─ profile slots (platform, handle, scraped followers)
+ ├─ getCreatorMetricsWindowed(creatorId)                      → combined KPIs   (scraped, unchanged)
+ ├─ getTopContentWindowed(creatorId)                          → top content     (scraped, unchanged)
+ └─ getCreatorPlatformBreakdown(window, {client, creatorId})  → per-platform cards
+       ├─ scoped profile + latest snapshot (profileId, platform, handle, followers)
        ├─ profile_claim(owner) + getMyOwnedInsights → owned followers (IG/FB)
        └─ getDashboardViewTotalsWindowed            → scraped window views
  → each card links to /creators/{handle}/{platform}  (existing videos/reels page)

@@ -607,6 +607,8 @@ git commit -m "feat(me): render per-platform cards on the creator dashboard"
 
 **Placeholder scan:** none — every step has full code + exact commands + expected output.
 
-**Type consistency:** `PlatformCard` fields identical across Task 1 (def), its tests, Task 2 (consume), and Task 2's test. `getCreatorPlatformBreakdown(window, { client, creatorId })` signature identical in Task 1 and Task 3. `byCreator[creatorId][platform][window]` indexing matches `DashboardViewTotals = Record<string, Record<string, number>>`.
+**Type consistency:** `PlatformCard` fields identical across Task 1 (def), its tests, Task 2 (consume), and Task 2's test. `getCreatorPlatformBreakdown(window, { client, creatorId })` signature identical in Task 1 and Task 3. The windowed-views type is `byCreator: Record<creatorId, DashboardViewTotals>` where `DashboardViewTotals = Record<platform, Record<window, number>>`, so `byCreator[creatorId][platform][window]` is the full three-level path.
 
-**Known caveats (from spec, intended):** card views (scraped) may not exactly equal the headline combined KPI (separate RPC, possible cross-platform dedup) — acceptable. `getLiveCreatorRows()` loads all creators then filters to one — negligible at current scale.
+**Post-review deviation (shipped):** Task 1's slot read was implemented as a `creatorId`-scoped pair of queries — `profile` (`id, platform, handle`, RedNote excluded) + latest `profile_snapshot.followers` per profile — instead of `getLiveCreatorRows()`, so the `/me` path no longer does a full-table scan (CodeRabbit #1) and each slot carries `profileId`. Owner claims are matched by `slot.profileId` restricted to this creator's slots (#2), and `getMyOwnedInsights` is wrapped in `.catch` so an RPC failure degrades to the scraped/syncing card (#3). The shipped resolver is the source of truth; the blueprint above predates these review fixes.
+
+**Known caveat (intended):** card views (scraped) may not exactly equal the headline combined KPI (separate RPC, possible cross-platform dedup) — acceptable.

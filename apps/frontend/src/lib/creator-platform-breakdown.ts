@@ -2,7 +2,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MetricWindow } from './metrics-windowed';
 import { getDashboardViewTotalsWindowed } from './metrics-windowed';
-import { getLiveCreatorRows } from './queries';
 import { getMyOwnedInsights } from './owned-insights';
 import type { PlatformKey } from '@gitroom/frontend/components/ui/platform-icons';
 
@@ -17,18 +16,54 @@ export interface PlatformCard {
 
 // Platforms whose owned (OAuth) followers we prefer when connected.
 const OWNED_CAPABLE = new Set<string>(['instagram', 'facebook']);
-// Owned-capable first; RedNote is already excluded upstream.
+// Owned-capable first; RedNote is excluded from the scoped profile read below.
 const ORDER: PlatformKey[] = ['instagram', 'facebook', 'tiktok', 'douyin'];
 
+/**
+ * Per-platform summary cards for the creator's own `/me` dashboard. IG/FB show
+ * owned (OAuth) followers when connected; TikTok/Douyin (and unconnected IG/FB)
+ * show scraped. Views are scraped for every platform. Every read is scoped to
+ * `creatorId`; owned followers come from the owner-guarded RPC on the cookie
+ * client, and an owned-RPC failure degrades to the scraped/syncing card rather
+ * than rejecting the caller's `Promise.all`.
+ */
 export async function getCreatorPlatformBreakdown(
   window: MetricWindow,
   opts: { client: SupabaseClient; creatorId: string },
 ): Promise<PlatformCard[]> {
   const { client, creatorId } = opts;
 
-  // Scraped per-platform handle + followers (RedNote already excluded).
-  const rows = await getLiveCreatorRows();
-  const slots = rows?.find((r) => r.creatorId === creatorId)?.platforms ?? [];
+  // Scraped per-platform slots for THIS creator only (scoped — no full scan).
+  const { data: profs } = await client
+    .from('profile')
+    .select('id, platform, handle')
+    .eq('creator_id', creatorId)
+    .neq('platform', 'rednote'); // xiaohongshu archived
+  const profileIds = (profs ?? []).map((p) => p.id as string);
+
+  // Latest scraped follower count per profile (newest snapshot wins).
+  const followersByProfile = new Map<string, number | null>();
+  if (profileIds.length > 0) {
+    const { data: snaps } = await client
+      .from('profile_snapshot')
+      .select('profile_id, followers, captured_at')
+      .in('profile_id', profileIds)
+      .order('captured_at', { ascending: false })
+      .order('id', { ascending: false });
+    for (const s of snaps ?? []) {
+      const pid = s.profile_id as string;
+      if (!followersByProfile.has(pid)) {
+        followersByProfile.set(pid, (s.followers as number | null) ?? null);
+      }
+    }
+  }
+
+  const slots = (profs ?? []).map((p) => ({
+    profileId: p.id as string,
+    platform: p.platform as PlatformKey,
+    handle: (p.handle as string | null) ?? null,
+    followers: followersByProfile.get(p.id as string) ?? null,
+  }));
 
   // Scraped window views, scoped to this creator.
   const totals = await getDashboardViewTotalsWindowed({
@@ -37,21 +72,18 @@ export async function getCreatorPlatformBreakdown(
   });
   const viewsByPlatform = totals.byCreator[creatorId] ?? {};
 
-  // Which owned-capable platforms are OAuth-connected (owner claims).
+  // Owner claims (RLS-scoped to this user), restricted to this creator's own
+  // profiles so a claim on another creator's profile can't attach here.
+  const slotIds = new Set(slots.map((s) => s.profileId));
   const { data: claims } = await client
     .from('profile_claim')
-    .select('profile_id, profile:profile_id(platform)')
+    .select('profile_id')
     .eq('claim_kind', 'owner');
-  const ownedProfileByPlatform = new Map<string, string>();
-  for (const c of claims ?? []) {
-    const prof = (Array.isArray(c.profile) ? c.profile[0] : c.profile) as
-      | { platform: string | null }
-      | null
-      | undefined;
-    if (prof?.platform && OWNED_CAPABLE.has(prof.platform)) {
-      ownedProfileByPlatform.set(prof.platform, c.profile_id as string);
-    }
-  }
+  const ownedProfileIds = new Set(
+    (claims ?? [])
+      .map((c) => c.profile_id as string)
+      .filter((id) => slotIds.has(id)),
+  );
 
   const cards: PlatformCard[] = [];
   for (const platform of ORDER) {
@@ -59,11 +91,17 @@ export async function getCreatorPlatformBreakdown(
     if (!slot || !slot.handle) continue; // not tracked / no handle → skip
     const handle = slot.handle;
     const views = viewsByPlatform[platform]?.[window] ?? null;
-    const scrapedFollowers = slot.followers ?? null;
+    const scrapedFollowers = slot.followers;
 
-    const ownedProfileId = ownedProfileByPlatform.get(platform);
-    if (ownedProfileId) {
-      const owned = await getMyOwnedInsights(client, ownedProfileId, 1);
+    if (OWNED_CAPABLE.has(platform) && ownedProfileIds.has(slot.profileId)) {
+      // Owner-claimed: prefer first-party followers. A transient RPC failure
+      // must not blank the dashboard — fall back to the scraped/syncing card.
+      const owned = await getMyOwnedInsights(client, slot.profileId, 1).catch(
+        (err) => {
+          console.error('[creator-platform-breakdown] getMyOwnedInsights', err);
+          return null;
+        },
+      );
       const latest = owned?.profile[owned.profile.length - 1];
       if (latest && latest.follower_total != null) {
         cards.push({
@@ -75,7 +113,7 @@ export async function getCreatorPlatformBreakdown(
         });
         continue;
       }
-      // Connected, but the cron has not ingested owned rows yet.
+      // Connected, but the cron has not ingested owned rows yet (or it failed).
       cards.push({
         platform,
         handle,

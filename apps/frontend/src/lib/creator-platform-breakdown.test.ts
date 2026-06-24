@@ -1,46 +1,68 @@
 /** @jest-environment node */
 import { getCreatorPlatformBreakdown } from './creator-platform-breakdown';
 
-jest.mock('./queries', () => ({ getLiveCreatorRows: jest.fn() }));
 jest.mock('./metrics-windowed', () => ({
   getDashboardViewTotalsWindowed: jest.fn(),
 }));
 jest.mock('./owned-insights', () => ({ getMyOwnedInsights: jest.fn() }));
 
-import { getLiveCreatorRows } from './queries';
 import { getDashboardViewTotalsWindowed } from './metrics-windowed';
 import { getMyOwnedInsights } from './owned-insights';
 
-const mockRows = getLiveCreatorRows as jest.Mock;
 const mockViews = getDashboardViewTotalsWindowed as jest.Mock;
 const mockOwned = getMyOwnedInsights as jest.Mock;
 
-// Minimal cookie-client stub: client.from('profile_claim').select(...).eq(...)
-// resolves to { data, error }.
-function client(
-  claims: Array<{ profile_id: string; profile: { platform: string } }>,
-): any {
+// Cookie-client stub routed by table:
+//   profile          → select().eq().neq()              → { data: profiles }
+//   profile_snapshot → select().in().order().order()    → { data: snapshots }
+//   profile_claim    → select().eq()                    → { data: claims }
+function makeClient(opts: {
+  profiles: Array<{ id: string; platform: string; handle: string | null }>;
+  snapshots?: Array<{
+    profile_id: string;
+    followers: number | null;
+    captured_at: string;
+  }>;
+  claims: Array<{ profile_id: string }>;
+}): any {
+  const { profiles, snapshots = [], claims } = opts;
   return {
-    from: () => ({
-      select: () => ({
-        eq: () => Promise.resolve({ data: claims, error: null }),
-      }),
-    }),
+    from: (table: string) => {
+      if (table === 'profile') {
+        return {
+          select: () => ({
+            eq: () => ({
+              neq: () => Promise.resolve({ data: profiles, error: null }),
+            }),
+          }),
+        };
+      }
+      if (table === 'profile_snapshot') {
+        return {
+          select: () => ({
+            in: () => ({
+              order: () => ({
+                order: () => Promise.resolve({ data: snapshots, error: null }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === 'profile_claim') {
+        return {
+          select: () => ({
+            eq: () => Promise.resolve({ data: claims, error: null }),
+          }),
+        };
+      }
+      throw new Error(`unexpected table ${table}`);
+    },
   };
 }
 
 beforeEach(() => jest.clearAllMocks());
 
 test('owned IG → owned followers; TikTok stays scraped; ordered IG then TikTok', async () => {
-  mockRows.mockResolvedValue([
-    {
-      creatorId: 'c1',
-      platforms: [
-        { platform: 'tiktok', handle: 'tt_h', followers: 5000 },
-        { platform: 'instagram', handle: 'ig_h', followers: 1000 },
-      ],
-    },
-  ]);
   mockViews.mockResolvedValue({
     byPlatform: {},
     byCreator: { c1: { instagram: { '30d': 200 }, tiktok: { '30d': 9000 } } },
@@ -51,10 +73,20 @@ test('owned IG → owned followers; TikTok stays scraped; ordered IG then TikTok
     posts: [],
   });
 
+  const client = makeClient({
+    profiles: [
+      { id: 'p_tt', platform: 'tiktok', handle: 'tt_h' },
+      { id: 'p_ig', platform: 'instagram', handle: 'ig_h' },
+    ],
+    snapshots: [
+      { profile_id: 'p_ig', followers: 1000, captured_at: '2026-06-22' },
+      { profile_id: 'p_tt', followers: 5000, captured_at: '2026-06-22' },
+    ],
+    claims: [{ profile_id: 'p_ig' }],
+  });
+
   const cards = await getCreatorPlatformBreakdown('30d', {
-    client: client([
-      { profile_id: 'p_ig', profile: { platform: 'instagram' } },
-    ]),
+    client,
     creatorId: 'c1',
   });
 
@@ -78,22 +110,22 @@ test('owned IG → owned followers; TikTok stays scraped; ordered IG then TikTok
 });
 
 test('owner-claimed but no owned rows yet → scraped + syncing', async () => {
-  mockRows.mockResolvedValue([
-    {
-      creatorId: 'c1',
-      platforms: [{ platform: 'instagram', handle: 'ig_h', followers: 1000 }],
-    },
-  ]);
   mockViews.mockResolvedValue({
     byPlatform: {},
     byCreator: { c1: { instagram: { '30d': 200 } } },
   });
   mockOwned.mockResolvedValue({ profile: [], demographics: [], posts: [] });
 
+  const client = makeClient({
+    profiles: [{ id: 'p_ig', platform: 'instagram', handle: 'ig_h' }],
+    snapshots: [
+      { profile_id: 'p_ig', followers: 1000, captured_at: '2026-06-22' },
+    ],
+    claims: [{ profile_id: 'p_ig' }],
+  });
+
   const cards = await getCreatorPlatformBreakdown('30d', {
-    client: client([
-      { profile_id: 'p_ig', profile: { platform: 'instagram' } },
-    ]),
+    client,
     creatorId: 'c1',
   });
 
@@ -110,22 +142,24 @@ test('owner-claimed but no owned rows yet → scraped + syncing', async () => {
 });
 
 test('no claims → all scraped; slot without a handle is skipped', async () => {
-  mockRows.mockResolvedValue([
-    {
-      creatorId: 'c1',
-      platforms: [
-        { platform: 'instagram', handle: null, followers: 1000 },
-        { platform: 'douyin', handle: 'dy_h', followers: 7000 },
-      ],
-    },
-  ]);
   mockViews.mockResolvedValue({
     byPlatform: {},
     byCreator: { c1: { douyin: { '30d': 7700000 } } },
   });
 
+  const client = makeClient({
+    profiles: [
+      { id: 'p_ig', platform: 'instagram', handle: null },
+      { id: 'p_dy', platform: 'douyin', handle: 'dy_h' },
+    ],
+    snapshots: [
+      { profile_id: 'p_dy', followers: 7000, captured_at: '2026-06-22' },
+    ],
+    claims: [],
+  });
+
   const cards = await getCreatorPlatformBreakdown('30d', {
-    client: client([]),
+    client,
     creatorId: 'c1',
   });
 
@@ -139,4 +173,68 @@ test('no claims → all scraped; slot without a handle is skipped', async () => 
     },
   ]);
   expect(mockOwned).not.toHaveBeenCalled();
+});
+
+test('a claim on a profile not belonging to this creator is ignored', async () => {
+  mockViews.mockResolvedValue({
+    byPlatform: {},
+    byCreator: { c1: { instagram: { '30d': 200 } } },
+  });
+
+  const client = makeClient({
+    profiles: [{ id: 'p_ig', platform: 'instagram', handle: 'ig_h' }],
+    snapshots: [
+      { profile_id: 'p_ig', followers: 1000, captured_at: '2026-06-22' },
+    ],
+    claims: [{ profile_id: 'p_other_creators_ig' }], // not in this creator's slots
+  });
+
+  const cards = await getCreatorPlatformBreakdown('30d', {
+    client,
+    creatorId: 'c1',
+  });
+
+  expect(cards).toEqual([
+    {
+      platform: 'instagram',
+      handle: 'ig_h',
+      source: 'scraped',
+      followers: 1000,
+      views: 200,
+    },
+  ]);
+  expect(mockOwned).not.toHaveBeenCalled();
+});
+
+test('a transient owned-RPC failure degrades to the scraped/syncing card', async () => {
+  mockViews.mockResolvedValue({
+    byPlatform: {},
+    byCreator: { c1: { instagram: { '30d': 200 } } },
+  });
+  mockOwned.mockRejectedValue(new Error('rpc boom'));
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+
+  const client = makeClient({
+    profiles: [{ id: 'p_ig', platform: 'instagram', handle: 'ig_h' }],
+    snapshots: [
+      { profile_id: 'p_ig', followers: 1000, captured_at: '2026-06-22' },
+    ],
+    claims: [{ profile_id: 'p_ig' }],
+  });
+
+  const cards = await getCreatorPlatformBreakdown('30d', {
+    client,
+    creatorId: 'c1',
+  });
+
+  expect(cards).toEqual([
+    {
+      platform: 'instagram',
+      handle: 'ig_h',
+      source: 'scraped',
+      followers: 1000,
+      views: 200,
+      syncing: true,
+    },
+  ]);
 });
