@@ -19,15 +19,23 @@ export function requireOauthEncKey(): Buffer {
   return key;
 }
 
-export function metaAppId(): string {
-  const v = process.env.META_APP_ID;
-  if (!v) throw new Error('META_APP_ID is not set');
+/**
+ * Read a required env var, trimming stray whitespace. Env values sometimes carry
+ * a leading tab or space — a leading tab in prod `META_APP_ID` once put `%09`
+ * into the OAuth client_id, so Facebook couldn't match the app and re-prompted
+ * login. Whitespace-only is treated as unset.
+ */
+function requireEnv(name: string): string {
+  const v = process.env[name]?.trim();
+  if (!v) throw new Error(`${name} is not set`);
   return v;
 }
+
+export function metaAppId(): string {
+  return requireEnv('META_APP_ID');
+}
 export function metaAppSecret(): string {
-  const v = process.env.META_APP_SECRET;
-  if (!v) throw new Error('META_APP_SECRET is not set');
-  return v;
+  return requireEnv('META_APP_SECRET');
 }
 
 /**
