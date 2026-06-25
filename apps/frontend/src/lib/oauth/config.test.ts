@@ -8,6 +8,15 @@ import {
 } from './config';
 
 describe('oauth config', () => {
+  // Tests below mutate process.env; snapshot/restore so they don't leak.
+  const ORIGINAL_ENV = process.env;
+  beforeEach(() => {
+    process.env = { ...ORIGINAL_ENV };
+  });
+  afterAll(() => {
+    process.env = ORIGINAL_ENV;
+  });
+
   it('builds redirect URIs from SITE_URL', () => {
     expect(metaRedirectUri()).toBe(
       'https://www.d3creator.com/api/oauth/meta/callback',
