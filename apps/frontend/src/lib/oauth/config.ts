@@ -20,12 +20,15 @@ export function requireOauthEncKey(): Buffer {
 }
 
 export function metaAppId(): string {
-  const v = process.env.META_APP_ID;
+  // .trim(): env vars sometimes carry stray whitespace (a leading tab in the
+  // prod value once put `%09` into the OAuth client_id, so Facebook couldn't
+  // match the app and re-prompted login). Strip it before it reaches Graph.
+  const v = process.env.META_APP_ID?.trim();
   if (!v) throw new Error('META_APP_ID is not set');
   return v;
 }
 export function metaAppSecret(): string {
-  const v = process.env.META_APP_SECRET;
+  const v = process.env.META_APP_SECRET?.trim();
   if (!v) throw new Error('META_APP_SECRET is not set');
   return v;
 }
