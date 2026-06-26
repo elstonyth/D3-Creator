@@ -11,7 +11,11 @@
  */
 
 import { getSupabaseAdmin } from './supabase-server';
-import { avatarUrlFromRaw, persistAvatarForProfile, withPersistedAvatar } from './media';
+import {
+  avatarUrlFromRaw,
+  persistAvatarForProfile,
+  withPersistedAvatar,
+} from './media';
 import type { ProfileRow, ScrapeStatus } from './types';
 
 /** A deep backfill can upsert hundreds of fat-`raw` rows at once. A single
@@ -87,7 +91,8 @@ function scrubDeep(v: unknown): unknown {
   if (Array.isArray(v)) return v.map(scrubDeep);
   if (v && typeof v === 'object') {
     const out: Record<string, unknown> = {};
-    for (const k of Object.keys(v)) out[scrubText(k)] = scrubDeep((v as Record<string, unknown>)[k]);
+    for (const k of Object.keys(v))
+      out[scrubText(k)] = scrubDeep((v as Record<string, unknown>)[k]);
     return out;
   }
   return v;
@@ -104,7 +109,10 @@ function sanitizeJsonForPg(value: unknown): unknown {
   }
   if (json === undefined) return value;
   const lower = json.toLowerCase();
-  if (lower.indexOf(ESCAPED_NUL) === -1 && lower.indexOf(SURROGATE_ESCAPE) === -1) {
+  if (
+    lower.indexOf(ESCAPED_NUL) === -1 &&
+    lower.indexOf(SURROGATE_ESCAPE) === -1
+  ) {
     return value; // fast path — no NUL, no surrogates at all
   }
   return scrubDeep(value);
@@ -134,15 +142,19 @@ export interface PostSnapshotInput {
   raw: unknown;
 }
 
+// scrape_status values that need a human to re-enable (private profile / dead
+// page / renamed handle). The cron skips them and the FB refresh re-queue leaves
+// them alone — kept as one PostgREST `in` list so the two filters can't drift.
+const HUMAN_GATED_STATUSES = '("private","not_found","handle_changed")';
+
 /** Profiles the cron should attempt today. */
 export async function listScrapeableProfiles(): Promise<ProfileRow[]> {
   const sb = getSupabaseAdmin();
-  // Skip statuses that require user action to re-enable. 'private' /
-  // 'not_found' / 'handle_changed' all need a human; the rest are fair game.
+  // Skip statuses that require user action to re-enable; the rest are fair game.
   const res = await sb
     .from('profile')
     .select('*')
-    .not('scrape_status', 'in', '("private","not_found","handle_changed")')
+    .not('scrape_status', 'in', HUMAN_GATED_STATUSES)
     .order('created_at', { ascending: true });
   if (res.error) {
     throw new Error(`listScrapeableProfiles failed: ${res.error.message}`);
@@ -175,8 +187,13 @@ export async function upsertProfileSnapshot(
   const rawAvatar = avatarUrlFromRaw(raw);
   if (rawAvatar) {
     try {
-      const { persisted } = await persistAvatarForProfile(profileId, rawAvatar, true);
-      if (persisted && persisted !== rawAvatar) raw = withPersistedAvatar(raw, persisted);
+      const { persisted } = await persistAvatarForProfile(
+        profileId,
+        rawAvatar,
+        true,
+      );
+      if (persisted && persisted !== rawAvatar)
+        raw = withPersistedAvatar(raw, persisted);
     } catch {
       // Keep the original raw (CDN avatar) — healed on the next scrape/backfill.
     }
@@ -240,7 +257,8 @@ export async function upsertPostSnapshots(
     external_post_id: p.external_post_id,
     posted_at: p.posted_at,
     // Strip NUL + lone surrogates so one poisoned field can't 400 the batch.
-    caption_excerpt: p.caption_excerpt === null ? null : scrubText(p.caption_excerpt),
+    caption_excerpt:
+      p.caption_excerpt === null ? null : scrubText(p.caption_excerpt),
     views: p.views,
     likes: p.likes,
     comments: p.comments,
@@ -270,6 +288,56 @@ export async function upsertPostSnapshots(
     written += res.data?.length ?? 0;
   }
   return { written };
+}
+
+/**
+ * Re-queue a creator's Facebook profile for a same-day refresh when a fresher
+ * platform just surfaced a post the FB scrape predates.
+ *
+ * Why: FB scrapes are slow (~250s) and run in the early-UTC cron window, before
+ * this roster's creators post (~mid-day UTC), so a new video's FB view count —
+ * usually the creator's highest — lags 1–3 days and is missing from / under-ranks
+ * on the leaderboard until FB's next cadence scrape. The cheap IG/TikTok scrape
+ * catches the post next-day-early; this then expires the FB profile's
+ * last_scraped_at so the hourly cron re-scrapes FB the same day. (Trigger gating
+ * — which platforms, how fresh — lives in lib/scrape-budget facebookRefreshTarget.)
+ *
+ * Mechanics: the cron's due-filter keys on last_scraped_at's UTC *date* and sorts
+ * oldest-first, so writing yesterday-00:00-UTC makes the FB profile due again
+ * today and high-priority. Scoped to Facebook and gated on
+ * last_scraped_at < newestPostedAt, so it fires at most one extra FB scrape per
+ * new post and can't loop (the FB re-scrape stamps last_scraped_at = now > post).
+ * not_found / private / handle_changed are left alone — they need a human, mirroring
+ * listScrapeableProfiles. Best-effort: callers swallow errors so a re-queue
+ * failure never sinks the scrape.
+ *
+ * Returns the number of FB profiles re-queued (0 or 1 in practice).
+ */
+export async function requeueFacebookForFreshPost(
+  creatorId: string,
+  newestPostedAt: string,
+): Promise<{ requeued: number }> {
+  const sb = getSupabaseAdmin();
+  // Yesterday 00:00 UTC: a guaranteed prior UTC date (so the due-filter re-admits
+  // it today) that also sorts ahead of anything scraped today.
+  const dueAgain = new Date();
+  dueAgain.setUTCDate(dueAgain.getUTCDate() - 1);
+  dueAgain.setUTCHours(0, 0, 0, 0);
+
+  const res = await sb
+    .from('profile')
+    .update({ last_scraped_at: dueAgain.toISOString() })
+    .eq('creator_id', creatorId)
+    .eq('platform', 'facebook')
+    .not('scrape_status', 'in', HUMAN_GATED_STATUSES)
+    // Only when FB actually predates the post. `.lt` excludes a null
+    // last_scraped_at — a never-scraped FB profile is already due (NULLS FIRST).
+    .lt('last_scraped_at', newestPostedAt)
+    .select('id');
+  if (res.error) {
+    throw new Error(`requeueFacebookForFreshPost failed: ${res.error.message}`);
+  }
+  return { requeued: res.data?.length ?? 0 };
 }
 
 /** Update profile.scrape_status + last_scraped_at after a scrape attempt. */
