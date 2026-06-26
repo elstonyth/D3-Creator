@@ -31,6 +31,7 @@ import {
   listScrapeableProfiles,
   persistMediaForPosts,
   POST_MEDIA_DEADLINE_MS,
+  requeueFacebookForFreshPost,
   setProfileStatus,
   upsertPostSnapshots,
   upsertProfileSnapshot,
@@ -39,6 +40,7 @@ import { withTimeout } from '@gitroom/frontend/lib/with-timeout';
 import {
   MIN_SCRAPE_BUDGET_MS,
   WRAPUP_RESERVE_MS,
+  facebookRefreshTarget,
   minScrapeBudgetMsFor,
   orderFacebookFirst,
   scrapeTimeoutMsFor,
@@ -72,7 +74,13 @@ interface ProfileResult {
   profile_id: string;
   platform: string;
   handle: string | null;
-  status: 'ok' | 'failed' | 'private' | 'not_found' | 'throttled' | 'handle_changed';
+  status:
+    | 'ok'
+    | 'failed'
+    | 'private'
+    | 'not_found'
+    | 'throttled'
+    | 'handle_changed';
   posts_written?: number;
   error?: string;
 }
@@ -97,7 +105,10 @@ function assertAuth(request: Request): Response | null {
   // an acceptable oracle for a high-entropy random secret.
   if (
     auth.length !== expectedFull.length ||
-    !timingSafeEqual(Buffer.from(auth, 'utf8'), Buffer.from(expectedFull, 'utf8'))
+    !timingSafeEqual(
+      Buffer.from(auth, 'utf8'),
+      Buffer.from(expectedFull, 'utf8'),
+    )
   ) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
@@ -114,7 +125,10 @@ export async function GET(request: Request): Promise<Response> {
     allProfiles = await listScrapeableProfiles();
   } catch (err) {
     return NextResponse.json(
-      { error: 'listScrapeableProfiles failed', detail: (err as Error).message },
+      {
+        error: 'listScrapeableProfiles failed',
+        detail: (err as Error).message,
+      },
       { status: 500 },
     );
   }
@@ -168,7 +182,9 @@ export async function GET(request: Request): Promise<Response> {
     // let the next hourly tick take the rest — recording a false 'failed' here
     // would skip a healthy profile until tomorrow (the due-filter is per-day).
     const scrapeBudgetMs =
-      maxDuration * 1000 - (Date.now() - startedAt.getTime()) - WRAPUP_RESERVE_MS;
+      maxDuration * 1000 -
+      (Date.now() - startedAt.getTime()) -
+      WRAPUP_RESERVE_MS;
     if (scrapeBudgetMs < MIN_SCRAPE_BUDGET_MS) {
       console.warn('[daily-snapshot] budget low, deferring remainder', {
         deferred: profiles.length - results.length,
@@ -222,6 +238,27 @@ export async function GET(request: Request): Promise<Response> {
       );
       const { written } = await upsertPostSnapshots(profile.id, persistedPosts);
       await setProfileStatus(profile.id, 'ok');
+
+      // Same-day Facebook refresh: a cross-posted video's highest view count is
+      // usually on Facebook, but FB scrapes run early-UTC (before the day's post)
+      // and only every ~1-3 days, so that number lags the leaderboard. When this
+      // cheaper/fresher scrape just surfaced a new post, re-queue the creator's
+      // FB profile so it re-scrapes today. Best-effort — never fail the tick.
+      const refreshTarget = facebookRefreshTarget(
+        profile.platform,
+        posts,
+        new Date(),
+      );
+      if (refreshTarget) {
+        try {
+          await requeueFacebookForFreshPost(profile.creator_id, refreshTarget);
+        } catch (err) {
+          console.warn('[daily-snapshot] FB refresh re-queue failed', {
+            creator_id: profile.creator_id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
 
       results.push({
         profile_id: profile.id,

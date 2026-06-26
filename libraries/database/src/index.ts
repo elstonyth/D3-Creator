@@ -53,6 +53,7 @@ export {
   upsertProfileSnapshot,
   upsertPostSnapshots,
   setProfileStatus,
+  requeueFacebookForFreshPost,
   type ProfileSnapshotInput,
   type PostSnapshotInput,
 } from './snapshots';

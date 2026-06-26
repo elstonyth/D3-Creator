@@ -64,3 +64,50 @@ export function orderFacebookFirst<T extends { platform: string }>(
     ...profiles.filter((p) => p.platform !== 'facebook'),
   ];
 }
+
+// How recent the newest just-scraped post must be to trigger a same-day
+// Facebook refresh. The cheap IG/TikTok scrape catches a new post next-day-early,
+// so 2 days covers detection + slack while ignoring dormant creators and deep
+// backfills of old content (which would otherwise re-queue FB pointlessly).
+export const FB_REFRESH_LOOKBACK_MS = 2 * 24 * 60 * 60 * 1000;
+
+/**
+ * After a successful scrape, decide whether to trigger a same-day Facebook
+ * refresh and on which post date.
+ *
+ * Facebook is the slow (~250s) / expensive laggard: its scrape runs in the early
+ * cron window, before this roster's creators post (~mid-day UTC), so a new
+ * video's FB view count — usually the creator's highest — is missing from the
+ * leaderboard for 1–3 days until FB's next cadence scrape. The cheaper IG/TikTok
+ * scrape surfaces the same post sooner; when it does, we re-queue the creator's
+ * FB profile (see requeueFacebookForFreshPost) so FB re-scrapes the same day.
+ *
+ * Returns the newest post's ISO timestamp when a FRESH post was just surfaced,
+ * else null. A Facebook scrape never triggers this (no self-loop). A stale
+ * newest post (dormant creator / old-content backfill) or a bogus future-dated
+ * one is ignored — only recently-published content is chased. Pure for tests.
+ */
+export function facebookRefreshTarget(
+  scrapedPlatform: string,
+  posts: ReadonlyArray<{ posted_at: string | null }>,
+  now: Date,
+): string | null {
+  if (scrapedPlatform === 'facebook') return null;
+  let newestMs = -Infinity;
+  let newestIso: string | null = null;
+  for (const p of posts) {
+    if (!p.posted_at) continue;
+    const t = Date.parse(p.posted_at);
+    if (Number.isNaN(t)) continue;
+    if (t > newestMs) {
+      newestMs = t;
+      newestIso = p.posted_at;
+    }
+  }
+  if (newestIso === null) return null;
+  // Too old (dormant/backfill) or implausibly future-dated (bad upstream data,
+  // which would otherwise re-queue FB every day forever) → don't chase it.
+  if (newestMs < now.getTime() - FB_REFRESH_LOOKBACK_MS) return null;
+  if (newestMs > now.getTime() + FB_REFRESH_LOOKBACK_MS) return null;
+  return newestIso;
+}

@@ -1,8 +1,10 @@
 import {
   DEFAULT_SCRAPE_TIMEOUT_MS,
   FACEBOOK_SCRAPE_TIMEOUT_MS,
+  FB_REFRESH_LOOKBACK_MS,
   MIN_SCRAPE_BUDGET_MS,
   WRAPUP_RESERVE_MS,
+  facebookRefreshTarget,
   minScrapeBudgetMsFor,
   orderFacebookFirst,
   scrapeTimeoutMsFor,
@@ -98,5 +100,48 @@ describe('orderFacebookFirst', () => {
     const ordered = orderFacebookFirst(batch);
     expect(ordered).not.toBe(batch);
     expect(batch.map((x) => x.id)).toEqual(['ig1', 'fb1']);
+  });
+});
+
+describe('facebookRefreshTarget', () => {
+  const NOW = new Date('2026-06-26T06:00:00Z');
+  const post = (posted_at: string | null) => ({ posted_at });
+
+  it('returns the newest post date when a fresh post was just surfaced', () => {
+    // The IG/TikTok scrape caught today's cross-post — re-queue FB on it.
+    const target = facebookRefreshTarget(
+      'instagram',
+      [post('2026-06-25T11:20:00Z'), post('2026-06-24T11:00:00Z')],
+      NOW,
+    );
+    expect(target).toBe('2026-06-25T11:20:00Z');
+  });
+
+  it('never triggers from a facebook scrape (no self-loop)', () => {
+    expect(
+      facebookRefreshTarget('facebook', [post('2026-06-25T11:20:00Z')], NOW),
+    ).toBeNull();
+  });
+
+  it('ignores a stale newest post (dormant creator / old-content backfill)', () => {
+    // Older than the lookback window — FB is not lagging fresh content here.
+    const stale = new Date(NOW.getTime() - FB_REFRESH_LOOKBACK_MS - 60_000);
+    expect(
+      facebookRefreshTarget('tiktok', [post(stale.toISOString())], NOW),
+    ).toBeNull();
+  });
+
+  it('ignores an implausible future-dated post (bad upstream data)', () => {
+    const future = new Date(NOW.getTime() + FB_REFRESH_LOOKBACK_MS + 60_000);
+    expect(
+      facebookRefreshTarget('tiktok', [post(future.toISOString())], NOW),
+    ).toBeNull();
+  });
+
+  it('returns null when no post carries a usable date', () => {
+    expect(facebookRefreshTarget('instagram', [], NOW)).toBeNull();
+    expect(
+      facebookRefreshTarget('instagram', [post(null), post('not-a-date')], NOW),
+    ).toBeNull();
   });
 });
