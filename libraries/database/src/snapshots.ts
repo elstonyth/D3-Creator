@@ -142,15 +142,19 @@ export interface PostSnapshotInput {
   raw: unknown;
 }
 
+// scrape_status values that need a human to re-enable (private profile / dead
+// page / renamed handle). The cron skips them and the FB refresh re-queue leaves
+// them alone — kept as one PostgREST `in` list so the two filters can't drift.
+const HUMAN_GATED_STATUSES = '("private","not_found","handle_changed")';
+
 /** Profiles the cron should attempt today. */
 export async function listScrapeableProfiles(): Promise<ProfileRow[]> {
   const sb = getSupabaseAdmin();
-  // Skip statuses that require user action to re-enable. 'private' /
-  // 'not_found' / 'handle_changed' all need a human; the rest are fair game.
+  // Skip statuses that require user action to re-enable; the rest are fair game.
   const res = await sb
     .from('profile')
     .select('*')
-    .not('scrape_status', 'in', '("private","not_found","handle_changed")')
+    .not('scrape_status', 'in', HUMAN_GATED_STATUSES)
     .order('created_at', { ascending: true });
   if (res.error) {
     throw new Error(`listScrapeableProfiles failed: ${res.error.message}`);
@@ -325,7 +329,7 @@ export async function requeueFacebookForFreshPost(
     .update({ last_scraped_at: dueAgain.toISOString() })
     .eq('creator_id', creatorId)
     .eq('platform', 'facebook')
-    .not('scrape_status', 'in', '("private","not_found","handle_changed")')
+    .not('scrape_status', 'in', HUMAN_GATED_STATUSES)
     // Only when FB actually predates the post. `.lt` excludes a null
     // last_scraped_at — a never-scraped FB profile is already due (NULLS FIRST).
     .lt('last_scraped_at', newestPostedAt)

@@ -127,7 +127,12 @@ export async function GET(request: Request): Promise<Response> {
     return NextResponse.json(
       {
         error: 'listScrapeableProfiles failed',
-        detail: (err as Error).message,
+        // Keep the stack, not just the message — this 500 is the only signal
+        // when the roster query itself fails, so the response is the log.
+        detail:
+          err instanceof Error
+            ? { message: err.message, stack: err.stack }
+            : err,
       },
       { status: 500 },
     );
