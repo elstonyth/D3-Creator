@@ -24,24 +24,28 @@ interface Video {
 export function ClassManager({ videos }: { videos: Video[] }) {
   const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const [pendingId, setPendingId] = useState<string | null>(null);
 
   async function onCreate(fd: FormData) {
-    setPending(true);
+    setMsg(null);
+    setPendingId('new');
     const res = await createClassVideo(null, fd);
     setMsg(res.message);
-    setPending(false);
+    setPendingId(null);
     if (res.ok) router.refresh();
   }
   async function onUpdate(fd: FormData) {
-    setPending(true);
+    setMsg(null);
+    const id = String(fd.get('id') ?? '');
+    setPendingId(id);
     const res = await updateClassVideo(null, fd);
     setMsg(res.message);
-    setPending(false);
+    setPendingId(null);
     if (res.ok) router.refresh();
   }
   async function onDelete(id: string) {
     if (!confirm('Delete this class?')) return;
+    setMsg(null);
     const res = await deleteClassVideo(id);
     setMsg(res.message);
     if (res.ok) router.refresh();
@@ -89,7 +93,7 @@ export function ClassManager({ videos }: { videos: Video[] }) {
             Order <Input name="sort_order" defaultValue="0" className="w-16" />
           </label>
         </div>
-        <Button type="submit" disabled={pending} className="w-fit">
+        <Button type="submit" disabled={pendingId === 'new'} className="w-fit">
           Add class
         </Button>
       </form>
@@ -115,7 +119,11 @@ export function ClassManager({ videos }: { videos: Video[] }) {
               placeholder="Description"
               maxLength={500}
             />
-            <Input name="drive_link" defaultValue={v.drive_file_id} required />
+            <Input
+              name="drive_link"
+              defaultValue={`https://drive.google.com/file/d/${v.drive_file_id}/view`}
+              required
+            />
             <div className="flex flex-wrap gap-4 text-label text-fgMuted items-center">
               <label className="flex items-center gap-2">
                 Visibility
@@ -154,7 +162,11 @@ export function ClassManager({ videos }: { videos: Video[] }) {
               </label>
             </div>
             <div className="flex gap-2">
-              <Button type="submit" disabled={pending} className="w-fit">
+              <Button
+                type="submit"
+                disabled={pendingId === v.id}
+                className="w-fit"
+              >
                 Save
               </Button>
               <Button
