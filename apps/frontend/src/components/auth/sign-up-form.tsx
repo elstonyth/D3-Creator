@@ -27,7 +27,7 @@ export function SignUpForm() {
       password,
     });
     if (signUpError) {
-      setError(signUpError.message);
+      setError('Could not create account. Check your details and try again.');
       setPending(false);
       return;
     }
