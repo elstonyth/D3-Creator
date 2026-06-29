@@ -13,6 +13,7 @@ export const metadata: Metadata = {
   title: 'Privacy Policy — D3 Creator',
   description:
     'D3 Creator Privacy Policy: how we collect, use, and protect your information when you use our social media analytics service.',
+  alternates: { canonical: '/privacy' },
 };
 
 const sectionTitle = 'text-section mt-12 mb-4 text-fg';

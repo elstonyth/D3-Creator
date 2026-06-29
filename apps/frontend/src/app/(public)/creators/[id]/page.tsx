@@ -2,7 +2,10 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { GlassCard } from '@gitroom/frontend/components/ui/glass-card';
-import { BentoGrid, BentoItem } from '@gitroom/frontend/components/ui/bento-grid';
+import {
+  BentoGrid,
+  BentoItem,
+} from '@gitroom/frontend/components/ui/bento-grid';
 import { ImageWithFallback } from '@gitroom/frontend/components/ui/image-with-fallback';
 import {
   PLATFORM_ICONS,
@@ -44,6 +47,11 @@ export async function generateMetadata({
   return {
     title: `${name} — D3 Creator`,
     description: `Live follower counts, engagement, and growth for ${name} across every platform.`,
+    alternates: { canonical: `/creators/${id}` },
+    openGraph: {
+      title: `${name} — D3 Creator`,
+      description: `Live follower counts, engagement, and growth for ${name} across every platform.`,
+    },
   };
 }
 
@@ -101,23 +109,41 @@ export default async function CreatorPage({
       {/* Headline stats */}
       <BentoGrid gap="md">
         <BentoItem colSpan={4} tabletColSpan={6}>
-          <GlassCard variant="base" hover padding="lg" radius="2xl" className="h-full text-left">
+          <GlassCard
+            variant="base"
+            hover
+            padding="lg"
+            radius="2xl"
+            className="h-full text-left"
+          >
             <div className="flex items-center justify-between mb-6">
-              <span className="text-micro uppercase text-fgSubtle">Total Followers</span>
+              <span className="text-micro uppercase text-fgSubtle">
+                Total Followers
+              </span>
             </div>
             <div className="text-[clamp(40px,5vw,56px)] leading-[1.04] tracking-[-0.03em] font-semibold text-fg tabular-nums">
               {compact.format(creator.totalFollowers)}
             </div>
             <p className="text-caption text-fgSubtle mt-2 tabular-nums">
-              {exact.format(creator.totalFollowers)} across {creator.platforms.length} platform{creator.platforms.length === 1 ? '' : 's'}
+              {exact.format(creator.totalFollowers)} across{' '}
+              {creator.platforms.length} platform
+              {creator.platforms.length === 1 ? '' : 's'}
             </p>
           </GlassCard>
         </BentoItem>
 
         <BentoItem colSpan={4} tabletColSpan={6}>
-          <GlassCard variant="base" hover padding="lg" radius="2xl" className="h-full text-left">
+          <GlassCard
+            variant="base"
+            hover
+            padding="lg"
+            radius="2xl"
+            className="h-full text-left"
+          >
             <div className="flex items-center justify-between mb-6">
-              <span className="text-micro uppercase text-fgSubtle">Total Views</span>
+              <span className="text-micro uppercase text-fgSubtle">
+                Total Views
+              </span>
               <span className="text-caption px-2.5 py-1 rounded-full glass-subtle border border-borderGlass text-fgMuted">
                 Last 30 posts
               </span>
@@ -129,9 +155,17 @@ export default async function CreatorPage({
         </BentoItem>
 
         <BentoItem colSpan={4} tabletColSpan={12}>
-          <GlassCard variant="base" hover padding="lg" radius="2xl" className="h-full text-left">
+          <GlassCard
+            variant="base"
+            hover
+            padding="lg"
+            radius="2xl"
+            className="h-full text-left"
+          >
             <div className="flex items-center justify-between mb-6">
-              <span className="text-micro uppercase text-fgSubtle">Total Likes</span>
+              <span className="text-micro uppercase text-fgSubtle">
+                Total Likes
+              </span>
               <span className="text-caption px-2.5 py-1 rounded-full glass-subtle border border-borderGlass text-fgMuted">
                 Last 30 posts
               </span>
@@ -172,7 +206,11 @@ export default async function CreatorPage({
                   {PLATFORM_LABELS[key]}
                 </span>
                 <span className="text-caption tabular-nums text-fgSubtle group-hover:text-brand transition-colors">
-                  {slot ? (hasData ? compact.format(followers!) : 'syncing') : 'not tracked'}
+                  {slot
+                    ? hasData
+                      ? compact.format(followers!)
+                      : 'syncing'
+                    : 'not tracked'}
                 </span>
               </Link>
             );

@@ -22,10 +22,10 @@ const nextConfig = {
     const csp = [
       "default-src 'self'",
       scriptSrc,
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://*.supabase.co https://*.scdn.cc https://picsum.photos",
       "media-src 'self' https://commondatastorage.googleapis.com",
-      "font-src 'self' https://fonts.gstatic.com",
+      "font-src 'self'",
       // Dev points at a local Supabase stack on 127.0.0.1:54321 — allow it (and ws HMR).
       // https://*.sentry.io covers the Sentry ingest endpoint for client-side
       // error reporting, tracing, and session replay.
@@ -156,7 +156,7 @@ export default withSentryConfig(nextConfig, {
   errorHandler: (error) => {
     console.warn('Sentry build error occurred:', error.message);
     console.warn(
-      'This might be due to missing Sentry environment variables or network issues'
+      'This might be due to missing Sentry environment variables or network issues',
     );
     // Don't fail the build if Sentry upload fails in monorepo context
     return;
