@@ -25,6 +25,14 @@ describe('parseDriveFileId', () => {
     expect(parseDriveFileId('https://example.com/not-drive')).toBeNull();
     expect(parseDriveFileId('')).toBeNull();
   });
+  it('rejects a non-drive url that carries an id param', () => {
+    expect(parseDriveFileId(`https://example.com/share?id=${ID}`)).toBeNull();
+  });
+  it('prefers /file/d/ over ?id= when both present', () => {
+    expect(
+      parseDriveFileId(`https://drive.google.com/file/d/${ID}/view?id=WRONG`),
+    ).toBe(ID);
+  });
 });
 
 describe('url builders', () => {
