@@ -104,7 +104,7 @@ export default function PrivacyPage() {
       <ul className="list-disc pl-6 mb-3">
         <li className={bullet}>
           Aggregated metrics about the tracked accounts (followers, views,
-          impressions, engagement rate, likes, comments, shares)
+          engagement rate, likes, comments, shares)
         </li>
         <li className={bullet}>
           Time-series snapshots of these metrics so we can show you growth

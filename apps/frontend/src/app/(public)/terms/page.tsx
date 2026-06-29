@@ -216,9 +216,9 @@ export default function TermsPage() {
       </p>
       <h3 className={subTitle}>7.3 Your Content</h3>
       <p className={paragraph}>
-        You retain all rights to the social media data you connect to the
-        Service. By using the Service, you grant us a limited licence to process
-        and display that data solely for the purpose of providing the Service to
+        You retain all rights to your own social media content. The Service
+        collects only publicly available data from the profiles your agency
+        tracks and uses it solely for the purpose of providing the Service to
         you.
       </p>
 
@@ -296,7 +296,7 @@ export default function TermsPage() {
         <li className={bullet}>Your violation of these Terms.</li>
         <li className={bullet}>
           Your violation of any third-party right, including the terms of any
-          social media platform you connect.
+          social media platform tracked through the Service.
         </li>
         <li className={bullet}>
           Any content or data you submit to the Service.
