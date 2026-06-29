@@ -13,6 +13,7 @@ export const metadata: Metadata = {
   title: 'Leaderboard — D3 Creator',
   description:
     'Top creators we grow at D3, ranked by followers, views, and engagement across every platform.',
+  alternates: { canonical: '/leaderboard' },
 };
 
 export default async function LeaderboardPage() {
@@ -38,8 +39,8 @@ export default async function LeaderboardPage() {
           A public leaderboard of the creators built by D3.
         </h1>
         <p className="text-body-lg text-fgMuted max-w-[600px]">
-          Top creators by views, and their best content by views and
-          engagement. No screenshots. No fake case studies. Just live numbers.
+          Top creators by views, and their best content by views and engagement.
+          No screenshots. No fake case studies. Just live numbers.
         </p>
       </header>
 

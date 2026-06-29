@@ -26,6 +26,7 @@ import {
   platformBreakdownFromRows,
   type LivePlatformBreakdown,
 } from '@gitroom/frontend/lib/queries';
+import { SITE_NAME, SITE_URL } from '@gitroom/frontend/lib/site';
 
 // Server Component fetches live counts on each request — disable static
 // optimization so the hero never goes stale.
@@ -39,6 +40,16 @@ export const metadata: Metadata = {
   title: 'D3 Creator — We don’t sell dreams. We show numbers.',
   description:
     'D3 Creator is a live showcase of the creators, brands, and IPs we grow across every platform. Real traffic. Real engagement. Real growth.',
+  alternates: { canonical: '/' },
+};
+
+// Organization schema for rich results / knowledge panel.
+const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: SITE_NAME,
+  url: SITE_URL,
+  logo: `${SITE_URL}/d3-logo.png`,
 };
 
 const PLATFORM_ORDER: PlatformKey[] = [
@@ -78,10 +89,17 @@ export default async function HomePage() {
   // Per-platform cards: each platform that has a profile shows its combined
   // totals; platforms with none render "Not yet tracked".
   const liveByPlatform = new Map<PlatformKey, LivePlatformBreakdown>();
-  for (const p of platformBreakdownFromRows(rows)) liveByPlatform.set(p.platform, p);
+  for (const p of platformBreakdownFromRows(rows))
+    liveByPlatform.set(p.platform, p);
 
   return (
     <div className="flex flex-col w-full">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(organizationJsonLd),
+        }}
+      />
       {/* ----- HERO ----- */}
       <DottedSurface className="w-screen ml-[calc(50%-50vw)] mr-[calc(50%-50vw)]">
         <section className="w-full pt-16 pb-24 sm:pt-24 sm:pb-32 lg:pt-32 lg:pb-40 max-w-[1100px] mx-auto px-6 md:px-8">
@@ -184,8 +202,8 @@ export default async function HomePage() {
                 Followers, engagement, growth, reach.
               </h3>
               <p className="text-body text-fgMuted">
-                Across every platform we operate. Snapshots every day. No
-                edited screenshots.
+                Across every platform we operate. Snapshots every day. No edited
+                screenshots.
               </p>
             </div>
             <div>
@@ -215,11 +233,20 @@ export default async function HomePage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,400px)] gap-4 items-stretch">
             {/* Top creators — top 5, by followers (no platform column) */}
-            <GlassCard variant="base" padding="md" radius="2xl" className="flex flex-col">
+            <GlassCard
+              variant="base"
+              padding="md"
+              radius="2xl"
+              className="flex flex-col"
+            >
               <div className="flex items-end justify-between mb-4">
                 <div className="flex flex-col gap-1">
-                  <span className="text-label text-fg font-medium">Top Creators</span>
-                  <span className="text-body-sm text-fgMuted">By views · all platforms</span>
+                  <span className="text-label text-fg font-medium">
+                    Top Creators
+                  </span>
+                  <span className="text-body-sm text-fgMuted">
+                    By views · all platforms
+                  </span>
                 </div>
                 <Link
                   href="/leaderboard"
@@ -244,7 +271,9 @@ export default async function HomePage() {
                     <>
                       <span
                         className={`font-mono tabular-nums text-body-sm ${
-                          isWinner ? 'text-brand font-semibold' : 'text-fgSubtle'
+                          isWinner
+                            ? 'text-brand font-semibold'
+                            : 'text-fgSubtle'
                         }`}
                       >
                         {String(creator.rank).padStart(2, '0')}
@@ -296,8 +325,12 @@ export default async function HomePage() {
               >
                 <div className="flex items-end justify-between mb-4">
                   <div className="flex flex-col gap-1">
-                    <span className="text-label text-fg font-medium">Total Views</span>
-                    <span className="text-body-sm text-fgMuted">All platforms · recent posts</span>
+                    <span className="text-label text-fg font-medium">
+                      Total Views
+                    </span>
+                    <span className="text-body-sm text-fgMuted">
+                      All platforms · recent posts
+                    </span>
                   </div>
                   <span className="text-caption text-fgMuted">
                     Open{' '}
@@ -318,13 +351,17 @@ export default async function HomePage() {
 
                 <div className="grid grid-cols-2 gap-3 pt-4 border-t border-borderGlass">
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-caption text-fgSubtle">Combined followers</span>
+                    <span className="text-caption text-fgSubtle">
+                      Combined followers
+                    </span>
                     <span className="text-heading text-fg tabular-nums">
                       {formatShowcase(summary.combinedFollowers)}
                     </span>
                   </div>
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-caption text-fgSubtle">Total engagement</span>
+                    <span className="text-caption text-fgSubtle">
+                      Total engagement
+                    </span>
                     <span className="text-heading text-fg tabular-nums">
                       {formatShowcase(combinedEngagement)}
                     </span>
@@ -346,54 +383,54 @@ export default async function HomePage() {
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-5">
-          {PLATFORM_ORDER.map((platform) => {
-            const Icon = PLATFORM_ICONS[platform];
-            const live = liveByPlatform.get(platform);
-            const isEmpty = !live;
-            const followers = live?.followers ?? 0;
-            const totalViews = live?.totalViews ?? 0;
-            const creatorCount = live?.creatorCount ?? 0;
-            return (
-              <Link
-                key={platform}
-                href="/dashboard"
-                className={`block h-full group ${isEmpty ? 'opacity-50' : ''}`}
-              >
-                <GlassCard
-                  variant="base"
-                  hover
-                  padding="md"
-                  radius="2xl"
-                  className="h-full flex flex-col gap-4"
+            {PLATFORM_ORDER.map((platform) => {
+              const Icon = PLATFORM_ICONS[platform];
+              const live = liveByPlatform.get(platform);
+              const isEmpty = !live;
+              const followers = live?.followers ?? 0;
+              const totalViews = live?.totalViews ?? 0;
+              const creatorCount = live?.creatorCount ?? 0;
+              return (
+                <Link
+                  key={platform}
+                  href="/dashboard"
+                  className={`block h-full group ${isEmpty ? 'opacity-50' : ''}`}
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center justify-center size-10 rounded-md bg-customColor16 border border-borderGlass text-fg">
-                      <Icon size={18} />
-                    </span>
-                    <span className="text-caption text-fgSubtle font-mono tabular-nums">
-                      {isEmpty
-                        ? 'Not yet tracked'
-                        : `${creatorCount} creator${creatorCount === 1 ? '' : 's'}`}
-                    </span>
-                  </div>
+                  <GlassCard
+                    variant="base"
+                    hover
+                    padding="md"
+                    radius="2xl"
+                    className="h-full flex flex-col gap-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center justify-center size-10 rounded-md bg-customColor16 border border-borderGlass text-fg">
+                        <Icon size={18} />
+                      </span>
+                      <span className="text-caption text-fgSubtle font-mono tabular-nums">
+                        {isEmpty
+                          ? 'Not yet tracked'
+                          : `${creatorCount} creator${creatorCount === 1 ? '' : 's'}`}
+                      </span>
+                    </div>
 
-                  <div className="flex flex-col gap-1">
-                    <span className="text-label text-fg font-medium">
-                      {PLATFORM_LABELS[platform]}
-                    </span>
-                    <span className="text-[clamp(20px,2vw,24px)] leading-none tracking-[-0.02em] font-semibold text-fg tabular-nums">
-                      {isEmpty ? '—' : formatShowcase(totalViews)}
-                    </span>
-                  </div>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-label text-fg font-medium">
+                        {PLATFORM_LABELS[platform]}
+                      </span>
+                      <span className="text-[clamp(20px,2vw,24px)] leading-none tracking-[-0.02em] font-semibold text-fg tabular-nums">
+                        {isEmpty ? '—' : formatShowcase(totalViews)}
+                      </span>
+                    </div>
 
-                  <div className="flex items-center justify-between text-caption text-fgMuted font-mono tabular-nums pt-3 border-t border-borderGlass">
-                    <span>{isEmpty ? '—' : formatShowcase(followers)}</span>
-                    <span>followers</span>
-                  </div>
-                </GlassCard>
-              </Link>
-            );
-          })}
+                    <div className="flex items-center justify-between text-caption text-fgMuted font-mono tabular-nums pt-3 border-t border-borderGlass">
+                      <span>{isEmpty ? '—' : formatShowcase(followers)}</span>
+                      <span>followers</span>
+                    </div>
+                  </GlassCard>
+                </Link>
+              );
+            })}
           </div>
         </Reveal>
       </section>
@@ -401,57 +438,62 @@ export default async function HomePage() {
       {/* ----- STATS STRIP ----- */}
       <section className="w-full pb-20 sm:pb-24 max-w-[1100px] mx-auto">
         <Reveal>
-        <GlassCard variant="base" padding="none" radius="2xl">
-          <dl className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-borderGlass">
-            <StatCell
-              label="Tracked Creators"
-              value={exactFormatter.format(summary.trackedCreators)}
-              note="Across every platform"
-            />
-            <StatCell
-              label="Combined Followers"
-              value={formatShowcase(summary.combinedFollowers)}
-              note="Summed across all profiles"
-            />
-            <StatCell
-              label="Total Views"
-              value={formatShowcase(summary.combinedViews)}
-              note="across tracked recent posts"
-            />
-          </dl>
-        </GlassCard>
+          <GlassCard variant="base" padding="none" radius="2xl">
+            <dl className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-borderGlass">
+              <StatCell
+                label="Tracked Creators"
+                value={exactFormatter.format(summary.trackedCreators)}
+                note="Across every platform"
+              />
+              <StatCell
+                label="Combined Followers"
+                value={formatShowcase(summary.combinedFollowers)}
+                note="Summed across all profiles"
+              />
+              <StatCell
+                label="Total Views"
+                value={formatShowcase(summary.combinedViews)}
+                note="across tracked recent posts"
+              />
+            </dl>
+          </GlassCard>
         </Reveal>
       </section>
 
       {/* ----- BOTTOM CTA BAND ----- */}
       <section className="w-full pb-24 max-w-[1100px] mx-auto">
         <Reveal>
-        <GlassCard variant="base" padding="lg" radius="2xl" className="text-center">
-          <h2 className="text-display-2 text-fg max-w-[640px] mx-auto mb-4">
-            Watch creators grow, live.
-          </h2>
-          <p className="text-body-lg text-fgMuted max-w-[520px] mx-auto mb-8">
-            The dashboard refreshes the moment our scraper kicks in. Pick a
-            platform, sort by growth, watch the numbers move.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link href="/dashboard" className="contents">
-              <AuroraButton variant="cta" size="lg">
-                Open the dashboard
-              </AuroraButton>
-            </Link>
-            <Link href="/leaderboard" className="contents">
-              <AuroraButton variant="ghost" size="lg">
-                See the leaderboard
-              </AuroraButton>
-            </Link>
-          </div>
-          {!isLive && (
-            <p className="text-caption text-fgSubtle mt-8 tabular-nums">
-              Showcase preview · synthetic data until the scraper switches on.
+          <GlassCard
+            variant="base"
+            padding="lg"
+            radius="2xl"
+            className="text-center"
+          >
+            <h2 className="text-display-2 text-fg max-w-[640px] mx-auto mb-4">
+              Watch creators grow, live.
+            </h2>
+            <p className="text-body-lg text-fgMuted max-w-[520px] mx-auto mb-8">
+              The dashboard refreshes the moment our scraper kicks in. Pick a
+              platform, sort by growth, watch the numbers move.
             </p>
-          )}
-        </GlassCard>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link href="/dashboard" className="contents">
+                <AuroraButton variant="cta" size="lg">
+                  Open the dashboard
+                </AuroraButton>
+              </Link>
+              <Link href="/leaderboard" className="contents">
+                <AuroraButton variant="ghost" size="lg">
+                  See the leaderboard
+                </AuroraButton>
+              </Link>
+            </div>
+            {!isLive && (
+              <p className="text-caption text-fgSubtle mt-8 tabular-nums">
+                Showcase preview · synthetic data until the scraper switches on.
+              </p>
+            )}
+          </GlassCard>
         </Reveal>
       </section>
     </div>

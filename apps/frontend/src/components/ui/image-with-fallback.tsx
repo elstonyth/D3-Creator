@@ -29,7 +29,7 @@ export function ImageWithFallback({
   alt,
   className,
   fallback,
-  loading,
+  loading = 'lazy',
 }: ImageWithFallbackProps) {
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
 
@@ -41,6 +41,7 @@ export function ImageWithFallback({
       src={src}
       alt={alt}
       loading={loading}
+      decoding="async"
       className={className}
       onError={() => setFailedSrc(src)}
     />

@@ -14,7 +14,7 @@ module.exports = {
           200: '#FEF08A',
           300: '#FDE047',
           400: '#FACC15',
-          500: '#F2E600',   // *** LOGO ***
+          500: '#F2E600', // *** LOGO ***
           600: '#CA8A04',
           700: '#A16207',
           800: '#854D0E',
@@ -193,35 +193,88 @@ module.exports = {
         // Single-axis linear only. Yellow shades only. No multi-hue.
         brandVert: 'linear-gradient(180deg, #F2E600 0%, #9C9400 100%)',
         brandHoriz: 'linear-gradient(90deg, #9C9400 0%, #F2E600 100%)',
-        brandFade: 'linear-gradient(180deg, rgba(242, 230, 0, 0.10) 0%, transparent 100%)',
-        brandSheen: 'linear-gradient(90deg, transparent 0%, rgba(242, 230, 0, 0.10) 50%, transparent 100%)',
+        brandFade:
+          'linear-gradient(180deg, rgba(242, 230, 0, 0.10) 0%, transparent 100%)',
+        brandSheen:
+          'linear-gradient(90deg, transparent 0%, rgba(242, 230, 0, 0.10) 50%, transparent 100%)',
         // Aurora aliases (kept for backwards compat — all yellow shades now)
         aurora: 'linear-gradient(180deg, #F2E600 0%, #9C9400 100%)',
-        auroraSoft: 'linear-gradient(180deg, rgba(242, 230, 0, 0.10) 0%, transparent 100%)',
-        auroraGlow: 'linear-gradient(180deg, rgba(242, 230, 0, 0.12) 0%, transparent 100%)',
-        glassShimmer: 'linear-gradient(90deg, transparent 40%, rgba(242, 230, 0, 0.08) 50%, transparent 60%)',
+        auroraSoft:
+          'linear-gradient(180deg, rgba(242, 230, 0, 0.10) 0%, transparent 100%)',
+        auroraGlow:
+          'linear-gradient(180deg, rgba(242, 230, 0, 0.12) 0%, transparent 100%)',
+        glassShimmer:
+          'linear-gradient(90deg, transparent 40%, rgba(242, 230, 0, 0.08) 50%, transparent 60%)',
         loginBox: 'url(/auth/login-box.png)',
         loginBg: 'url(/auth/bg-login.png)',
       },
       fontFamily: {
-        sans: ['Inter', 'Geist', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
-        display: ['Inter', 'Geist', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-        mono: ['"Geist Mono"', '"JetBrains Mono"', '"SF Mono"', 'Menlo', 'monospace'],
-        lambo: ['Inter', 'Geist', '-apple-system', 'sans-serif'],
+        sans: [
+          'var(--font-geist-sans)',
+          'Inter',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'system-ui',
+          'sans-serif',
+        ],
+        display: [
+          'var(--font-geist-sans)',
+          'Inter',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'sans-serif',
+        ],
+        mono: [
+          'var(--font-geist-mono)',
+          '"JetBrains Mono"',
+          '"SF Mono"',
+          'Menlo',
+          'monospace',
+        ],
+        lambo: [
+          'var(--font-geist-sans)',
+          'Inter',
+          '-apple-system',
+          'sans-serif',
+        ],
       },
       fontSize: {
         // Linear-style type scale — large confident headings, 15-16px body
-        'display-1': ['clamp(48px, 6vw, 88px)', { lineHeight: '1.04', letterSpacing: '-0.035em', fontWeight: '700' }],
-        'display-2': ['clamp(36px, 4vw, 56px)', { lineHeight: '1.08', letterSpacing: '-0.03em', fontWeight: '700' }],
-        'section': ['32px', { lineHeight: '1.15', letterSpacing: '-0.025em', fontWeight: '600' }],
-        'subsection': ['22px', { lineHeight: '1.3', letterSpacing: '-0.015em', fontWeight: '600' }],
-        'heading': ['18px', { lineHeight: '1.4', letterSpacing: '-0.01em', fontWeight: '600' }],
+        'display-1': [
+          'clamp(48px, 6vw, 88px)',
+          { lineHeight: '1.04', letterSpacing: '-0.035em', fontWeight: '700' },
+        ],
+        'display-2': [
+          'clamp(36px, 4vw, 56px)',
+          { lineHeight: '1.08', letterSpacing: '-0.03em', fontWeight: '700' },
+        ],
+        section: [
+          '32px',
+          { lineHeight: '1.15', letterSpacing: '-0.025em', fontWeight: '600' },
+        ],
+        subsection: [
+          '22px',
+          { lineHeight: '1.3', letterSpacing: '-0.015em', fontWeight: '600' },
+        ],
+        heading: [
+          '18px',
+          { lineHeight: '1.4', letterSpacing: '-0.01em', fontWeight: '600' },
+        ],
         'body-lg': ['17px', { lineHeight: '1.6' }],
-        'body': ['15px', { lineHeight: '1.6' }],
+        body: ['15px', { lineHeight: '1.6' }],
         'body-sm': ['14px', { lineHeight: '1.55' }],
-        'label': ['13px', { lineHeight: '1.4', letterSpacing: '0', fontWeight: '500' }],
-        'caption': ['12px', { lineHeight: '1.4', letterSpacing: '0', fontWeight: '500' }],
-        'micro': ['11px', { lineHeight: '1.4', letterSpacing: '0.03em', fontWeight: '500' }],
+        label: [
+          '13px',
+          { lineHeight: '1.4', letterSpacing: '0', fontWeight: '500' },
+        ],
+        caption: [
+          '12px',
+          { lineHeight: '1.4', letterSpacing: '0', fontWeight: '500' },
+        ],
+        micro: [
+          '11px',
+          { lineHeight: '1.4', letterSpacing: '0.03em', fontWeight: '500' },
+        ],
       },
       borderRadius: {
         none: '0px',
@@ -255,12 +308,16 @@ module.exports = {
         // Linear-style: minimal, dark, no colored glow
         glass: '0 1px 2px rgba(0, 0, 0, 0.40), 0 4px 12px rgba(0, 0, 0, 0.30)',
         glassSm: '0 1px 2px rgba(0, 0, 0, 0.30)',
-        glassLg: '0 4px 16px rgba(0, 0, 0, 0.40), 0 16px 48px rgba(0, 0, 0, 0.50)',
+        glassLg:
+          '0 4px 16px rgba(0, 0, 0, 0.40), 0 16px 48px rgba(0, 0, 0, 0.50)',
         glassInsetTop: 'inset 0 1px 0 rgba(255, 255, 255, 0.04)',
         // CTA: subtle dark drop, no yellow glow
-        ctaGlow: '0 1px 2px rgba(0, 0, 0, 0.40), 0 4px 12px rgba(0, 0, 0, 0.30)',
-        violetGlow: '0 1px 2px rgba(0, 0, 0, 0.40), 0 4px 12px rgba(0, 0, 0, 0.30)',
-        brandGlow: '0 1px 2px rgba(0, 0, 0, 0.40), 0 4px 12px rgba(0, 0, 0, 0.30)',
+        ctaGlow:
+          '0 1px 2px rgba(0, 0, 0, 0.40), 0 4px 12px rgba(0, 0, 0, 0.30)',
+        violetGlow:
+          '0 1px 2px rgba(0, 0, 0, 0.40), 0 4px 12px rgba(0, 0, 0, 0.30)',
+        brandGlow:
+          '0 1px 2px rgba(0, 0, 0, 0.40), 0 4px 12px rgba(0, 0, 0, 0.30)',
         focusRing: '0 0 0 2px rgba(242, 230, 0, 0.40)',
         focusRingCyan: '0 0 0 2px rgba(242, 230, 0, 0.40)',
         // Legacy

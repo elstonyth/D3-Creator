@@ -12,6 +12,7 @@ export const metadata: Metadata = {
     'About D3 — A creator growth ecosystem and commercial IP operating company.',
   description:
     'Since 2021, D3 has been building creators, founders, and commercial IPs across Malaysia. Not vanity. Not motivation. Real execution: content, audience, platform, positioning, monetization.',
+  alternates: { canonical: '/about' },
 };
 
 export default function AboutPage() {

@@ -2,9 +2,15 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { GlassCard } from '@gitroom/frontend/components/ui/glass-card';
-import { BentoGrid, BentoItem } from '@gitroom/frontend/components/ui/bento-grid';
+import {
+  BentoGrid,
+  BentoItem,
+} from '@gitroom/frontend/components/ui/bento-grid';
 import { PlatformPill } from '@gitroom/frontend/components/ui/platform-pill';
-import { type PlatformKey, PLATFORM_LABELS } from '@gitroom/frontend/components/ui/platform-icons';
+import {
+  type PlatformKey,
+  PLATFORM_LABELS,
+} from '@gitroom/frontend/components/ui/platform-icons';
 import { ContentGrid } from '@gitroom/frontend/components/creator-showcase/content-grid';
 import type { ContentPost } from '@gitroom/frontend/components/creator-showcase/content-data';
 import {
@@ -41,6 +47,11 @@ export async function generateMetadata({
   return {
     title: `${id} on ${label} — D3 Creator`,
     description: `Live ${label} stats for ${id} — followers, engagement, and recent posts.`,
+    alternates: { canonical: `/creators/${id}/${platform}` },
+    openGraph: {
+      title: `${id} on ${label} — D3 Creator`,
+      description: `Live ${label} stats for ${id} — followers, engagement, and recent posts.`,
+    },
   };
 }
 
@@ -53,35 +64,42 @@ export default async function CreatorPlatformPage({
   const platformKey = platform.toLowerCase() as PlatformKey;
   if (!VALID.includes(platformKey)) notFound();
 
-  const detail = await getCreatorPlatformDetail(id, platformKey).catch((err) => {
-    console.error('[creators/[id]/[platform]] getCreatorPlatformDetail failed', err);
-    return null;
-  });
+  const detail = await getCreatorPlatformDetail(id, platformKey).catch(
+    (err) => {
+      console.error(
+        '[creators/[id]/[platform]] getCreatorPlatformDetail failed',
+        err,
+      );
+      return null;
+    },
+  );
   if (!detail) notFound();
   const { creator, slot, posts } = detail;
 
-  const livePosts: ContentPost[] = posts.map((p: PlatformPostRow): ContentPost => ({
-    id: `${creator.creatorId}-${platformKey}-${p.externalId}`,
-    creatorSlug: id.toLowerCase(),
-    platform: platformKey,
-    externalId: p.externalId,
-    url: p.url,
-    type: p.type === 'note' || p.type === 'text' ? 'image' : p.type,
-    thumbnailUrl: p.thumbnailUrl,
-    previewVideoUrl: null, // not provided by current IG adapter
-    caption: p.caption,
-    hashtags: p.hashtags,
-    publishedAt: p.publishedAt,
-    metrics: {
-      likes: p.likes,
-      comments: p.comments,
-      shares: p.shares,
-      views: p.views,
-      saves: null,
-    },
-    mediaCount: p.mediaCount,
-    durationSec: p.durationSec,
-  }));
+  const livePosts: ContentPost[] = posts.map(
+    (p: PlatformPostRow): ContentPost => ({
+      id: `${creator.creatorId}-${platformKey}-${p.externalId}`,
+      creatorSlug: id.toLowerCase(),
+      platform: platformKey,
+      externalId: p.externalId,
+      url: p.url,
+      type: p.type === 'note' || p.type === 'text' ? 'image' : p.type,
+      thumbnailUrl: p.thumbnailUrl,
+      previewVideoUrl: null, // not provided by current IG adapter
+      caption: p.caption,
+      hashtags: p.hashtags,
+      publishedAt: p.publishedAt,
+      metrics: {
+        likes: p.likes,
+        comments: p.comments,
+        shares: p.shares,
+        views: p.views,
+        saves: null,
+      },
+      mediaCount: p.mediaCount,
+      durationSec: p.durationSec,
+    }),
+  );
 
   return (
     <div className="flex flex-col gap-16 pt-12 pb-24">
@@ -110,7 +128,9 @@ export default async function CreatorPlatformPage({
         <BentoItem colSpan={4} tabletColSpan={2}>
           <StatCard
             label="Followers"
-            value={slot?.followers != null ? compact.format(slot.followers) : '—'}
+            value={
+              slot?.followers != null ? compact.format(slot.followers) : '—'
+            }
           />
         </BentoItem>
         <BentoItem colSpan={4} tabletColSpan={2}>

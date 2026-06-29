@@ -13,6 +13,7 @@ export const metadata: Metadata = {
   title: 'Terms of Service — D3 Creator',
   description:
     'D3 Creator Terms of Service: the rules and conditions for using our social media analytics platform.',
+  alternates: { canonical: '/terms' },
 };
 
 const sectionTitle = 'text-section mt-12 mb-4 text-fg';

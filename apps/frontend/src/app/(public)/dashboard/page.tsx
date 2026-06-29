@@ -1,6 +1,9 @@
 import { Metadata } from 'next';
 import { DashboardShowcase } from '@gitroom/frontend/components/dashboard-showcase/dashboard-showcase';
-import { getLiveCreatorRows, type LiveCreatorRow } from '@gitroom/frontend/lib/queries';
+import {
+  getLiveCreatorRows,
+  type LiveCreatorRow,
+} from '@gitroom/frontend/lib/queries';
 import { getDashboardViewTotalsWindowed } from '@gitroom/frontend/lib/metrics-windowed';
 
 // ISR: 1h cache, see (public)/page.tsx for rationale.
@@ -10,6 +13,7 @@ export const metadata: Metadata = {
   title: 'Dashboard — D3 Creator',
   description:
     'Live overview of every creator we grow at D3 — combined views and followers across Instagram, TikTok, Facebook, and Douyin.',
+  alternates: { canonical: '/dashboard' },
 };
 
 export default async function DashboardPage() {
@@ -45,8 +49,9 @@ export default async function DashboardPage() {
         </p>
         {isLive && (
           <p className="mt-4 text-caption text-fgSubtle">
-            Tracking {creators!.length} creator{creators!.length === 1 ? '' : 's'} ·
-            combined followers and views across every platform.
+            Tracking {creators!.length} creator
+            {creators!.length === 1 ? '' : 's'} · combined followers and views
+            across every platform.
           </p>
         )}
       </header>
