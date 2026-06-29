@@ -21,6 +21,14 @@ insert into public.user_role (user_id, role) values
   ('00000000-0000-0000-0000-0000000000c2','admin')
   on conflict (user_id) do update set role = 'admin';
 
+-- a revoked (none) user: must see only public, like anon
+insert into auth.users (id, email) values
+  ('00000000-0000-0000-0000-0000000000c3','revoked@test.local')
+  on conflict (id) do nothing;
+insert into public.user_role (user_id, role) values
+  ('00000000-0000-0000-0000-0000000000c3','none')
+  on conflict (user_id) do update set role = 'none';
+
 insert into public.class_video (id, title, drive_file_id, visibility, is_published) values
   ('00000000-0000-0000-0000-0000000000d1','Public Live','idpub','public',true),
   ('00000000-0000-0000-0000-0000000000d2','Members Live','idmem','members',true),
@@ -49,6 +57,13 @@ begin
   if n is distinct from 3 then raise exception 'FAIL admin: expected 3 rows, got %', n; end if;
   select count(*) into n from public.class_video where is_published = false;
   if n is distinct from 1 then raise exception 'FAIL admin: expected 1 draft visible, got %', n; end if;
+
+  -- NONE (revoked): only the published public row, like anon
+  set local request.jwt.claims = '{"sub":"00000000-0000-0000-0000-0000000000c3"}';
+  select count(*) into n from public.class_video;
+  if n is distinct from 1 then raise exception 'FAIL none: expected 1 public row, got %', n; end if;
+  select count(*) into n from public.class_video where visibility = 'members';
+  if n is distinct from 0 then raise exception 'FAIL none: saw a members-only row'; end if;
 
   reset role;
   raise notice 'CLASS_VIDEO RLS ASSERTIONS PASSED';
