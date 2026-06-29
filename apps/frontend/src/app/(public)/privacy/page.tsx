@@ -32,7 +32,7 @@ export default function PrivacyPage() {
         </span>
         <h1 className="text-display-2 text-fg mb-4">Privacy Policy</h1>
         <p className="text-caption text-fgSubtle">
-          Effective Date: 1 January 2025 · Last Updated: 18 June 2026
+          Effective Date: 1 January 2025 · Last Updated: 29 June 2026
         </p>
       </header>
 
@@ -100,27 +100,10 @@ export default function PrivacyPage() {
         posts, or any non-public data through public profile tracking.
       </p>
 
-      <h3 className={subTitle}>
-        1.3 Connected Accounts (Official Platform Login)
-      </h3>
-      <p className={paragraph}>
-        When you choose to connect your own Instagram, Facebook, or TikTok
-        account, you authorize D3 Creator to access account information and
-        insights (such as reach, impressions, and audience demographics) for
-        that account through the platform&rsquo;s official API. We store the
-        access credentials <span className={inlineStrong}>encrypted</span> and
-        use them only to retrieve those insights for display in your dashboard
-        and to your agency. You can disconnect at any time from{' '}
-        <span className={inlineStrong}>My data → Connections</span>, which
-        deletes the stored credentials. To request deletion of associated data,
-        disconnect the account or contact us at the email below; Meta-initiated
-        deletion requests are handled through our data-deletion endpoint.
-      </p>
-
-      <h3 className={subTitle}>1.4 Analytics & Usage Data</h3>
+      <h3 className={subTitle}>1.3 Analytics & Usage Data</h3>
       <ul className="list-disc pl-6 mb-3">
         <li className={bullet}>
-          Aggregated metrics about your connected accounts (followers, views,
+          Aggregated metrics about the tracked accounts (followers, views,
           impressions, engagement rate, likes, comments, shares)
         </li>
         <li className={bullet}>
@@ -152,8 +135,8 @@ export default function PrivacyPage() {
       </p>
       <ul className="list-disc pl-6 mb-3">
         <li className={bullet}>
-          To provide and display analytics for your connected social media
-          accounts in your D3 Creator dashboard
+          To provide and display analytics for the tracked social media accounts
+          in your D3 Creator dashboard
         </li>
         <li className={bullet}>To create and manage your D3 Creator account</li>
         <li className={bullet}>
@@ -309,11 +292,7 @@ export default function PrivacyPage() {
       </p>
       <p className={paragraph}>
         For public profile tracking, we only collect data that is already public
-        on the platform. If you have connected your own account through official
-        platform login, you can revoke that access at any time from{' '}
-        <span className={inlineStrong}>My data → Connections</span>, which
-        deletes the stored credentials; you may also remove the app&rsquo;s
-        access from within the social platform&rsquo;s own settings.
+        on the platform.
       </p>
 
       <h2 className={sectionTitle}>8. Cookies and Tracking Technologies</h2>

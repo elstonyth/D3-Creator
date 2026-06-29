@@ -32,7 +32,7 @@ export default function TermsPage() {
         </span>
         <h1 className="text-display-2 text-fg mb-4">Terms of Service</h1>
         <p className="text-caption text-fgSubtle">
-          Effective Date: 1 January 2025 · Last Updated: 18 June 2026
+          Effective Date: 1 January 2025 · Last Updated: 29 June 2026
         </p>
       </header>
 
@@ -166,25 +166,14 @@ export default function TermsPage() {
         permission to have us track and analyze, every profile associated with
         your account.
       </p>
-      <h3 className={subTitle}>5.2 Public Data and Connected Accounts</h3>
+      <h3 className={subTitle}>5.2 Public Data</h3>
       <p className={paragraph}>
-        By default, the Service collects{' '}
+        The Service collects{' '}
         <span className={inlineStrong}>publicly available data only</span> from
         the public profile URL of each tracked profile (Instagram, Facebook,
         TikTok, Douyin), using trusted third-party data providers. Your use of
         the Service must comply with each platform&rsquo;s own terms and all
         applicable laws.
-      </p>
-      <h3 className={subTitle}>5.3 Connecting Your Own Account</h3>
-      <p className={paragraph}>
-        Connecting an account is <span className={inlineStrong}>optional</span>.
-        If you choose to connect your own Instagram, Facebook, or TikTok account
-        through the platform&rsquo;s official login, you grant D3 Creator read
-        access to that account&rsquo;s information and insights (such as reach,
-        impressions, and audience demographics) via the platform&rsquo;s
-        official API, solely to display those insights to you and your agency.
-        You can revoke this access at any time by disconnecting the account from{' '}
-        <span className={inlineStrong}>My data → Connections</span>.
       </p>
 
       <h2 className={sectionTitle}>6. Analytics Data</h2>
