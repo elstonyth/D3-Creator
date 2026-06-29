@@ -3,7 +3,9 @@ import { createServerClient } from '@supabase/ssr';
 
 const ADMIN_PREFIXES = ['/admin'];
 const CREATOR_PREFIXES = ['/me', '/onboarding'];
-const AUTH_PAGES = new Set(['/login']);
+// Logged-in users are redirected off these to their role home — keeps an
+// authenticated user from sitting on (or re-submitting) login/signup.
+const AUTH_PAGES = new Set(['/login', '/signup']);
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });

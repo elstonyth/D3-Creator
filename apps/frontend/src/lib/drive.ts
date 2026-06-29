@@ -9,12 +9,22 @@ const BARE = /^[a-zA-Z0-9_-]{10,}$/; // a bare id
 export function parseDriveFileId(input: string): string | null {
   const s = (input ?? '').trim();
   if (!s) return null;
-  // Only trust Drive hosts for URL parsing; a bare id (no scheme/host) is still ok.
-  if (!s.includes('drive.google.com') && !BARE.test(s)) return null;
-  const m = s.match(FILE_D) ?? s.match(ID_PARAM);
-  if (m) return m[1];
+  // A bare id (no scheme/host) is accepted directly.
   if (BARE.test(s)) return s;
-  return null;
+
+  // Otherwise it must be a real Drive URL — parse and check the host EXACTLY,
+  // so a lookalike like `drive.google.com.evil.com` or `x.com/?u=drive.google.com`
+  // cannot smuggle an id through a substring match.
+  let url: URL;
+  try {
+    url = new URL(s);
+  } catch {
+    return null;
+  }
+  if (url.hostname !== 'drive.google.com') return null;
+
+  const m = url.pathname.match(FILE_D) ?? url.search.match(ID_PARAM);
+  return m ? m[1] : null;
 }
 
 export function drivePreviewUrl(id: string): string {

@@ -31,11 +31,15 @@ export async function setUserRole(
     }
 
     const admin = getSupabaseAdmin();
-    const { error } = await admin
+    const { data, error } = await admin
       .from('user_role')
       .update({ role })
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .select('user_id');
     if (error) return { ok: false, message: error.message };
+    // No row for this user_id — report failure instead of a phantom success.
+    if (!data || data.length === 0)
+      return { ok: false, message: 'No matching user to update.' };
     revalidatePath('/admin/users');
     return { ok: true, message: 'Role updated.' };
   } catch (e) {

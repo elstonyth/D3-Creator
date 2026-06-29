@@ -10,11 +10,15 @@ export const metadata: Metadata = { title: 'Online Classes — D3 Creator' };
 export default async function ClassesPage() {
   const auth = await getAuthContext();
   const supabase = await getSupabaseRoute();
-  const { data: videos } = await supabase
+  const { data: videos, error } = await supabase
     .from('class_video')
     .select('id, title, description, visibility')
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false });
+
+  // Fail closed: a query/RLS failure must not collapse into the "no classes
+  // published yet" empty state and hide a real backend outage.
+  if (error) throw error;
 
   return (
     <div className="max-w-[1100px] mx-auto px-6 md:px-8 py-12 flex flex-col gap-8">
@@ -22,7 +26,7 @@ export default async function ClassesPage() {
         <h1 className="text-display-2 text-fg mb-3">Online classes.</h1>
         <p className="text-body-lg text-fgMuted">
           Watch our class library.{' '}
-          {auth
+          {auth && auth.role !== 'none'
             ? 'You have member access.'
             : 'Public sessions are open to all.'}
         </p>

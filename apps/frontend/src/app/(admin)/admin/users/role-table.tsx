@@ -15,11 +15,26 @@ const ROLES = ['admin', 'creator', 'member', 'none'];
 export function RoleTable({ rows, selfId }: { rows: Row[]; selfId: string }) {
   const router = useRouter();
   const [msg, setMsg] = useState<string | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
 
-  async function change(userId: string, role: string) {
+  async function change(
+    userId: string,
+    role: string,
+    select: HTMLSelectElement,
+    prevRole: string,
+  ) {
+    setMsg(null);
+    setPendingId(userId);
     const res = await setUserRole(userId, role);
     setMsg(res.message);
-    if (res.ok) router.refresh();
+    setPendingId(null);
+    if (res.ok) {
+      router.refresh();
+    } else {
+      // Roll the dropdown back to the persisted value so the screen never shows
+      // a role the database rejected.
+      select.value = prevRole;
+    }
   }
 
   return (
@@ -48,8 +63,10 @@ export function RoleTable({ rows, selfId }: { rows: Row[]; selfId: string }) {
                 <td className="p-4">
                   <select
                     defaultValue={r.role}
-                    disabled={r.user_id === selfId}
-                    onChange={(e) => change(r.user_id, e.target.value)}
+                    disabled={r.user_id === selfId || pendingId === r.user_id}
+                    onChange={(e) =>
+                      change(r.user_id, e.target.value, e.target, r.role)
+                    }
                     className="bg-canvas border border-borderGlass rounded-md px-2 py-1 text-fg disabled:opacity-50"
                   >
                     {ROLES.map((role) => (

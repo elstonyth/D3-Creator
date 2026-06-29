@@ -20,11 +20,15 @@ export default async function ClassPlayerPage({ params }: Props) {
 
   const auth = await getAuthContext();
   const supabase = await getSupabaseRoute();
-  const { data: video } = await supabase
+  const { data: video, error } = await supabase
     .from('class_video')
     .select('id, title, description, drive_file_id, visibility, allow_download')
     .eq('id', id)
     .maybeSingle();
+
+  // A real query/RLS failure must not masquerade as "no row" (which would send
+  // anon to login and members to a 404). Surface it instead.
+  if (error) throw error;
 
   // RLS already hides drafts + (for anon) members-only rows. If a not-logged-in
   // user requested a members-only class, RLS returns null — send them to login

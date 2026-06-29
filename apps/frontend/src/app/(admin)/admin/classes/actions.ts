@@ -83,7 +83,7 @@ export async function updateClassVideo(
         message: 'Could not read a Google Drive file ID from that link.',
       };
     const admin = getSupabaseAdmin();
-    const { error } = await admin
+    const { data, error } = await admin
       .from('class_video')
       .update({
         title: f.title,
@@ -94,8 +94,12 @@ export async function updateClassVideo(
         allow_download: f.allow_download,
         sort_order: f.sort_order,
       })
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
     if (error) return { ok: false, message: error.message };
+    // Stale id matched nothing — don't confirm a mutation that never happened.
+    if (!data || data.length === 0)
+      return { ok: false, message: 'Class not found.' };
     revalidatePath('/admin/classes');
     revalidatePath('/classes');
     return { ok: true, message: 'Saved.' };
@@ -109,8 +113,14 @@ export async function deleteClassVideo(id: string): Promise<ClassResult> {
     await requireAdmin();
     if (!isUuid(id)) return { ok: false, message: 'Invalid id.' };
     const admin = getSupabaseAdmin();
-    const { error } = await admin.from('class_video').delete().eq('id', id);
+    const { data, error } = await admin
+      .from('class_video')
+      .delete()
+      .eq('id', id)
+      .select('id');
     if (error) return { ok: false, message: error.message };
+    if (!data || data.length === 0)
+      return { ok: false, message: 'Class not found.' };
     revalidatePath('/admin/classes');
     revalidatePath('/classes');
     return { ok: true, message: 'Deleted.' };

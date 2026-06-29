@@ -29,19 +29,26 @@ export function ClassManager({ videos }: { videos: Video[] }) {
   async function onCreate(fd: FormData) {
     setMsg(null);
     setPendingId('new');
-    const res = await createClassVideo(null, fd);
-    setMsg(res.message);
-    setPendingId(null);
-    if (res.ok) router.refresh();
+    try {
+      const res = await createClassVideo(null, fd);
+      setMsg(res.message);
+      if (res.ok) router.refresh();
+    } finally {
+      // Always clear pending — a rejected action must not strand the button.
+      setPendingId(null);
+    }
   }
   async function onUpdate(fd: FormData) {
     setMsg(null);
     const id = String(fd.get('id') ?? '');
     setPendingId(id);
-    const res = await updateClassVideo(null, fd);
-    setMsg(res.message);
-    setPendingId(null);
-    if (res.ok) router.refresh();
+    try {
+      const res = await updateClassVideo(null, fd);
+      setMsg(res.message);
+      if (res.ok) router.refresh();
+    } finally {
+      setPendingId(null);
+    }
   }
   async function onDelete(id: string) {
     if (!confirm('Delete this class?')) return;

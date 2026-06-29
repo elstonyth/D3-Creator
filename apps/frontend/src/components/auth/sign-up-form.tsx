@@ -21,25 +21,31 @@ export function SignUpForm() {
     setError(null);
     setNotice(null);
     setPending(true);
-    const supabase = getSupabaseBrowser();
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email: email.trim().toLowerCase(),
-      password,
-    });
-    if (signUpError) {
+    try {
+      const supabase = getSupabaseBrowser();
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (signUpError) {
+        setError('Could not create account. Check your details and try again.');
+        return;
+      }
+      // If email confirmation is required, there's no active session yet.
+      if (!data.session) {
+        setNotice('Check your email to confirm your account, then sign in.');
+        return;
+      }
+      // Trigger assigned role='member'; middleware routes members to /classes.
+      router.push('/classes');
+      router.refresh();
+    } catch {
+      // getSupabaseBrowser() or signUp() throwing must not strand the button
+      // disabled forever.
       setError('Could not create account. Check your details and try again.');
+    } finally {
       setPending(false);
-      return;
     }
-    // If email confirmation is required, there's no active session yet.
-    if (!data.session) {
-      setNotice('Check your email to confirm your account, then sign in.');
-      setPending(false);
-      return;
-    }
-    // Trigger assigned role='member'; middleware routes members to /classes.
-    router.push('/classes');
-    router.refresh();
   }
 
   return (

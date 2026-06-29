@@ -15,11 +15,17 @@ export default async function AdminUsersPage() {
 
   const admin = getSupabaseAdmin();
   // Emails live in auth.users (not exposed via PostgREST) — use the admin auth API.
-  const [{ data: roleRows }, { data: usersList }] = await Promise.all([
+  const [rolesRes, usersRes] = await Promise.all([
     admin.from('user_role').select('user_id, role, created_at'),
     // ponytail: perPage=1000 covers current scale; paginate when users approach 1000
     admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
   ]);
+  // Fail closed: a PostgREST or auth-admin outage must not render an empty or
+  // (unknown)-email table that looks authoritative to the admin.
+  if (rolesRes.error) throw rolesRes.error;
+  if (usersRes.error) throw usersRes.error;
+  const roleRows = rolesRes.data;
+  const usersList = usersRes.data;
   const emailById = new Map(
     (usersList?.users ?? []).map((u) => [u.id, u.email ?? '']),
   );

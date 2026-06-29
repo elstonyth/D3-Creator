@@ -14,13 +14,16 @@ export default async function AdminClassesPage() {
   if (auth.role !== 'admin') redirect('/me');
 
   const admin = getSupabaseAdmin();
-  const { data: videos } = await admin
+  const { data: videos, error } = await admin
     .from('class_video')
     .select(
       'id, title, description, drive_file_id, visibility, is_published, allow_download, sort_order',
     )
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: false });
+
+  // Fail closed: a query error must not render as a misleading empty catalog.
+  if (error) throw error;
 
   return (
     <div className="flex flex-col gap-8 pt-12 pb-24">

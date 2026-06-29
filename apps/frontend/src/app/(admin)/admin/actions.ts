@@ -110,10 +110,22 @@ export async function createCreator(
       .update({ role: 'creator' })
       .eq('user_id', userId);
     if (roleSet.error) {
+      // Roll back the just-created login: a failed role assignment would leave
+      // an orphaned 'member' account that also blocks re-provisioning (email is
+      // taken). Only the bare login exists here — nothing valuable to keep yet.
+      const cleanup = await admin.auth.admin.deleteUser(userId);
+      if (cleanup.error) {
+        console.error(
+          '[admin/createCreator] orphan cleanup failed',
+          userId,
+          cleanup.error,
+        );
+      }
       return {
         ok: false,
-        message: `Login created but role assignment failed: ${roleSet.error.message}`,
-        credentials: { email, password },
+        message: cleanup.error
+          ? `Role assignment failed (${roleSet.error.message}); the partial login may remain — check /admin/users.`
+          : `Could not assign the creator role (${roleSet.error.message}). Please retry.`,
       };
     }
 

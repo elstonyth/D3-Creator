@@ -33,6 +33,17 @@ describe('parseDriveFileId', () => {
       parseDriveFileId(`https://drive.google.com/file/d/${ID}/view?id=WRONG`),
     ).toBe(ID);
   });
+  it('rejects lookalike hosts (exact hostname match, not substring)', () => {
+    expect(
+      parseDriveFileId(`https://drive.google.com.evil.com/file/d/${ID}/view`),
+    ).toBeNull();
+    expect(
+      parseDriveFileId(`https://notdrive.google.com/file/d/${ID}/view`),
+    ).toBeNull();
+    expect(
+      parseDriveFileId(`https://evil.com/?next=drive.google.com&id=${ID}`),
+    ).toBeNull();
+  });
 });
 
 describe('url builders', () => {
