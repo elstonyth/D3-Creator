@@ -25,7 +25,8 @@ export async function setUserRole(
 
     // Prevent an admin from demoting themselves (and locking themselves out).
     const me = await getAuthContext();
-    if (me && me.userId === userId && role !== 'admin') {
+    if (!me) return { ok: false, message: 'Session expired.' };
+    if (me.userId === userId && role !== 'admin') {
       return { ok: false, message: 'You cannot change your own admin role.' };
     }
 

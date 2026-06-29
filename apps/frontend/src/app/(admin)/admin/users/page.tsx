@@ -17,6 +17,7 @@ export default async function AdminUsersPage() {
   // Emails live in auth.users (not exposed via PostgREST) — use the admin auth API.
   const [{ data: roleRows }, { data: usersList }] = await Promise.all([
     admin.from('user_role').select('user_id, role, created_at'),
+    // ponytail: perPage=1000 covers current scale; paginate when users approach 1000
     admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
   ]);
   const emailById = new Map(
