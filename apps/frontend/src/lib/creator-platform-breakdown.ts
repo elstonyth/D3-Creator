@@ -2,30 +2,21 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MetricWindow } from './metrics-windowed';
 import { getDashboardViewTotalsWindowed } from './metrics-windowed';
-import { getMyOwnedInsights } from './owned-insights';
 import type { PlatformKey } from '@gitroom/frontend/components/ui/platform-icons';
 
 export interface PlatformCard {
   platform: PlatformKey;
   handle: string;
-  source: 'owned' | 'scraped';
   followers: number | null;
   views: number | null;
-  syncing?: boolean;
 }
 
-// Platforms whose owned (OAuth) followers we prefer when connected.
-const OWNED_CAPABLE = new Set<string>(['instagram', 'facebook']);
-// Owned-capable first; RedNote is excluded from the scoped profile read below.
+// RedNote is excluded from the scoped profile read below.
 const ORDER: PlatformKey[] = ['instagram', 'facebook', 'tiktok', 'douyin'];
 
 /**
- * Per-platform summary cards for the creator's own `/me` dashboard. IG/FB show
- * owned (OAuth) followers when connected; TikTok/Douyin (and unconnected IG/FB)
- * show scraped. Views are scraped for every platform. Every read is scoped to
- * `creatorId`; owned followers come from the owner-guarded RPC on the cookie
- * client, and an owned-RPC failure degrades to the scraped/syncing card rather
- * than rejecting the caller's `Promise.all`.
+ * Per-platform summary cards for the creator's own `/me` dashboard. Followers and
+ * views are scraped for every platform, scoped to `creatorId` (no full-table scan).
  */
 export async function getCreatorPlatformBreakdown(
   window: MetricWindow,
@@ -72,65 +63,15 @@ export async function getCreatorPlatformBreakdown(
   });
   const viewsByPlatform = totals.byCreator[creatorId] ?? {};
 
-  // Owner claims (RLS-scoped to this user), restricted to this creator's own
-  // profiles so a claim on another creator's profile can't attach here.
-  const slotIds = new Set(slots.map((s) => s.profileId));
-  const { data: claims } = await client
-    .from('profile_claim')
-    .select('profile_id')
-    .eq('claim_kind', 'owner');
-  const ownedProfileIds = new Set(
-    (claims ?? [])
-      .map((c) => c.profile_id as string)
-      .filter((id) => slotIds.has(id)),
-  );
-
   const cards: PlatformCard[] = [];
   for (const platform of ORDER) {
     const slot = slots.find((s) => s.platform === platform);
     if (!slot || !slot.handle) continue; // not tracked / no handle → skip
-    const handle = slot.handle;
-    const views = viewsByPlatform[platform]?.[window] ?? null;
-    const scrapedFollowers = slot.followers;
-
-    if (OWNED_CAPABLE.has(platform) && ownedProfileIds.has(slot.profileId)) {
-      // Owner-claimed: prefer first-party followers. A transient RPC failure
-      // must not blank the dashboard — fall back to the scraped/syncing card.
-      const owned = await getMyOwnedInsights(client, slot.profileId, 1).catch(
-        (err) => {
-          console.error('[creator-platform-breakdown] getMyOwnedInsights', err);
-          return null;
-        },
-      );
-      const latest = owned?.profile[owned.profile.length - 1];
-      if (latest && latest.follower_total != null) {
-        cards.push({
-          platform,
-          handle,
-          source: 'owned',
-          followers: latest.follower_total,
-          views,
-        });
-        continue;
-      }
-      // Connected, but the cron has not ingested owned rows yet (or it failed).
-      cards.push({
-        platform,
-        handle,
-        source: 'scraped',
-        followers: scrapedFollowers,
-        views,
-        syncing: true,
-      });
-      continue;
-    }
-
     cards.push({
       platform,
-      handle,
-      source: 'scraped',
-      followers: scrapedFollowers,
-      views,
+      handle: slot.handle,
+      followers: slot.followers,
+      views: viewsByPlatform[platform]?.[window] ?? null,
     });
   }
   return cards;

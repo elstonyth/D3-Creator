@@ -15,10 +15,6 @@
     {
       "path": "/api/admin/backfill-media",
       "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/cron/owned-insights",
-      "schedule": "30 1 * * *"
     }
   ]
 }

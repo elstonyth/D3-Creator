@@ -90,12 +90,6 @@ export default async function AccountPage() {
             ? 'No accounts yet — your agency adds them for you.'
             : `${tracked} account${tracked === 1 ? '' : 's'} managed by your agency.`}
         </p>
-        <a
-          href="/me/connections"
-          className="text-caption text-aurora-cta underline underline-offset-4 mt-1"
-        >
-          Connect an account for deeper insights →
-        </a>
       </section>
     </div>
   );

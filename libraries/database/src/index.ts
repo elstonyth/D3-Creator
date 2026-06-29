@@ -30,25 +30,6 @@ export {
   type FindOrCreateResult,
 } from './claim';
 export {
-  attachOwnedProfile,
-  upsertOAuthConnection,
-  revokeOAuthConnection,
-  deleteMetaConnectionsForUser,
-  ownedProfileUrl,
-  type OAuthPlatform,
-  type EncryptedBlob,
-} from './oauth';
-export {
-  upsertProfileInsight,
-  replaceAudienceDemographics,
-  upsertPostInsight,
-  setConnectionStatus,
-  updateConnectionTokens,
-  type ProfileInsightInput,
-  type DemographicInput,
-  type PostInsightInput,
-} from './owned-insights';
-export {
   listScrapeableProfiles,
   upsertProfileSnapshot,
   upsertPostSnapshots,
