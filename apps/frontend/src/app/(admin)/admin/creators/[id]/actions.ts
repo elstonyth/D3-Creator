@@ -19,7 +19,11 @@ import {
 } from '@d3/database';
 import { requireAdmin } from '@gitroom/frontend/lib/auth';
 import { isUuid } from '@gitroom/frontend/lib/ids';
-import { validateDisplayName, validateEmail, validatePassword } from '@gitroom/frontend/lib/account-validation';
+import {
+  validateDisplayName,
+  validateEmail,
+  validatePassword,
+} from '@gitroom/frontend/lib/account-validation';
 
 export interface ActionResult {
   ok: boolean;
@@ -51,12 +55,18 @@ export async function renameCreator(
   try {
     await requireAdmin();
     const creatorId = String(formData.get('creator_id') ?? '');
-    if (!isUuid(creatorId)) return { ok: false, message: 'Invalid creator id.' };
-    const nameRes = validateDisplayName(String(formData.get('display_name') ?? ''));
+    if (!isUuid(creatorId))
+      return { ok: false, message: 'Invalid creator id.' };
+    const nameRes = validateDisplayName(
+      String(formData.get('display_name') ?? ''),
+    );
     if (!nameRes.ok) return { ok: false, message: nameRes.error };
 
     const admin = getSupabaseAdmin();
-    const { error } = await admin.from('creator').update({ display_name: nameRes.value }).eq('id', creatorId);
+    const { error } = await admin
+      .from('creator')
+      .update({ display_name: nameRes.value })
+      .eq('id', creatorId);
     if (error) {
       console.error('[admin/renameCreator]', error);
       return { ok: false, message: 'Could not rename the creator.' };
@@ -75,7 +85,8 @@ export async function addCreatorUrl(
   try {
     await requireAdmin();
     const creatorId = String(formData.get('creator_id') ?? '');
-    if (!isUuid(creatorId)) return { ok: false, message: 'Invalid creator id.' };
+    if (!isUuid(creatorId))
+      return { ok: false, message: 'Invalid creator id.' };
 
     const resolved = await resolveShortLink(String(formData.get('url') ?? ''));
     const platform = detectPlatform(resolved);
@@ -90,8 +101,14 @@ export async function addCreatorUrl(
     if (profileRes.ok !== true) return { ok: false, message: profileRes.error };
 
     // The URL already existed under a DIFFERENT creator — don't steal it.
-    if (!profileRes.value.created && profileRes.value.profile.creator_id !== creatorId) {
-      return { ok: false, message: 'That profile is already tracked under another creator.' };
+    if (
+      !profileRes.value.created &&
+      profileRes.value.profile.creator_id !== creatorId
+    ) {
+      return {
+        ok: false,
+        message: 'That profile is already tracked under another creator.',
+      };
     }
 
     // Owner claim attaches to the creator's login (the first creator_link user).
@@ -104,7 +121,10 @@ export async function addCreatorUrl(
       .maybeSingle();
     if (link.error) {
       console.error('[admin/addCreatorUrl] creator_link lookup', link.error);
-      return { ok: false, message: 'Could not verify the creator login — try again.' };
+      return {
+        ok: false,
+        message: 'Could not verify the creator login — try again.',
+      };
     }
     if (link.data?.user_id) {
       const claimRes = await addProfileClaim({
@@ -114,13 +134,18 @@ export async function addCreatorUrl(
         claimed_via: 'admin_assigned',
       });
       if (claimRes.ok !== true) {
-        return { ok: false, message: `Profile saved, but the owner claim failed: ${claimRes.error}` };
+        return {
+          ok: false,
+          message: `Profile saved, but the owner claim failed: ${claimRes.error}`,
+        };
       }
     }
     revalidateCreator(creatorId);
     return {
       ok: true,
-      message: profileRes.value.created ? `Added ${platform} profile.` : `Linked existing ${platform} profile.`,
+      message: profileRes.value.created
+        ? `Added ${platform} profile.`
+        : `Linked existing ${platform} profile.`,
     };
   } catch (error: unknown) {
     return { ok: false, message: getErrorMessage(error) };
@@ -135,7 +160,8 @@ export async function editCreatorUrl(
     await requireAdmin();
     const creatorId = String(formData.get('creator_id') ?? '');
     const profileId = String(formData.get('profile_id') ?? '');
-    if (!isUuid(creatorId) || !isUuid(profileId)) return { ok: false, message: 'Invalid id.' };
+    if (!isUuid(creatorId) || !isUuid(profileId))
+      return { ok: false, message: 'Invalid id.' };
 
     const admin = getSupabaseAdmin();
     const existing = await admin
@@ -155,20 +181,30 @@ export async function editCreatorUrl(
     const platform = detectPlatform(resolved);
     if (!platform) return { ok: false, message: 'Unrecognized platform URL.' };
     if (platform !== existing.data.platform) {
-      return { ok: false, message: `Different platform — remove this URL and add the new one.` };
+      return {
+        ok: false,
+        message: `Different platform — remove this URL and add the new one.`,
+      };
     }
     const v = validateProfileUrl(platform, resolved);
     if (v.ok !== true) return { ok: false, message: v.error };
 
     const { error } = await admin
       .from('profile')
-      .update({ profile_url: v.normalizedUrl, handle: v.handle, scrape_status: 'pending' })
+      .update({
+        profile_url: v.normalizedUrl,
+        handle: v.handle,
+        scrape_status: 'pending',
+      })
       .eq('id', profileId);
     if (error) {
       console.error('[admin/editCreatorUrl]', error);
       return {
         ok: false,
-        message: error.code === '23505' ? 'That profile already exists.' : 'Could not update the URL.',
+        message:
+          error.code === '23505'
+            ? 'That profile already exists.'
+            : 'Could not update the URL.',
       };
     }
     revalidateCreator(creatorId);
@@ -186,10 +222,15 @@ export async function removeCreatorUrl(
     await requireAdmin();
     const creatorId = String(formData.get('creator_id') ?? '');
     const profileId = String(formData.get('profile_id') ?? '');
-    if (!isUuid(creatorId) || !isUuid(profileId)) return { ok: false, message: 'Invalid id.' };
+    if (!isUuid(creatorId) || !isUuid(profileId))
+      return { ok: false, message: 'Invalid id.' };
 
     const admin = getSupabaseAdmin();
-    const prof = await admin.from('profile').select('creator_id').eq('id', profileId).maybeSingle();
+    const prof = await admin
+      .from('profile')
+      .select('creator_id')
+      .eq('id', profileId)
+      .maybeSingle();
     if (prof.error || !prof.data || prof.data.creator_id !== creatorId) {
       return { ok: false, message: 'Profile not found for this creator.' };
     }
@@ -226,7 +267,8 @@ export async function addCreatorLogin(
   try {
     await requireAdmin();
     const creatorId = String(formData.get('creator_id') ?? '');
-    if (!isUuid(creatorId)) return { ok: false, message: 'Invalid creator id.' };
+    if (!isUuid(creatorId))
+      return { ok: false, message: 'Invalid creator id.' };
 
     const emailRes = validateEmail(String(formData.get('email') ?? ''));
     if (!emailRes.ok) return { ok: false, message: emailRes.error };
@@ -260,14 +302,25 @@ export async function addCreatorLogin(
       .limit(1)
       .maybeSingle();
     if (existingLogin.error) {
-      console.error('[admin/addCreatorLogin] creator_link lookup', existingLogin.error);
-      return { ok: false, message: 'Could not verify existing logins — try again.' };
+      console.error(
+        '[admin/addCreatorLogin] creator_link lookup',
+        existingLogin.error,
+      );
+      return {
+        ok: false,
+        message: 'Could not verify existing logins — try again.',
+      };
     }
     if (existingLogin.data?.user_id) {
-      return { ok: false, message: 'This creator already has a login — use Reset password instead.' };
+      return {
+        ok: false,
+        message:
+          'This creator already has a login — use Reset password instead.',
+      };
     }
 
-    const displayName = (creatorRes.data as { display_name: string }).display_name;
+    const displayName = (creatorRes.data as { display_name: string })
+      .display_name;
 
     // 1. Auth login. Trigger assigns role='creator' + empty creator_link.
     const created = await admin.auth.admin.createUser({
@@ -277,9 +330,18 @@ export async function addCreatorLogin(
       user_metadata: { display_name: displayName },
     });
     if (created.error || !created.data.user) {
-      return { ok: false, message: created.error?.message ?? 'Could not create the login.' };
+      return {
+        ok: false,
+        message: created.error?.message ?? 'Could not create the login.',
+      };
     }
     const userId = created.data.user.id;
+
+    // Trigger now defaults new logins to 'member'; provisioned accounts are creators.
+    await admin
+      .from('user_role')
+      .update({ role: 'creator' })
+      .eq('user_id', userId);
 
     // 2. Bind the login to THIS creator (overwrite the trigger's empty link).
     const linked = await admin
@@ -289,7 +351,10 @@ export async function addCreatorLogin(
         { onConflict: 'user_id' },
       );
     if (linked.error) {
-      console.error('[admin/addCreatorLogin] creator_link upsert', linked.error);
+      console.error(
+        '[admin/addCreatorLogin] creator_link upsert',
+        linked.error,
+      );
       return {
         ok: false,
         message: `Login created, but linking it to the creator failed: ${linked.error.message}. Retry to heal.`,
@@ -300,7 +365,10 @@ export async function addCreatorLogin(
     // 3. Backfill owner claims for the creator's existing profiles (parity with
     //    createCreator). Idempotent — safe on retry.
     let claimFailure: string | null = null;
-    const profilesRes = await admin.from('profile').select('id').eq('creator_id', creatorId);
+    const profilesRes = await admin
+      .from('profile')
+      .select('id')
+      .eq('creator_id', creatorId);
     if (profilesRes.error) {
       console.error('[admin/addCreatorLogin] profile fetch', profilesRes.error);
       claimFailure = profilesRes.error.message;
@@ -349,7 +417,8 @@ export async function resetCreatorPassword(
     await requireAdmin();
     const creatorId = String(formData.get('creator_id') ?? '');
     const userId = String(formData.get('user_id') ?? '');
-    if (!isUuid(creatorId) || !isUuid(userId)) return { ok: false, message: 'Invalid id.' };
+    if (!isUuid(creatorId) || !isUuid(userId))
+      return { ok: false, message: 'Invalid id.' };
 
     const admin = getSupabaseAdmin();
     const link = await admin
@@ -359,7 +428,10 @@ export async function resetCreatorPassword(
       .eq('creator_id', creatorId)
       .maybeSingle();
     if (link.error || !link.data) {
-      return { ok: false, message: 'That login is not linked to this creator.' };
+      return {
+        ok: false,
+        message: 'That login is not linked to this creator.',
+      };
     }
 
     const typed = String(formData.get('password') ?? '');
@@ -367,7 +439,9 @@ export async function resetCreatorPassword(
     const pwRes = validatePassword(password);
     if (!pwRes.ok) return { ok: false, message: pwRes.error };
 
-    const upd = await admin.auth.admin.updateUserById(userId, { password: pwRes.value });
+    const upd = await admin.auth.admin.updateUserById(userId, {
+      password: pwRes.value,
+    });
     if (upd.error || !upd.data.user) {
       console.error('[admin/resetCreatorPassword]', upd.error);
       return { ok: false, message: 'Could not reset the password.' };
@@ -391,19 +465,24 @@ export async function deleteCreator(
   let done = false;
   try {
     await requireAdmin();
-    if (!isUuid(creatorId)) return { ok: false, message: 'Invalid creator id.' };
+    if (!isUuid(creatorId))
+      return { ok: false, message: 'Invalid creator id.' };
 
     const admin = getSupabaseAdmin();
     // Delete linked logins first (cascades user_role + creator_link), then the
     // creator (cascades profiles → claims/snapshots/posts).
-    const links = await admin.from('creator_link').select('user_id').eq('creator_id', creatorId);
+    const links = await admin
+      .from('creator_link')
+      .select('user_id')
+      .eq('creator_id', creatorId);
     if (links.error) {
       console.error('[admin/deleteCreator] creator_link lookup', links.error);
       return { ok: false, message: 'Could not delete the creator.' };
     }
     for (const l of (links.data ?? []) as { user_id: string }[]) {
       const { error: delErr } = await admin.auth.admin.deleteUser(l.user_id);
-      if (delErr) console.error('[admin/deleteCreator] deleteUser', l.user_id, delErr);
+      if (delErr)
+        console.error('[admin/deleteCreator] deleteUser', l.user_id, delErr);
     }
     const del = await admin.from('creator').delete().eq('id', creatorId);
     if (del.error) {

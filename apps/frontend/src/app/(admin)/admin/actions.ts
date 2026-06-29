@@ -63,19 +63,28 @@ export async function createCreator(
     if (!emailRes.ok) return { ok: false, message: emailRes.error };
     const email = emailRes.value;
 
-    const passwordRes = validatePassword(String(formData.get('password') ?? ''));
+    const passwordRes = validatePassword(
+      String(formData.get('password') ?? ''),
+    );
     if (!passwordRes.ok) return { ok: false, message: passwordRes.error };
     const password = passwordRes.value;
 
-    const nameRes = validateDisplayName(String(formData.get('display_name') ?? ''));
+    const nameRes = validateDisplayName(
+      String(formData.get('display_name') ?? ''),
+    );
     if (!nameRes.ok) return { ok: false, message: nameRes.error };
     const displayName = nameRes.value;
 
     // Validate the URL list BEFORE creating any auth user — an over-cap
     // submission must not leave an orphaned login/creator behind.
-    const urls = normalizeProvisionUrls(formData.getAll('url').map((v) => String(v)));
+    const urls = normalizeProvisionUrls(
+      formData.getAll('url').map((v) => String(v)),
+    );
     if (urls.length > MAX_PROVISION_URLS) {
-      return { ok: false, message: `Too many URLs — provide at most ${MAX_PROVISION_URLS}.` };
+      return {
+        ok: false,
+        message: `Too many URLs — provide at most ${MAX_PROVISION_URLS}.`,
+      };
     }
 
     const admin = getSupabaseAdmin();
@@ -88,12 +97,31 @@ export async function createCreator(
       user_metadata: { display_name: displayName },
     });
     if (created.error || !created.data.user) {
-      return { ok: false, message: created.error?.message ?? 'Could not create the login.' };
+      return {
+        ok: false,
+        message: created.error?.message ?? 'Could not create the login.',
+      };
     }
     const userId = created.data.user.id;
 
+    // Trigger now defaults new logins to 'member'; provisioned accounts are creators.
+    const roleSet = await admin
+      .from('user_role')
+      .update({ role: 'creator' })
+      .eq('user_id', userId);
+    if (roleSet.error) {
+      return {
+        ok: false,
+        message: `Login created but role assignment failed: ${roleSet.error.message}`,
+        credentials: { email, password },
+      };
+    }
+
     // 2. Create + bind the creator row.
-    const creatorRes = await ensureCreatorForUser({ user_id: userId, display_name: displayName });
+    const creatorRes = await ensureCreatorForUser({
+      user_id: userId,
+      display_name: displayName,
+    });
     if (creatorRes.ok !== true) {
       return {
         ok: false,
@@ -109,7 +137,11 @@ export async function createCreator(
       const url = await resolveShortLink(rawUrl);
       const platform = detectPlatform(url);
       if (!platform) {
-        urlResults.push({ url, status: 'failed', detail: 'Unrecognized platform URL.' });
+        urlResults.push({
+          url,
+          status: 'failed',
+          detail: 'Unrecognized platform URL.',
+        });
         continue;
       }
       const profileRes = await findOrCreateProfile({
@@ -118,7 +150,12 @@ export async function createCreator(
         fallback_creator_id: creatorId,
       });
       if (profileRes.ok !== true) {
-        urlResults.push({ url, platform, status: 'failed', detail: profileRes.error });
+        urlResults.push({
+          url,
+          platform,
+          status: 'failed',
+          detail: profileRes.error,
+        });
         continue;
       }
       const claimRes = await addProfileClaim({
@@ -128,7 +165,12 @@ export async function createCreator(
         claimed_via: 'admin_assigned',
       });
       if (claimRes.ok !== true) {
-        urlResults.push({ url, platform, status: 'failed', detail: claimRes.error });
+        urlResults.push({
+          url,
+          platform,
+          status: 'failed',
+          detail: claimRes.error,
+        });
         continue;
       }
       urlResults.push({
