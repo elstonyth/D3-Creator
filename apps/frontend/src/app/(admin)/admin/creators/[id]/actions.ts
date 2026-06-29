@@ -322,7 +322,7 @@ export async function addCreatorLogin(
     const displayName = (creatorRes.data as { display_name: string })
       .display_name;
 
-    // 1. Auth login. Trigger assigns role='creator' + empty creator_link.
+    // 1. Auth login. Trigger assigns role='member' + empty creator_link; explicit update below promotes to 'creator'.
     const created = await admin.auth.admin.createUser({
       email,
       password: pwRes.value,
@@ -338,10 +338,17 @@ export async function addCreatorLogin(
     const userId = created.data.user.id;
 
     // Trigger now defaults new logins to 'member'; provisioned accounts are creators.
-    await admin
+    const roleSet = await admin
       .from('user_role')
       .update({ role: 'creator' })
       .eq('user_id', userId);
+    if (roleSet.error) {
+      return {
+        ok: false,
+        message: `Login created but role assignment failed: ${roleSet.error.message}`,
+        credentials: { email, password: pwRes.value },
+      };
+    }
 
     // 2. Bind the login to THIS creator (overwrite the trigger's empty link).
     const linked = await admin

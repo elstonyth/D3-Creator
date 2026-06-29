@@ -89,7 +89,7 @@ export async function createCreator(
 
     const admin = getSupabaseAdmin();
 
-    // 1. Auth login. Trigger assigns role='creator' + empty creator_link.
+    // 1. Auth login. Trigger assigns role='member' + empty creator_link; explicit update below promotes to 'creator'.
     const created = await admin.auth.admin.createUser({
       email,
       password,
