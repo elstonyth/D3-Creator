@@ -7,10 +7,8 @@ import type { PlatformKey } from '@gitroom/frontend/components/ui/platform-icons
 export interface PlatformCard {
   platform: PlatformKey;
   handle: string;
-  source: 'owned' | 'scraped';
   followers: number | null;
   views: number | null;
-  syncing?: boolean;
 }
 
 // RedNote is excluded from the scoped profile read below.
@@ -72,7 +70,6 @@ export async function getCreatorPlatformBreakdown(
     cards.push({
       platform,
       handle: slot.handle,
-      source: 'scraped',
       followers: slot.followers,
       views: viewsByPlatform[platform]?.[window] ?? null,
     });

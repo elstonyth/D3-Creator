@@ -43,7 +43,6 @@ export function PlatformCards({ cards }: { cards: PlatformCard[] }) {
                   </span>
                   <span className="block text-caption text-fgSubtle">
                     {PLATFORM_LABELS[c.platform]}
-                    {c.syncing ? ' · syncing…' : ''}
                   </span>
                 </span>
               </span>
@@ -56,14 +55,8 @@ export function PlatformCards({ cards }: { cards: PlatformCard[] }) {
                     {fmt(c.views)} views
                   </span>
                 </span>
-                <span
-                  className={`text-micro px-2 py-0.5 rounded-full border ${
-                    c.source === 'owned'
-                      ? 'bg-brand/10 text-fg border-brand/20'
-                      : 'glass-base text-fgMuted border-borderGlass'
-                  }`}
-                >
-                  {c.source === 'owned' ? '✓ first-party' : 'Tracked'}
+                <span className="text-micro px-2 py-0.5 rounded-full border glass-base text-fgMuted border-borderGlass">
+                  Tracked
                 </span>
                 <span
                   className="text-fgSubtle group-hover:text-fg transition-colors"
