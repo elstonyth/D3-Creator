@@ -90,6 +90,7 @@ export default async function PublicLayout({
               <NavLink href="/about">About</NavLink>
               <NavLink href="/dashboard">Dashboard</NavLink>
               <NavLink href="/leaderboard">Leaderboard</NavLink>
+              <NavLink href="/classes">Classes</NavLink>
               {auth ? (
                 <>
                   <NavLink href={auth.role === 'admin' ? '/admin' : '/me'}>
@@ -110,6 +111,7 @@ export default async function PublicLayout({
                   { href: '/about', label: 'About' },
                   { href: '/dashboard', label: 'Dashboard' },
                   { href: '/leaderboard', label: 'Leaderboard' },
+                  { href: '/classes', label: 'Classes' },
                   ...(auth
                     ? [
                         {
