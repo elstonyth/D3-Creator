@@ -7,38 +7,38 @@ import { AtSignIcon } from 'lucide-react';
 import { Button } from '@gitroom/frontend/components/ui/button';
 import { Input } from '@gitroom/frontend/components/ui/input';
 import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
-import { safeRedirect } from '@gitroom/frontend/lib/redirects';
 
-interface SignInFormProps {
-  redirectTo?: string;
-}
-
-export function SignInForm({ redirectTo }: SignInFormProps) {
+export function SignUpForm() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    setNotice(null);
     setPending(true);
     const supabase = getSupabaseBrowser();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email: email.trim().toLowerCase(),
       password,
     });
-    if (signInError) {
-      // Collapse provider errors to one generic message: no Supabase internals
-      // leaked, no account-enumeration signal.
-      setError('Invalid email or password.');
+    if (signUpError) {
+      setError(signUpError.message);
       setPending(false);
       return;
     }
-    // Middleware will route to /me, /onboarding, or /admin based on state.
-    // safeRedirect() blocks cross-origin redirects via ?redirectTo=https://evil.com.
-    router.push(safeRedirect(redirectTo, '/me'));
+    // If email confirmation is required, there's no active session yet.
+    if (!data.session) {
+      setNotice('Check your email to confirm your account, then sign in.');
+      setPending(false);
+      return;
+    }
+    // Trigger assigned role='member'; middleware routes members to /classes.
+    router.push('/classes');
     router.refresh();
   }
 
@@ -53,43 +53,46 @@ export function SignInForm({ redirectTo }: SignInFormProps) {
             required
             maxLength={254}
             autoComplete="email"
-            placeholder="you@agency.com"
+            placeholder="you@email.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="pl-9"
           />
         </div>
       </label>
-
       <label className="block space-y-1.5">
         <span className="text-label text-fgMuted">Password</span>
         <Input
           type="password"
           required
+          minLength={8}
           maxLength={200}
-          autoComplete="current-password"
-          placeholder="••••••••"
+          autoComplete="new-password"
+          placeholder="At least 8 characters"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
       </label>
-
       {error && (
         <p className="text-caption text-danger-fg" role="alert">
           {error}
         </p>
       )}
-
+      {notice && (
+        <p className="text-caption text-aurora-cta" role="status">
+          {notice}
+        </p>
+      )}
       <Button type="submit" size="lg" className="w-full" disabled={pending}>
-        {pending ? 'Signing in…' : 'Sign in'}
+        {pending ? 'Creating account…' : 'Create account'}
       </Button>
       <p className="text-caption text-fgMuted text-center">
-        New here?{' '}
+        Already have an account?{' '}
         <Link
-          href="/signup"
+          href="/login"
           className="text-aurora-cta underline underline-offset-4"
         >
-          Create an account
+          Sign in
         </Link>
       </p>
     </form>

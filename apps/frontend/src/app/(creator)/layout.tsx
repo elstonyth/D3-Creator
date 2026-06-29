@@ -20,6 +20,7 @@ export default async function CreatorLayout({
 }) {
   const auth = await getAuthContext();
   if (!auth) redirect('/login');
+  if (auth.role !== 'creator' && auth.role !== 'admin') redirect('/classes');
 
   return (
     <html
