@@ -25,15 +25,24 @@ export function RoleTable({ rows, selfId }: { rows: Row[]; selfId: string }) {
   ) {
     setMsg(null);
     setPendingId(userId);
-    const res = await setUserRole(userId, role);
-    setMsg(res.message);
-    setPendingId(null);
-    if (res.ok) {
-      router.refresh();
-    } else {
-      // Roll the dropdown back to the persisted value so the screen never shows
-      // a role the database rejected.
+    try {
+      const res = await setUserRole(userId, role);
+      setMsg(res.message);
+      if (res.ok) {
+        router.refresh();
+      } else {
+        // Roll the dropdown back to the persisted value so the screen never shows
+        // a role the database rejected.
+        select.value = prevRole;
+      }
+    } catch (e) {
+      // Transport-level failure (network/timeout/aborted nav) — setUserRole
+      // never returned, so roll back and surface it instead of leaving the row
+      // stuck disabled.
+      setMsg(e instanceof Error ? e.message : 'Unexpected error');
       select.value = prevRole;
+    } finally {
+      setPendingId(null);
     }
   }
 

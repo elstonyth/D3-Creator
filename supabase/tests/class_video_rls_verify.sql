@@ -69,6 +69,8 @@ begin
   if n is distinct from 1 then raise exception 'FAIL none: expected 1 public row, got %', n; end if;
   select count(*) into n from public.class_video where visibility = 'members';
   if n is distinct from 0 then raise exception 'FAIL none: saw a members-only row'; end if;
+  select count(*) into n from public.class_video where is_published = false;
+  if n is distinct from 0 then raise exception 'FAIL none: draft leaked'; end if;
 
   reset role;
   raise notice 'CLASS_VIDEO RLS ASSERTIONS PASSED';
