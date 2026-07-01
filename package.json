@@ -18,7 +18,8 @@
     "dev:frontend": "rm -rf apps/frontend/dist && pnpm --filter ./apps/frontend run dev",
     "start:prod:frontend": "pnpm --filter ./apps/frontend run start",
     "supabase": "supabase",
-    "test": "jest --coverage --detectOpenHandles --reporters=default --reporters=jest-junit"
+    "test": "jest --coverage --detectOpenHandles --reporters=default --reporters=jest-junit",
+    "typecheck": "pnpm --filter ./apps/frontend exec tsc --noEmit"
   },
   "dependencies": {
     "@ag-ui/mastra": "^1.0.1",
