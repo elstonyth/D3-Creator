@@ -63,24 +63,33 @@ export async function createCreator(
     if (!emailRes.ok) return { ok: false, message: emailRes.error };
     const email = emailRes.value;
 
-    const passwordRes = validatePassword(String(formData.get('password') ?? ''));
+    const passwordRes = validatePassword(
+      String(formData.get('password') ?? ''),
+    );
     if (!passwordRes.ok) return { ok: false, message: passwordRes.error };
     const password = passwordRes.value;
 
-    const nameRes = validateDisplayName(String(formData.get('display_name') ?? ''));
+    const nameRes = validateDisplayName(
+      String(formData.get('display_name') ?? ''),
+    );
     if (!nameRes.ok) return { ok: false, message: nameRes.error };
     const displayName = nameRes.value;
 
     // Validate the URL list BEFORE creating any auth user — an over-cap
     // submission must not leave an orphaned login/creator behind.
-    const urls = normalizeProvisionUrls(formData.getAll('url').map((v) => String(v)));
+    const urls = normalizeProvisionUrls(
+      formData.getAll('url').map((v) => String(v)),
+    );
     if (urls.length > MAX_PROVISION_URLS) {
-      return { ok: false, message: `Too many URLs — provide at most ${MAX_PROVISION_URLS}.` };
+      return {
+        ok: false,
+        message: `Too many URLs — provide at most ${MAX_PROVISION_URLS}.`,
+      };
     }
 
     const admin = getSupabaseAdmin();
 
-    // 1. Auth login. Trigger assigns role='creator' + empty creator_link.
+    // 1. Auth login. Trigger assigns role='member' + empty creator_link; explicit update below promotes to 'creator'.
     const created = await admin.auth.admin.createUser({
       email,
       password,
@@ -88,12 +97,43 @@ export async function createCreator(
       user_metadata: { display_name: displayName },
     });
     if (created.error || !created.data.user) {
-      return { ok: false, message: created.error?.message ?? 'Could not create the login.' };
+      return {
+        ok: false,
+        message: created.error?.message ?? 'Could not create the login.',
+      };
     }
     const userId = created.data.user.id;
 
+    // Trigger now defaults new logins to 'member'; provisioned accounts are creators.
+    const roleSet = await admin
+      .from('user_role')
+      .update({ role: 'creator' })
+      .eq('user_id', userId);
+    if (roleSet.error) {
+      // Roll back the just-created login: a failed role assignment would leave
+      // an orphaned 'member' account that also blocks re-provisioning (email is
+      // taken). Only the bare login exists here — nothing valuable to keep yet.
+      const cleanup = await admin.auth.admin.deleteUser(userId);
+      if (cleanup.error) {
+        console.error(
+          '[admin/createCreator] orphan cleanup failed',
+          userId,
+          cleanup.error,
+        );
+      }
+      return {
+        ok: false,
+        message: cleanup.error
+          ? `Role assignment failed (${roleSet.error.message}); the partial login may remain — check /admin/users.`
+          : `Could not assign the creator role (${roleSet.error.message}). Please retry.`,
+      };
+    }
+
     // 2. Create + bind the creator row.
-    const creatorRes = await ensureCreatorForUser({ user_id: userId, display_name: displayName });
+    const creatorRes = await ensureCreatorForUser({
+      user_id: userId,
+      display_name: displayName,
+    });
     if (creatorRes.ok !== true) {
       return {
         ok: false,
@@ -109,7 +149,11 @@ export async function createCreator(
       const url = await resolveShortLink(rawUrl);
       const platform = detectPlatform(url);
       if (!platform) {
-        urlResults.push({ url, status: 'failed', detail: 'Unrecognized platform URL.' });
+        urlResults.push({
+          url,
+          status: 'failed',
+          detail: 'Unrecognized platform URL.',
+        });
         continue;
       }
       const profileRes = await findOrCreateProfile({
@@ -118,7 +162,12 @@ export async function createCreator(
         fallback_creator_id: creatorId,
       });
       if (profileRes.ok !== true) {
-        urlResults.push({ url, platform, status: 'failed', detail: profileRes.error });
+        urlResults.push({
+          url,
+          platform,
+          status: 'failed',
+          detail: profileRes.error,
+        });
         continue;
       }
       const claimRes = await addProfileClaim({
@@ -128,7 +177,12 @@ export async function createCreator(
         claimed_via: 'admin_assigned',
       });
       if (claimRes.ok !== true) {
-        urlResults.push({ url, platform, status: 'failed', detail: claimRes.error });
+        urlResults.push({
+          url,
+          platform,
+          status: 'failed',
+          detail: claimRes.error,
+        });
         continue;
       }
       urlResults.push({

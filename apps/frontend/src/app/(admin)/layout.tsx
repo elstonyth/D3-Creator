@@ -56,6 +56,8 @@ export default async function AdminLayout({
                 Dashboard
               </NavLink>
               <NavLink href="/admin/profiles">Accounts</NavLink>
+              <NavLink href="/admin/classes">Classes</NavLink>
+              <NavLink href="/admin/users">Users</NavLink>
               <span className="hidden sm:inline-block ml-3 text-caption text-fgSubtle">
                 {auth.email}
               </span>

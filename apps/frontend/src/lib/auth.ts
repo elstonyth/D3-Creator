@@ -13,7 +13,7 @@
 import { cache } from 'react';
 import { getSupabaseRoute } from './supabase-route';
 
-export type UserRole = 'admin' | 'creator';
+export type UserRole = 'admin' | 'creator' | 'member' | 'none';
 
 export interface CreatorLink {
   user_id: string;
@@ -30,40 +30,44 @@ export interface AuthContext {
   creatorLink: CreatorLink | null;
 }
 
-export const getAuthContext = cache(
-  async (): Promise<AuthContext | null> => {
-    const supabase = await getSupabaseRoute();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+export const getAuthContext = cache(async (): Promise<AuthContext | null> => {
+  const supabase = await getSupabaseRoute();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-    if (!user) return null;
+  if (!user) return null;
 
-    const [roleRes, linkRes] = await Promise.all([
-      supabase.from('user_role').select('role').eq('user_id', user.id).maybeSingle(),
-      supabase
-        .from('creator_link')
-        .select('user_id, creator_id, dashboard_url, leaderboard_url, onboarding_completed')
-        .eq('user_id', user.id)
-        .maybeSingle(),
-    ]);
+  const [roleRes, linkRes] = await Promise.all([
+    supabase
+      .from('user_role')
+      .select('role')
+      .eq('user_id', user.id)
+      .maybeSingle(),
+    supabase
+      .from('creator_link')
+      .select(
+        'user_id, creator_id, dashboard_url, leaderboard_url, onboarding_completed',
+      )
+      .eq('user_id', user.id)
+      .maybeSingle(),
+  ]);
 
-    // A failed role lookup must NOT be silently read as "no role -> creator":
-    // that would demote a real admin (and bounce them out of /admin) during a
-    // transient DB error. Surface the error so the caller fails closed, the
-    // same way the edge middleware (proxy.ts) does. Only a successful query
-    // with no row falls through to the 'creator' default below.
-    if (roleRes.error) throw roleRes.error;
+  // A failed role lookup must NOT be silently read as "no role -> creator":
+  // that would demote a real admin (and bounce them out of /admin) during a
+  // transient DB error. Surface the error so the caller fails closed, the
+  // same way the edge middleware (proxy.ts) does. Only a successful query
+  // with no row falls through to the 'creator' default below.
+  if (roleRes.error) throw roleRes.error;
 
-    const role: UserRole = (roleRes.data?.role as UserRole) ?? 'creator';
-    return {
-      userId: user.id,
-      email: user.email ?? null,
-      role,
-      creatorLink: (linkRes.data as CreatorLink | null) ?? null,
-    };
-  },
-);
+  const role: UserRole = (roleRes.data?.role as UserRole) ?? 'creator';
+  return {
+    userId: user.id,
+    email: user.email ?? null,
+    role,
+    creatorLink: (linkRes.data as CreatorLink | null) ?? null,
+  };
+});
 
 /**
  * Admin guard for Server Actions / Route Handlers — throws "Not authorized."
