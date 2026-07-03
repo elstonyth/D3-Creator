@@ -34,6 +34,10 @@ const nextConfig = {
         : "connect-src 'self' https://*.supabase.co https://*.sentry.io http://127.0.0.1:54321 http://localhost:54321 ws://127.0.0.1:54321 ws://localhost:4200",
       // Sentry Session Replay compresses payloads in a Web Worker loaded from a blob: URL.
       "worker-src 'self' blob:",
+      // Online-classes videos embed the Google Drive preview player (lib/drive.ts).
+      // Without an explicit frame-src the iframe falls back to default-src 'self',
+      // so Drive is blocked and the player renders as a black box.
+      'frame-src https://drive.google.com',
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "object-src 'none'",
