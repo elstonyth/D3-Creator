@@ -299,7 +299,7 @@ function CreatorCard({ group }: { group: AdminCreatorGroup }) {
             )}
             <StatusPill status={group.status} />
           </div>
-          <div className="flex items-center gap-1.5 mt-1.5">
+          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
             {group.platforms.map((p) => (
               <PlatformPill key={p} platform={toPlatformKey(p)} iconSize={12} className="!px-2 !py-1">
                 {''}
@@ -311,7 +311,7 @@ function CreatorCard({ group }: { group: AdminCreatorGroup }) {
           </div>
         </div>
         {/* Account aggregates */}
-        <div className="flex items-center gap-6 text-right tabular-nums shrink-0">
+        <div className="flex items-center gap-6 text-right tabular-nums shrink-0 w-full justify-between sm:w-auto sm:justify-end">
           <Agg label="reach" value={formatCompact(group.totalReach)} sub={`${deltaCaret(group.reachDelta)}${formatDelta(group.reachDelta)} today`} subClass={deltaClass(group.reachDelta)} />
           <Agg label="views" value={formatCompact(group.totalViews)} />
           <Agg label="engagement" value={formatPercent(group.engagement)} />
@@ -334,7 +334,7 @@ function CreatorCard({ group }: { group: AdminCreatorGroup }) {
 
 function ProfileRowItem({ p }: { p: AdminProfileRow }) {
   return (
-    <li className="flex items-center justify-between gap-4 p-4 bg-glass-base">
+    <li className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 p-4 bg-glass-base">
       <div className="flex items-center gap-3 min-w-0">
         <PlatformPill platform={toPlatformKey(p.platform)} iconSize={13} />
         <div className="min-w-0">

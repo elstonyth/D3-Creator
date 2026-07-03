@@ -7,6 +7,7 @@ import { Analytics } from '@vercel/analytics/next';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { SignOutButton } from '@gitroom/frontend/components/auth/signout-button';
 import NavLink from '@gitroom/frontend/components/ui/nav-link';
+import MobileNav from '@gitroom/frontend/components/ui/mobile-nav';
 
 // Cookie-bound. Never prerender — Supabase env required at construction.
 export const dynamic = 'force-dynamic';
@@ -51,18 +52,37 @@ export default async function AdminLayout({
                 D3 Admin
               </span>
             </Link>
-            <nav className="flex items-center gap-1 text-label">
+            {/* Desktop nav */}
+            <nav className="hidden md:flex items-center gap-1 text-label">
               <NavLink href="/admin" exact>
                 Dashboard
               </NavLink>
               <NavLink href="/admin/profiles">Accounts</NavLink>
               <NavLink href="/admin/classes">Classes</NavLink>
               <NavLink href="/admin/users">Users</NavLink>
-              <span className="hidden sm:inline-block ml-3 text-caption text-fgSubtle">
+              <span className="ml-3 text-caption text-fgSubtle">
                 {auth.email}
               </span>
               <SignOutButton />
             </nav>
+
+            {/* Mobile nav — keep sign-out reachable, links go in the hamburger */}
+            <div className="flex md:hidden items-center gap-1 text-label">
+              {/* Email returns from sm up (matches the old sm:inline-block), truncated
+                  so it can't overflow; below sm it stays hidden to keep the header tight. */}
+              <span className="hidden sm:block max-w-[160px] truncate text-caption text-fgSubtle">
+                {auth.email}
+              </span>
+              <SignOutButton />
+              <MobileNav
+                links={[
+                  { href: '/admin', label: 'Dashboard', exact: true },
+                  { href: '/admin/profiles', label: 'Accounts' },
+                  { href: '/admin/classes', label: 'Classes' },
+                  { href: '/admin/users', label: 'Users' },
+                ]}
+              />
+            </div>
           </div>
         </header>
 

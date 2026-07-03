@@ -41,22 +41,24 @@ export function Top30Creators({ rows }: { rows: CreatorMetricWindowRow[] }) {
           No creators ranked yet — building history…
         </div>
       ) : (
-        <table className="w-full text-left">
-          <thead>
-            <tr className="text-micro uppercase text-fgSubtle tracking-[0.04em]">
-              <th className="font-normal px-4 py-2.5 w-10">#</th>
-              <th className="font-normal px-4 py-2.5">Creator</th>
-              <th className="font-normal px-4 py-2.5">Platform</th>
-              <th className="font-normal px-4 py-2.5 text-right">Followers</th>
-              <th className="font-normal px-4 py-2.5 text-right">Δ30D</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, i) => (
-              <CreatorRow key={row.creatorId} row={row} rank={i + 1} />
-            ))}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[460px] text-left">
+            <thead>
+              <tr className="text-micro uppercase text-fgSubtle tracking-[0.04em]">
+                <th className="font-normal px-4 py-2.5 w-10">#</th>
+                <th className="font-normal px-4 py-2.5">Creator</th>
+                <th className="font-normal px-4 py-2.5">Platform</th>
+                <th className="font-normal px-4 py-2.5 text-right">Followers</th>
+                <th className="font-normal px-4 py-2.5 text-right">Δ30D</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, i) => (
+                <CreatorRow key={row.creatorId} row={row} rank={i + 1} />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );

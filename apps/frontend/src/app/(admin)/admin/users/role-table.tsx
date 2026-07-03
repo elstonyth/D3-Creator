@@ -54,41 +54,43 @@ export function RoleTable({ rows, selfId }: { rows: Row[]; selfId: string }) {
         </p>
       )}
       <div className="glass-elevated rounded-2xl overflow-hidden">
-        <table className="w-full text-label">
-          <thead className="text-caption text-fgMuted border-b border-borderGlass">
-            <tr>
-              <th className="text-left p-4">Email</th>
-              <th className="text-left p-4">Joined</th>
-              <th className="text-left p-4">Role</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.user_id} className="border-b border-borderGlass/50">
-                <td className="p-4 text-fg">{r.email}</td>
-                <td className="p-4 text-fgMuted">
-                  {new Date(r.created_at).toLocaleDateString()}
-                </td>
-                <td className="p-4">
-                  <select
-                    defaultValue={r.role}
-                    disabled={r.user_id === selfId || pendingId === r.user_id}
-                    onChange={(e) =>
-                      change(r.user_id, e.target.value, e.target, r.role)
-                    }
-                    className="bg-canvas border border-borderGlass rounded-md px-2 py-1 text-fg disabled:opacity-50"
-                  >
-                    {ROLES.map((role) => (
-                      <option key={role} value={role}>
-                        {role}
-                      </option>
-                    ))}
-                  </select>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[420px] text-label">
+            <thead className="text-caption text-fgMuted border-b border-borderGlass">
+              <tr>
+                <th className="text-left p-4">Email</th>
+                <th className="text-left p-4">Joined</th>
+                <th className="text-left p-4">Role</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.user_id} className="border-b border-borderGlass/50">
+                  <td className="p-4 text-fg">{r.email}</td>
+                  <td className="p-4 text-fgMuted">
+                    {new Date(r.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="p-4">
+                    <select
+                      defaultValue={r.role}
+                      disabled={r.user_id === selfId || pendingId === r.user_id}
+                      onChange={(e) =>
+                        change(r.user_id, e.target.value, e.target, r.role)
+                      }
+                      className="bg-canvas border border-borderGlass rounded-md px-2 py-1 text-fg disabled:opacity-50"
+                    >
+                      {ROLES.map((role) => (
+                        <option key={role} value={role}>
+                          {role}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
