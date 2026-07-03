@@ -61,7 +61,14 @@ export function ClassPlayer({ video, nav, seriesLabel }: ClassPlayerProps) {
             </div>
           )}
 
-          <div className="aspect-video w-full overflow-hidden rounded-2xl border border-borderGlass bg-black">
+          <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-borderGlass bg-black">
+            {/* Google Drive's /preview player CROPS the video below a minimum
+                width (its controls/layout assume a desktop-sized frame), so on
+                phones the frame is cut off on both sides. Render the iframe at
+                4x the box (w/h-[400%]) and scale it back down (scale-[0.25]) so
+                the player sees a ~desktop-width viewport and shows the full
+                frame while still fitting our 16:9 box. The size multiple and
+                the scale are reciprocals — keep them in sync (4 × 0.25 = 1). */}
             <iframe
               src={drivePreviewUrl(video.driveFileId)}
               // Delegate fullscreen to the cross-origin Drive player via
@@ -69,7 +76,7 @@ export function ClassPlayer({ video, nav, seriesLabel }: ClassPlayerProps) {
               // by strict browsers (e.g. mobile Safari), which hides the button.
               allow="autoplay; encrypted-media; fullscreen"
               allowFullScreen
-              className="h-full w-full"
+              className="absolute left-0 top-0 h-[400%] w-[400%] origin-top-left scale-[0.25]"
               title={video.title}
             />
           </div>
