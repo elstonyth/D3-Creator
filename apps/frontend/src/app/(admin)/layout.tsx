@@ -68,6 +68,11 @@ export default async function AdminLayout({
 
             {/* Mobile nav — keep sign-out reachable, links go in the hamburger */}
             <div className="flex md:hidden items-center gap-1 text-label">
+              {/* Email returns from sm up (matches the old sm:inline-block), truncated
+                  so it can't overflow; below sm it stays hidden to keep the header tight. */}
+              <span className="hidden sm:block max-w-[160px] truncate text-caption text-fgSubtle">
+                {auth.email}
+              </span>
               <SignOutButton />
               <MobileNav
                 links={[
