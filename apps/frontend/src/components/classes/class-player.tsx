@@ -64,7 +64,10 @@ export function ClassPlayer({ video, nav, seriesLabel }: ClassPlayerProps) {
           <div className="aspect-video w-full overflow-hidden rounded-2xl border border-borderGlass bg-black">
             <iframe
               src={drivePreviewUrl(video.driveFileId)}
-              allow="autoplay; encrypted-media"
+              // Delegate fullscreen to the cross-origin Drive player via
+              // Permissions-Policy; the legacy allowFullScreen alone is ignored
+              // by strict browsers (e.g. mobile Safari), which hides the button.
+              allow="autoplay; encrypted-media; fullscreen"
               allowFullScreen
               className="h-full w-full"
               title={video.title}
