@@ -52,10 +52,13 @@ export default async function ClassPlayerPage({ params }: Props) {
     .order('created_at', { ascending: false });
   if (siblingsError) throw siblingsError;
 
-  const items =
-    siblings && siblings.length > 0
-      ? siblings
-      : [{ id: video.id, title: video.title }];
+  // Same RLS as the single fetch means the current class is normally in the
+  // list already; guarantee it defensively so the playlist always highlights
+  // the class being watched even if a future filter drops it.
+  const siblingList = siblings ?? [];
+  const items = siblingList.some((s) => s.id === video.id)
+    ? siblingList
+    : [{ id: video.id, title: video.title }, ...siblingList];
   const nav = buildSeriesNav(items, video.id);
 
   return (

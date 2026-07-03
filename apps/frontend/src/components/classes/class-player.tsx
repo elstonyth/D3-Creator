@@ -44,7 +44,7 @@ export function ClassPlayer({ video, nav, seriesLabel }: ClassPlayerProps) {
       >
         {/* Player column */}
         <div className="flex min-w-0 flex-col gap-6">
-          {(seriesLabel || nav.position > 0) && (
+          {(seriesLabel || (hasSeries && nav.position > 0)) && (
             <div className="flex items-center justify-between gap-3">
               {seriesLabel ? (
                 <span className="min-w-0 truncate text-micro uppercase tracking-[0.04em] text-fgSubtle">
@@ -53,7 +53,7 @@ export function ClassPlayer({ video, nav, seriesLabel }: ClassPlayerProps) {
               ) : (
                 <span />
               )}
-              {nav.position > 0 && (
+              {hasSeries && nav.position > 0 && (
                 <span className="shrink-0 rounded-full border border-borderGlass glass-subtle px-3 py-1 text-caption text-fgMuted tabular-nums">
                   Part {nav.position} of {nav.total}
                 </span>
