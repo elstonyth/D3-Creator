@@ -81,7 +81,7 @@ export default async function CreatorPage({
     <div className="flex flex-col gap-16 pt-12 pb-24">
       {/* Header */}
       <header className="flex items-start justify-between gap-6 flex-wrap">
-        <div className="flex items-center gap-5">
+        <div className="flex items-start gap-5 min-w-0">
           <div className="size-20 rounded-2xl glass-subtle border border-borderGlass overflow-hidden flex items-center justify-center text-heading text-brand font-semibold shrink-0">
             <ImageWithFallback
               src={creator.avatarUrl}
@@ -90,7 +90,7 @@ export default async function CreatorPage({
               fallback={creator.displayName.charAt(0).toUpperCase()}
             />
           </div>
-          <div>
+          <div className="min-w-0">
             <span className="inline-flex items-center px-2.5 py-1 rounded-full glass-subtle border border-borderGlass text-caption text-fgMuted mb-3">
               Creator profile
             </span>
@@ -98,7 +98,7 @@ export default async function CreatorPage({
               {creator.displayName}
             </h1>
             {creator.biography && (
-              <p className="mt-3 text-body-sm text-fgMuted max-w-[640px] whitespace-pre-line">
+              <p className="mt-3 text-body-sm text-fgMuted max-w-[640px] whitespace-pre-line break-words">
                 {creator.biography}
               </p>
             )}

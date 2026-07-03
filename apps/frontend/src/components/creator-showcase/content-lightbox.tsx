@@ -149,7 +149,7 @@ export function ContentLightbox({ post, onClose }: ContentLightboxProps) {
 
           <p
             id="lightbox-caption"
-            className="text-body-sm text-fg leading-relaxed whitespace-pre-line"
+            className="text-body-sm text-fg leading-relaxed whitespace-pre-line break-words"
           >
             {post.caption}
           </p>
