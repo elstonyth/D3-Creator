@@ -1,11 +1,14 @@
 // apps/frontend/src/app/(public)/classes/[id]/page.tsx
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { getSupabaseRoute } from '@gitroom/frontend/lib/supabase-route';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { isUuid } from '@gitroom/frontend/lib/ids';
-import { drivePreviewUrl, driveDownloadUrl } from '@gitroom/frontend/lib/drive';
+import {
+  buildSeriesNav,
+  deriveSeriesLabel,
+} from '@gitroom/frontend/lib/class-series';
+import { ClassPlayer } from '@gitroom/frontend/components/classes/class-player';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Class — D3 Creator' };
@@ -38,39 +41,34 @@ export default async function ClassPlayerPage({ params }: Props) {
     notFound();
   }
 
+  // Sibling classes drive the playlist + prev/next. Same table + RLS as the
+  // single fetch, so a viewer only ever sees classes they're allowed to.
+  // ponytail: there's one course today, so "the series" == every visible class;
+  // add a collection column if distinct courses ever need separate playlists.
+  const { data: siblings, error: siblingsError } = await supabase
+    .from('class_video')
+    .select('id, title')
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: false });
+  if (siblingsError) throw siblingsError;
+
+  const items =
+    siblings && siblings.length > 0
+      ? siblings
+      : [{ id: video.id, title: video.title }];
+  const nav = buildSeriesNav(items, video.id);
+
   return (
-    <div className="max-w-[900px] mx-auto px-6 md:px-8 py-12 flex flex-col gap-6">
-      <Link
-        href="/classes"
-        className="text-caption text-fgMuted hover:text-fg transition-colors"
-      >
-        ← All classes
-      </Link>
-      <div className="aspect-video w-full overflow-hidden rounded-2xl border border-borderGlass bg-black">
-        <iframe
-          src={drivePreviewUrl(video.drive_file_id)}
-          allow="autoplay; encrypted-media"
-          allowFullScreen
-          className="w-full h-full"
-          title={video.title}
-        />
-      </div>
-      <header className="flex flex-col gap-2">
-        <h1 className="text-display-2 text-fg">{video.title}</h1>
-        {video.description && (
-          <p className="text-body text-fgMuted">{video.description}</p>
-        )}
-        {video.allow_download && (
-          <a
-            href={driveDownloadUrl(video.drive_file_id)}
-            className="text-label text-aurora-cta underline underline-offset-4 w-fit"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Download video
-          </a>
-        )}
-      </header>
-    </div>
+    <ClassPlayer
+      video={{
+        id: video.id,
+        title: video.title,
+        description: video.description,
+        driveFileId: video.drive_file_id,
+        allowDownload: video.allow_download,
+      }}
+      nav={nav}
+      seriesLabel={deriveSeriesLabel(video.title)}
+    />
   );
 }
