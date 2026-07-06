@@ -16,7 +16,11 @@ import { getSupabaseRead } from './supabase-server';
 import { resolveMediaUrl } from './media-url';
 import type { TopContentRow } from './metrics-windowed';
 import type { PlatformKey } from '@gitroom/frontend/components/ui/platform-icons';
-import { VIEW_PERIODS, viewPeriodCutoff, type ViewPeriod } from './view-periods';
+import {
+  VIEW_PERIODS,
+  viewPeriodCutoff,
+  type ViewPeriod,
+} from './view-periods';
 import { collapseByContent } from './content-dedup';
 
 // DB stores 'rednote'; showcase uses 'xiaohongshu' — single map point.
@@ -117,7 +121,11 @@ export interface SiteSummary {
  * MAX(views) so one bad snapshot can't undercount the leaderboard.
  */
 function maxViewsPerPost(
-  rows: ReadonlyArray<{ profile_id: string; external_post_id: string; views: number | null }>,
+  rows: ReadonlyArray<{
+    profile_id: string;
+    external_post_id: string;
+    views: number | null;
+  }>,
 ): Map<string, number> {
   const m = new Map<string, number>();
   for (const p of rows) {
@@ -128,115 +136,84 @@ function maxViewsPerPost(
   return m;
 }
 
+/** Row shape returned by the public_creator_rows() aggregate RPC. */
+interface PublicCreatorRpcRow {
+  profile_id: string;
+  creator_id: string;
+  platform: string;
+  handle: string | null;
+  followers: number | string;
+  total_views: number | string;
+  total_engagement: number | string;
+  post_count: number | string;
+}
+
+/** Guard a numeric RPC value (bigint may arrive as string) — NaN-safe, null → 0. */
+function rpcNum(v: number | string | null | undefined): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
   const sb = getSupabaseRead();
 
-  // 1. Creators + their profiles
-  const creators = await sb.from('creator').select('id, display_name, avatar_url');
+  // 1. Creators (names + avatars) — the RPC below carries everything else.
+  const creators = await sb
+    .from('creator')
+    .select('id, display_name, avatar_url');
   if (creators.error || !creators.data || creators.data.length === 0) {
-    if (creators.error) console.error('[queries] getLiveCreatorRows creators', creators.error);
+    if (creators.error)
+      console.error('[queries] getLiveCreatorRows creators', creators.error);
     return null;
   }
 
-  const profiles = await sb
-    .from('profile')
-    .select('id, creator_id, platform, handle')
-    .neq('platform', 'rednote'); // xiaohongshu archived — exclude from rollups
-  if (profiles.error) {
-    console.error('[queries] getLiveCreatorRows profiles', profiles.error);
-    return null;
-  }
-  const profilesByCreator = new Map<string, typeof profiles.data>();
-  for (const p of profiles.data ?? []) {
-    if (!profilesByCreator.has(p.creator_id)) profilesByCreator.set(p.creator_id, []);
-    profilesByCreator.get(p.creator_id)!.push(p);
-  }
-
-  // 2. Latest snapshot per profile (followers). Paged so a >1000-row
-  // profile_snapshot table isn't silently capped (which would drop profiles).
-  const snaps = await fetchAllRows<{
-    profile_id: string;
-    captured_at: string;
-    followers: number | null;
-  }>((from, to) =>
-    sb
-      .from('profile_snapshot')
-      .select('profile_id, captured_at, followers')
-      .order('captured_at', { ascending: false })
-      .order('id', { ascending: false })
-      .range(from, to),
+  // 2. Per-profile aggregates from the DB (followers = newest snapshot,
+  //    views = Σ MAX(views) per post, engagement = Σ newest-snapshot l+c+s).
+  //    Replaces the old full-history profile_snapshot/post_snapshot scans —
+  //    the aggregation now runs in Postgres (public_creator_rows RPC) and this
+  //    fetch is one bounded row per profile. Paged because PostgREST caps
+  //    set-returning RPC responses (~1000 rows) like any other response.
+  const agg = await fetchAllRows<PublicCreatorRpcRow>((from, to) =>
+    sb.rpc('public_creator_rows').range(from, to),
   );
-  if (snaps.error) {
-    console.error('[queries] getLiveCreatorRows snaps', snaps.error);
+  if (agg.error) {
+    console.error(
+      '[queries] getLiveCreatorRows public_creator_rows',
+      agg.error,
+    );
     return null;
   }
-  const latestFollowers = new Map<string, number>();
-  for (const s of snaps.rows) {
-    if (!latestFollowers.has(s.profile_id)) latestFollowers.set(s.profile_id, s.followers ?? 0);
+  const slotsByCreator = new Map<string, PublicCreatorRpcRow[]>();
+  for (const r of agg.rows) {
+    if (!slotsByCreator.has(r.creator_id)) slotsByCreator.set(r.creator_id, []);
+    slotsByCreator.get(r.creator_id)!.push(r);
   }
 
-  // 3. Latest snapshot per distinct post → combined views + engagement per
-  // profile. Dedup to the newest row per post (captured_at DESC) so a post
-  // snapshotted across multiple days isn't counted once per day. Paged: post_
-  // snapshot routinely exceeds PostgREST's 1000-row cap, which would otherwise
-  // undercount total views.
-  const posts = await fetchAllRows<{
-    profile_id: string;
-    external_post_id: string;
-    likes: number | null;
-    comments: number | null;
-    shares: number | null;
-    views: number | null;
-  }>((from, to) =>
-    sb
-      .from('post_snapshot')
-      .select('profile_id, external_post_id, captured_at, likes, comments, shares, views')
-      .order('captured_at', { ascending: false })
-      .order('id', { ascending: false })
-      .range(from, to),
-  );
-  if (posts.error) {
-    console.error('[queries] getLiveCreatorRows posts', posts.error);
-    return null;
-  }
-  const seenPost = new Set<string>();
-  const maxViews = maxViewsPerPost(posts.rows);
-  const byProfile = new Map<string, { totalViews: number; totalEng: number; count: number }>();
-  for (const p of posts.rows) {
-    const key = `${p.profile_id}:${p.external_post_id}`;
-    if (seenPost.has(key)) continue;
-    seenPost.add(key);
-    const cur = byProfile.get(p.profile_id) ?? { totalViews: 0, totalEng: 0, count: 0 };
-    cur.totalViews += maxViews.get(key) ?? 0;
-    cur.totalEng += (p.likes ?? 0) + (p.comments ?? 0) + (p.shares ?? 0);
-    cur.count += 1;
-    byProfile.set(p.profile_id, cur);
-  }
-
-  // 4. Roll up per creator, emitting a per-platform slot for each profile.
+  // 3. Roll up per creator, emitting a per-platform slot for each profile.
   const rows: Omit<LiveCreatorRow, 'rank'>[] = [];
   for (const c of creators.data) {
-    const cProfiles = profilesByCreator.get(c.id) ?? [];
-    if (cProfiles.length === 0) continue; // 0-profile creators are not "tracked"
+    const slots = slotsByCreator.get(c.id) ?? [];
+    if (slots.length === 0) continue; // 0-profile creators are not "tracked"
 
     const platforms: CreatorPlatformMetric[] = [];
     let followers = 0;
     let totalViews = 0;
     let totalEngagement = 0;
-    for (const p of cProfiles) {
-      const f = latestFollowers.get(p.id) ?? 0;
-      const e = byProfile.get(p.id) ?? { totalViews: 0, totalEng: 0, count: 0 };
+    for (const s of slots) {
+      const f = rpcNum(s.followers);
+      const v = rpcNum(s.total_views);
+      const e = rpcNum(s.total_engagement);
       followers += f;
-      totalViews += e.totalViews;
-      totalEngagement += e.totalEng;
+      totalViews += v;
+      totalEngagement += e;
       platforms.push({
-        platform: dbPlatformToKey(p.platform),
-        dbPlatform: p.platform,
-        handle: p.handle,
+        platform: dbPlatformToKey(s.platform),
+        dbPlatform: s.platform,
+        handle: s.handle,
         followers: f,
-        totalViews: e.totalViews,
-        totalEngagement: e.totalEng,
-        postCount: e.count,
+        totalViews: v,
+        totalEngagement: e,
+        postCount: rpcNum(s.post_count),
       });
     }
 
@@ -281,7 +258,10 @@ export function summarizeCreatorRows(rows: LiveCreatorRow[]): SiteSummary {
 }
 
 /** Top creators by combined followers (home bento, dashboard list). */
-export function topCreatorRows(rows: LiveCreatorRow[], limit: number): LiveCreatorRow[] {
+export function topCreatorRows(
+  rows: LiveCreatorRow[],
+  limit: number,
+): LiveCreatorRow[] {
   return [...rows]
     .sort((a, b) => b.followers - a.followers)
     .slice(0, limit)
@@ -310,7 +290,12 @@ export function platformBreakdownFromRows(
 ): LivePlatformBreakdown[] {
   const byPlatform = new Map<
     PlatformKey,
-    { dbPlatform: string; followers: number; totalViews: number; creators: Set<string> }
+    {
+      dbPlatform: string;
+      followers: number;
+      totalViews: number;
+      creators: Set<string>;
+    }
   >();
   for (const r of rows) {
     for (const slot of r.platforms) {
@@ -350,14 +335,21 @@ async function loadContentRows(): Promise<TopContentRow[]> {
     .select('id, creator_id, platform, handle')
     .neq('platform', 'rednote'); // xiaohongshu archived
   if (profiles.error || !profiles.data || profiles.data.length === 0) {
-    if (profiles.error) console.error('[queries] loadContentRows profiles', profiles.error);
+    if (profiles.error)
+      console.error('[queries] loadContentRows profiles', profiles.error);
     return [];
   }
   const profMap = new Map(profiles.data.map((p) => [p.id, p]));
   const creatorIds = [...new Set(profiles.data.map((p) => p.creator_id))];
-  const creatorsRes = await sb.from('creator').select('id, display_name').in('id', creatorIds);
+  const creatorsRes = await sb
+    .from('creator')
+    .select('id, display_name')
+    .in('id', creatorIds);
   const nameByCreator = new Map(
-    (creatorsRes.data ?? []).map((c) => [c.id, c.display_name as string | null]),
+    (creatorsRes.data ?? []).map((c) => [
+      c.id,
+      c.display_name as string | null,
+    ]),
   );
 
   const posts = await fetchAllRows<{
@@ -395,7 +387,7 @@ async function loadContentRows(): Promise<TopContentRow[]> {
     const key = `${p.profile_id}:${p.external_post_id}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const views = maxViews.get(key) ?? (p.views ?? 0);
+    const views = maxViews.get(key) ?? p.views ?? 0;
     out.push({
       externalPostId: p.external_post_id,
       profileId: p.profile_id,
@@ -425,7 +417,9 @@ export function postInteractions(r: TopContentRow): number {
 /** Top posts ranked by current views (drop-in for <ViewLeaderboard>). */
 export async function getTopContent(limit = 20): Promise<TopContentRow[]> {
   const rows = await loadContentRows();
-  return [...rows].sort((a, b) => b.currentViews - a.currentViews).slice(0, limit);
+  return [...rows]
+    .sort((a, b) => b.currentViews - a.currentViews)
+    .slice(0, limit);
 }
 
 /**
@@ -436,7 +430,12 @@ export async function getTopContent(limit = 20): Promise<TopContentRow[]> {
  */
 export async function getTopContentRankingsWindowed(
   limit = 12,
-): Promise<Record<ViewPeriod, { byViews: TopContentRow[]; byInteractions: TopContentRow[] }>> {
+): Promise<
+  Record<
+    ViewPeriod,
+    { byViews: TopContentRow[]; byInteractions: TopContentRow[] }
+  >
+> {
   const rows = await loadContentRows();
   const nowMs = Date.now();
   const out = {} as Record<
@@ -448,7 +447,9 @@ export async function getTopContentRankingsWindowed(
     const inWindow =
       cutoff == null
         ? rows
-        : rows.filter((r) => r.postedAt != null && Date.parse(r.postedAt) >= cutoff);
+        : rows.filter(
+            (r) => r.postedAt != null && Date.parse(r.postedAt) >= cutoff,
+          );
     // Collapse cross-platform duplicates (same creator + duration + caption hook)
     // per metric — a content group's most-viewed and most-engaging copies can be
     // on different platforms — then rank the survivors and take the top N.
@@ -513,8 +514,32 @@ export interface CreatorDetail {
  */
 export async function latestSnapshotsForProfiles(
   profileIds: string[],
-): Promise<Map<string, { followers: number | null; following: number | null; total_posts: number | null; total_views: number | null; total_likes: number | null; captured_at: string; raw: unknown }>> {
-  const map = new Map<string, { followers: number | null; following: number | null; total_posts: number | null; total_views: number | null; total_likes: number | null; captured_at: string; raw: unknown }>();
+): Promise<
+  Map<
+    string,
+    {
+      followers: number | null;
+      following: number | null;
+      total_posts: number | null;
+      total_views: number | null;
+      total_likes: number | null;
+      captured_at: string;
+      raw: unknown;
+    }
+  >
+> {
+  const map = new Map<
+    string,
+    {
+      followers: number | null;
+      following: number | null;
+      total_posts: number | null;
+      total_views: number | null;
+      total_likes: number | null;
+      captured_at: string;
+      raw: unknown;
+    }
+  >();
   if (profileIds.length === 0) return map;
   const sb = getSupabaseRead();
   // Dedupe defensively — a repeated id would just burn a redundant query.
@@ -523,7 +548,9 @@ export async function latestSnapshotsForProfiles(
     uniqueIds.map((profileId) =>
       sb
         .from('profile_snapshot')
-        .select('profile_id, followers, following, total_posts, total_views, total_likes, captured_at, raw')
+        .select(
+          'profile_id, followers, following, total_posts, total_views, total_likes, captured_at, raw',
+        )
         .eq('profile_id', profileId)
         .order('captured_at', { ascending: false })
         .order('id', { ascending: false })
@@ -616,13 +643,18 @@ export async function getCreatorByHandle(
   // 1. Find profile by handle (case-insensitive)
   const profileRes = await sb
     .from('profile')
-    .select('id, creator_id, platform, profile_url, handle, nickname, scrape_status')
+    .select(
+      'id, creator_id, platform, profile_url, handle, nickname, scrape_status',
+    )
     .ilike('handle', escapeLikePattern(handle))
     .neq('platform', 'rednote') // xiaohongshu archived — its handles 404
     .limit(1)
     .maybeSingle();
   if (profileRes.error) {
-    console.error('[queries] getCreatorByHandle profile lookup', profileRes.error);
+    console.error(
+      '[queries] getCreatorByHandle profile lookup',
+      profileRes.error,
+    );
     return null;
   }
   if (!profileRes.data) return null;
@@ -634,7 +666,10 @@ export async function getCreatorByHandle(
     .eq('creator_id', profileRes.data.creator_id)
     .neq('platform', 'rednote'); // xiaohongshu archived — hide its slots
   if (allProfilesRes.error) {
-    console.error('[queries] getCreatorByHandle all-profiles', allProfilesRes.error);
+    console.error(
+      '[queries] getCreatorByHandle all-profiles',
+      allProfilesRes.error,
+    );
     return null;
   }
   const allProfiles = allProfilesRes.data ?? [];
@@ -683,7 +718,8 @@ export async function getCreatorByHandle(
     const rawFromSnap = snap?.raw;
     const fromPost = extractRawProfileFields(rawFromPost);
     const fromSnap = extractRawProfileFields(rawFromSnap);
-    if (!bestAvatar) bestAvatar = resolveMediaUrl(fromPost.avatarUrl ?? fromSnap.avatarUrl);
+    if (!bestAvatar)
+      bestAvatar = resolveMediaUrl(fromPost.avatarUrl ?? fromSnap.avatarUrl);
     if (!bestFullName) bestFullName = fromPost.fullName ?? fromSnap.fullName;
     if (!bestBio) bestBio = fromPost.biography ?? fromSnap.biography;
 
@@ -763,7 +799,11 @@ export function buildPostUrl(
   if (rawUrl) return rawUrl;
   switch (platform) {
     case 'instagram': {
-      const code = asStr(raw.code) ?? asStr(raw.shortcode) ?? asStr(raw.shortCode) ?? externalId;
+      const code =
+        asStr(raw.code) ??
+        asStr(raw.shortcode) ??
+        asStr(raw.shortCode) ??
+        externalId;
       return `https://www.instagram.com/p/${code}/`;
     }
     case 'tiktok':
@@ -786,9 +826,21 @@ function mapPostSnapshotToRow(
   raw: unknown,
   content_type: string | null,
   handle: string | null,
-  post: { external_post_id: string; posted_at: string | null; caption_excerpt: string | null; likes: number | null; comments: number | null; shares: number | null; views: number | null; media_url: string | null },
+  post: {
+    external_post_id: string;
+    posted_at: string | null;
+    caption_excerpt: string | null;
+    likes: number | null;
+    comments: number | null;
+    shares: number | null;
+    views: number | null;
+    media_url: string | null;
+  },
 ): PlatformPostRow {
-  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<
+    string,
+    unknown
+  >;
   // Instagram carousels expose carousel_media; legacy Apify rows used childPosts.
   const carousel = Array.isArray(r.carousel_media)
     ? (r.carousel_media as unknown[])
@@ -797,9 +849,12 @@ function mapPostSnapshotToRow(
       : [];
   const ct = (content_type ?? 'image').toLowerCase();
   const type: PlatformPostRow['type'] =
-    ct === 'reel' ? 'reel'
-      : ct === 'video' || ct === 'short' ? 'video'
-        : carousel.length > 0 ? 'carousel'
+    ct === 'reel'
+      ? 'reel'
+      : ct === 'video' || ct === 'short'
+        ? 'video'
+        : carousel.length > 0
+          ? 'carousel'
           : 'image';
 
   return {
@@ -830,7 +885,8 @@ export async function getCreatorPlatformDetail(
 ): Promise<CreatorPlatformDetail | null> {
   const creator = await getCreatorByHandle(handle);
   if (!creator) return null;
-  const slot = creator.platforms.find((p) => p.platform === platformKey) ?? null;
+  const slot =
+    creator.platforms.find((p) => p.platform === platformKey) ?? null;
   if (!slot) return { creator, slot: null, posts: [] };
 
   // Use the profile id already loaded by getCreatorByHandle — eliminates a
@@ -860,7 +916,9 @@ export async function getCreatorPlatformDetail(
   for (const r of postsRes.data ?? []) {
     if (seen.has(r.external_post_id)) continue;
     seen.add(r.external_post_id);
-    rows.push(mapPostSnapshotToRow(platformKey, r.raw, r.content_type, slot.handle, r));
+    rows.push(
+      mapPostSnapshotToRow(platformKey, r.raw, r.content_type, slot.handle, r),
+    );
     if (rows.length >= 30) break;
   }
   return { creator, slot, posts: rows };
