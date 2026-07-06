@@ -87,18 +87,48 @@ function looksLikeNotFound(msg: string): boolean {
 
 function looksLikePrivate(msg: string): boolean {
   const m = msg.toLowerCase();
-  return m.includes('private') || m.includes('restricted') || m.includes('blocked');
+  return (
+    m.includes('private') || m.includes('restricted') || m.includes('blocked')
+  );
 }
+
+/** Retries after a retryable failure: initial try + one per backoff entry.
+ *  TikHub does not charge failed requests, so retries are free; the backoff
+ *  totals ~1s so a 3-attempt worst case stays well inside the cron's
+ *  per-profile budget (lib/scrape-budget.ts). */
+const RETRY_BACKOFF_MS = [250, 750];
 
 /**
  * GET a TikHub endpoint and return the unwrapped `data` payload.
  *
  * Throws ScrapeError subclasses on failure so adapters can let errors bubble
  * straight up to the cron's status-mapping layer without per-platform glue.
+ *
+ * Transient upstream failures (network error, timeout, 5xx, TikHub's generic
+ * "Request failed. Please retry." 400, malformed envelope) are retried up to
+ * RETRY_BACKOFF_MS.length times before giving up — a single flaky call was
+ * failing a profile's whole scrape, and the cron's one-attempt-per-UTC-day
+ * rule then froze it stale for the rest of the day. Deterministic failures
+ * (auth, billing, 404, private, rate-limit) are never retried.
  */
 export async function tikhubGet<T = unknown>(
   opts: TikhubGetOptions,
 ): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await tikhubGetOnce<T>(opts);
+    } catch (err) {
+      const canRetry =
+        err instanceof ScrapeError &&
+        err.retryable &&
+        attempt < RETRY_BACKOFF_MS.length;
+      if (!canRetry) throw err;
+      await new Promise((r) => setTimeout(r, RETRY_BACKOFF_MS[attempt]));
+    }
+  }
+}
+
+async function tikhubGetOnce<T>(opts: TikhubGetOptions): Promise<T> {
   const token = requireToken();
   const url = buildUrl(opts.path, opts.query);
 
@@ -117,8 +147,7 @@ export async function tikhubGet<T = unknown>(
     });
   } catch (err) {
     clearTimeout(timer);
-    const isAbort =
-      err instanceof DOMException && err.name === 'AbortError';
+    const isAbort = err instanceof DOMException && err.name === 'AbortError';
     throw new ScrapeError(
       'failed',
       isAbort
@@ -126,6 +155,7 @@ export async function tikhubGet<T = unknown>(
         : `TikHub fetch failed: ${err instanceof Error ? err.message : String(err)}`,
       opts.platform,
       opts.profileUrl,
+      true,
     );
   }
   clearTimeout(timer);
@@ -161,11 +191,13 @@ export async function tikhubGet<T = unknown>(
     throw new ProfileNotFoundError(opts.platform, opts.profileUrl);
   }
   if (!res.ok) {
+    // 400 included: TikHub's generic "Request failed. Please retry." flake.
     throw new ScrapeError(
       'failed',
       `TikHub returned HTTP ${res.status}`,
       opts.platform,
       opts.profileUrl,
+      true,
     );
   }
 
@@ -178,6 +210,7 @@ export async function tikhubGet<T = unknown>(
       'TikHub returned non-JSON body',
       opts.platform,
       opts.profileUrl,
+      true,
     );
   }
 
@@ -202,6 +235,7 @@ export async function tikhubGet<T = unknown>(
       `TikHub envelope error: ${msg}`,
       opts.platform,
       opts.profileUrl,
+      true,
     );
   }
 
@@ -211,6 +245,7 @@ export async function tikhubGet<T = unknown>(
       'TikHub returned empty data payload',
       opts.platform,
       opts.profileUrl,
+      true,
     );
   }
   return body.data;

@@ -26,18 +26,24 @@ export class ScrapeError extends Error {
   public readonly status: ScrapeStatusCode;
   public readonly platform: string;
   public readonly profileUrl: string;
+  /** True for transient upstream failures (network, 5xx, flaky 400) that a
+   *  caller may safely retry. Deterministic failures (auth, billing, 404,
+   *  private) stay false so retries don't mask real breakage. */
+  public readonly retryable: boolean;
 
   constructor(
     status: ScrapeStatusCode,
     message: string,
     platform: string,
     profileUrl: string,
+    retryable = false,
   ) {
     super(`[${platform}] ${message}`);
     this.name = 'ScrapeError';
     this.status = status;
     this.platform = platform;
     this.profileUrl = profileUrl;
+    this.retryable = retryable;
   }
 }
 
@@ -62,7 +68,12 @@ export class ApifyEmptyResultError extends ScrapeError {
 
 export class ApifyThrottledError extends ScrapeError {
   constructor(platform: string, profileUrl: string) {
-    super('throttled', 'Upstream rate-limited the request', platform, profileUrl);
+    super(
+      'throttled',
+      'Upstream rate-limited the request',
+      platform,
+      profileUrl,
+    );
     this.name = 'ApifyThrottledError';
   }
 }
