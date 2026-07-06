@@ -6,8 +6,9 @@ import {
 } from '@gitroom/frontend/lib/queries';
 import { getDashboardViewTotalsWindowed } from '@gitroom/frontend/lib/metrics-windowed';
 
-// ISR: 1h cache, see (public)/page.tsx for rationale.
-export const revalidate = 3600;
+// Rendered dynamically (uncached live-DB reads) — see (public)/page.tsx for why
+// this is force-dynamic and not build-time ISR.
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Dashboard — D3 Creator',

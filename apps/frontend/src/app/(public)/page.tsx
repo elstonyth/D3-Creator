@@ -28,13 +28,17 @@ import {
 } from '@gitroom/frontend/lib/queries';
 import { SITE_NAME, SITE_URL } from '@gitroom/frontend/lib/site';
 
-// Server Component fetches live counts on each request — disable static
-// optimization so the hero never goes stale.
-// ISR: regenerate from Supabase at most once per hour. Daily cron writes
-// snapshots once/day; 1h cache means at worst data is ~1h stale, no DB hit
-// on warm requests, fast TTFB. Background revalidation happens on first
-// request after expiry (stale-while-revalidate).
-export const revalidate = 3600;
+// These public pages read live per-request data from Supabase with UNCACHED
+// reads, so Next renders them dynamically — production confirms this
+// (Cache-Control: private, no-store; X-Vercel-Cache: MISS). The previous
+// `revalidate = 3600` never actually produced static ISR. Mark them
+// `force-dynamic` so `next build` does NOT prerender them: that build-time
+// render executed getLiveCreatorRows() — a full profile_snapshot + post_snapshot
+// scan — and intermittently exceeded the 60s static-generation timeout, flaking
+// CI (/leaderboard). Runtime behavior is unchanged (already dynamic). Restoring a
+// real 1h cache would need a cached aggregate (RPC + unstable_cache) — separate
+// follow-up.
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'D3 Creator — We don’t sell dreams. We show numbers.',

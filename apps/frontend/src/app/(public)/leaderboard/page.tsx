@@ -6,8 +6,9 @@ import {
   type LiveCreatorRow,
 } from '@gitroom/frontend/lib/queries';
 
-// ISR: 1h cache, see (public)/page.tsx for rationale.
-export const revalidate = 3600;
+// Rendered dynamically (uncached live-DB reads) — see (public)/page.tsx for why
+// this is force-dynamic and not build-time ISR.
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Leaderboard — D3 Creator',
