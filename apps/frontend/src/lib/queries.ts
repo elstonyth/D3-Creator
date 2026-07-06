@@ -134,10 +134,20 @@ export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
   const sb = getSupabaseRead();
 
   // 1. Creators (names + avatars) — the RPC below carries everything else.
-  const creators = await sb
-    .from('creator')
-    .select('id, display_name, avatar_url');
-  if (creators.error || !creators.data || creators.data.length === 0) {
+  //    Paged so a >1000-row creator table can't be silently truncated by
+  //    PostgREST's response cap (same rationale as the RPC reads below).
+  const creators = await fetchAllRows<{
+    id: string;
+    display_name: string | null;
+    avatar_url: string | null;
+  }>((from, to) =>
+    sb
+      .from('creator')
+      .select('id, display_name, avatar_url')
+      .order('id')
+      .range(from, to),
+  );
+  if (creators.error || creators.rows.length === 0) {
     if (creators.error)
       console.error('[queries] getLiveCreatorRows creators', creators.error);
     return null;
@@ -167,7 +177,7 @@ export async function getLiveCreatorRows(): Promise<LiveCreatorRow[] | null> {
 
   // 3. Roll up per creator, emitting a per-platform slot for each profile.
   const rows: Omit<LiveCreatorRow, 'rank'>[] = [];
-  for (const c of creators.data) {
+  for (const c of creators.rows) {
     const slots = slotsByCreator.get(c.id) ?? [];
     if (slots.length === 0) continue; // 0-profile creators are not "tracked"
 

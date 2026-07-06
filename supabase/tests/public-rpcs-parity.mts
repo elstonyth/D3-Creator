@@ -120,23 +120,30 @@ async function referenceAggregates() {
 }
 
 // ---------- RPC side ----------
+// bigint columns may arrive as strings through PostgREST — every comparison
+// below coerces via Number(...), and the types say so (mirrors rpcNum in
+// queries.ts).
 interface CreatorRpcRow {
   profile_id: string;
-  followers: number;
-  total_views: number;
-  total_engagement: number;
-  post_count: number;
+  followers: number | string;
+  total_views: number | string;
+  total_engagement: number | string;
+  post_count: number | string;
 }
 interface ContentRpcRow {
   profile_id: string;
   external_post_id: string;
-  current_views: number;
-  likes: number;
-  comments: number;
-  shares: number;
+  current_views: number | string;
+  likes: number | string;
+  comments: number | string;
+  shares: number | string;
 }
 
 async function main() {
+  // Reference reads and RPC reads run concurrently against the LIVE database —
+  // a write landing mid-run (e.g. the hourly scrape) can produce a spurious
+  // one-off diff that is not a real parity break. Run against a quiescent DB,
+  // or simply re-run on failure and only trust a REPRODUCIBLE diff.
   const [{ perProfile, maxViews }, creatorRows, contentRows] =
     await Promise.all([
       referenceAggregates(),
