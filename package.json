@@ -18,7 +18,8 @@
     "dev:frontend": "rm -rf apps/frontend/dist && pnpm --filter ./apps/frontend run dev",
     "start:prod:frontend": "pnpm --filter ./apps/frontend run start",
     "supabase": "supabase",
-    "test": "jest --coverage --detectOpenHandles --reporters=default --reporters=jest-junit"
+    "test": "jest --coverage --detectOpenHandles --reporters=default --reporters=jest-junit",
+    "typecheck": "pnpm --filter ./apps/frontend exec tsc --noEmit"
   },
   "dependencies": {
     "@ag-ui/mastra": "^1.0.1",
@@ -261,7 +262,7 @@
     "@types/compression": "^1.8.1",
     "@types/cookie-parser": "^1.4.6",
     "@types/jest": "29.5.12",
-    "@types/node": "18.16.9",
+    "@types/node": "^22.12.0",
     "@types/node-telegram-bot-api": "^0.64.7",
     "@types/react": "19.1.8",
     "@types/react-dom": "19.1.6",
@@ -305,7 +306,7 @@
     "vitest": "3.1.4"
   },
   "volta": {
-    "node": "20.17.0"
+    "node": "22.12.0"
   },
   "jest-junit": {
     "outputDirectory": "./reports",
