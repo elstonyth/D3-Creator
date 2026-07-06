@@ -112,30 +112,6 @@ export interface SiteSummary {
  *
  * Returns null if DB has zero creators-with-profiles (caller falls back to demo).
  */
-/**
- * Max views per (profile_id, external_post_id) across all snapshots. Views are
- * monotonic — a transient bad re-scrape (e.g. a stats endpoint momentarily
- * returning 0, as happened to Douyin during a TikHub-credit outage) must not
- * lower a post's recorded views below an earlier snapshot. Pairs with the
- * newest-row dedup: keep the newest row for likes/caption/thumbnail, but take
- * MAX(views) so one bad snapshot can't undercount the leaderboard.
- */
-function maxViewsPerPost(
-  rows: ReadonlyArray<{
-    profile_id: string;
-    external_post_id: string;
-    views: number | null;
-  }>,
-): Map<string, number> {
-  const m = new Map<string, number>();
-  for (const p of rows) {
-    const key = `${p.profile_id}:${p.external_post_id}`;
-    const v = p.views ?? 0;
-    if (v > (m.get(key) ?? -1)) m.set(key, v);
-  }
-  return m;
-}
-
 /** Row shape returned by the public_creator_rows() aggregate RPC. */
 interface PublicCreatorRpcRow {
   profile_id: string;
@@ -322,91 +298,63 @@ export function platformBreakdownFromRows(
 
 // ---------- Top content (public leaderboard) ----------
 
+/** Row shape returned by the public_content_rows() aggregate RPC. */
+interface PublicContentRpcRow {
+  profile_id: string;
+  creator_id: string;
+  creator_name: string | null;
+  platform: string;
+  handle: string | null;
+  external_post_id: string;
+  current_views: number | string;
+  likes: number | string;
+  comments: number | string;
+  shares: number | string;
+  caption_excerpt: string | null;
+  media_url: string | null;
+  posted_at: string | null;
+  duration_seconds: number | null;
+}
+
 /**
- * Load every tracked post as a TopContentRow, deduped to the newest snapshot
- * per post. UNSORTED — callers rank it (by views or interactions). Paged past
- * PostgREST's 1000-row cap so no post is silently dropped.
+ * Load every tracked post as a TopContentRow. UNSORTED — callers rank it (by
+ * views or interactions).
+ *
+ * One bounded row per tracked post, aggregated in Postgres
+ * (public_content_rows RPC): current_views = MAX(views) across the post's
+ * snapshots (monotonic-views guard), everything else from the newest snapshot.
+ * Replaces the old full-history post_snapshot scan. Paged because PostgREST
+ * caps set-returning RPC responses (~1000 rows) and the tracked post set
+ * already exceeds that.
  */
 async function loadContentRows(): Promise<TopContentRow[]> {
   const sb = getSupabaseRead();
 
-  const profiles = await sb
-    .from('profile')
-    .select('id, creator_id, platform, handle')
-    .neq('platform', 'rednote'); // xiaohongshu archived
-  if (profiles.error || !profiles.data || profiles.data.length === 0) {
-    if (profiles.error)
-      console.error('[queries] loadContentRows profiles', profiles.error);
-    return [];
-  }
-  const profMap = new Map(profiles.data.map((p) => [p.id, p]));
-  const creatorIds = [...new Set(profiles.data.map((p) => p.creator_id))];
-  const creatorsRes = await sb
-    .from('creator')
-    .select('id, display_name')
-    .in('id', creatorIds);
-  const nameByCreator = new Map(
-    (creatorsRes.data ?? []).map((c) => [
-      c.id,
-      c.display_name as string | null,
-    ]),
-  );
-
-  const posts = await fetchAllRows<{
-    profile_id: string;
-    external_post_id: string;
-    posted_at: string | null;
-    views: number | null;
-    likes: number | null;
-    comments: number | null;
-    shares: number | null;
-    caption_excerpt: string | null;
-    media_url: string | null;
-    duration_seconds: number | null;
-  }>((from, to) =>
-    sb
-      .from('post_snapshot')
-      .select(
-        'profile_id, external_post_id, captured_at, posted_at, views, likes, comments, shares, caption_excerpt, media_url, duration_seconds',
-      )
-      .order('captured_at', { ascending: false })
-      .order('id', { ascending: false })
-      .range(from, to),
+  const posts = await fetchAllRows<PublicContentRpcRow>((from, to) =>
+    sb.rpc('public_content_rows').range(from, to),
   );
   if (posts.error) {
-    console.error('[queries] loadContentRows posts', posts.error);
+    console.error('[queries] loadContentRows public_content_rows', posts.error);
     return [];
   }
 
-  const seen = new Set<string>();
-  const maxViews = maxViewsPerPost(posts.rows);
-  const out: TopContentRow[] = [];
-  for (const p of posts.rows) {
-    const prof = profMap.get(p.profile_id);
-    if (!prof) continue; // rednote-excluded / unknown profile
-    const key = `${p.profile_id}:${p.external_post_id}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const views = maxViews.get(key) ?? p.views ?? 0;
-    out.push({
-      externalPostId: p.external_post_id,
-      profileId: p.profile_id,
-      creatorId: prof.creator_id,
-      creatorName: nameByCreator.get(prof.creator_id) ?? prof.handle ?? null,
-      platform: prof.platform,
-      handle: prof.handle,
-      captionExcerpt: p.caption_excerpt ?? null,
-      thumbnailUrl: resolveMediaUrl(p.media_url),
-      postedAt: p.posted_at ?? null,
-      viewsGained: views,
-      currentViews: views,
-      likes: p.likes ?? 0,
-      comments: p.comments ?? 0,
-      shares: p.shares ?? 0,
-      durationSeconds: p.duration_seconds ?? null,
-    });
-  }
-  return out;
+  return posts.rows.map((p) => ({
+    externalPostId: p.external_post_id,
+    profileId: p.profile_id,
+    creatorId: p.creator_id,
+    creatorName: p.creator_name ?? p.handle ?? null,
+    platform: p.platform,
+    handle: p.handle,
+    captionExcerpt: p.caption_excerpt ?? null,
+    thumbnailUrl: resolveMediaUrl(p.media_url),
+    postedAt: p.posted_at ?? null,
+    viewsGained: rpcNum(p.current_views),
+    currentViews: rpcNum(p.current_views),
+    likes: rpcNum(p.likes),
+    comments: rpcNum(p.comments),
+    shares: rpcNum(p.shares),
+    durationSeconds: p.duration_seconds ?? null,
+  }));
 }
 
 /** Σ public interactions for a post — likes + comments + shares. */
@@ -512,9 +460,7 @@ export interface CreatorDetail {
  *
  * Exported for unit tests (queries.latest-snapshots.test.ts).
  */
-export async function latestSnapshotsForProfiles(
-  profileIds: string[],
-): Promise<
+export async function latestSnapshotsForProfiles(profileIds: string[]): Promise<
   Map<
     string,
     {
