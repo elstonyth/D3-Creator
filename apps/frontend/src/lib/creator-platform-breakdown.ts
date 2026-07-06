@@ -14,6 +14,15 @@ export interface PlatformCard {
 // RedNote is excluded from the scoped profile read below.
 const ORDER: PlatformKey[] = ['instagram', 'facebook', 'tiktok', 'douyin'];
 
+// The dashboard_view_totals_windowed RPC keys windows by the dashboard-pill
+// vocabulary ('1w'/'1m'/'3m'/…), not MetricWindow ('7d'/'30d'/'90d').
+const WINDOW_TO_VIEW_PERIOD: Record<MetricWindow, string> = {
+  '7d': '1w',
+  '30d': '1m',
+  '90d': '3m',
+  lifetime: 'lifetime',
+};
+
 /**
  * Per-platform summary cards for the creator's own `/me` dashboard. Followers and
  * views are scraped for every platform, scoped to `creatorId` (no full-table scan).
@@ -71,7 +80,7 @@ export async function getCreatorPlatformBreakdown(
       platform,
       handle: slot.handle,
       followers: slot.followers,
-      views: viewsByPlatform[platform]?.[window] ?? null,
+      views: viewsByPlatform[platform]?.[WINDOW_TO_VIEW_PERIOD[window]] ?? null,
     });
   }
   return cards;

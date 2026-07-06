@@ -99,6 +99,44 @@ test('a malformed taken_at string falls back to taken_at_timestamp instead of br
   );
 });
 
+test('a zero play_count cannot mask a real ig_play_count (first positive candidate wins)', async () => {
+  mockGet.mockImplementation(async (opts: any) => {
+    if (opts.path.includes('fetch_user_info_by_username'))
+      return healthyProfile;
+    if (opts.path.includes('fetch_user_reels')) return { data: { items: [] } };
+    return postsWith({
+      pk: 'p6',
+      code: 'pqr',
+      like_count: 1,
+      taken_at: 1716800000,
+      play_count: 0,
+      ig_play_count: 43400,
+    });
+  });
+
+  const res = await instagramAdapter.scrape(PROFILE_URL);
+  expect(res.posts[0].views).toBe(43400);
+});
+
+test('a genuinely zero-view post keeps views 0 (not null)', async () => {
+  mockGet.mockImplementation(async (opts: any) => {
+    if (opts.path.includes('fetch_user_info_by_username'))
+      return healthyProfile;
+    if (opts.path.includes('fetch_user_reels')) return { data: { items: [] } };
+    return postsWith({
+      pk: 'p7',
+      code: 'stu',
+      like_count: 0,
+      taken_at: 1716800000,
+      play_count: 0,
+      ig_play_count: 0,
+    });
+  });
+
+  const res = await instagramAdapter.scrape(PROFILE_URL);
+  expect(res.posts[0].views).toBe(0);
+});
+
 test('a malformed taken_at string with no fallback yields null (never a non-timestamp string)', async () => {
   mockGet.mockImplementation(async (opts: any) => {
     if (opts.path.includes('fetch_user_info_by_username'))

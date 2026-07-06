@@ -37,12 +37,15 @@ function dbPlatformToKey(platform: string): PlatformKey {
  * `.range()` until a short page comes back. The caller MUST order by a stable
  * total order (e.g. `captured_at desc, id desc`) so pages don't overlap or skip.
  */
-async function fetchAllRows<T>(
+export async function fetchAllRows<T>(
   buildPage: (
     from: number,
     to: number,
   ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
 ): Promise<{ rows: T[]; error: { message: string } | null }> {
+  // PAGE must not exceed PostgREST's max-rows (Supabase default: 1000). If the
+  // server cap were ever lowered below PAGE, every full server page would look
+  // "short" here and paging would stop early — silently truncating results.
   const PAGE = 1000;
   const rows: T[] = [];
   for (let from = 0; ; from += PAGE) {
@@ -634,18 +637,23 @@ export async function getCreatorByHandle(
   const profileIds = allProfiles.map((p) => p.id);
   const latest = await latestSnapshotsForProfiles(profileIds);
 
-  // 4. Pull most-recent post per profile so we get fresh profilePicUrl/biography
-  const recentPostRes = await sb
-    .from('post_snapshot')
-    .select('profile_id, raw, captured_at')
-    .in('profile_id', profileIds)
-    .order('captured_at', { ascending: false })
-    .limit(profileIds.length * 2);
+  // 4. Pull most-recent post per profile so we get fresh profilePicUrl/biography.
+  // One query per profile (bounded: single creator, ≤5 platforms) — a shared
+  // limit ordered by captured_at lets one freshly-scraped profile starve the rest.
+  const recentPostRows = await Promise.all(
+    profileIds.map((pid) =>
+      sb
+        .from('post_snapshot')
+        .select('profile_id, raw')
+        .eq('profile_id', pid)
+        .order('captured_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ),
+  );
   const postRawByProfile = new Map<string, unknown>();
-  for (const r of recentPostRes.data ?? []) {
-    if (!postRawByProfile.has(r.profile_id)) {
-      postRawByProfile.set(r.profile_id, r.raw);
-    }
+  for (const res of recentPostRows) {
+    if (res.data) postRawByProfile.set(res.data.profile_id, res.data.raw);
   }
 
   // 5. Creator row (display_name)

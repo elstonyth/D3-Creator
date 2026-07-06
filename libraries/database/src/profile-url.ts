@@ -35,7 +35,8 @@ const PATTERNS: PlatformPattern[] = [
     platform: 'instagram',
     hostMatch: /(^|\.)instagram\.com$/i,
     // /@handle or /handle (no /p/, /reel/, /tv/ — those are post URLs)
-    handleExtract: /^\/(?!p\/|reel\/|tv\/|explore\/|stories\/)@?([A-Za-z0-9._]+)\/?$/,
+    handleExtract:
+      /^\/(?!p\/|reel\/|tv\/|explore\/|stories\/)@?([A-Za-z0-9._]+)\/?$/,
     canonical: 'www.instagram.com',
   },
   {
@@ -49,7 +50,8 @@ const PATTERNS: PlatformPattern[] = [
     platform: 'facebook',
     hostMatch: /(^|\.)(facebook|fb)\.com$/i,
     // /handle or /pages/Name/123... or /profile.php?id=123 (handled separately)
-    handleExtract: /^\/(?!share|reel|posts|watch|groups|events|story\.php)([A-Za-z0-9.\-]+)\/?$/,
+    handleExtract:
+      /^\/(?!share|reel|posts|watch|groups|events|story\.php)([A-Za-z0-9.\-]+)\/?$/,
     canonical: 'www.facebook.com',
   },
   {
@@ -179,7 +181,10 @@ export function validateProfileUrl(
     if (u.pathname === '/profile.php') {
       const id = u.searchParams.get('id');
       if (!id || !/^\d+$/.test(id)) {
-        return { ok: false, error: 'Facebook profile.php URL missing numeric ?id=' };
+        return {
+          ok: false,
+          error: 'Facebook profile.php URL missing numeric ?id=',
+        };
       }
       return {
         ok: true,
@@ -228,7 +233,12 @@ export function validateProfileUrl(
 
   const handle = m[1];
   // Canonical host so m./web./no-www variants of the same creator dedupe.
-  const normalizedUrl = `https://${pattern.canonical}${u.pathname.replace(/\/+$/, '')}`;
+  // Instagram tolerates an optional @ before the handle — rebuild that path
+  // from the handle so /@x and /x also collapse to one row under the
+  // (platform, lower(profile_url)) unique index.
+  const path =
+    platform === 'instagram' ? `/${handle}` : u.pathname.replace(/\/+$/, '');
+  const normalizedUrl = `https://${pattern.canonical}${path}`;
   return { ok: true, platform, normalizedUrl, handle };
 }
 
@@ -254,7 +264,13 @@ function isPrivateOrLoopbackHost(hostname: string): boolean {
     return false;
   }
   // IPv6 loopback / link-local / unique-local
-  if (h === '::1' || h.startsWith('fe80') || h.startsWith('fc') || h.startsWith('fd')) return true;
+  if (
+    h === '::1' ||
+    h.startsWith('fe80') ||
+    h.startsWith('fc') ||
+    h.startsWith('fd')
+  )
+    return true;
   return false;
 }
 
@@ -344,4 +360,3 @@ export function normalizeHandle(handle: string | null | undefined): string {
   const stripped = lowered.replace(/[._\-]+/g, '');
   return stripped.replace(/(official|real|tv|ig|tt)$/i, '');
 }
-

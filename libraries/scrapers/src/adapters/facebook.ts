@@ -46,7 +46,11 @@
  */
 
 import { runDataset } from '../brightdata-client';
-import { ProfileNotFoundError, ProfilePrivateError, ScrapeError } from '../errors';
+import {
+  ProfileNotFoundError,
+  ProfilePrivateError,
+  ScrapeError,
+} from '../errors';
 import type {
   ContentType,
   NormalizedPostSnapshot,
@@ -142,7 +146,9 @@ function pickContentType(p: BdFbPost): ContentType {
   if (p.has_video || (pickViews(p) ?? 0) > 0) return 'video';
   const type = (p.post_type ?? '').toLowerCase();
   if (type.includes('video') || type.includes('reel')) return 'video';
-  const attTypes = (p.attachments ?? []).map((a) => (a.type ?? '').toLowerCase());
+  const attTypes = (p.attachments ?? []).map((a) =>
+    (a.type ?? '').toLowerCase(),
+  );
   if (attTypes.includes('video')) return 'video';
   return 'image';
 }
@@ -159,7 +165,10 @@ function pickLikes(p: BdFbPost): number | null {
   if (typeof p.num_likes === 'number') return p.num_likes;
   const arr = p.num_likes_type;
   if (Array.isArray(arr) && arr.length > 0) {
-    return arr.reduce((sum, e) => sum + (typeof e.num === 'number' ? e.num : 0), 0);
+    return arr.reduce(
+      (sum, e) => sum + (typeof e.num === 'number' ? e.num : 0),
+      0,
+    );
   }
   return null;
 }
@@ -224,7 +233,11 @@ function mapProfile(
 function throwForErrorCode(p: BdFbPost, profileUrl: string): void {
   if (!p.error_code && !p.error) return;
   const code = (p.error_code || p.error || '').toLowerCase();
-  if (code.includes('private') || code.includes('restricted') || code.includes('login')) {
+  if (
+    code.includes('private') ||
+    code.includes('restricted') ||
+    code.includes('login')
+  ) {
     throw new ProfilePrivateError(PLATFORM, profileUrl);
   }
   if (
@@ -249,11 +262,21 @@ function throwForErrorCode(p: BdFbPost, profileUrl: string): void {
 export const facebookAdapter: PlatformAdapter = {
   platform: 'facebook',
   sourceId: `brightdata:${POSTS_DATASET_ID}`,
-  async scrape(profileUrl: string, opts: ScrapeOptions = {}): Promise<ScrapeResult> {
+  async scrape(
+    profileUrl: string,
+    opts: ScrapeOptions = {},
+  ): Promise<ScrapeResult> {
     // Single dataset call. BD's posts collector resolves both vanity and
-    // profile.php?id= URLs in ~50s and returns page_followers on each item.
-    // Cap at 240s (4 min) to leave ~60s margin under Vercel's 300s Function
-    // maxDuration for Supabase round-trips + status update + JSON response.
+    // profile.php?id= URLs in ~50s (observed 164-244s under load) and returns
+    // page_followers on each item.
+    // TOTAL runDataset budget (trigger + poll + fetch), sized to keep the
+    // observed under-load success band while staying under the cron's 250s
+    // FACEBOOK_SCRAPE_TIMEOUT_MS wrapper: in the common case (sub-second
+    // progress responses, ~2-5s snapshot fetch) the adapter finishes or times
+    // out by ~245s with its richer error mapping. Known ceiling: in-flight
+    // 30s requests past the deadline can stack to ~300s, where the wrapper
+    // kills with a generic timeout — accepted; shrinking the budget to close
+    // it would fail scrapes in the real 210-244s band instead.
     const FB_BUDGET_MS = 240_000;
     const FB_POLL_MS = 10_000;
 

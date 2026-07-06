@@ -238,12 +238,19 @@ function mapPost(p: IgPost): NormalizedPostSnapshot | null {
     p.code ?? p.shortcode ?? (p.pk !== undefined ? String(p.pk) : p.id);
   if (!externalId) return null;
   // v2 prefers ig_play_count; v3 uses play_count; older payloads use view_count
-  // or video_view_count. Fall through in that order.
+  // or video_view_count. A zero play-count alongside a positive sibling field
+  // is a payload quirk (cf. Douyin's feed play_count=0), so take the first
+  // POSITIVE candidate and only fall back to a genuine 0 when no field has a
+  // real count — otherwise a bogus 0 masks the actual views.
+  const viewCandidates = [
+    p.play_count,
+    p.ig_play_count,
+    p.view_count,
+    p.video_view_count,
+  ];
   const views =
-    p.play_count ??
-    p.ig_play_count ??
-    p.view_count ??
-    p.video_view_count ??
+    viewCandidates.find((v) => typeof v === 'number' && v > 0) ??
+    viewCandidates.find((v) => v != null) ??
     null;
   return {
     external_post_id: externalId,

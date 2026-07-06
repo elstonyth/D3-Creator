@@ -12,6 +12,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveProfileName } from './profile-name';
+import { fetchAllRows } from './queries';
 
 const SNAPSHOT_WINDOW_DAYS = 14;
 
@@ -123,7 +124,9 @@ export async function getAdminCreatorsData(
     admin.from('client').select('id, name'),
     admin
       .from('profile')
-      .select('id, creator_id, platform, profile_url, handle, display_name, scrape_status')
+      .select(
+        'id, creator_id, platform, profile_url, handle, display_name, scrape_status',
+      )
       .order('created_at', { ascending: false })
       .limit(500),
     admin.from('profile_claim').select('profile_id, user_id, claim_kind'),
@@ -145,13 +148,24 @@ export async function getAdminCreatorsData(
     const sinceIso = new Date(Date.now() - SNAPSHOT_WINDOW_DAYS * 86_400_000)
       .toISOString()
       .slice(0, 10);
-    const { data } = await admin
-      .from('profile_snapshot')
-      .select('profile_id, captured_date, followers, total_views, total_likes, raw')
-      .in('profile_id', profileIds)
-      .gte('captured_date', sinceIso)
-      .order('captured_date', { ascending: false });
-    snapshots = (data ?? []) as SnapshotRow[];
+    // Paged: the window regularly exceeds PostgREST's ~1000-row response cap
+    // (profiles × 14 days), which silently truncated the oldest rows and
+    // zeroed reach/delta for profiles not scraped recently. Stable total
+    // order (captured_date, id) so pages can't overlap or skip.
+    const { rows, error } = await fetchAllRows<SnapshotRow>((from, to) =>
+      admin
+        .from('profile_snapshot')
+        .select(
+          'profile_id, captured_date, followers, total_views, total_likes, raw',
+        )
+        .in('profile_id', profileIds)
+        .gte('captured_date', sinceIso)
+        .order('captured_date', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, to),
+    );
+    if (error) console.error('[admin-creators] snapshot page fetch', error);
+    snapshots = rows;
   }
   const snapsByProfile = new Map<string, SnapshotRow[]>();
   for (const s of snapshots) {
@@ -181,7 +195,7 @@ export async function getAdminCreatorsData(
         platform: p?.platform ?? '—',
         handle: p?.handle ?? null,
         profileUrl: p?.profile_url ?? '',
-        creatorName: p ? creatorName.get(p.creator_id) ?? '—' : '—',
+        creatorName: p ? (creatorName.get(p.creator_id) ?? '—') : '—',
         alreadyOwned,
       };
     });
@@ -201,7 +215,8 @@ export async function getAdminCreatorsData(
       const latest = snaps[0];
       const prev = snaps[1];
       const pClaims = claimsByProfile.get(p.id) ?? [];
-      const followers = latest?.followers != null ? Number(latest.followers) : null;
+      const followers =
+        latest?.followers != null ? Number(latest.followers) : null;
       const delta =
         latest?.followers != null && prev?.followers != null
           ? Number(latest.followers) - Number(prev.followers)
@@ -225,7 +240,10 @@ export async function getAdminCreatorsData(
     });
 
     const totalReach = profileRows.reduce((a, p) => a + (p.followers ?? 0), 0);
-    const reachDelta = profileRows.reduce((a, p) => a + (p.followersDelta ?? 0), 0);
+    const reachDelta = profileRows.reduce(
+      (a, p) => a + (p.followersDelta ?? 0),
+      0,
+    );
     const totalViews = profileRows.reduce((a, p) => a + (p.views ?? 0), 0);
     const totalLikes = own.reduce((a, p) => {
       const likes = (snapsByProfile.get(p.id) ?? [])[0]?.total_likes;
@@ -236,7 +254,9 @@ export async function getAdminCreatorsData(
       creatorId: creator.id,
       displayName: creator.display_name,
       avatarUrl: creator.avatar_url,
-      clientName: creator.client_id ? clientName.get(creator.client_id) ?? null : null,
+      clientName: creator.client_id
+        ? (clientName.get(creator.client_id) ?? null)
+        : null,
       profileCount: profileRows.length,
       platforms: Array.from(new Set(profileRows.map((p) => p.platform))),
       totalReach,
@@ -291,7 +311,11 @@ export async function getAdminCreatorDetail(
     .eq('id', creatorId)
     .maybeSingle();
   if (creatorRes.error || !creatorRes.data) return null;
-  const creator = creatorRes.data as { id: string; display_name: string; avatar_url: string | null };
+  const creator = creatorRes.data as {
+    id: string;
+    display_name: string;
+    avatar_url: string | null;
+  };
 
   const profilesRes = await admin
     .from('profile')
@@ -299,8 +323,12 @@ export async function getAdminCreatorDetail(
     .eq('creator_id', creatorId)
     .order('platform', { ascending: true });
   const profileRows = (profilesRes.data ?? []) as Array<{
-    id: string; platform: string; profile_url: string; handle: string | null;
-    display_name: string | null; scrape_status: string;
+    id: string;
+    platform: string;
+    profile_url: string;
+    handle: string | null;
+    display_name: string | null;
+    scrape_status: string;
   }>;
   const profileIds = profileRows.map((p) => p.id);
 
@@ -340,11 +368,15 @@ export async function getAdminCreatorDetail(
     };
   });
 
-  const linksRes = await admin.from('creator_link').select('user_id').eq('creator_id', creatorId);
+  const linksRes = await admin
+    .from('creator_link')
+    .select('user_id')
+    .eq('creator_id', creatorId);
   const logins: AdminCreatorLogin[] = [];
   for (const l of (linksRes.data ?? []) as { user_id: string }[]) {
     const u = await admin.auth.admin.getUserById(l.user_id);
-    if (u.data?.user) logins.push({ userId: l.user_id, email: u.data.user.email ?? '' });
+    if (u.data?.user)
+      logins.push({ userId: l.user_id, email: u.data.user.email ?? '' });
   }
 
   return {

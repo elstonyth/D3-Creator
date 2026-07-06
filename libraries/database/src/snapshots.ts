@@ -219,7 +219,9 @@ export async function upsertProfileSnapshot(
         total_posts: snap.total_posts,
         total_views: snap.total_views,
         total_likes: snap.total_likes,
-        raw,
+        // Strip NUL + lone surrogates (bio/nickname are free text) so one
+        // poisoned field can't 400 the jsonb write — mirrors upsertPostSnapshots.
+        raw: sanitizeJsonForPg(raw),
       },
       { onConflict: 'profile_id,captured_date', ignoreDuplicates: false },
     )
