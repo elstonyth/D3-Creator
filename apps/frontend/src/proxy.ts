@@ -39,6 +39,15 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Redirects must carry any refreshed session cookies from `response`, or the
+  // browser keeps the old (already-rotated, now-dead) refresh token and the
+  // user is logged out on their next request.
+  const redirect = (url: URL) => {
+    const r = NextResponse.redirect(url);
+    for (const c of response.cookies.getAll()) r.cookies.set(c);
+    return r;
+  };
+
   const pathname = request.nextUrl.pathname;
 
   // API routes authenticate themselves (handlers call getUser) and must never
@@ -50,7 +59,7 @@ export async function proxy(request: NextRequest) {
   // accounts. Send stale links to the dashboard (authed creators; anon falls
   // through to the creator-route -> /login rule below).
   if (pathname === '/me/profiles') {
-    return NextResponse.redirect(new URL('/me', request.url));
+    return redirect(new URL('/me', request.url));
   }
 
   const isAuthPage = AUTH_PAGES.has(pathname);
@@ -61,7 +70,7 @@ export async function proxy(request: NextRequest) {
     if (isAdminRoute || isCreatorRoute) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirectTo', pathname);
-      return NextResponse.redirect(loginUrl);
+      return redirect(loginUrl);
     }
     return response;
   }
@@ -96,7 +105,7 @@ export async function proxy(request: NextRequest) {
     if (isAuthPage) return response;
     const failUrl = new URL('/login', request.url);
     failUrl.searchParams.set('error', 'session_lookup_failed');
-    return NextResponse.redirect(failUrl);
+    return redirect(failUrl);
   }
   const role =
     (roleRow?.role as 'admin' | 'creator' | 'member' | 'none' | undefined) ??
@@ -106,7 +115,7 @@ export async function proxy(request: NextRequest) {
 
   // Logged-in users shouldn't sit on login/signup.
   if (isAuthPage) {
-    return NextResponse.redirect(new URL(home, request.url));
+    return redirect(new URL(home, request.url));
   }
 
   // Confine admins to the admin surface: ANY non-admin route — public (home,
@@ -114,18 +123,18 @@ export async function proxy(request: NextRequest) {
   // Admins are managers; they never go through the creator flow.
   // (auth pages + /api were handled above.)
   if (role === 'admin' && !isAdminRoute) {
-    return NextResponse.redirect(new URL('/admin', request.url));
+    return redirect(new URL('/admin', request.url));
   }
 
   // Admin-only routes for non-admins — members and creators go to their home.
   if (isAdminRoute && role !== 'admin') {
-    return NextResponse.redirect(new URL(home, request.url));
+    return redirect(new URL(home, request.url));
   }
 
   // Creator dashboard is for creators (+ admins, handled above). Members/none
   // have no creator data — send them to the classes library instead.
   if (isCreatorRoute && role !== 'creator') {
-    return NextResponse.redirect(new URL('/classes', request.url));
+    return redirect(new URL('/classes', request.url));
   }
 
   return response;

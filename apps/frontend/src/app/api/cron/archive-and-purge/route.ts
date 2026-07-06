@@ -40,7 +40,10 @@ function assertAuth(request: Request): Response | null {
   const expectedFull = `Bearer ${expected}`;
   if (
     auth.length !== expectedFull.length ||
-    !timingSafeEqual(Buffer.from(auth, 'utf8'), Buffer.from(expectedFull, 'utf8'))
+    !timingSafeEqual(
+      Buffer.from(auth, 'utf8'),
+      Buffer.from(expectedFull, 'utf8'),
+    )
   ) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
@@ -74,7 +77,8 @@ async function archiveAndPurgeTable<T extends ExpiringRow>(
   // Without RPC: do it in two steps — fetch each profile's retention, then
   // query expiring rows per profile. v1 has few profiles so this is fine.
   const profiles = await sb.from('profile').select('id, retention_months');
-  if (profiles.error) throw new Error(`profile fetch: ${profiles.error.message}`);
+  if (profiles.error)
+    throw new Error(`profile fetch: ${profiles.error.message}`);
 
   let totalArchived = 0;
   let totalDeleted = 0;
@@ -84,38 +88,55 @@ async function archiveAndPurgeTable<T extends ExpiringRow>(
     // captured_date < current_date - interval N months
     // Postgres date arithmetic — use the rest endpoint's filter syntax.
     const cutoff = new Date();
-    cutoff.setUTCMonth(cutoff.getUTCMonth() - months);
+    const targetMonth = cutoff.getUTCMonth() - months;
+    cutoff.setUTCMonth(targetMonth);
+    // setUTCMonth overflows day 29–31 into the next month (Mar 31 − 1mo →
+    // "Feb 31" → Mar 3), purging a few days early. Clamp to the target
+    // month's last day, matching pg_cron's `- interval 'N months'`.
+    if (((targetMonth % 12) + 12) % 12 !== cutoff.getUTCMonth()) {
+      cutoff.setUTCDate(0);
+    }
     const cutoffIso = cutoff.toISOString().slice(0, 10);
 
-    const expired = await sb
-      .from(table)
-      .select('*')
-      .eq('profile_id', p.id as string)
-      .lt('captured_date', cutoffIso);
-    if (expired.error) throw new Error(`${table} select: ${expired.error.message}`);
-    const rows = (expired.data ?? []) as T[];
-    if (rows.length === 0) continue;
+    // Batch loop: PostgREST caps one response at ~1000 rows, so a single
+    // select would strand the overflow for the 03:00 pg_cron bare purge to
+    // delete UNARCHIVED. Each batch is archived then deleted, so the next
+    // select sees the remainder.
+    for (let batch = 0; ; batch++) {
+      const expired = await sb
+        .from(table)
+        .select('*')
+        .eq('profile_id', p.id as string)
+        .lt('captured_date', cutoffIso)
+        .order('id', { ascending: true })
+        .limit(1000);
+      if (expired.error)
+        throw new Error(`${table} select: ${expired.error.message}`);
+      const rows = (expired.data ?? []) as T[];
+      if (rows.length === 0) break;
 
-    // Write JSONL to Storage. Path:
-    //   snapshot-archive/<table>/<profile_id>/run-<runId>.jsonl
-    const path = `${table}/${p.id}/run-${runId}.jsonl`;
-    const body = toJsonl(rows);
-    const up = await sb.storage.from(ARCHIVE_BUCKET).upload(path, body, {
-      contentType: 'application/x-ndjson',
-      upsert: true,
-    });
-    if (up.error) throw new Error(`storage upload (${path}): ${up.error.message}`);
-    totalArchived += rows.length;
+      // Write JSONL to Storage. Path:
+      //   snapshot-archive/<table>/<profile_id>/run-<runId>[.<batch>].jsonl
+      const path = `${table}/${p.id}/run-${runId}${batch ? `.${batch}` : ''}.jsonl`;
+      const body = toJsonl(rows);
+      const up = await sb.storage.from(ARCHIVE_BUCKET).upload(path, body, {
+        contentType: 'application/x-ndjson',
+        upsert: true,
+      });
+      if (up.error)
+        throw new Error(`storage upload (${path}): ${up.error.message}`);
+      totalArchived += rows.length;
 
-    // Delete the now-archived rows by id. Chunked because PostgREST .in()
-    // can choke on huge lists.
-    const ids = rows.map((r) => r.id);
-    const CHUNK = 500;
-    for (let i = 0; i < ids.length; i += CHUNK) {
-      const slice = ids.slice(i, i + CHUNK);
-      const del = await sb.from(table).delete().in('id', slice);
-      if (del.error) throw new Error(`${table} delete: ${del.error.message}`);
-      totalDeleted += slice.length;
+      // Delete the now-archived rows by id. Chunked because PostgREST .in()
+      // can choke on huge lists.
+      const ids = rows.map((r) => r.id);
+      const CHUNK = 500;
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const slice = ids.slice(i, i + CHUNK);
+        const del = await sb.from(table).delete().in('id', slice);
+        if (del.error) throw new Error(`${table} delete: ${del.error.message}`);
+        totalDeleted += slice.length;
+      }
     }
   }
 
@@ -129,14 +150,13 @@ export async function GET(request: Request): Promise<Response> {
   const sb = getSupabaseAdmin();
 
   // Start a run row up front so we can update with results / errors.
-  const created = await sb
-    .from('archive_run')
-    .insert({})
-    .select('id')
-    .single();
+  const created = await sb.from('archive_run').insert({}).select('id').single();
   if (created.error || !created.data) {
     return NextResponse.json(
-      { error: 'failed to create archive_run row', detail: created.error?.message },
+      {
+        error: 'failed to create archive_run row',
+        detail: created.error?.message,
+      },
       { status: 500 },
     );
   }

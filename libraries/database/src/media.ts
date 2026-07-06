@@ -211,7 +211,11 @@ export async function persistPostMedia(
  */
 export async function persistMediaForPosts<
   T extends { external_post_id: string; media_url: string | null },
->(profileId: string, posts: T[], deadlineMs: number = POST_MEDIA_DEADLINE_MS): Promise<T[]> {
+>(
+  profileId: string,
+  posts: T[],
+  deadlineMs: number = POST_MEDIA_DEADLINE_MS,
+): Promise<T[]> {
   const out = posts.slice();
   const startedAt = Date.now();
   let next = 0;
@@ -225,7 +229,11 @@ export async function persistMediaForPosts<
       const post = out[idx];
       const src = post.media_url;
       if (!src || !src.startsWith('http')) continue;
-      const permanent = await persistPostMedia(profileId, post.external_post_id, src);
+      const permanent = await persistPostMedia(
+        profileId,
+        post.external_post_id,
+        src,
+      );
       if (permanent && permanent !== src) {
         out[idx] = { ...post, media_url: permanent };
       }
@@ -273,7 +281,10 @@ export function avatarUrlFromRaw(raw: unknown): string | null {
  * the read path (extractRawProfileFields) picks up the permanent Storage URL —
  * with NO new column or migration. Falls back to setting `avatar_url`.
  */
-export function withPersistedAvatar(raw: unknown, persistedUrl: string): unknown {
+export function withPersistedAvatar(
+  raw: unknown,
+  persistedUrl: string,
+): unknown {
   if (!raw || typeof raw !== 'object') return raw;
   const r = raw as Record<string, unknown>;
   for (const k of AVATAR_RAW_KEYS) {
@@ -348,10 +359,15 @@ export async function persistAvatarForProfile(
     .select('creator_id')
     .eq('id', profileId)
     .maybeSingle();
-  const creatorId = (prof.data?.creator_id as string | null | undefined) ?? null;
+  const creatorId =
+    (prof.data?.creator_id as string | null | undefined) ?? null;
   if (prof.error || !creatorId) {
     if (prof.error) {
-      console.error('[media] avatar creator lookup failed', profileId, prof.error.message);
+      console.error(
+        '[media] avatar creator lookup failed',
+        profileId,
+        prof.error.message,
+      );
     }
     return { persisted, creatorUpdated: false };
   }
@@ -366,19 +382,31 @@ export async function persistAvatarForProfile(
     // transient error overwrite the backfill's chosen avatar on the scrape path.
     // Preserve the guard: skip the update and let the next scrape/backfill retry.
     if (cur.error) {
-      console.error('[media] creator avatar_url read failed', creatorId, cur.error.message);
+      console.error(
+        '[media] creator avatar_url read failed',
+        creatorId,
+        cur.error.message,
+      );
       return { persisted, creatorUpdated: false };
     }
-    const existing = (cur.data?.avatar_url as string | null | undefined) ?? null;
+    const existing =
+      (cur.data?.avatar_url as string | null | undefined) ?? null;
     // Already pointing at our Storage — leave it (and the backfill's best pick).
     if (existing && isAlreadyPersisted(existing)) {
       return { persisted, creatorUpdated: false };
     }
   }
 
-  const upd = await sb.from('creator').update({ avatar_url: persisted }).eq('id', creatorId);
+  const upd = await sb
+    .from('creator')
+    .update({ avatar_url: persisted })
+    .eq('id', creatorId);
   if (upd.error) {
-    console.error('[media] creator avatar_url update failed', creatorId, upd.error.message);
+    console.error(
+      '[media] creator avatar_url update failed',
+      creatorId,
+      upd.error.message,
+    );
     return { persisted, creatorUpdated: false };
   }
   return { persisted, creatorUpdated: true };
@@ -431,23 +459,25 @@ async function fetchAllRows<T>(
  * creators are left for a fresh scrape to recover. Mirrors persistMediaForPosts
  * / the post-media backfill, for avatars.
  */
-export async function backfillCreatorAvatars(dryRun = false): Promise<AvatarBackfillResult> {
+export async function backfillCreatorAvatars(
+  dryRun = false,
+): Promise<AvatarBackfillResult> {
   const sb = getSupabaseAdmin();
 
   // Page past the PostgREST row cap — a deployment can have >1000 creators, and
   // an unpaged select would only see the first page (making the backfill + the
   // daily cron silently skip every creator beyond it).
-  const creators = await fetchAllRows<{ id: string; avatar_url: string | null }>(
-    async (from, to) => {
-      const r = await sb
-        .from('creator')
-        .select('id, avatar_url')
-        .order('id', { ascending: true })
-        .range(from, to);
-      return { data: r.data, error: r.error };
-    },
-    'backfillCreatorAvatars creators',
-  );
+  const creators = await fetchAllRows<{
+    id: string;
+    avatar_url: string | null;
+  }>(async (from, to) => {
+    const r = await sb
+      .from('creator')
+      .select('id, avatar_url')
+      .order('id', { ascending: true })
+      .range(from, to);
+    return { data: r.data, error: r.error };
+  }, 'backfillCreatorAvatars creators');
   const needing = creators.filter((c) => {
     const a = c.avatar_url ?? null;
     return !a || !isAlreadyPersisted(a);
@@ -494,15 +524,23 @@ export async function backfillCreatorAvatars(dryRun = false): Promise<AvatarBack
       .select('profile_id, followers, raw, captured_date')
       .in('profile_id', profIds)
       .order('captured_date', { ascending: false })
+      // Stable tiebreaker — captured_date alone isn't a total order, so
+      // LIMIT/OFFSET pages could overlap/skip rows sharing a date.
+      .order('id', { ascending: false })
       .range(from, from + PAGE - 1);
     if (snapRes.error) {
-      throw new Error(`backfillCreatorAvatars snapshots: ${snapRes.error.message}`);
+      throw new Error(
+        `backfillCreatorAvatars snapshots: ${snapRes.error.message}`,
+      );
     }
     const page = snapRes.data ?? [];
     for (const r of page) {
       const pid = r.profile_id as string;
       if (!latest.has(pid)) {
-        latest.set(pid, { raw: r.raw, followers: (r.followers as number | null) ?? null });
+        latest.set(pid, {
+          raw: r.raw,
+          followers: (r.followers as number | null) ?? null,
+        });
       }
     }
     if (page.length < PAGE) break;
@@ -520,9 +558,16 @@ export async function backfillCreatorAvatars(dryRun = false): Promise<AvatarBack
     const candidates = (profsByCreator.get(cid) ?? [])
       .map((pid) => {
         const snap = latest.get(pid);
-        return { pid, followers: snap?.followers ?? 0, avatar: avatarUrlFromRaw(snap?.raw) };
+        return {
+          pid,
+          followers: snap?.followers ?? 0,
+          avatar: avatarUrlFromRaw(snap?.raw),
+        };
       })
-      .filter((x): x is { pid: string; followers: number; avatar: string } => !!x.avatar)
+      .filter(
+        (x): x is { pid: string; followers: number; avatar: string } =>
+          !!x.avatar,
+      )
       .sort((a, b) => b.followers - a.followers);
 
     if (candidates.length === 0) {

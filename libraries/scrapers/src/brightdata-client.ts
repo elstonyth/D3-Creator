@@ -28,7 +28,12 @@ const DEFAULT_BASE = 'https://api.brightdata.com/datasets/v3';
 /** Per-request network timeout (trigger/progress/snapshot each). */
 const PER_REQUEST_TIMEOUT_MS = 30_000;
 
-type ProgressStatus = 'running' | 'ready' | 'failed' | 'collecting' | 'building';
+type ProgressStatus =
+  | 'running'
+  | 'ready'
+  | 'failed'
+  | 'collecting'
+  | 'building';
 
 interface ProgressResponse {
   status?: ProgressStatus;
@@ -89,7 +94,11 @@ function looksLikeNotFound(msg: string): boolean {
 
 function looksLikePrivate(msg: string): boolean {
   const m = msg.toLowerCase();
-  return m.includes('private') || m.includes('restricted') || m.includes('login required');
+  return (
+    m.includes('private') ||
+    m.includes('restricted') ||
+    m.includes('login required')
+  );
 }
 
 /**
@@ -232,10 +241,9 @@ async function triggerScrape(opts: RunDatasetOptions): Promise<string> {
 async function pollProgress(
   snapshotId: string,
   opts: RunDatasetOptions,
+  deadline: number,
 ): Promise<void> {
-  const budget = opts.timeoutMs ?? 300_000;
   const interval = opts.pollIntervalMs ?? 5_000;
-  const deadline = Date.now() + budget;
 
   while (Date.now() < deadline) {
     const body = await brightdataFetchJson<ProgressResponse>(
@@ -251,12 +259,22 @@ async function pollProgress(
       const msg = body.message || 'collector failed';
       if (looksLikePrivate(msg)) {
         // Re-throw via the higher-level adapter check — keep client generic.
-        throw new ScrapeError('private', `Bright Data: ${msg}`, opts.platform, opts.profileUrl);
+        throw new ScrapeError(
+          'private',
+          `Bright Data: ${msg}`,
+          opts.platform,
+          opts.profileUrl,
+        );
       }
       if (looksLikeNotFound(msg)) {
         throw new ProfileNotFoundError(opts.platform, opts.profileUrl);
       }
-      throw new ScrapeError('failed', `Bright Data: ${msg}`, opts.platform, opts.profileUrl);
+      throw new ScrapeError(
+        'failed',
+        `Bright Data: ${msg}`,
+        opts.platform,
+        opts.profileUrl,
+      );
     }
     // running / collecting / building → keep polling
     await new Promise((r) => setTimeout(r, interval));
@@ -264,7 +282,7 @@ async function pollProgress(
 
   throw new ScrapeError(
     'failed',
-    `Bright Data snapshot ${snapshotId} did not become ready within ${budget}ms`,
+    `Bright Data snapshot ${snapshotId} did not become ready within the ${opts.timeoutMs ?? 300_000}ms budget`,
     opts.platform,
     opts.profileUrl,
   );
@@ -296,9 +314,19 @@ async function fetchSnapshot<T>(
 /**
  * Run a Bright Data Web Scraper dataset end-to-end:
  * trigger → poll until ready → fetch snapshot items.
+ *
+ * `timeoutMs` is the TOTAL budget for the whole flow, as documented on
+ * RunDatasetOptions — the deadline starts before the trigger, not after it
+ * (the old behavior, which let trigger + fetch push the real wall-clock
+ * ~60s past the stated budget so the caller's outer wrapper killed the
+ * scrape instead of this client timing out with proper error mapping).
+ * Trigger and fetch are additionally bounded by the 30s per-request timeout.
  */
-export async function runDataset<T = unknown>(opts: RunDatasetOptions): Promise<T[]> {
+export async function runDataset<T = unknown>(
+  opts: RunDatasetOptions,
+): Promise<T[]> {
+  const deadline = Date.now() + (opts.timeoutMs ?? 300_000);
   const snapshotId = await triggerScrape(opts);
-  await pollProgress(snapshotId, opts);
+  await pollProgress(snapshotId, opts, deadline);
   return fetchSnapshot<T>(snapshotId, opts);
 }

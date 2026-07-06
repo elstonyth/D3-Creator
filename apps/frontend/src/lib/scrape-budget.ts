@@ -11,8 +11,11 @@
  *
  * Policy: Facebook gets a cap above the adapter's own budget (so the adapter
  * times out first, with its richer error mapping), everything else keeps the
- * 120s cap. The floor to *start* a scrape is the full FB window for Facebook
- * (a partial window would still falsely fail), the generic 60s for the rest.
+ * 120s cap. The floor to *start* a scrape is the platform's full cap — a
+ * scrape started on a partial window gets a sub-cap timeout, and a
+ * slow-but-live upstream then stamps a false 'failed' that skips the healthy
+ * profile until tomorrow (the due-filter is per-UTC-day). Deferring to the
+ * next hourly tick costs an hour; a false 'failed' costs a day.
  */
 
 // Per-scrape wall-clock ceiling for TikHub-backed platforms. A healthy scrape
@@ -20,18 +23,20 @@
 // one (runScraper takes no AbortSignal — see lib/with-timeout.ts).
 export const DEFAULT_SCRAPE_TIMEOUT_MS = 120_000;
 
-// Facebook ceiling: must exceed the adapter's internal 240s Bright Data
-// budget, and FACEBOOK_SCRAPE_TIMEOUT_MS + WRAPUP_RESERVE_MS must fit inside
+// Facebook ceiling: must exceed the adapter's internal 210s TOTAL Bright Data
+// budget (trigger + poll + fetch) plus one in-flight 30s request past its
+// deadline, and FACEBOOK_SCRAPE_TIMEOUT_MS + WRAPUP_RESERVE_MS must fit inside
 // the route's 300s maxDuration. 250s satisfies both with margin for the
 // snapshot upsert.
 export const FACEBOOK_SCRAPE_TIMEOUT_MS = 250_000;
 
-// Floor for starting a scrape on the default-cap platforms: don't begin one
-// unless at least a typical scrape's worth of budget remains. A scrape started
-// with too little budget would time out and be stamped 'failed', and because
-// the due-filter keys on last_scraped_at's UTC *date*, that false failure
-// would skip the (healthy) profile until tomorrow.
-export const MIN_SCRAPE_BUDGET_MS = 60_000;
+// Floor for starting a scrape on the default-cap platforms: the full cap,
+// same rationale as Facebook's floor. Starting with less would shrink the
+// withTimeout window below the cap (Math.min in the route), so a slow-but-live
+// upstream gets killed early and stamped 'failed' — and because the due-filter
+// keys on last_scraped_at's UTC *date*, that false failure skips the (healthy)
+// profile until tomorrow. Deferring leaves it due for the next hourly tick.
+export const MIN_SCRAPE_BUDGET_MS = DEFAULT_SCRAPE_TIMEOUT_MS;
 
 // Wall-clock reserved at the end of the function budget for the snapshot
 // upsert + status write that must run even when media persistence is skipped.

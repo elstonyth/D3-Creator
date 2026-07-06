@@ -44,25 +44,37 @@ describe('detectPlatform', () => {
 });
 
 describe('validateProfileUrl — instagram', () => {
-  it('accepts profile root with @', () => {
-    const r = validateProfileUrl('instagram', 'https://www.instagram.com/@john_ig');
+  it('accepts profile root with @ and normalizes it away (dedupes with the @-less form)', () => {
+    const r = validateProfileUrl(
+      'instagram',
+      'https://www.instagram.com/@john_ig',
+    );
     assert.equal(r.ok, true);
     if (r.ok) {
       assert.equal(r.handle, 'john_ig');
-      assert.equal(r.normalizedUrl, 'https://www.instagram.com/@john_ig');
+      assert.equal(r.normalizedUrl, 'https://www.instagram.com/john_ig');
     }
   });
   it('accepts profile root without @', () => {
-    const r = validateProfileUrl('instagram', 'https://instagram.com/jane.smith/');
+    const r = validateProfileUrl(
+      'instagram',
+      'https://instagram.com/jane.smith/',
+    );
     assert.equal(r.ok, true);
     if (r.ok) assert.equal(r.handle, 'jane.smith');
   });
   it('rejects post URL', () => {
-    const r = validateProfileUrl('instagram', 'https://www.instagram.com/p/ABC123/');
+    const r = validateProfileUrl(
+      'instagram',
+      'https://www.instagram.com/p/ABC123/',
+    );
     assert.equal(r.ok, false);
   });
   it('rejects reel URL', () => {
-    const r = validateProfileUrl('instagram', 'https://www.instagram.com/reel/XYZ/');
+    const r = validateProfileUrl(
+      'instagram',
+      'https://www.instagram.com/reel/XYZ/',
+    );
     assert.equal(r.ok, false);
   });
   it('rejects cross-platform paste (tiktok URL claimed as instagram)', () => {
@@ -115,7 +127,10 @@ describe('validateProfileUrl — facebook', () => {
     assert.equal(r.ok, false);
   });
   it('rejects /share path', () => {
-    const r = validateProfileUrl('facebook', 'https://www.facebook.com/share/p/abc');
+    const r = validateProfileUrl(
+      'facebook',
+      'https://www.facebook.com/share/p/abc',
+    );
     assert.equal(r.ok, false);
   });
 });
@@ -167,13 +182,18 @@ describe('validateProfileUrl — edge cases', () => {
     assert.equal(r.ok, false);
   });
   it('strips trailing slash in normalizedUrl', () => {
-    const r = validateProfileUrl('instagram', 'https://www.instagram.com/user/');
+    const r = validateProfileUrl(
+      'instagram',
+      'https://www.instagram.com/user/',
+    );
     if (r.ok) assert.ok(!r.normalizedUrl.endsWith('/'));
   });
 });
 
 describe('validateProfileUrl — bare URLs (no scheme)', () => {
-  const cases: Array<[Parameters<typeof validateProfileUrl>[0], string, string]> = [
+  const cases: Array<
+    [Parameters<typeof validateProfileUrl>[0], string, string]
+  > = [
     ['instagram', 'instagram.com/handle', 'handle'],
     ['instagram', 'www.instagram.com/handle', 'handle'],
     ['tiktok', 'www.tiktok.com/@handle', 'handle'],
@@ -210,14 +230,20 @@ describe('validateProfileUrl — canonical host normalization', () => {
     for (const v of variants) {
       const r = validateProfileUrl('instagram', v);
       assert.equal(r.ok, true, v);
-      if (r.ok) assert.equal(r.normalizedUrl, 'https://www.instagram.com/handle');
+      if (r.ok)
+        assert.equal(r.normalizedUrl, 'https://www.instagram.com/handle');
     }
   });
   it('canonicalizes facebook host (web./m./fb.com → www.facebook.com)', () => {
-    for (const v of ['https://web.facebook.com/vanity', 'https://m.facebook.com/vanity', 'https://fb.com/vanity']) {
+    for (const v of [
+      'https://web.facebook.com/vanity',
+      'https://m.facebook.com/vanity',
+      'https://fb.com/vanity',
+    ]) {
       const r = validateProfileUrl('facebook', v);
       assert.equal(r.ok, true, v);
-      if (r.ok) assert.equal(r.normalizedUrl, 'https://www.facebook.com/vanity');
+      if (r.ok)
+        assert.equal(r.normalizedUrl, 'https://www.facebook.com/vanity');
     }
   });
 });
@@ -231,19 +257,32 @@ describe('validateProfileUrl — facebook extra shapes', () => {
     assert.equal(r.ok, true);
     if (r.ok) {
       assert.equal(r.handle, '61555000111222');
-      assert.equal(r.normalizedUrl, 'https://www.facebook.com/profile.php?id=61555000111222');
+      assert.equal(
+        r.normalizedUrl,
+        'https://www.facebook.com/profile.php?id=61555000111222',
+      );
     }
   });
   it('accepts a vanity URL with a sub-tab and drops the tab', () => {
     for (const tab of ['about', 'reels_tab', 'photos']) {
-      const r = validateProfileUrl('facebook', `https://www.facebook.com/vanity/${tab}`);
+      const r = validateProfileUrl(
+        'facebook',
+        `https://www.facebook.com/vanity/${tab}`,
+      );
       assert.equal(r.ok, true, tab);
-      if (r.ok) assert.equal(r.normalizedUrl, 'https://www.facebook.com/vanity');
+      if (r.ok)
+        assert.equal(r.normalizedUrl, 'https://www.facebook.com/vanity');
     }
   });
   it('still rejects reserved sections (/watch, /groups)', () => {
-    assert.equal(validateProfileUrl('facebook', 'https://www.facebook.com/watch/').ok, false);
-    assert.equal(validateProfileUrl('facebook', 'https://www.facebook.com/groups/123').ok, false);
+    assert.equal(
+      validateProfileUrl('facebook', 'https://www.facebook.com/watch/').ok,
+      false,
+    );
+    assert.equal(
+      validateProfileUrl('facebook', 'https://www.facebook.com/groups/123').ok,
+      false,
+    );
   });
 });
 
