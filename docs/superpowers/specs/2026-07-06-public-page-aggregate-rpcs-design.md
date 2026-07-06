@@ -38,23 +38,24 @@ From the current JS (`queries.ts`):
 
 ### RPC 1: `public_creator_rows()`
 
-Returns one row per `(profile_id)` with: `creator_id, platform, handle, followers, total_views, total_engagement, post_count`. SQL:
+Returns one row per profile with: `profile_id, creator_id, platform, handle, followers, total_views, total_engagement, post_count`. SQL:
 
 - `latest_followers` = `distinct on (profile_id) ... order by profile_id, captured_at desc, id desc`.
-- `post_maxviews` = `select profile_id, external_post_id, max(views) v from post_snapshot group by 1,2`.
+- `post_maxviews` = `select profile_id, external_post_id, coalesce(max(views),0) v from post_snapshot group by 1,2` (all-null views → 0, matching the JS `views ?? 0`).
 - `post_latest` = `distinct on (profile_id, external_post_id) ... likes,comments,shares order by ..., captured_at desc, id desc`.
 - Join per post → per profile: `sum(v)`, `sum(likes+comments+shares)`, `count(*)`.
+- **LEFT JOIN the post aggregates onto `scope_profile`** — a profile with zero posts MUST still return a row (followers, zeros). In the current JS, followers come from `profile_snapshot` independently of posts; an inner join would drop zero-post profiles and silently shrink the creator's follower total.
 - Filter `platform <> 'rednote'` in a `scope_profile` CTE (mirror the windowed RPCs).
   `getLiveCreatorRows` becomes: fetch `creator` (names/avatars) + call this RPC, then do the SAME per-creator rollup + per-platform slots in JS (unchanged logic, just fed bounded rows).
 
 ### RPC 2: `public_content_rows()`
 
-Returns one row per `(profile_id, external_post_id)`: `creator_id, creator_name, platform, handle, external_post_id, current_views (=MAX views), likes, comments, shares, caption_excerpt, media_url, posted_at, duration_seconds`. Same `MAX(views)` + newest-row join as RPC 1, plus the newest-row descriptive fields. `loadContentRows` becomes: call this RPC, map to `TopContentRow` (route `media_url` through `resolveMediaUrl` as today). `getTopContentRankingsWindowed` unchanged.
+Returns one row per `(profile_id, external_post_id)`: `profile_id, creator_id, creator_name, platform, handle, external_post_id, current_views (=MAX views), likes, comments, shares, caption_excerpt, media_url, posted_at, duration_seconds`. (`profile_id` is required — `TopContentRow.profileId` feeds the `contentKey` dedup fallback `u:<profileId>|<externalPostId>`.) Same `MAX(views)` + newest-row join as RPC 1, plus the newest-row descriptive fields. `loadContentRows` becomes: call this RPC, map to `TopContentRow` (route `media_url` through `resolveMediaUrl` as today). `getTopContentRankingsWindowed` unchanged.
 
 ### What does NOT change
 
 - Return types (`LiveCreatorRow`, `TopContentRow`), all rollup/window/dedup/sort JS, the pages (stay `force-dynamic`), `resolveMediaUrl`. No caching layer (deferred; queries become cheap enough).
-- `getSupabaseRead` (anon) must have EXECUTE on both RPCs; `security definer set search_path=''` + REVOKE-then-GRANT to `anon`, matching migration `20260606000000` hardening.
+- `getSupabaseRead` (anon) must have EXECUTE on both RPCs. Functions are **security invoker** (the default — matching `creator_metrics_windowed` / `top_content_windowed`; anon already has SELECT on these tables, it reads them directly today) with `set search_path = ''`, `stable`, and REVOKE-from-public + GRANT-to-anon per the migration `20260606000000` hardening pattern. Do NOT use `security definer` — needless privilege escalation.
 
 ## Verification (before switching reads)
 
