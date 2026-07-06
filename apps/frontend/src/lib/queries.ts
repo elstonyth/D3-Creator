@@ -43,6 +43,9 @@ export async function fetchAllRows<T>(
     to: number,
   ) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
 ): Promise<{ rows: T[]; error: { message: string } | null }> {
+  // PAGE must not exceed PostgREST's max-rows (Supabase default: 1000). If the
+  // server cap were ever lowered below PAGE, every full server page would look
+  // "short" here and paging would stop early — silently truncating results.
   const PAGE = 1000;
   const rows: T[] = [];
   for (let from = 0; ; from += PAGE) {

@@ -85,10 +85,15 @@ describe('validateProfileUrl — instagram', () => {
 });
 
 describe('validateProfileUrl — tiktok', () => {
-  it('accepts @handle', () => {
+  it('accepts @handle and KEEPS the @ (canonical on tiktok, unlike instagram)', () => {
     const r = validateProfileUrl('tiktok', 'https://www.tiktok.com/@dancer');
     assert.equal(r.ok, true);
-    if (r.ok) assert.equal(r.handle, 'dancer');
+    if (r.ok) {
+      assert.equal(r.handle, 'dancer');
+      // Every existing tiktok row is stored @-form — stripping it here would
+      // break their dedupe under (platform, lower(profile_url)).
+      assert.equal(r.normalizedUrl, 'https://www.tiktok.com/@dancer');
+    }
   });
   it('rejects video URL', () => {
     const r = validateProfileUrl(

@@ -27,13 +27,14 @@ describe('scrapeTimeoutMsFor', () => {
   });
 
   it('caps facebook above the adapter internal budget so the adapter times out first', () => {
-    // facebook.ts runs Bright Data with a TOTAL FB_BUDGET_MS = 210_000
-    // (trigger + poll + fetch), and one in-flight request can run up to 30s
-    // past that deadline. The route's wrapper cap must exceed the sum, or
-    // every legitimately-slow FB scrape is killed by withTimeout and stamped
-    // 'failed' (the post-PR-#38 outage: all 21 FB profiles failing every
-    // attempt since 2026-06-09).
-    expect(FACEBOOK_SCRAPE_TIMEOUT_MS).toBeGreaterThan(210_000 + 30_000);
+    // facebook.ts runs Bright Data with a TOTAL FB_BUDGET_MS = 240_000
+    // (trigger + poll + fetch under one runDataset deadline). The wrapper cap
+    // must strictly exceed it, or every legitimately-slow FB scrape is killed
+    // by withTimeout and stamped 'failed' (the post-PR-#38 outage: all 21 FB
+    // profiles failing every attempt since 2026-06-09). In-flight 30s
+    // requests past the adapter deadline can still stack into the wrapper —
+    // an accepted, attribution-only tail (see FB_BUDGET_MS comment).
+    expect(FACEBOOK_SCRAPE_TIMEOUT_MS).toBeGreaterThan(240_000);
   });
 
   it('fits the facebook cap plus the wrap-up reserve inside the 300s function budget', () => {

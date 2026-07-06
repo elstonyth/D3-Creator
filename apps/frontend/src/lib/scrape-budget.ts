@@ -23,11 +23,13 @@
 // one (runScraper takes no AbortSignal — see lib/with-timeout.ts).
 export const DEFAULT_SCRAPE_TIMEOUT_MS = 120_000;
 
-// Facebook ceiling: must exceed the adapter's internal 210s TOTAL Bright Data
-// budget (trigger + poll + fetch) plus one in-flight 30s request past its
-// deadline, and FACEBOOK_SCRAPE_TIMEOUT_MS + WRAPUP_RESERVE_MS must fit inside
-// the route's 300s maxDuration. 250s satisfies both with margin for the
-// snapshot upsert.
+// Facebook ceiling: must exceed the adapter's internal 240s TOTAL Bright Data
+// budget (trigger + poll + fetch — runDataset enforces one deadline across
+// all three), and FACEBOOK_SCRAPE_TIMEOUT_MS + WRAPUP_RESERVE_MS must fit
+// inside the route's 300s maxDuration. 250s satisfies both. In the common
+// case the adapter times out first with its richer error mapping; in-flight
+// 30s requests past the adapter deadline can still stack into this wrapper
+// (generic timeout) — accepted tail, see FB_BUDGET_MS in facebook.ts.
 export const FACEBOOK_SCRAPE_TIMEOUT_MS = 250_000;
 
 // Floor for starting a scrape on the default-cap platforms: the full cap,

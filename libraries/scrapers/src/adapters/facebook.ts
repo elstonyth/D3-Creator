@@ -267,12 +267,17 @@ export const facebookAdapter: PlatformAdapter = {
     opts: ScrapeOptions = {},
   ): Promise<ScrapeResult> {
     // Single dataset call. BD's posts collector resolves both vanity and
-    // profile.php?id= URLs in ~50s and returns page_followers on each item.
-    // TOTAL runDataset budget (trigger + poll + fetch). Must stay under the
-    // cron's 250s FACEBOOK_SCRAPE_TIMEOUT_MS wrapper with room for one
-    // in-flight 30s request past the deadline, so the adapter times out
-    // first with its richer error mapping instead of a generic wrapper kill.
-    const FB_BUDGET_MS = 210_000;
+    // profile.php?id= URLs in ~50s (observed 164-244s under load) and returns
+    // page_followers on each item.
+    // TOTAL runDataset budget (trigger + poll + fetch), sized to keep the
+    // observed under-load success band while staying under the cron's 250s
+    // FACEBOOK_SCRAPE_TIMEOUT_MS wrapper: in the common case (sub-second
+    // progress responses, ~2-5s snapshot fetch) the adapter finishes or times
+    // out by ~245s with its richer error mapping. Known ceiling: in-flight
+    // 30s requests past the deadline can stack to ~300s, where the wrapper
+    // kills with a generic timeout — accepted; shrinking the budget to close
+    // it would fail scrapes in the real 210-244s band instead.
+    const FB_BUDGET_MS = 240_000;
     const FB_POLL_MS = 10_000;
 
     // Deep-backfill knob. BrightData's posts dataset takes `num_of_posts`
