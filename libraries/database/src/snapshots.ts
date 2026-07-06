@@ -142,19 +142,29 @@ export interface PostSnapshotInput {
   raw: unknown;
 }
 
-// scrape_status values that need a human to re-enable (private profile / dead
-// page / renamed handle). The cron skips them and the FB refresh re-queue leaves
-// them alone — kept as one PostgREST `in` list so the two filters can't drift.
+// scrape_status values the Facebook same-day re-queue leaves alone (private
+// profile / dead page / renamed handle) — an optimization that shouldn't try to
+// resurrect a gated page. Kept as one PostgREST `in` list so its filters can't
+// drift.
 const HUMAN_GATED_STATUSES = '("private","not_found","handle_changed")';
 
-/** Profiles the cron should attempt today. */
+// Statuses fully excluded from the daily roster. Only `private` is a deliberate,
+// durable account state. `not_found`/`handle_changed` are NOT gated here: they
+// are frequently a transient upstream 404 (TikHub's IG/TikTok lookups are flaky)
+// misclassified as a dead handle, so the roster returns them and the cron
+// re-probes them on a back-off cadence (see isDueForScrape). This stops one bad
+// 404 from freezing a healthy profile forever.
+const ROSTER_GATED_STATUSES = '("private")';
+
+/** Profiles the cron may attempt (daily roster). `not_found`/`handle_changed`
+ *  are included so they can be re-probed on a cadence; the per-tick cadence gate
+ *  lives in the cron route (isDueForScrape). */
 export async function listScrapeableProfiles(): Promise<ProfileRow[]> {
   const sb = getSupabaseAdmin();
-  // Skip statuses that require user action to re-enable; the rest are fair game.
   const res = await sb
     .from('profile')
     .select('*')
-    .not('scrape_status', 'in', HUMAN_GATED_STATUSES)
+    .not('scrape_status', 'in', ROSTER_GATED_STATUSES)
     .order('created_at', { ascending: true });
   if (res.error) {
     throw new Error(`listScrapeableProfiles failed: ${res.error.message}`);

@@ -37,6 +37,7 @@ import {
   upsertProfileSnapshot,
 } from '@d3/database';
 import { withTimeout } from '@gitroom/frontend/lib/with-timeout';
+import { isDueForScrape } from '@gitroom/frontend/lib/scrape-eligibility';
 import {
   MIN_SCRAPE_BUDGET_MS,
   WRAPUP_RESERVE_MS,
@@ -148,17 +149,16 @@ export async function GET(request: Request): Promise<Response> {
     return a.last_scraped_at.localeCompare(b.last_scraped_at);
   });
 
-  // Drop profiles already attempted today (UTC) so the hourly cadence stays one
-  // scrape per profile per day: once the roster is drained, later ticks find
-  // nothing due and no-op instead of looping back to re-scrape the day's
-  // earliest profiles — which would burn paid upstream calls (Facebook ~20x
-  // TikHub). last_scraped_at is stamped on every attempt and shares the UTC day
-  // boundary with the snapshot dedup key (captured_date = CURRENT_DATE).
-  // PostgREST returns timestamptz as UTC ISO, so the leading YYYY-MM-DD is the
-  // UTC date — compare by prefix (no Date parsing, can't throw on a bad value).
+  // Keep the hourly cadence at one scrape per profile per UTC day (once the
+  // roster is drained, later ticks no-op instead of re-burning paid upstream
+  // calls — Facebook ~20x TikHub). `not_found`/`handle_changed` profiles are in
+  // the roster now (a transient 404 must not freeze a healthy profile forever),
+  // but they're only re-probed after a back-off window so a genuinely dead handle
+  // isn't hammered every day. Both rules live in isDueForScrape (pure + tested).
   const todayUtc = startedAt.toISOString().slice(0, 10);
-  const due = ordered.filter(
-    (p) => (p.last_scraped_at ?? '').slice(0, 10) !== todayUtc,
+  const nowMs = startedAt.getTime();
+  const due = ordered.filter((p) =>
+    isDueForScrape(p.scrape_status, p.last_scraped_at, todayUtc, nowMs),
   );
 
   const totalEligible = due.length;
