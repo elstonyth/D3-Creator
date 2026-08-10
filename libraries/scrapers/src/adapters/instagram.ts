@@ -3,6 +3,7 @@
  *
  * Endpoints used:
  *   GET /api/v1/instagram/v1/fetch_user_info_by_username?username=<handle>
+ *   GET /api/v1/instagram/v3/get_user_profile?username=<handle>  (fallback)
  *   GET /api/v1/instagram/v2/fetch_user_posts?username=<handle>
  *   GET /api/v1/instagram/v2/fetch_user_reels?username=<handle>
  *
@@ -16,10 +17,13 @@
  * (generic 400 for every username — verified 2026-05-28), so posts come from
  * V2 fetch_user_posts. The V3 get_user_profile endpoint then ALSO started
  * returning 400 (verified 2026-06-03 — V2 posts stayed 200), so the profile
- * now comes from V1 fetch_user_info_by_username, which is healthy. That
- * endpoint nests the user under `data.user` and reports counts via the
- * GraphQL-style edge_followed_by / edge_follow / edge_owner_to_timeline_media
- * (no flat *_count fields) — both shapes are tolerated below.
+ * now comes from V1 fetch_user_info_by_username. That endpoint nests the user
+ * under `data.user` and reports counts via the GraphQL-style edge_followed_by /
+ * edge_follow / edge_owner_to_timeline_media (no flat *_count fields) — both
+ * shapes are tolerated below. V1 has since gone partially bad too (2026-08-10:
+ * 8 of 31 live handles get a 200 carrying `{status:false, errorMessage:"This
+ * account does not exist."}`), so V3 get_user_profile is back as a FALLBACK —
+ * it covers 27 of those 31, including all 8 V1 misses. See fetchProfileUser.
  *
  * V2 returns up to ~12 posts by default — smaller window than the spec's
  * "up to 30" target but still useful for the engagement rollup. Pagination
@@ -272,6 +276,59 @@ function unwrapUser(resp: IgProfileResponse): IgUser {
   return resp.data?.user ?? resp.user ?? (resp as unknown as IgUser);
 }
 
+function isUsableUser(user: IgUser | undefined): boolean {
+  return Boolean(user && (user.username || user.pk || user.id));
+}
+
+/** Profile endpoints in fallback order — see fetchProfileUser below. */
+const PROFILE_PATHS = [
+  '/api/v1/instagram/v1/fetch_user_info_by_username',
+  '/api/v1/instagram/v3/get_user_profile',
+] as const;
+
+/**
+ * Fetch the profile, trying each endpoint until one returns a usable user.
+ *
+ * Neither endpoint covers the whole roster: on 2026-08-10 v1 returned
+ * `{status:false, errorMessage:"This account does not exist."}` (HTTP 200, so
+ * tikhubGet can't catch it) for 8 of 31 live handles, while v3 broke on a
+ * different 4 — together they cover 30. A single endpoint therefore stamps
+ * live profiles `not_found`, which the cron then holds in a back-off window.
+ *
+ * When every endpoint has been tried and one of them said "no such account",
+ * that verdict wins over a transient-looking failure from another: `failed` is
+ * retried every single day, so a genuinely dead handle would burn a scrape slot
+ * and a paid call forever, while `not_found` re-probes on a 7-day back-off that
+ * still self-heals (apps/frontend/src/lib/scrape-eligibility.ts).
+ */
+async function fetchProfileUser(
+  handle: string,
+  profileUrl: string,
+): Promise<IgUser> {
+  let notFound: ProfileNotFoundError | null = null;
+  let lastError: unknown = null;
+  for (const path of PROFILE_PATHS) {
+    try {
+      const resp = await tikhubGet<IgProfileResponse>({
+        path,
+        query: { username: handle },
+        platform: PLATFORM,
+        profileUrl,
+      });
+      const user = unwrapUser(resp);
+      if (isUsableUser(user)) return user;
+      notFound = new ProfileNotFoundError(PLATFORM, profileUrl);
+    } catch (err) {
+      // A private account is a real answer, not an endpoint failure — the
+      // next endpoint would only report the same thing (and bill for it).
+      if (err instanceof ProfilePrivateError) throw err;
+      if (err instanceof ProfileNotFoundError) notFound = err;
+      lastError = err;
+    }
+  }
+  throw notFound ?? lastError ?? new ProfileNotFoundError(PLATFORM, profileUrl);
+}
+
 /**
  * Unwrap TikHub's posts response.
  * v2 fetch_user_posts → data.data.items[] (after tikhubGet strips the
@@ -387,16 +444,11 @@ export const instagramAdapter: PlatformAdapter = {
         profileUrl,
       });
 
-    // Parallel: profile (v3 — healthy) + first posts page (v2 — v3 backend
-    // currently returns 400 universally; see file header) + first reels page
-    // (v2 — catches reels hidden from the profile grid).
-    const [profileResp, firstPosts, firstReels] = await Promise.all([
-      tikhubGet<IgProfileResponse>({
-        path: '/api/v1/instagram/v1/fetch_user_info_by_username',
-        query: { username: handle },
-        platform: PLATFORM,
-        profileUrl,
-      }),
+    // Parallel: profile (v1 with a v3 fallback — see fetchProfileUser) + first
+    // posts page (v2 — v3 backend currently returns 400 universally; see file
+    // header) + first reels page (v2 — catches reels hidden from the grid).
+    const [user, firstPosts, firstReels] = await Promise.all([
+      fetchProfileUser(handle, profileUrl),
       fetchPostsPage().catch((err) => {
         // Posts are supplementary — a private/missing posts tab must not sink
         // the profile snapshot (followers etc.). The profile response below
@@ -414,10 +466,6 @@ export const instagramAdapter: PlatformAdapter = {
       fetchReelsPage().catch(() => ({}) as IgPostsResponse),
     ]);
 
-    const user = unwrapUser(profileResp);
-    if (!user || (!user.username && !user.pk && !user.id)) {
-      throw new ProfileNotFoundError(PLATFORM, profileUrl);
-    }
     if (user.is_private) {
       // Private accounts return a thin user object — we can still see follower
       // counts, but no posts. Surface as a recoverable state so the UI can
