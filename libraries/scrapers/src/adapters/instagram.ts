@@ -294,11 +294,18 @@ const PROFILE_PATHS = [
  * tikhubGet can't catch it) for 8 of 31 live handles, while v3 broke on a
  * different 4 — together they cover 30. A single endpoint therefore stamps
  * live profiles `not_found`, which the cron then holds in a back-off window.
+ *
+ * When every endpoint has been tried and one of them said "no such account",
+ * that verdict wins over a transient-looking failure from another: `failed` is
+ * retried every single day, so a genuinely dead handle would burn a scrape slot
+ * and a paid call forever, while `not_found` re-probes on a 7-day back-off that
+ * still self-heals (apps/frontend/src/lib/scrape-eligibility.ts).
  */
 async function fetchProfileUser(
   handle: string,
   profileUrl: string,
 ): Promise<IgUser> {
+  let notFound: ProfileNotFoundError | null = null;
   let lastError: unknown = null;
   for (const path of PROFILE_PATHS) {
     try {
@@ -310,15 +317,16 @@ async function fetchProfileUser(
       });
       const user = unwrapUser(resp);
       if (isUsableUser(user)) return user;
-      lastError = new ProfileNotFoundError(PLATFORM, profileUrl);
+      notFound = new ProfileNotFoundError(PLATFORM, profileUrl);
     } catch (err) {
       // A private account is a real answer, not an endpoint failure — the
       // next endpoint would only report the same thing (and bill for it).
       if (err instanceof ProfilePrivateError) throw err;
+      if (err instanceof ProfileNotFoundError) notFound = err;
       lastError = err;
     }
   }
-  throw lastError ?? new ProfileNotFoundError(PLATFORM, profileUrl);
+  throw notFound ?? lastError ?? new ProfileNotFoundError(PLATFORM, profileUrl);
 }
 
 /**

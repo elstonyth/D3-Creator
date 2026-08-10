@@ -6,6 +6,7 @@ jest.mock('../tikhub-client', () => ({ tikhubGet: jest.fn() }));
 
 import { tikhubGet } from '../tikhub-client';
 import { instagramAdapter } from './instagram';
+import { ScrapeError } from '../errors';
 
 const mockGet = tikhubGet as unknown as jest.Mock;
 const PROFILE_URL = 'https://www.instagram.com/nasa';
@@ -381,6 +382,22 @@ test('both profile endpoints failing still reports not_found', async () => {
     if (opts.path.includes('user_info_by_username') || opts.path.includes('get_user_profile'))
       return { status: false, errorMessage: 'This account does not exist.' };
     return postsWith({ pk: 'p10', code: 'zzz', like_count: 1, taken_at: 1716800000 });
+  });
+
+  await expect(instagramAdapter.scrape(PROFILE_URL)).rejects.toMatchObject({
+    status: 'not_found',
+  });
+});
+
+test('a not-found verdict beats a transient failure from the other endpoint', async () => {
+  // failed is retried daily; not_found backs off 7 days. A handle that is dead
+  // on one endpoint and merely 400s on the other must land on not_found.
+  mockGet.mockImplementation(async (opts: any) => {
+    if (opts.path.includes('user_info_by_username'))
+      return { status: false, errorMessage: 'This account does not exist.' };
+    if (opts.path.includes('get_user_profile'))
+      throw new ScrapeError('failed', 'TikHub returned HTTP 400', 'instagram', PROFILE_URL, true);
+    return postsWith({ pk: 'p11', code: 'qqq', like_count: 1, taken_at: 1716800000 });
   });
 
   await expect(instagramAdapter.scrape(PROFILE_URL)).rejects.toMatchObject({
