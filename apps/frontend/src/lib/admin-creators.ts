@@ -13,6 +13,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveProfileName } from './profile-name';
 import { fetchAllRows } from './queries';
+import { dataAgeHours, isStale } from './scrape-staleness';
 
 const SNAPSHOT_WINDOW_DAYS = 14;
 
@@ -40,6 +41,12 @@ export interface AdminProfileRow {
   ownerCount: number;
   trackerCount: number;
   pendingCount: number;
+  /** Hours since the newest SUCCESSFUL capture (not since the last attempt).
+   *  null when nothing was captured inside the SNAPSHOT_WINDOW_DAYS window —
+   *  which is itself the signal that the profile is badly stale. */
+  dataAgeHours: number | null;
+  /** True when data is older than STALE_AFTER_HOURS, or absent entirely. */
+  isStale: boolean;
 }
 
 export interface AdminCreatorGroup {
@@ -55,6 +62,8 @@ export interface AdminCreatorGroup {
   engagement: number | null;
   /** worst-case health across the creator's profiles, for an at-a-glance pill */
   status: string;
+  /** How many of this creator's profiles are serving stale data. */
+  staleProfileCount: number;
   profiles: AdminProfileRow[];
 }
 
@@ -87,6 +96,8 @@ interface ProfileRow {
 interface SnapshotRow {
   profile_id: string;
   captured_date: string;
+  /** Timestamp (not just the date) — needed to express staleness in hours. */
+  captured_at: string;
   followers: number | null;
   total_views: number | null;
   total_likes: number | null;
@@ -119,6 +130,9 @@ function worstStatus(statuses: string[]): string {
 export async function getAdminCreatorsData(
   admin: SupabaseClient,
 ): Promise<AdminCreatorsData> {
+  // One clock for the whole build so every row's staleness is measured against
+  // the same instant (and so the pure helpers stay time-injectable).
+  const nowMs = Date.now();
   const [creatorsRes, clientsRes, profilesRes, claimsRes] = await Promise.all([
     admin.from('creator').select('id, display_name, avatar_url, client_id'),
     admin.from('client').select('id, name'),
@@ -156,7 +170,7 @@ export async function getAdminCreatorsData(
       admin
         .from('profile_snapshot')
         .select(
-          'profile_id, captured_date, followers, total_views, total_likes, raw',
+          'profile_id, captured_date, captured_at, followers, total_views, total_likes, raw',
         )
         .in('profile_id', profileIds)
         .gte('captured_date', sinceIso)
@@ -236,6 +250,13 @@ export async function getAdminCreatorsData(
         ownerCount: pClaims.filter((c) => c.claim_kind === 'owner').length,
         trackerCount: pClaims.filter((c) => c.claim_kind === 'tracker').length,
         pendingCount: pClaims.filter((c) => c.claim_kind === 'pending').length,
+        // Staleness is measured from the newest SUCCESSFUL capture, never from
+        // profile.last_scraped_at — a permanently-failing profile keeps a fresh
+        // attempt timestamp forever, which is exactly how one sat 70 days stale
+        // without anyone noticing. `snaps` only spans SNAPSHOT_WINDOW_DAYS, so
+        // an empty array means "nothing captured in 14 days" → null age, stale.
+        dataAgeHours: dataAgeHours(latest?.captured_at ?? null, nowMs),
+        isStale: isStale(latest?.captured_at ?? null, nowMs),
       };
     });
 
@@ -264,6 +285,7 @@ export async function getAdminCreatorsData(
       totalViews,
       engagement: totalViews > 0 ? totalLikes / totalViews : null,
       status: worstStatus(profileRows.map((p) => p.scrapeStatus)),
+      staleProfileCount: profileRows.filter((p) => p.isStale).length,
       profiles: profileRows,
     };
   });
@@ -365,6 +387,13 @@ export async function getAdminCreatorDetail(
       ownerCount: pc.filter((c) => c.claim_kind === 'owner').length,
       trackerCount: pc.filter((c) => c.claim_kind === 'tracker').length,
       pendingCount: pc.filter((c) => c.claim_kind === 'pending').length,
+      // NOT COMPUTED here: this editor view fetches no snapshots at all (see
+      // followers/views above, both null), so there is no capture timestamp to
+      // measure against. `false` means "not evaluated on this page", not
+      // "verified fresh" — staleness is surfaced on /admin/profiles, which does
+      // fetch snapshots. Don't render these two fields from this builder.
+      dataAgeHours: null,
+      isStale: false,
     };
   });
 

@@ -20,8 +20,15 @@
 import { timingSafeEqual } from 'node:crypto';
 
 import { NextResponse } from 'next/server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { getSupabaseAdmin } from '@d3/database';
+import { fetchAllRows } from '@gitroom/frontend/lib/queries';
+import {
+  STALE_AFTER_HOURS,
+  dataAgeHours,
+  isStale,
+} from '@gitroom/frontend/lib/scrape-staleness';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
@@ -42,7 +49,10 @@ function assertAuth(request: Request): Response | null {
   const expectedFull = `Bearer ${expected}`;
   if (
     auth.length !== expectedFull.length ||
-    !timingSafeEqual(Buffer.from(auth, 'utf8'), Buffer.from(expectedFull, 'utf8'))
+    !timingSafeEqual(
+      Buffer.from(auth, 'utf8'),
+      Buffer.from(expectedFull, 'utf8'),
+    )
   ) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
@@ -74,9 +84,102 @@ export async function GET(request: Request): Promise<Response> {
     .order('started_at', { ascending: false })
     .limit(limit);
 
+  const stale = await staleProfiles(sb);
+
   return NextResponse.json({
     archive_runs: archiveRuns.data ?? [],
     archive_runs_error: archiveRuns.error?.message ?? null,
+    stale_profiles: stale.rows,
+    stale_profiles_error: stale.error,
+    stale_after_hours: STALE_AFTER_HOURS,
     limit,
   });
+}
+
+/**
+ * Profiles whose newest SUCCESSFUL capture is older than STALE_AFTER_HOURS (or
+ * which have none at all), most stale first.
+ *
+ * This is the surface that was missing: before it, the only scrape signal here
+ * was archive_run, so a profile could fail every day for ten weeks — as one
+ * did, to 70 days — with nothing to look at. Note it keys on
+ * profile_snapshot.captured_at (last SUCCESS), not profile.last_scraped_at
+ * (last ATTEMPT); the failing profile's attempt timestamp stays fresh forever
+ * precisely because the cron keeps retrying it.
+ *
+ * Two bounded queries, not one per profile: the roster is ~120 rows and the
+ * snapshot read is capped by fetchAllRows' paging.
+ */
+async function staleProfiles(sb: SupabaseClient): Promise<{
+  rows: Array<{
+    profile_id: string;
+    platform: string;
+    handle: string | null;
+    scrape_status: string;
+    last_scraped_at: string | null;
+    newest_captured_at: string | null;
+    data_age_hours: number | null;
+  }>;
+  error: string | null;
+}> {
+  const nowMs = Date.now();
+
+  const profilesRes = await sb
+    .from('profile')
+    .select('id, platform, handle, scrape_status, last_scraped_at');
+  if (profilesRes.error) {
+    return { rows: [], error: profilesRes.error.message };
+  }
+  const profiles = (profilesRes.data ?? []) as Array<{
+    id: string;
+    platform: string;
+    handle: string | null;
+    scrape_status: string;
+    last_scraped_at: string | null;
+  }>;
+  if (profiles.length === 0) return { rows: [], error: null };
+
+  // Newest capture per profile. Paged so PostgREST's ~1000-row response cap
+  // can't silently truncate the tail — the stalest profiles sort LAST under
+  // captured_at desc, so truncation would drop exactly what we're looking for.
+  const snaps = await fetchAllRows<{ profile_id: string; captured_at: string }>(
+    (from, to) =>
+      sb
+        .from('profile_snapshot')
+        .select('profile_id, captured_at')
+        .order('captured_at', { ascending: false })
+        .order('id', { ascending: false })
+        .range(from, to),
+  );
+  if (snaps.error) return { rows: [], error: snaps.error.message };
+
+  const newestByProfile = new Map<string, string>();
+  for (const s of snaps.rows) {
+    if (!newestByProfile.has(s.profile_id)) {
+      newestByProfile.set(s.profile_id, s.captured_at);
+    }
+  }
+
+  return {
+    rows: profiles
+      .map((p) => {
+        const newest = newestByProfile.get(p.id) ?? null;
+        return {
+          profile_id: p.id,
+          platform: p.platform,
+          handle: p.handle,
+          scrape_status: p.scrape_status,
+          last_scraped_at: p.last_scraped_at,
+          newest_captured_at: newest,
+          data_age_hours: dataAgeHours(newest, nowMs),
+        };
+      })
+      .filter((r) => isStale(r.newest_captured_at, nowMs))
+      // Most stale first; never-captured (null age) sorts to the very top.
+      .sort(
+        (a, b) =>
+          (b.data_age_hours ?? Infinity) - (a.data_age_hours ?? Infinity),
+      ),
+    error: null,
+  };
 }
