@@ -27,7 +27,7 @@ import { fetchAllRows } from '@gitroom/frontend/lib/queries';
 import {
   STALE_AFTER_HOURS,
   dataAgeHours,
-  isStale,
+  needsAttention,
 } from '@gitroom/frontend/lib/scrape-staleness';
 
 export const dynamic = 'force-dynamic';
@@ -124,9 +124,13 @@ async function staleProfiles(sb: SupabaseClient): Promise<{
 }> {
   const nowMs = Date.now();
 
+  // Explicitly bounded — matches admin-creators.ts's .limit(500) house style.
+  // The roster is ~120, but an endpoint whose job is detecting silent truncation
+  // shouldn't itself rely on PostgREST's implicit 1000-row cap.
   const profilesRes = await sb
     .from('profile')
-    .select('id, platform, handle, scrape_status, last_scraped_at');
+    .select('id, platform, handle, scrape_status, last_scraped_at')
+    .limit(500);
   if (profilesRes.error) {
     return { rows: [], error: profilesRes.error.message };
   }
@@ -174,7 +178,14 @@ async function staleProfiles(sb: SupabaseClient): Promise<{
           data_age_hours: dataAgeHours(newest, nowMs),
         };
       })
-      .filter((r) => isStale(r.newest_captured_at, nowMs))
+      // Retired (`private`) profiles are excluded: they're gated out of the
+      // roster on purpose, so their data age grows forever and would sit at the
+      // top of this list permanently. Three RedNote profiles are already in that
+      // state, and retiring a dead profile to `private` is the recommended
+      // remedy — so without this filter, every correct fix adds a false positive.
+      .filter((r) =>
+        needsAttention(r.scrape_status, r.newest_captured_at, nowMs),
+      )
       // Most stale first; never-captured (null age) sorts to the very top.
       .sort(
         (a, b) =>

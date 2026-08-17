@@ -55,6 +55,32 @@ export function isStale(
   return age > STALE_AFTER_HOURS;
 }
 
+/**
+ * Statuses that mean "deliberately retired", not "broken".
+ *
+ * `private` is the one status listScrapeableProfiles gates out of the roster
+ * entirely (see ROSTER_GATED_STATUSES in libraries/database/src/snapshots.ts), so
+ * such a profile is never scraped and its data age grows forever BY DESIGN.
+ * Counting those as stale would make this surface permanently noisy — and the
+ * recommended way to retire a dead profile is precisely to set it `private`, so
+ * every correct operator action would add another false positive to the alarm
+ * list. Three RedNote profiles are already in this state.
+ *
+ * Kept as a separate concept from isStale(): staleness stays a pure statement
+ * about data age, and this filters "age I should act on" at the surface layer.
+ */
+export const RETIRED_STATUSES: ReadonlySet<string> = new Set(['private']);
+
+/** Whether a profile's staleness is worth surfacing (stale AND not retired). */
+export function needsAttention(
+  scrapeStatus: string,
+  newestCapturedAt: string | null,
+  nowMs: number,
+): boolean {
+  if (RETIRED_STATUSES.has(scrapeStatus)) return false;
+  return isStale(newestCapturedAt, nowMs);
+}
+
 /** Short label for a badge: 'no data' | '7h' | '70d'. */
 export function formatDataAge(hours: number | null): string {
   if (hours === null) return 'no data';

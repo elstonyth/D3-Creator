@@ -363,6 +363,14 @@ function CreatorCard({ group }: { group: AdminCreatorGroup }) {
             <span className="text-caption text-fgSubtle ml-1">
               {group.profileCount} profile{group.profileCount === 1 ? '' : 's'}
             </span>
+            {group.staleProfileCount > 0 && (
+              // Brighter than the neutral metadata around it: this is the one
+              // thing on a collapsed card that means "open me". Yellow-mono —
+              // intensity, not hue (DESIGN.md §2).
+              <span className="text-caption text-fg ml-1">
+                · {group.staleProfileCount} stale
+              </span>
+            )}
           </div>
         </div>
         {/* Account aggregates */}
@@ -475,8 +483,12 @@ function StatusPill({ status }: { status: string }) {
  *
  * Without this, a `failed` badge looks identical whether the profile broke an
  * hour ago or ten weeks ago — which is how one sat 70 days stale unnoticed.
- * Yellow-mono per DESIGN.md §2: stale reads through lower text intensity, never
- * a warning hue.
+ *
+ * Yellow-mono per DESIGN.md §2 — intensity, never a foreign hue. Note the
+ * direction: STALE is the BRIGHTER of the two (`text-fg`, 100%) and fresh is
+ * dimmer (`text-fgSubtle`, 40%). Intensity tracks "needs attention", not
+ * "severity of state" — rendering the rotting profile fainter than the healthy
+ * one would bury exactly what this component exists to surface.
  */
 function DataAgePill({
   hours,
@@ -487,11 +499,11 @@ function DataAgePill({
 }) {
   return (
     <span
-      className={`text-caption tabular-nums ${stale ? 'text-fgSubtle' : 'text-fgMuted'}`}
+      className={`text-caption tabular-nums ${stale ? 'text-fg' : 'text-fgSubtle'}`}
       title={
         hours === null
           ? 'No successful capture in the last 14 days'
-          : `Data captured ${Math.round(hours)}h ago`
+          : `Data captured ${formatDataAge(hours)} ago`
       }
     >
       {formatDataAge(hours)}

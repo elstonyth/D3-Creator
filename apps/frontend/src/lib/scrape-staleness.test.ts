@@ -9,6 +9,7 @@ import {
   dataAgeHours,
   formatDataAge,
   isStale,
+  needsAttention,
 } from './scrape-staleness';
 
 const NOW = Date.parse('2026-08-17T07:00:00Z');
@@ -55,4 +56,33 @@ test('a malformed timestamp yields null instead of throwing', () => {
   expect(dataAgeHours('not-a-date', NOW)).toBeNull();
   // Unparseable is treated the same as missing: surface it, don't hide it.
   expect(isStale('not-a-date', NOW)).toBe(true);
+});
+
+// --- needsAttention: stale AND not deliberately retired ---
+
+test('a retired (private) profile never needs attention, however old', () => {
+  // Live case: three RedNote profiles sit at ~1600h by design. They are gated
+  // out of the roster, so they are never scraped and never will be fresh.
+  const ancient = '2026-06-11T04:37:37Z';
+  expect(isStale(ancient, NOW)).toBe(true); // the age fact is unchanged...
+  expect(needsAttention('private', ancient, NOW)).toBe(false); // ...but not actionable
+  expect(needsAttention('private', null, NOW)).toBe(false);
+});
+
+test('a failed profile with old data does need attention', () => {
+  // sunsunnn33: the case this whole feature exists for.
+  expect(needsAttention('failed', '2026-06-08T04:00:20Z', NOW)).toBe(true);
+});
+
+test('a healthy recent profile does not need attention', () => {
+  expect(needsAttention('ok', hoursAgo(3), NOW)).toBe(false);
+});
+
+test('retiring a profile to private clears it from the surface', () => {
+  // The plan's own recommended remedy is to set a dead profile `private`.
+  // Without this, every correct operator action would add a permanent false
+  // positive to the alarm list it just built.
+  const dead = '2026-06-08T04:00:20Z';
+  expect(needsAttention('failed', dead, NOW)).toBe(true);
+  expect(needsAttention('private', dead, NOW)).toBe(false);
 });

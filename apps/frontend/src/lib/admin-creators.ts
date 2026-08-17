@@ -13,7 +13,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveProfileName } from './profile-name';
 import { fetchAllRows } from './queries';
-import { dataAgeHours, isStale } from './scrape-staleness';
+import { dataAgeHours, isStale, needsAttention } from './scrape-staleness';
 
 const SNAPSHOT_WINDOW_DAYS = 14;
 
@@ -285,7 +285,16 @@ export async function getAdminCreatorsData(
       totalViews,
       engagement: totalViews > 0 ? totalLikes / totalViews : null,
       status: worstStatus(profileRows.map((p) => p.scrapeStatus)),
-      staleProfileCount: profileRows.filter((p) => p.isStale).length,
+      // Excludes retired (`private`) profiles — they're gated out of the roster
+      // deliberately, so their age grows forever and would inflate this count
+      // permanently. See needsAttention().
+      staleProfileCount: own.filter((p) =>
+        needsAttention(
+          p.scrape_status,
+          (snapsByProfile.get(p.id) ?? [])[0]?.captured_at ?? null,
+          nowMs,
+        ),
+      ).length,
       profiles: profileRows,
     };
   });
