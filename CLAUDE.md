@@ -66,7 +66,7 @@ UI components live in `apps/frontend/src/components/ui/`. Check existing ones fi
 
 ## Frontend rules
 
-- SWR for data fetching. Each `useSWR` in its own hook. Comply with `react-hooks/rules-of-hooks`. Never `eslint-disable-next-line`.
+- Data fetching happens in Server Components via `apps/frontend/src/lib/queries.ts` — there is no client-side fetching library. If a client component ever needs data, fetch it in the server parent and pass it down. Comply with `react-hooks/rules-of-hooks`. Never `eslint-disable-next-line`.
 - Lint runs only from root.
 - Production system — don't break existing users, migration may be needed.
 

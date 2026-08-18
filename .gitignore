@@ -35,6 +35,10 @@ yarn-error.log
 testem.log
 /typings
 
+# Python bytecode (from .claude/skills scripts)
+__pycache__/
+*.pyc
+
 # System Files
 .DS_Store
 Thumbs.db
