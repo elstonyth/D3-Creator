@@ -8,14 +8,14 @@ Login-free social analytics. Agency tool + white-label client portal. Scraper-ba
 
 ## Stack
 
-| Layer | Choice |
-|---|---|
-| Frontend | Next.js App Router (React 19) + Tailwind 3 |
-| Database | Supabase Postgres + Storage |
-| Scrapers | TikHub REST + BrightData datasets |
-| Hosting | Vercel (frontend + functions + cron) |
-| Scheduling | Vercel Cron — NOT Temporal |
-| Package mgr | pnpm only |
+| Layer       | Choice                                     |
+| ----------- | ------------------------------------------ |
+| Frontend    | Next.js App Router (React 19) + Tailwind 3 |
+| Database    | Supabase Postgres + Storage                |
+| Scrapers    | TikHub REST + BrightData datasets          |
+| Hosting     | Vercel (frontend + functions + cron)       |
+| Scheduling  | Vercel Cron — NOT Temporal                 |
+| Package mgr | pnpm only                                  |
 
 Note: spec mentions Temporal (`apps/orchestrator`) — that was Postiz architecture. Deleted. Scheduling is now Vercel Cron.
 
@@ -25,7 +25,6 @@ Note: spec mentions Temporal (`apps/orchestrator`) — that was Postiz architect
 apps/frontend/                              Next.js app
   src/app/(public)/                         Public routes (home, dashboard, leaderboard, creators)
   src/components/{ui,layout,*-showcase}/    Components
-libraries/react-shared-libraries/src/translation/   i18n only
 supabase/                                   Migrations (CLI-managed, created Task 2)
 docs/superpowers/specs/                     Design docs
 ```
@@ -35,6 +34,7 @@ docs/superpowers/specs/                     Design docs
 **Before writing any UI, read `DESIGN.md`.** Brand colors, typography, spacing — all live there. Match exactly; deviations need approval.
 
 Tailwind 3. Before writing component check:
+
 - `apps/frontend/src/app/colors.scss`
 - `apps/frontend/src/app/global.scss`
 - `apps/frontend/tailwind.config.cjs`
@@ -73,22 +73,26 @@ UI components live in `apps/frontend/src/components/ui/`. Check existing ones fi
 ## Behavioral guidelines
 
 ### Think before coding
+
 - State assumptions. Uncertain → ask.
 - Multiple interpretations → present them.
 - Simpler approach exists → say so, push back.
 
 ### Simplicity first
+
 - No features beyond asked.
 - No abstractions for single-use.
 - No unrequested flexibility.
 
 ### Surgical changes
+
 - Touch only what task needs.
 - Match existing style.
 - Notice unrelated dead code → mention, don't delete.
 - Remove imports/vars YOUR changes orphaned.
 
 ### Goal-driven
+
 - "Add validation" → "Write test for invalid input, then make pass."
 - Multi-step → brief plan, verify each step.
 
@@ -101,6 +105,7 @@ Prior memory said "TanStack migration in progress" — **disregard**. Migration 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
 
 Rules:
+
 - For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
 - If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
