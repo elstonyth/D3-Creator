@@ -3,8 +3,8 @@
  * endpoints (e.g. /api/scrape) can throttle abuse with one call. Inert when
  * UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN are unset (local dev). If the
  * limiter THROWS (bad token / Redis down) we fail OPEN — a limiter outage must
- * never take an endpoint down. (Also the fix proxy-image should adopt: today its
- * limiter is fail-closed, so a bad token 500s every request.)
+ * never take an endpoint down. proxy-image now uses the same fail-open behavior
+ * inline (PR #9), so the two are consistent.
  */
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
