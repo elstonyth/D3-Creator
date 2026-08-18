@@ -21,6 +21,7 @@ import { PlatformPill } from '@gitroom/frontend/components/ui/platform-pill';
 import type { PlatformKey } from '@gitroom/frontend/components/ui/platform-icons';
 import {
   getAdminCreatorsData,
+  SNAPSHOT_WINDOW_DAYS,
   type AdminCreatorGroup,
   type AdminProfileRow,
 } from '@gitroom/frontend/lib/admin-creators';
@@ -502,7 +503,7 @@ function DataAgePill({
       className={`text-caption tabular-nums ${stale ? 'text-fg' : 'text-fgSubtle'}`}
       title={
         hours === null
-          ? 'No successful capture in the last 14 days'
+          ? `No successful capture in the last ${SNAPSHOT_WINDOW_DAYS} days`
           : `Data captured ${formatDataAge(hours)} ago`
       }
     >

@@ -15,7 +15,7 @@ import { resolveProfileName } from './profile-name';
 import { fetchAllRows } from './queries';
 import { dataAgeHours, isStale, needsAttention } from './scrape-staleness';
 
-const SNAPSHOT_WINDOW_DAYS = 14;
+export const SNAPSHOT_WINDOW_DAYS = 14;
 
 export interface AdminPendingClaim {
   userId: string;
