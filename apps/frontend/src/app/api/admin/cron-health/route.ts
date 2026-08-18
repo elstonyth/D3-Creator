@@ -23,7 +23,7 @@ import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { getSupabaseAdmin } from '@d3/database';
-import { fetchAllRows } from '@gitroom/frontend/lib/queries';
+import { latestSnapshotsForProfiles } from '@gitroom/frontend/lib/queries';
 import {
   STALE_AFTER_HOURS,
   dataAgeHours,
@@ -107,8 +107,14 @@ export async function GET(request: Request): Promise<Response> {
  * (last ATTEMPT); the failing profile's attempt timestamp stays fresh forever
  * precisely because the cron keeps retrying it.
  *
- * Two bounded queries, not one per profile: the roster is ~120 rows and the
- * snapshot read is capped by fetchAllRows' paging.
+ * The roster read is one bounded query; the capture timestamps come from
+ * latestSnapshotsForProfiles (lib/queries.ts), which issues one indexed
+ * `.limit(1)` per profile in bounded batches. It previously paged the WHOLE of
+ * profile_snapshot with an unfiltered fetchAllRows and kept only the first row
+ * per profile — ~22 sequential round-trips today to compute what is really
+ * MAX(captured_at) per profile, growing linearly with the roster inside a
+ * 30-second function. (The old comment here claimed paging "capped" that read.
+ * Paging does the opposite: it removes the cap.)
  */
 async function staleProfiles(sb: SupabaseClient): Promise<{
   rows: Array<{
@@ -143,25 +149,17 @@ async function staleProfiles(sb: SupabaseClient): Promise<{
   }>;
   if (profiles.length === 0) return { rows: [], error: null };
 
-  // Newest capture per profile. Paged so PostgREST's ~1000-row response cap
-  // can't silently truncate the tail — the stalest profiles sort LAST under
-  // captured_at desc, so truncation would drop exactly what we're looking for.
-  const snaps = await fetchAllRows<{ profile_id: string; captured_at: string }>(
-    (from, to) =>
-      sb
-        .from('profile_snapshot')
-        .select('profile_id, captured_at')
-        .order('captured_at', { ascending: false })
-        .order('id', { ascending: false })
-        .range(from, to),
+  // Newest capture per profile — one indexed `.limit(1)` per profile, batched.
+  // A per-profile read cannot truncate: the stalest profiles sort LAST under a
+  // global `captured_at desc`, so the old whole-table paging was dropping
+  // exactly the rows this endpoint exists to find if a page was ever missed.
+  const latest = await latestSnapshotsForProfiles(
+    profiles.map((p) => p.id),
+    sb,
   );
-  if (snaps.error) return { rows: [], error: snaps.error.message };
-
   const newestByProfile = new Map<string, string>();
-  for (const s of snaps.rows) {
-    if (!newestByProfile.has(s.profile_id)) {
-      newestByProfile.set(s.profile_id, s.captured_at);
-    }
+  for (const [profileId, snap] of latest) {
+    newestByProfile.set(profileId, snap.captured_at);
   }
 
   return {

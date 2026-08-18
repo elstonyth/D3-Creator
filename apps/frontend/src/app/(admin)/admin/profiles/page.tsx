@@ -495,9 +495,14 @@ function DataAgePill({
   hours,
   stale,
 }: {
-  hours: number | null;
-  stale: boolean;
+  hours?: number | null;
+  stale?: boolean;
 }) {
+  // `undefined` means the builder never evaluated staleness (getAdminCreatorDetail
+  // fetches no snapshots) — distinct from `null`, which means "evaluated, and
+  // found no capture in the window", the worst case. Render nothing rather than
+  // an age we did not measure. `null` still renders, and renders as 'no data'.
+  if (hours === undefined) return null;
   return (
     <span
       className={`text-caption tabular-nums ${stale ? 'text-fg' : 'text-fgSubtle'}`}

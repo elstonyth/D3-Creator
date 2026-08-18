@@ -9,8 +9,8 @@
     "prewarm": "node scripts/prewarm.mjs",
     "fetch-gtm": "node scripts/fetch-gtm.mjs",
     "postinstall": "node scripts/fetch-gtm.mjs",
-    "build": "next build",
-    "build:frontend": "next build",
+    "build": "dotenv -e ../../.env -- next build",
+    "build:frontend": "dotenv -e ../../.env -- next build",
     "lint": "eslint . --max-warnings=0",
     "build:sentry": "dotenv -e ../../.env -- next build",
     "start": "dotenv -e ../../.env -- next start -p 4200",
@@ -25,6 +25,7 @@
     "@sentry/nextjs": "^10.45.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.2",
+    "@swc/helpers": "0.5.13",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "@vercel/analytics": "^2.0.1",
@@ -38,7 +39,10 @@
     "react-dom": "19.2.4",
     "react-use-cookie": "^1.6.1",
     "tailwind-merge": "^3.6.0",
-    "three": "^0.167.1"
+    "tailwind-scrollbar": "^3.1.0",
+    "tailwindcss-rtl": "^0.9.0",
+    "three": "^0.167.1",
+    "tslib": "^2.3.0"
   },
   "devDependencies": {
     "@types/node": "^22.12.0",

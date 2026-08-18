@@ -2,6 +2,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { MetricWindow } from './metrics-windowed';
 import { getDashboardViewTotalsWindowed } from './metrics-windowed';
+import { latestSnapshotsForProfiles } from './queries';
 import type { PlatformKey } from '@gitroom/frontend/components/ui/platform-icons';
 
 export interface PlatformCard {
@@ -43,46 +44,18 @@ export async function getCreatorPlatformBreakdown(
 
   // Latest scraped follower count per profile (newest snapshot wins).
   //
-  // One `.limit(1)` query per profile (a creator has <=4 here, RedNote excluded)
-  // — NOT a single unbounded `.in()` over full history. PostgREST caps a response
-  // at ~1000 rows, and because the rows are ordered by captured_at across ALL of
-  // the creator's profiles, a few actively-scraped profiles fill the page and the
-  // stalest profile's newest row falls off the end — rendering null followers for
-  // exactly the profile most likely to need attention. Same reasoning (and same
-  // fix) as latestSnapshotsForProfiles in lib/queries.ts.
+  // Delegated to latestSnapshotsForProfiles, which issues one `.limit(1)` per
+  // profile — NOT a single unbounded `.in()` over full history. PostgREST caps a
+  // response at ~1000 rows, and because those rows are ordered by captured_at
+  // across ALL of the creator's profiles, a few actively-scraped profiles fill
+  // the page and the stalest profile's newest row falls off the end — rendering
+  // null followers for exactly the profile most likely to need attention. It is
+  // passed this route's cookie-scoped client rather than the default read
+  // client, so RLS still applies.
+  const latest = await latestSnapshotsForProfiles(profileIds, client);
   const followersByProfile = new Map<string, number | null>();
-  if (profileIds.length > 0) {
-    const uniqueIds = Array.from(new Set(profileIds));
-    const results = await Promise.all(
-      uniqueIds.map((pid) =>
-        client
-          .from('profile_snapshot')
-          .select('profile_id, followers, captured_at')
-          .eq('profile_id', pid)
-          .order('captured_at', { ascending: false })
-          .order('id', { ascending: false })
-          .limit(1),
-      ),
-    );
-    for (const res of results) {
-      // Log and skip a per-profile failure so one bad profile can't blank the
-      // others (the previous `const { data }` destructure dropped errors
-      // silently, making a failed query look like "no snapshots").
-      if (res.error) {
-        console.error(
-          '[creator-platform-breakdown] latest snapshot',
-          res.error,
-        );
-        continue;
-      }
-      const row = res.data?.[0];
-      if (row && !followersByProfile.has(row.profile_id as string)) {
-        followersByProfile.set(
-          row.profile_id as string,
-          (row.followers as number | null) ?? null,
-        );
-      }
-    }
+  for (const [profileId, snap] of latest) {
+    followersByProfile.set(profileId, snap.followers ?? null);
   }
 
   const slots = (profs ?? []).map((p) => ({

@@ -13,7 +13,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { resolveProfileName } from './profile-name';
 import { fetchAllRows } from './queries';
-import { dataAgeHours, isStale, needsAttention } from './scrape-staleness';
+import { dataAgeHours, isStale, RETIRED_STATUSES } from './scrape-staleness';
 
 export const SNAPSHOT_WINDOW_DAYS = 14;
 
@@ -43,10 +43,16 @@ export interface AdminProfileRow {
   pendingCount: number;
   /** Hours since the newest SUCCESSFUL capture (not since the last attempt).
    *  null when nothing was captured inside the SNAPSHOT_WINDOW_DAYS window —
-   *  which is itself the signal that the profile is badly stale. */
-  dataAgeHours: number | null;
-  /** True when data is older than STALE_AFTER_HOURS, or absent entirely. */
-  isStale: boolean;
+   *  which is itself the signal that the profile is badly stale.
+   *
+   *  OPTIONAL because getAdminCreatorDetail fetches no snapshots and therefore
+   *  cannot evaluate it. Absent means "not evaluated"; it is never a claim of
+   *  freshness. Only render these from a builder that actually read snapshots
+   *  (getAdminCreatorsData does; getAdminCreatorDetail does not). */
+  dataAgeHours?: number | null;
+  /** True when data is older than STALE_AFTER_HOURS, or absent entirely.
+   *  Optional for the same reason as dataAgeHours — see above. */
+  isStale?: boolean;
 }
 
 export interface AdminCreatorGroup {
@@ -166,6 +172,12 @@ export async function getAdminCreatorsData(
     // (profiles × 14 days), which silently truncated the oldest rows and
     // zeroed reach/delta for profiles not scraped recently. Stable total
     // order (captured_date, id) so pages can't overlap or skip.
+    //
+    // Note the sort key is captured_DATE, not captured_at, so `snaps[0]` is
+    // "newest date, then highest id" — not strictly MAX(captured_at). Two
+    // captures on the same UTC date can order by id rather than by clock time.
+    // Immaterial against a 48h staleness threshold and against day-over-day
+    // deltas; revisit if either ever becomes sub-daily.
     const { rows, error } = await fetchAllRows<SnapshotRow>((from, to) =>
       admin
         .from('profile_snapshot')
@@ -287,13 +299,12 @@ export async function getAdminCreatorsData(
       status: worstStatus(profileRows.map((p) => p.scrapeStatus)),
       // Excludes retired (`private`) profiles — they're gated out of the roster
       // deliberately, so their age grows forever and would inflate this count
-      // permanently. See needsAttention().
-      staleProfileCount: own.filter((p) =>
-        needsAttention(
-          p.scrape_status,
-          (snapsByProfile.get(p.id) ?? [])[0]?.captured_at ?? null,
-          nowMs,
-        ),
+      // permanently. Derived from profileRows (which already carries isStale,
+      // computed from the same snapshot) rather than recomputing from raw rows:
+      // two passes over the same data are two chances for this number to
+      // disagree with the per-profile pills rendered right beside it.
+      staleProfileCount: profileRows.filter(
+        (p) => p.isStale && !RETIRED_STATUSES.has(p.scrapeStatus),
       ).length,
       profiles: profileRows,
     };
@@ -398,11 +409,11 @@ export async function getAdminCreatorDetail(
       pendingCount: pc.filter((c) => c.claim_kind === 'pending').length,
       // NOT COMPUTED here: this editor view fetches no snapshots at all (see
       // followers/views above, both null), so there is no capture timestamp to
-      // measure against. `false` means "not evaluated on this page", not
-      // "verified fresh" — staleness is surfaced on /admin/profiles, which does
-      // fetch snapshots. Don't render these two fields from this builder.
-      dataAgeHours: null,
-      isStale: false,
+      // measure against. Both fields are optional on AdminProfileRow precisely
+      // so this builder can OMIT them rather than assert a value it did not
+      // evaluate — `isStale: false` used to read as "verified fresh" to anyone
+      // who didn't find this comment. Staleness is surfaced on /admin/profiles,
+      // which does fetch snapshots.
     };
   });
 

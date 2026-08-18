@@ -5,7 +5,33 @@
 
 version: 2
 updates:
-  - package-ecosystem: "npm" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  # Root manifest — workspace-wide tooling only, since plan 013 moved the app's
+  # real runtime dependencies into apps/frontend/package.json.
+  - package-ecosystem: "npm"
+    directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+
+  # The Next.js app declares its own dependencies and is outside "/".
+  # Watching only "/" would miss almost everything the product actually ships.
+  - package-ecosystem: "npm"
+    directory: "/apps/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+
+  # Keep the GitHub Actions in .github/workflows current too.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci(deps)"

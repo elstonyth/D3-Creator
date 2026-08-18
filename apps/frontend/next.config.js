@@ -76,7 +76,6 @@ const nextConfig = {
     ];
   },
   reactStrictMode: false,
-  transpilePackages: ['crypto-hash'],
   // Browser sourcemaps disabled in production — prevents source exposure to end-users.
   // Sentry still receives server-side maps via the Sentry webpack plugin (deleteSourcemapsAfterUpload: true).
   productionBrowserSourceMaps: false,

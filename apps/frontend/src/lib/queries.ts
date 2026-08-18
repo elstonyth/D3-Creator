@@ -12,6 +12,8 @@
  * polish).
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 import { getSupabaseRead } from './supabase-server';
 import { resolveMediaUrl } from './media-url';
 import type { TopContentRow } from './metrics-windowed';
@@ -471,9 +473,24 @@ export interface CreatorDetail {
  * creator page rendered null followers. A per-profile error is logged and
  * skipped so one bad profile doesn't blank the others.
  *
+ * `sb` defaults to the publishable-key read client, which is what the public
+ * creator pages want. Callers holding a different client — the service-role
+ * admin client in the cron-health route, the cookie-scoped client on /me —
+ * pass their own rather than re-implementing this query, which is how three
+ * divergent copies of it came to exist.
+ *
+ * Issued in bounded batches: the per-creator callers have ≤5 ids, but
+ * cron-health passes the whole roster (~120 and growing), and firing that many
+ * concurrent requests from one function is a good way to exhaust sockets.
+ *
  * Exported for unit tests (queries.latest-snapshots.test.ts).
  */
-export async function latestSnapshotsForProfiles(profileIds: string[]): Promise<
+const LATEST_SNAPSHOT_BATCH = 25;
+
+export async function latestSnapshotsForProfiles(
+  profileIds: string[],
+  sb: SupabaseClient = getSupabaseRead(),
+): Promise<
   Map<
     string,
     {
@@ -500,38 +517,40 @@ export async function latestSnapshotsForProfiles(profileIds: string[]): Promise<
     }
   >();
   if (profileIds.length === 0) return map;
-  const sb = getSupabaseRead();
   // Dedupe defensively — a repeated id would just burn a redundant query.
   const uniqueIds = Array.from(new Set(profileIds));
-  const results = await Promise.all(
-    uniqueIds.map((profileId) =>
-      sb
-        .from('profile_snapshot')
-        .select(
-          'profile_id, followers, following, total_posts, total_views, total_likes, captured_at, raw',
-        )
-        .eq('profile_id', profileId)
-        .order('captured_at', { ascending: false })
-        .order('id', { ascending: false })
-        .limit(1),
-    ),
-  );
-  for (const res of results) {
-    if (res.error) {
-      console.error('[queries] latestSnapshotsForProfiles', res.error);
-      continue;
-    }
-    const row = res.data?.[0];
-    if (row && !map.has(row.profile_id)) {
-      map.set(row.profile_id, {
-        followers: row.followers,
-        following: row.following,
-        total_posts: row.total_posts,
-        total_views: row.total_views,
-        total_likes: row.total_likes,
-        captured_at: row.captured_at,
-        raw: row.raw,
-      });
+  for (let i = 0; i < uniqueIds.length; i += LATEST_SNAPSHOT_BATCH) {
+    const batch = uniqueIds.slice(i, i + LATEST_SNAPSHOT_BATCH);
+    const results = await Promise.all(
+      batch.map((profileId) =>
+        sb
+          .from('profile_snapshot')
+          .select(
+            'profile_id, followers, following, total_posts, total_views, total_likes, captured_at, raw',
+          )
+          .eq('profile_id', profileId)
+          .order('captured_at', { ascending: false })
+          .order('id', { ascending: false })
+          .limit(1),
+      ),
+    );
+    for (const res of results) {
+      if (res.error) {
+        console.error('[queries] latestSnapshotsForProfiles', res.error);
+        continue;
+      }
+      const row = res.data?.[0];
+      if (row && !map.has(row.profile_id)) {
+        map.set(row.profile_id, {
+          followers: row.followers,
+          following: row.following,
+          total_posts: row.total_posts,
+          total_views: row.total_views,
+          total_likes: row.total_likes,
+          captured_at: row.captured_at,
+          raw: row.raw,
+        });
+      }
     }
   }
   return map;
