@@ -153,40 +153,62 @@ test("exhausting the budget throws ScrapeError('failed') with the budget in the 
 });
 
 test('characterization: the budget bounds trigger+poll only — the snapshot fetch is not deadline-aware', async () => {
-  // This pins CURRENT behavior; it is not an endorsement. A test where the
-  // snapshot fetch starts AND finishes before the deadline would prove
-  // nothing here — a deadline-aware fetchSnapshot would pass it too. To
-  // discriminate, the snapshot response's json() resolves only AFTER fake
-  // timers have advanced well past the deadline. Only in that shape does a
-  // future deadline-aware fetchSnapshot fail this test — which is exactly
-  // the alarm it exists to be. If fetchSnapshot is deliberately made
-  // deadline-aware, rewrite this test; do not delete it.
+  // This pins CURRENT behavior; it is not an endorsement. A naive version of
+  // this test — advance fake timers past the deadline, then resolve a held
+  // json() promise with no wiring to the abort signal — would pass even
+  // against a REALISTIC deadline-aware rewrite: this file's own
+  // PER_REQUEST_TIMEOUT_MS pattern shows the natural fix is to arm the
+  // snapshot fetch's AbortController off the REMAINING budget
+  // (deadline - Date.now()) rather than a flat 30s, and an abort that fires
+  // with nothing listening for it is silently swallowed by a bare
+  // `json: () => heldPromise` mock — proving nothing (verified against a
+  // throwaway mutated copy of this client during development: that shape
+  // resolved fine even with the mutation in place).
+  //
+  // To actually discriminate, the mock must mirror how a real Response ties
+  // its body read to the abort signal (documented in this file's
+  // brightdataFetchJson comment): it captures the signal passed to fetch()
+  // and rejects json() if that signal aborts before the body is supplied.
+  // timeoutMs is kept well under the fixed 30s PER_REQUEST_TIMEOUT_MS so
+  // advancing past the deadline here does NOT also trip that unrelated
+  // timer — isolating the assertion to deadline behavior specifically. Only
+  // in this shape does a deadline-aware fetchSnapshot fail this test, which
+  // is exactly the alarm it exists to be. If fetchSnapshot is deliberately
+  // made deadline-aware, rewrite this test; do not delete it.
   jest.useFakeTimers({ doNotFake: ['performance'] });
 
-  const timeoutMs = 30_000;
+  const timeoutMs = 5_000;
   let resolveSnapshotJson!: (rows: unknown) => void;
-  const heldSnapshotJson = new Promise((resolve) => {
-    resolveSnapshotJson = resolve;
-  });
 
   mockFetch
     .mockResolvedValueOnce(httpResponse(200, { snapshot_id: 's_1' }))
     .mockResolvedValueOnce(httpResponse(200, { status: 'ready' }))
-    .mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: () => heldSnapshotJson,
-    } as unknown as Response);
+    .mockImplementationOnce(
+      (_url: string, init?: { signal?: AbortSignal }) => {
+        const signal = init?.signal;
+        const json = new Promise((resolve, reject) => {
+          resolveSnapshotJson = resolve;
+          signal?.addEventListener('abort', () => {
+            const err = new Error('The operation was aborted');
+            err.name = 'AbortError';
+            reject(err);
+          });
+        });
+        return Promise.resolve({ ok: true, status: 200, json: () => json });
+      },
+    );
 
   const resultPromise = runDataset({ ...OPTS, timeoutMs });
 
   // pollProgress already returned after the first ('ready') poll, so nothing
   // but the held snapshot body stands between here and runDataset resolving.
-  // Advance well past the deadline while that body is still unresolved.
+  // Advance well past the deadline (5s) but well under the fixed 30s
+  // PER_REQUEST_TIMEOUT_MS, then supply the body.
   await jest.advanceTimersByTimeAsync(timeoutMs + 10_000);
 
   // The discriminating moment: the deadline computed at the start of
-  // runDataset has already elapsed by the time the snapshot body arrives.
+  // runDataset has already elapsed by the time the snapshot body arrives,
+  // and current code's per-request abort (flat 30s) has NOT fired yet.
   resolveSnapshotJson([{ a: 1 }]);
 
   await expect(resultPromise).resolves.toEqual([{ a: 1 }]);
