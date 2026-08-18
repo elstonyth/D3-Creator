@@ -315,12 +315,17 @@ async function fetchSnapshot<T>(
  * Run a Bright Data Web Scraper dataset end-to-end:
  * trigger → poll until ready → fetch snapshot items.
  *
- * `timeoutMs` is the TOTAL budget for the whole flow, as documented on
- * RunDatasetOptions — the deadline starts before the trigger, not after it
- * (the old behavior, which let trigger + fetch push the real wall-clock
- * ~60s past the stated budget so the caller's outer wrapper killed the
- * scrape instead of this client timing out with proper error mapping).
- * Trigger and fetch are additionally bounded by the 30s per-request timeout.
+ * The `deadline` is computed once, before `triggerScrape`, and is consumed
+ * by `pollProgress`'s `while (Date.now() < deadline)` loop — so `timeoutMs`
+ * bounds the trigger call plus the polling loop (the old behavior, which let
+ * trigger push the real wall-clock past the stated budget so the caller's
+ * outer wrapper killed the scrape instead of this client timing out with
+ * proper error mapping). `fetchSnapshot` runs AFTER `pollProgress` returns
+ * and is deliberately outside the deadline: it is bounded only by its own
+ * 30s PER_REQUEST_TIMEOUT_MS, so worst-case wall clock for the whole flow is
+ * `timeoutMs + PER_REQUEST_TIMEOUT_MS`, not `timeoutMs`. See FB_BUDGET_MS in
+ * adapters/facebook.ts and the accepted-tail note in
+ * apps/frontend/src/lib/scrape-budget.ts for the caller-side consequence.
  */
 export async function runDataset<T = unknown>(
   opts: RunDatasetOptions,
