@@ -32,7 +32,8 @@ D3 Creator is a scraper-based analytics platform for agencies managing multiple 
 apps/frontend/                  Next.js app (D3 surface)
   src/app/(public)/             Public showcase routes
   src/components/               UI components, showcases
-libraries/react-shared-libraries/src/translation/   i18n
+libraries/scrapers/             Per-platform scraper adapters
+libraries/database/             Supabase client + snapshot writes
 supabase/                       Schema migrations (created in Task 2)
 docs/superpowers/specs/         Design docs
 ```

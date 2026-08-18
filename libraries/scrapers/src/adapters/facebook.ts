@@ -276,9 +276,12 @@ export const facebookAdapter: PlatformAdapter = {
     // FACEBOOK_SCRAPE_TIMEOUT_MS wrapper: in the common case (sub-second
     // progress responses, ~2-5s snapshot fetch) the adapter finishes or times
     // out by ~245s with its richer error mapping. Worst-case wall clock is
-    // FB_BUDGET_MS + PER_REQUEST_TIMEOUT_MS: in-flight 30s requests past the
-    // deadline can stack to ~300s, where the wrapper kills with a generic
-    // timeout — accepted tail, see apps/frontend/src/lib/scrape-budget.ts:32.
+    // FB_BUDGET_MS + 2 * PER_REQUEST_TIMEOUT_MS — two 30s windows, not one: a
+    // poll that STARTS just under the deadline still runs its full 30s, and if
+    // it returns `ready` the snapshot fetch gets a fresh 30s after it. So the
+    // in-flight requests past the deadline stack to ~300s, where the wrapper
+    // kills with a generic timeout — accepted tail, see
+    // apps/frontend/src/lib/scrape-budget.ts:32.
     // Shrinking the budget to close it would fail scrapes in the real
     // 210-244s band instead.
     const FB_BUDGET_MS = 240_000;

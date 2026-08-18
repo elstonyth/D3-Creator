@@ -55,7 +55,11 @@ export interface RunDatasetOptions {
   platform: string;
   /** Profile URL — surfaced in error context. */
   profileUrl: string;
-  /** Total budget in ms. Default 300_000 (5 min). */
+  /**
+   * Budget in ms for the trigger call plus the polling loop. Default 300_000
+   * (5 min). NOT a total-flow budget: the snapshot fetch runs after the
+   * deadline and is bounded only by PER_REQUEST_TIMEOUT_MS — see `runDataset`.
+   */
   timeoutMs?: number;
   /** Poll interval in ms. Default 5_000 (5 s). */
   pollIntervalMs?: number;
@@ -322,10 +326,14 @@ async function fetchSnapshot<T>(
  * outer wrapper killed the scrape instead of this client timing out with
  * proper error mapping). `fetchSnapshot` runs AFTER `pollProgress` returns
  * and is deliberately outside the deadline: it is bounded only by its own
- * 30s PER_REQUEST_TIMEOUT_MS, so worst-case wall clock for the whole flow is
- * `timeoutMs + PER_REQUEST_TIMEOUT_MS`, not `timeoutMs`. See FB_BUDGET_MS in
- * adapters/facebook.ts and the accepted-tail note in
- * apps/frontend/src/lib/scrape-budget.ts for the caller-side consequence.
+ * 30s PER_REQUEST_TIMEOUT_MS.
+ *
+ * Worst-case wall clock is therefore `timeoutMs + 2 * PER_REQUEST_TIMEOUT_MS`,
+ * not `timeoutMs`. TWO per-request windows, not one: the loop guard is
+ * `Date.now() < deadline`, so a poll that STARTS at `deadline - 1ms` still runs
+ * its full 30s; if that poll returns `ready`, `fetchSnapshot` then gets a fresh
+ * 30s of its own. See FB_BUDGET_MS in adapters/facebook.ts and the accepted-tail
+ * note in apps/frontend/src/lib/scrape-budget.ts for the caller-side consequence.
  */
 export async function runDataset<T = unknown>(
   opts: RunDatasetOptions,
