@@ -42,18 +42,45 @@ export async function getCreatorPlatformBreakdown(
   const profileIds = (profs ?? []).map((p) => p.id as string);
 
   // Latest scraped follower count per profile (newest snapshot wins).
+  //
+  // One `.limit(1)` query per profile (a creator has <=4 here, RedNote excluded)
+  // — NOT a single unbounded `.in()` over full history. PostgREST caps a response
+  // at ~1000 rows, and because the rows are ordered by captured_at across ALL of
+  // the creator's profiles, a few actively-scraped profiles fill the page and the
+  // stalest profile's newest row falls off the end — rendering null followers for
+  // exactly the profile most likely to need attention. Same reasoning (and same
+  // fix) as latestSnapshotsForProfiles in lib/queries.ts.
   const followersByProfile = new Map<string, number | null>();
   if (profileIds.length > 0) {
-    const { data: snaps } = await client
-      .from('profile_snapshot')
-      .select('profile_id, followers, captured_at')
-      .in('profile_id', profileIds)
-      .order('captured_at', { ascending: false })
-      .order('id', { ascending: false });
-    for (const s of snaps ?? []) {
-      const pid = s.profile_id as string;
-      if (!followersByProfile.has(pid)) {
-        followersByProfile.set(pid, (s.followers as number | null) ?? null);
+    const uniqueIds = Array.from(new Set(profileIds));
+    const results = await Promise.all(
+      uniqueIds.map((pid) =>
+        client
+          .from('profile_snapshot')
+          .select('profile_id, followers, captured_at')
+          .eq('profile_id', pid)
+          .order('captured_at', { ascending: false })
+          .order('id', { ascending: false })
+          .limit(1),
+      ),
+    );
+    for (const res of results) {
+      // Log and skip a per-profile failure so one bad profile can't blank the
+      // others (the previous `const { data }` destructure dropped errors
+      // silently, making a failed query look like "no snapshots").
+      if (res.error) {
+        console.error(
+          '[creator-platform-breakdown] latest snapshot',
+          res.error,
+        );
+        continue;
+      }
+      const row = res.data?.[0];
+      if (row && !followersByProfile.has(row.profile_id as string)) {
+        followersByProfile.set(
+          row.profile_id as string,
+          (row.followers as number | null) ?? null,
+        );
       }
     }
   }

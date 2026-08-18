@@ -21,6 +21,7 @@ import { PlatformPill } from '@gitroom/frontend/components/ui/platform-pill';
 import type { PlatformKey } from '@gitroom/frontend/components/ui/platform-icons';
 import {
   getAdminCreatorsData,
+  SNAPSHOT_WINDOW_DAYS,
   type AdminCreatorGroup,
   type AdminProfileRow,
 } from '@gitroom/frontend/lib/admin-creators';
@@ -29,6 +30,7 @@ import {
   formatDelta,
   formatPercent,
 } from '@gitroom/frontend/lib/creator-metrics';
+import { formatDataAge } from '@gitroom/frontend/lib/scrape-staleness';
 
 import { ClaimActions, DeleteProfileButton } from './admin-actions';
 import { AdminSearchForm } from './admin-search';
@@ -61,12 +63,27 @@ type StatusGlyph = 'check' | 'clock' | 'x';
 
 const STATUS_META: Record<string, { cls: string; glyph: StatusGlyph }> = {
   ok: { cls: 'bg-brand/10 text-fg border-brand/20', glyph: 'check' },
-  pending: { cls: 'bg-white/[0.04] text-fgMuted border-white/10', glyph: 'clock' },
-  throttled: { cls: 'bg-white/[0.04] text-fgMuted border-white/10', glyph: 'clock' },
-  handle_changed: { cls: 'bg-white/[0.04] text-fgMuted border-white/10', glyph: 'clock' },
-  private: { cls: 'bg-white/[0.04] text-fgMuted border-white/10', glyph: 'clock' },
+  pending: {
+    cls: 'bg-white/[0.04] text-fgMuted border-white/10',
+    glyph: 'clock',
+  },
+  throttled: {
+    cls: 'bg-white/[0.04] text-fgMuted border-white/10',
+    glyph: 'clock',
+  },
+  handle_changed: {
+    cls: 'bg-white/[0.04] text-fgMuted border-white/10',
+    glyph: 'clock',
+  },
+  private: {
+    cls: 'bg-white/[0.04] text-fgMuted border-white/10',
+    glyph: 'clock',
+  },
   failed: { cls: 'bg-white/[0.04] text-fgSubtle border-white/10', glyph: 'x' },
-  not_found: { cls: 'bg-white/[0.04] text-fgSubtle border-white/10', glyph: 'x' },
+  not_found: {
+    cls: 'bg-white/[0.04] text-fgSubtle border-white/10',
+    glyph: 'x',
+  },
 };
 
 function StatusGlyphIcon({ glyph }: { glyph: StatusGlyph }) {
@@ -81,8 +98,18 @@ function StatusGlyphIcon({ glyph }: { glyph: StatusGlyph }) {
     strokeLinejoin: 'round' as const,
     'aria-hidden': true,
   };
-  if (glyph === 'check') return <svg {...common}><path d="M20 6L9 17l-5-5" /></svg>;
-  if (glyph === 'x') return <svg {...common}><path d="M18 6L6 18M6 6l12 12" /></svg>;
+  if (glyph === 'check')
+    return (
+      <svg {...common}>
+        <path d="M20 6L9 17l-5-5" />
+      </svg>
+    );
+  if (glyph === 'x')
+    return (
+      <svg {...common}>
+        <path d="M18 6L6 18M6 6l12 12" />
+      </svg>
+    );
   return (
     <svg {...common}>
       <circle cx="12" cy="12" r="9" />
@@ -92,7 +119,13 @@ function StatusGlyphIcon({ glyph }: { glyph: StatusGlyph }) {
 }
 
 // Allowlist for the ?platform= filter — mirrors the profile.platform CHECK set.
-const FILTER_PLATFORMS = new Set(['instagram', 'tiktok', 'facebook', 'rednote', 'douyin']);
+const FILTER_PLATFORMS = new Set([
+  'instagram',
+  'tiktok',
+  'facebook',
+  'rednote',
+  'douyin',
+]);
 
 export default async function AdminProfilesPage({
   searchParams,
@@ -115,7 +148,9 @@ export default async function AdminProfilesPage({
   const normalizedQuery = rawQ.trim().slice(0, 80);
   const query = normalizedQuery.toLowerCase();
   const platform = FILTER_PLATFORMS.has(rawPlatform) ? rawPlatform : '';
-  const platforms = Array.from(new Set(groups.flatMap((g) => g.platforms))).sort();
+  const platforms = Array.from(
+    new Set(groups.flatMap((g) => g.platforms)),
+  ).sort();
   const filteredGroups = groups.filter((g) => {
     const matchesPlatform = !platform || g.platforms.includes(platform);
     const matchesQuery =
@@ -167,8 +202,8 @@ export default async function AdminProfilesPage({
             Pending claims ({pendingClaims.length})
           </h2>
           <p className="text-caption text-fgMuted">
-            A user claimed a profile whose handle didn&apos;t auto-match. Approve to
-            make them its owner, or reject.
+            A user claimed a profile whose handle didn&apos;t auto-match.
+            Approve to make them its owner, or reject.
           </p>
           <ul className="divide-y divide-borderGlass border border-borderGlass rounded-2xl overflow-hidden">
             {pendingClaims.map((c) => (
@@ -183,9 +218,15 @@ export default async function AdminProfilesPage({
                   <div className="text-body text-fg truncate">
                     {c.handle ?? c.profileUrl}
                   </div>
-                  <div className="text-caption text-fgSubtle">User: {c.userId}</div>
+                  <div className="text-caption text-fgSubtle">
+                    User: {c.userId}
+                  </div>
                 </div>
-                <ClaimActions userId={c.userId} profileId={c.profileId} alreadyOwned={c.alreadyOwned} />
+                <ClaimActions
+                  userId={c.userId}
+                  profileId={c.profileId}
+                  alreadyOwned={c.alreadyOwned}
+                />
               </li>
             ))}
           </ul>
@@ -196,7 +237,10 @@ export default async function AdminProfilesPage({
       <section className="flex flex-col gap-4">
         <h2 className="text-section text-fg">
           All accounts ({filteredGroups.length}
-          {filteredGroups.length !== groups.length ? ` of ${groups.length}` : ''})
+          {filteredGroups.length !== groups.length
+            ? ` of ${groups.length}`
+            : ''}
+          )
         </h2>
 
         {/* Filter toolbar — URL-as-state via GET form + platform chip links */}
@@ -251,7 +295,10 @@ export default async function AdminProfilesPage({
       </section>
 
       <div className="text-caption text-fgMuted">
-        <Link href="/admin" className="text-aurora-cta underline underline-offset-4">
+        <Link
+          href="/admin"
+          className="text-aurora-cta underline underline-offset-4"
+        >
           ← Back to admin
         </Link>
       </div>
@@ -277,7 +324,11 @@ function CreatorCard({ group }: { group: AdminCreatorGroup }) {
         <div className="size-11 rounded-full bg-customColor1 border border-borderGlass flex items-center justify-center overflow-hidden shrink-0">
           {group.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- external avatar, dims vary
-            <img src={group.avatarUrl} alt="" className="size-full object-cover" />
+            <img
+              src={group.avatarUrl}
+              alt=""
+              className="size-full object-cover"
+            />
           ) : (
             <span className="text-heading text-fgMuted">{initial}</span>
           )}
@@ -301,18 +352,36 @@ function CreatorCard({ group }: { group: AdminCreatorGroup }) {
           </div>
           <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
             {group.platforms.map((p) => (
-              <PlatformPill key={p} platform={toPlatformKey(p)} iconSize={12} className="!px-2 !py-1">
+              <PlatformPill
+                key={p}
+                platform={toPlatformKey(p)}
+                iconSize={12}
+                className="!px-2 !py-1"
+              >
                 {''}
               </PlatformPill>
             ))}
             <span className="text-caption text-fgSubtle ml-1">
               {group.profileCount} profile{group.profileCount === 1 ? '' : 's'}
             </span>
+            {group.staleProfileCount > 0 && (
+              // Brighter than the neutral metadata around it: this is the one
+              // thing on a collapsed card that means "open me". Yellow-mono —
+              // intensity, not hue (DESIGN.md §2).
+              <span className="text-caption text-fg ml-1">
+                · {group.staleProfileCount} stale
+              </span>
+            )}
           </div>
         </div>
         {/* Account aggregates */}
         <div className="flex items-center gap-6 text-right tabular-nums shrink-0 w-full justify-between sm:w-auto sm:justify-end">
-          <Agg label="reach" value={formatCompact(group.totalReach)} sub={`${deltaCaret(group.reachDelta)}${formatDelta(group.reachDelta)} today`} subClass={deltaClass(group.reachDelta)} />
+          <Agg
+            label="reach"
+            value={formatCompact(group.totalReach)}
+            sub={`${deltaCaret(group.reachDelta)}${formatDelta(group.reachDelta)} today`}
+            subClass={deltaClass(group.reachDelta)}
+          />
           <Agg label="views" value={formatCompact(group.totalViews)} />
           <Agg label="engagement" value={formatPercent(group.engagement)} />
         </div>
@@ -320,7 +389,9 @@ function CreatorCard({ group }: { group: AdminCreatorGroup }) {
 
       {/* Profiles under this account */}
       {group.profiles.length === 0 ? (
-        <div className="p-4 text-caption text-fgSubtle">No profiles on this account yet.</div>
+        <div className="p-4 text-caption text-fgSubtle">
+          No profiles on this account yet.
+        </div>
       ) : (
         <ul className="divide-y divide-borderGlass">
           {group.profiles.map((p) => (
@@ -339,8 +410,11 @@ function ProfileRowItem({ p }: { p: AdminProfileRow }) {
         <PlatformPill platform={toPlatformKey(p.platform)} iconSize={13} />
         <div className="min-w-0">
           <div className="text-body text-fg truncate flex items-center gap-2">
-            <span className="truncate">{p.displayName ?? p.handle ?? p.profileUrl}</span>
+            <span className="truncate">
+              {p.displayName ?? p.handle ?? p.profileUrl}
+            </span>
             <StatusPill status={p.scrapeStatus} />
+            <DataAgePill hours={p.dataAgeHours} stale={p.isStale} />
           </div>
           <a
             href={p.profileUrl}
@@ -374,7 +448,12 @@ function ProfileRowItem({ p }: { p: AdminProfileRow }) {
   );
 }
 
-function Agg(props: { label: string; value: string; sub?: string; subClass?: string }) {
+function Agg(props: {
+  label: string;
+  value: string;
+  sub?: string;
+  subClass?: string;
+}) {
   return (
     <div>
       <div className="text-body text-fg">{props.value}</div>
@@ -391,9 +470,44 @@ function StatusPill({ status }: { status: string }) {
     glyph: 'clock' as StatusGlyph,
   };
   return (
-    <span className={`inline-flex items-center gap-1 text-caption px-2 py-0.5 rounded-full border ${meta.cls}`}>
+    <span
+      className={`inline-flex items-center gap-1 text-caption px-2 py-0.5 rounded-full border ${meta.cls}`}
+    >
       <StatusGlyphIcon glyph={meta.glyph} />
       {status}
+    </span>
+  );
+}
+
+/**
+ * Age of the profile's DATA, next to its status.
+ *
+ * Without this, a `failed` badge looks identical whether the profile broke an
+ * hour ago or ten weeks ago — which is how one sat 70 days stale unnoticed.
+ *
+ * Yellow-mono per DESIGN.md §2 — intensity, never a foreign hue. Note the
+ * direction: STALE is the BRIGHTER of the two (`text-fg`, 100%) and fresh is
+ * dimmer (`text-fgSubtle`, 40%). Intensity tracks "needs attention", not
+ * "severity of state" — rendering the rotting profile fainter than the healthy
+ * one would bury exactly what this component exists to surface.
+ */
+function DataAgePill({
+  hours,
+  stale,
+}: {
+  hours: number | null;
+  stale: boolean;
+}) {
+  return (
+    <span
+      className={`text-caption tabular-nums ${stale ? 'text-fg' : 'text-fgSubtle'}`}
+      title={
+        hours === null
+          ? `No successful capture in the last ${SNAPSHOT_WINDOW_DAYS} days`
+          : `Data captured ${formatDataAge(hours)} ago`
+      }
+    >
+      {formatDataAge(hours)}
     </span>
   );
 }
