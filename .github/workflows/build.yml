@@ -61,7 +61,7 @@ jobs:
         run: |
           pnpm test
           npx jest --config libraries/scrapers/jest.config.cjs
-          for cfg in libraries/openrouter/jest.config.cjs libraries/media/jest.config.cjs apps/analyzer/jest.config.cjs; do
+          for cfg in libraries/database/jest.config.cjs libraries/openrouter/jest.config.cjs libraries/media/jest.config.cjs apps/analyzer/jest.config.cjs; do
             if [ -f "$cfg" ]; then echo "--- $cfg"; npx jest --config "$cfg"; fi
           done
 
