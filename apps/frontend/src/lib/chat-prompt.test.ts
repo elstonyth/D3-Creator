@@ -400,6 +400,77 @@ describe('chatbot-persona.md', () => {
     expect(persona).not.toContain('response_format');
   });
 
+  /**
+   * The measured regression this pins, written up in `src/content/README.md`.
+   *
+   * A paragraph added to the persona described the reply's PARTS in prose —
+   * "your explanation", "the hook, every spoken line and the call to action".
+   * It named no JSON and no field name. It still made the model abandon
+   * `response_format` and answer in Markdown, which the route 502s as "model
+   * reply unusable": 4 of 4 calls failed, against 4 of 4 passing on the same
+   * question with the paragraph removed, and 6 of 6 once it was rewritten as a
+   * pure language rule naming no output part.
+   *
+   * So the rule is stronger than the sibling "names no JSON envelope" test
+   * above: the persona may not name the SHAPE of the reply AT ALL, in any
+   * spelling. `RESPONSE_FORMAT` is the only output spec there is.
+   *
+   * Every pattern is deliberately narrowed to the structural sense of its
+   * word, because this persona writes legitimate prose about scripts:
+   *   - `\bbody\b` must not fire on "somebody else's script" (§ Rules).
+   *   - `on[-_ ]screen[-_ ]text` must not fire on "text-on-screen", which is a
+   *     delivery style; the separator class also catches the raw field name
+   *     `on_screen_text`, as `call[-_ ]to[-_ ]action` catches `call_to_action`.
+   *   - the QUOTED `"message"` / `"script"` forms must not fire on the bare
+   *     English nouns, which appear seven times between them.
+   * Checked against the persona as it stands: not one of these matches, so
+   * nothing had to be dropped for a legitimate usage.
+   *
+   * Never add the `g` flag. A shared `RegExp` with `g` carries `lastIndex`
+   * between `.exec()` calls and silently starts skipping matches.
+   */
+  const FORBIDDEN_OUTPUT_VOCABULARY: readonly {
+    pattern: RegExp;
+    why: string;
+  }[] = [
+    // Naming the wire format invites the model to hand-roll it in prose.
+    { pattern: /\bjson\b/i, why: 'names the wire format' },
+    // The two envelope fields, quoted — the bare nouns are legitimate prose.
+    { pattern: /"message"/i, why: 'names the envelope field `message`' },
+    { pattern: /"script"/i, why: 'names the envelope field `script`' },
+    // Schema vocabulary: describing the reply as data rather than as speech.
+    { pattern: /\bfields?\b/i, why: 'describes the reply as fields' },
+    { pattern: /\bkeys?\b/i, why: 'describes the reply as keys' },
+    { pattern: /\bobjects?\b/i, why: 'describes the reply as an object' },
+    { pattern: /\bschemas?\b/i, why: 'names the schema' },
+    { pattern: /\bformats?\b/i, why: 'names the output format' },
+    // The structural nouns of §10A.8 — these are what actually broke it.
+    { pattern: /\bhooks?\b/i, why: 'names the script part `hook`' },
+    {
+      pattern: /call[-_ ]to[-_ ]action/i,
+      why: 'names the script part `call_to_action`',
+    },
+    { pattern: /\bbody\b/i, why: 'names the script part `body`' },
+    { pattern: /\bbeats?\b/i, why: 'names a body beat' },
+    {
+      pattern: /on[-_ ]screen[-_ ]text/i,
+      why: 'names the beat field `on_screen_text`',
+    },
+  ];
+
+  it('names no part of the reply, in any spelling', () => {
+    // One offence per pattern is enough to send the author to the phrase. The
+    // matched text is quoted so the failure names what to delete, and the
+    // README is where the measurement behind this list is written down.
+    const offences = FORBIDDEN_OUTPUT_VOCABULARY.flatMap(({ pattern, why }) => {
+      const hit = pattern.exec(persona);
+      return hit === null
+        ? []
+        : [`"${hit[0]}" ${why} — see src/content/README.md`];
+    });
+    expect(offences).toEqual([]);
+  });
+
   it('carries no HTML comment and no date stamp', () => {
     // Both files ride inside the cached prefix on every message. One changing
     // character costs full price forever, and an editor note is still tokens
@@ -409,11 +480,40 @@ describe('chatbot-persona.md', () => {
   });
 });
 
-describe('d3-method.md', () => {
-  const playbook = readFileSync(
-    join(__dirname, '..', 'content', 'd3-method.md'),
-    'utf8',
-  );
+/**
+ * The playbook is the client's paid course condensed into a prompt, and THIS
+ * REPOSITORY IS PUBLIC — so `apps/frontend/src/content/d3-method.md` is in
+ * `.gitignore` on purpose. It exists in a developer's working tree and never on
+ * a CI runner or in the bundle; production is moving to reading that text from
+ * Supabase instead. `src/content/README.md` is the write-up.
+ *
+ * Reading it at module scope is what turned that legitimate absence into
+ * `ENOENT: no such file or directory` and took the WHOLE suite down on CI —
+ * every test in this file, not just this block. So the read is caught, and the
+ * block is skipped when it comes back empty.
+ *
+ * `describe.skip`, never a silent early return: the skip has to show up as
+ * `Tests: N skipped` in the run output. A guard that makes a missing playbook
+ * look like a green test is worse than the crash it replaces.
+ */
+const playbookSource: string | null = (() => {
+  try {
+    return readFileSync(
+      join(__dirname, '..', 'content', 'd3-method.md'),
+      'utf8',
+    );
+  } catch {
+    return null;
+  }
+})();
+
+(playbookSource === null ? describe.skip : describe)('d3-method.md', () => {
+  // Non-null throughout this block by construction: the line above skips it in
+  // exactly the case where the read failed, so no `it` here ever runs with a
+  // null playbook. Asserted rather than defaulted to `''` on purpose — an empty
+  // string would quietly SATISFY the `not.toMatch` assertions below, so a
+  // future break in the guard would read as green instead of failing loudly.
+  const playbook = playbookSource as string;
 
   it('no longer carries the marker, so the coach answers', () => {
     // This assertion is inverted from the one it replaces. Until the playbook

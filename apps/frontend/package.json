@@ -12,6 +12,7 @@
     "build": "dotenv -e ../../.env -- next build",
     "build:frontend": "dotenv -e ../../.env -- next build",
     "lint": "eslint . --max-warnings=0",
+    "smoke:chat": "dotenv -e ../../.env -- tsx scripts/smoke-chat.mts",
     "build:sentry": "dotenv -e ../../.env -- next build",
     "start": "dotenv -e ../../.env -- next start -p 4200",
     "pm2": "pm2 start pnpm --name frontend -- start"
