@@ -118,3 +118,15 @@ tikhub_session_setup.py
 download.html
 *_D3-Cost-Summary.pdf
 *_D3-Cost-Summary.txt
+
+# D3 — internal product/planning docs. THE REPO IS PUBLIC (elstonyth/D3-Creator).
+# plans/ holds PRD 1/2/3, amendment docs and pricing research. One `git add -A`
+# without this rule publishes all of it permanently, into git history and
+# GitHub's caches. Stage paths explicitly regardless; this is the backstop.
+plans/
+
+# D3 — the Script Coach playbook is the CLIENT'S PAID COURSE, condensed.
+# THE REPO IS PUBLIC. Committing it publishes the product for free, forever.
+# Production reads this text from Supabase at runtime, not from the bundle —
+# see apps/frontend/src/content/README.md. The repo keeps no copy.
+apps/frontend/src/content/d3-method.md
