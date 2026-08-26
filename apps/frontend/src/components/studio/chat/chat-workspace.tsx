@@ -59,8 +59,10 @@ interface ChatWorkspaceProps {
   /** True when the caller has no ACTIVE `user_profile` row. */
   showProfileForm: boolean;
   /**
-   * False when the server could read `d3-method.md` and it still carries the
-   * placeholder — i.e. `POST /api/chat` is going to 503 whatever we send. Seeds
+   * False when the server could read the stored playbook and it is missing or
+   * still carries the placeholder — i.e. `POST /api/chat` is going to 503
+   * whatever we send. A read that FAILS leaves this true on purpose; the server
+   * comment in `app/(public)/studio/chat/page.tsx` owns that asymmetry. Seeds
    * `coachDown`, so the not-ready state is shown BEFORE a message is spent
    * rather than after one comes back 503.
    */

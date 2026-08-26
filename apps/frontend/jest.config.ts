@@ -26,6 +26,11 @@ const config: Config = {
   // tsconfig `paths` to runtime resolution on its own).
   moduleNameMapper: {
     '^@gitroom/frontend/(.*)$': '<rootDir>/src/$1',
+    // Same reason. `@d3/database` resolves for Next (which does read tsconfig
+    // `paths`) but not for jest, and it is not linked into this app's
+    // node_modules. Tests that `jest.mock()` it still need the specifier to
+    // RESOLVE before the factory can replace it.
+    '^@d3/database$': '<rootDir>/../../libraries/database/src/index.ts',
   },
 };
 

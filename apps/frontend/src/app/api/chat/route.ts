@@ -27,6 +27,7 @@ import {
   type AuthContext,
 } from '../../../lib/auth';
 import type { BusinessProfile } from '../../../lib/business-profile';
+import { loadPlaybook } from '../../../lib/chat-playbook';
 import {
   buildMessages,
   deriveThreadTitle,
@@ -130,10 +131,14 @@ async function parseRequest(request: Request): Promise<ChatRequest | null> {
   return { threadId: rawThread, message };
 }
 
-/** `null` on any read failure — ENOENT and everything else alike. Both files
- *  are read on every request with no in-process cache: two disk reads cost
- *  microseconds next to a 15-second model call, and caching them would mean
- *  editing the persona file requires a deploy. */
+/** `null` on any read failure — ENOENT and everything else alike. The persona
+ *  is the only file left here; the playbook moved to Postgres, because this
+ *  repo is public and that text is the client's (see `lib/chat-playbook.ts`).
+ *
+ *  Still read on every request with no in-process cache, and deliberately not
+ *  changed to match its cached neighbour: one disk read costs microseconds next
+ *  to a 15-second model call, and caching it would mean editing the persona
+ *  requires a deploy. */
 async function readContent(name: string): Promise<string | null> {
   try {
     return await readFile(join(process.cwd(), 'src', 'content', name), 'utf8');
@@ -154,13 +159,15 @@ export async function POST(request: Request): Promise<Response> {
   const parsed = await parseRequest(request);
   if (parsed === null) return jsonError(400, 'invalid request');
 
-  // 3. The two knowledge files. A 503 that logs nothing is invisible in
-  //    production, which is the whole failure mode these lines exist for.
+  // 3. The two knowledge sources — the playbook from Postgres, the persona from
+  //    the bundle. A 503 that logs nothing is invisible in production, which is
+  //    the whole failure mode these lines exist for. `loadPlaybook()` returns
+  //    '' rather than throwing, so the not-ready test below is unchanged.
   const [playbook, persona] = await Promise.all([
-    readContent('d3-method.md'),
+    loadPlaybook(),
     readContent('chatbot-persona.md'),
   ]);
-  if (playbook === null || !isPlaybookReady(playbook)) {
+  if (!isPlaybookReady(playbook)) {
     console.error('[chat] playbook not ready');
     return jsonError(503, 'coach not ready');
   }

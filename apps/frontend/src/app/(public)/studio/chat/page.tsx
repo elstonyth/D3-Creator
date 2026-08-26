@@ -10,9 +10,6 @@
  * rather than as a bug.
  */
 
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import type { ReactElement } from 'react';
@@ -27,6 +24,7 @@ import {
 } from '@gitroom/frontend/components/studio/chat/thread-rail';
 import { StudioLocked } from '@gitroom/frontend/components/studio/studio-locked';
 import { getAuthContext, isStudioMember } from '@gitroom/frontend/lib/auth';
+import { readPlaybook } from '@gitroom/frontend/lib/chat-playbook';
 import { isPlaybookReady } from '@gitroom/frontend/lib/chat-prompt';
 import { isUuid } from '@gitroom/frontend/lib/ids';
 import {
@@ -59,23 +57,21 @@ export default async function ScriptCoachPage({
   // by the failure block after the fact — a wasted message and, in dev, a red
   // error overlay over the page.
   //
-  // FAIL SAFE, and the asymmetry is deliberate: only a file we could READ and
-  // that still carries the placeholder marks the coach down. An unreadable
-  // file is treated as READY, because `next.config.js` traces
-  // `src/content/*.md` for `/api/chat` alone — if this page ever runs where
-  // the file is not bundled, guessing "not ready" would lock out a coach that
-  // works perfectly. `POST /api/chat` stays the authority either way.
-  let coachReady = true;
-  try {
-    coachReady = isPlaybookReady(
-      await readFile(
-        join(process.cwd(), 'src', 'content', 'd3-method.md'),
-        'utf8',
-      ),
-    );
-  } catch {
-    // Unreadable: leave it true and let the send path decide.
-  }
+  // FAIL SAFE, and the asymmetry is deliberate: only a playbook we could
+  // actually READ marks the coach down. When the read itself fails we know
+  // nothing about the playbook, so we guess READY — `POST /api/chat` stays the
+  // authority either way, and guessing "not ready" would lock every user out of
+  // a coach that works perfectly.
+  //
+  // `readPlaybook()`, NOT `loadPlaybook()`, and that is the whole point. The
+  // playbook now lives in Postgres (`lib/chat-playbook.ts`), not in the bundle,
+  // and the loader collapses both outcomes to `''` — which `isPlaybookReady`
+  // reads as NOT ready. Swapping it in here would invert the asymmetry above
+  // and take the page down on a blip. `ok: false` means the database never
+  // answered; `ok: true` with blank content means it answered "there is no
+  // playbook", which IS a coach that cannot reply.
+  const playbook = await readPlaybook();
+  const coachReady = playbook.ok ? isPlaybookReady(playbook.content) : true;
 
   const supabase = await getSupabaseRoute();
 
