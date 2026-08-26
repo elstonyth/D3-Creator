@@ -6,9 +6,19 @@ const nextConfig = {
   experimental: {
     proxyTimeout: 90_000,
   },
-  // /api/chat reads two markdown files off disk at request time (PRD 2 §10A.1);
-  // without this they are traced out of the serverless bundle.
-  outputFileTracingIncludes: { '/api/chat': ['./src/content/*.md'] },
+  // /api/chat reads the persona off disk at request time (PRD 2 §10A.1);
+  // without this it is traced out of the serverless bundle and every chat 503s
+  // in production while local dev works perfectly.
+  //
+  // Named file, no longer `*.md`: the playbook is NOT in the bundle any more.
+  // This repo is public and that text is the client's paid course, so it is
+  // gitignored and read from Postgres instead (src/lib/chat-playbook.ts). A
+  // glob here would silently re-bundle it the day someone puts the working copy
+  // back in this directory — which is exactly what a developer running the app
+  // locally does.
+  outputFileTracingIncludes: {
+    '/api/chat': ['./src/content/chatbot-persona.md'],
+  },
   // Security and Document-Policy headers
   async headers() {
     // CSP: static policy (no per-request nonce — nonce requires middleware refactor).
