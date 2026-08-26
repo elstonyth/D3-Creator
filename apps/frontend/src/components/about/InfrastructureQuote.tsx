@@ -1,4 +1,4 @@
-import FadeContent from '@gitroom/frontend/components/FadeContent';
+import { Reveal } from '@gitroom/frontend/components/ui/reveal';
 
 export function InfrastructureQuote() {
   return (
@@ -6,7 +6,7 @@ export function InfrastructureQuote() {
       aria-labelledby="about-infrastructure-heading"
       className="w-full pb-20 sm:pb-24 max-w-[1100px] mx-auto"
     >
-      <FadeContent>
+      <Reveal>
         <h2 id="about-infrastructure-heading" className="sr-only">
           Short video is infrastructure
         </h2>
@@ -18,7 +18,7 @@ export function InfrastructureQuote() {
           A personal IP today is what a website was 10 years ago. Every
           founder, every business, every brand will eventually need one.
         </p>
-      </FadeContent>
+      </Reveal>
     </section>
   );
 }

@@ -1,0 +1,4 @@
+# PRD 1 §8.1 — the analyzer's data root. This repo is public and these are
+# user videos: source uploads, compressed MP4s, audio, thumbnails and the
+# per-job job.json store all live here. `rm -rf var/` resets everything.
+var/

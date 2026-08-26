@@ -1,0 +1,28 @@
+{
+  "name": "@d3/analyzer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/contract.ts",
+  "types": "src/contract.ts",
+  "license": "AGPL-3.0",
+  "engines": {
+    "node": ">=22.12.0 <25.0.0"
+  },
+  "scripts": {
+    "dev": "dotenv -e ../../.env -- tsx watch src/server.ts",
+    "start": "dotenv -e ../../.env -- tsx src/server.ts"
+  },
+  "dependencies": {
+    "@d3/openrouter": "workspace:*",
+    "express": "^5.1.0",
+    "multer": "^2.0.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^22.12.0",
+    "dotenv-cli": "^8.0.0",
+    "tsx": "^4.22.3"
+  }
+}

@@ -8,8 +8,8 @@ export default function SignUpPage() {
   return (
     <AuthShell
       eyebrow="Sign up"
-      heading="Join the classes."
-      subheading="Create a free account to watch member classes."
+      heading="Start writing better videos."
+      subheading="A free account opens the Studio — score any video, get scripts built around your business — plus every member class."
     >
       <SignUpForm />
     </AuthShell>

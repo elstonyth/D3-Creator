@@ -1,0 +1,254 @@
+/**
+ * /studio/analyzer — PRD 3 §6.1, §6.2, §6.4.
+ *
+ * The seam: this Server Component performs the `listJobs` read and renders the
+ * <table> itself, then hands it to the island through `children`. The island
+ * owns the three-way branch (rows / empty / unavailable) and the one control
+ * that needs its `busy` flag.
+ */
+
+import type { Metadata } from 'next';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import type { ReactElement } from 'react';
+
+import { StudioLocked } from '@gitroom/frontend/components/studio/studio-locked';
+import { ImageWithFallback } from '@gitroom/frontend/components/ui/image-with-fallback';
+import {
+  formatJobDate,
+  type AnalyzerJobSummary,
+  type JobStatus,
+} from '@gitroom/frontend/lib/analyzer-contract';
+import { listJobs } from '@gitroom/frontend/lib/analyzer';
+import { getAuthContext, isStudioMember } from '@gitroom/frontend/lib/auth';
+import type { BusinessProfile } from '@gitroom/frontend/lib/business-profile';
+import { renderProfileBlock } from '@gitroom/frontend/lib/chat-prompt';
+import { getSupabaseRoute } from '@gitroom/frontend/lib/supabase-route';
+
+import AnalyzerWorkspace from './analyzer-workspace';
+
+export const dynamic = 'force-dynamic'; // per-user, auth-dependent, never cacheable
+export const metadata: Metadata = {
+  title: 'Video Analyzer — D3 Creator',
+  robots: { index: false, follow: false }, // overrides the (public) layout's index: true
+};
+
+const HEADER_CELL =
+  'px-4 text-caption uppercase tracking-[0.04em] text-fgMuted text-left';
+
+/**
+ * What a row with no score says instead of a bare em dash.
+ *
+ * Before this, a job that FAILED and a job still RUNNING rendered identically —
+ * `—` in the Score cell and the same live "Open" link — so the list could not
+ * tell you which of your past uploads had died. `status` was already on
+ * `AnalyzerJobSummary`; it was simply never shown.
+ *
+ * `done` is deliberately absent. A done job with a null score is an incomplete
+ * result, and "Done" next to no number reads as a display bug; the em dash is
+ * the honest fallback and §6.5's report page explains it.
+ */
+const ROW_STATUS_LABEL: Partial<Record<JobStatus, string>> = {
+  queued: 'Queued',
+  running: 'Analysing',
+  failed: 'Failed',
+};
+
+function HistoryTable({ rows }: { rows: AnalyzerJobSummary[] }): ReactElement {
+  return (
+    <div className="glass-elevated rounded-2xl overflow-hidden">
+      <div className="overflow-x-auto">
+        {/* text-label on the table so every cell inherits its size and no cell
+            puts a size token in its own className (§0.5 trap 1). */}
+        {/* 700, not §6.4's 560: five columns at their real widths — 88px
+            thumbnail + 280px name cap + date + result + Open — clip into each
+            other at 560, and the Result column's status words made it worse.
+            Amendment 1 proposed this; applied in the production-readiness
+            pass. */}
+        <table className="w-full min-w-[700px] text-label">
+          <thead>
+            <tr className="h-10 border-b border-white/[0.06]">
+              {/* The column MUST reserve its width: auto table-layout gives an
+                  image column no intrinsic size, so `w-14` on the <img> lost
+                  and thumbnails rendered 1.45px wide. 56px tile + px-4 both
+                  sides = 88. */}
+              <th scope="col" className={`${HEADER_CELL} w-[88px]`}>
+                <span className="sr-only">Thumbnail</span>
+              </th>
+              <th scope="col" className={HEADER_CELL}>
+                Name
+              </th>
+              <th scope="col" className={HEADER_CELL}>
+                Date
+              </th>
+              {/* "Result", not "Score": the cell below now carries a status
+                  word for every row that has no number yet. */}
+              <th scope="col" className={HEADER_CELL}>
+                Result
+              </th>
+              <th
+                scope="col"
+                className="px-4 text-caption uppercase tracking-[0.04em] text-fgMuted text-right"
+              >
+                <span className="sr-only">Open report</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr
+                key={row.id}
+                className="h-12 border-b border-white/[0.06] last:border-b-0 hover:bg-white/[0.02] transition-colors duration-150 ease-out"
+              >
+                <td className="px-4">
+                  {/* src is already the same-origin path (§5.9.3) — never built
+                      by hand. A null src, a 404 and a blocked load all reach
+                      the same fallback tile. */}
+                  <ImageWithFallback
+                    src={row.thumbnail_url}
+                    alt=""
+                    className="h-8 w-14 min-w-14 rounded-md object-cover"
+                    fallback={
+                      <div className="h-8 w-14 min-w-14 rounded-md bg-glass-base border border-borderGlass" />
+                    }
+                  />
+                </td>
+                <td className="px-4">
+                  {/* `truncate` does nothing on a bare <td> — the span and its
+                      max-w are load-bearing. */}
+                  <span className="block max-w-[280px] truncate text-fg">
+                    {row.filename}
+                  </span>
+                </td>
+                <td className="px-4 text-fgMuted whitespace-nowrap">
+                  {formatJobDate(row.created_at)}
+                </td>
+                <td className="px-4 whitespace-nowrap tabular-nums">
+                  {row.overall_score === null ? (
+                    <span className="text-fgSubtle">
+                      {ROW_STATUS_LABEL[row.status] ?? '—'}
+                    </span>
+                  ) : (
+                    <>
+                      <span className="text-fg">
+                        {row.overall_score.toFixed(1)}
+                      </span>
+                      <span className="text-fgSubtle">/10</span>
+                    </>
+                  )}
+                </td>
+                <td className="px-4 text-right">
+                  <Link
+                    href={`/studio/analyzer/${row.id}`}
+                    className="text-fgMuted hover:text-fg transition-colors duration-150 ease-out"
+                  >
+                    Open
+                    <span className="sr-only"> {row.filename} report</span>
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+export default async function VideoAnalyzerPage(): Promise<ReactElement> {
+  const auth = await getAuthContext();
+  if (!auth) redirect('/login?redirectTo=/studio/analyzer');
+  if (!isStudioMember(auth)) return <StudioLocked />;
+
+  // Amendment 1 Part D. The ONE serialiser (PRD 2 §10A.6) renders it here; the
+  // worker never reads Supabase and never learns the column set.
+  //
+  // A profile outage must not block uploading, the same rule the history read
+  // below already follows — the analysis simply runs without the context.
+  let businessProfile: string | null = null;
+  // Owner request 2026-08-24. Settings → Reply language, mapped to the worker's
+  // two-letter `report_language`. Stays null when the user has not chosen one,
+  // and the worker's own 'en' default applies — mapping null to 'en' here would
+  // freeze that default into the request and make the worker's unchangeable.
+  let reportLanguage: 'en' | 'zh' | null = null;
+  try {
+    const supabase = await getSupabaseRoute();
+    const { data, error } = await supabase
+      .from('user_profile')
+      .select('*')
+      .eq('user_id', auth.userId)
+      .eq('is_active', true)
+      .maybeSingle();
+    // PostgREST RESOLVES with `{ data: null, error }` — it does not throw — so
+    // without this the catch below never fires and a failed read is
+    // indistinguishable from "no profile": every analysis silently drops its
+    // business context with no log line anywhere.
+    if (error) console.error('[studio/analyzer] profile read failed', error);
+    const block = renderProfileBlock(data as BusinessProfile | null);
+    // `NO PROFILE ON FILE` is the chat guardrail's sentinel and means nothing
+    // to the analyzer prompt: send null instead of a line saying there is none.
+    businessProfile = data === null ? null : block;
+    // `REPLY_LANGUAGES` has two members and so does this map. A third value
+    // added to the column with no entry here falls to null, which is the
+    // worker's default rather than a crash — but it is also silent, so add the
+    // entry in the same change.
+    reportLanguage =
+      { english: 'en' as const, chinese: 'zh' as const }[
+        (data as BusinessProfile | null)?.reply_language ?? ''
+      ] ?? null;
+  } catch (cause) {
+    console.error('[studio/analyzer] profile read failed', cause);
+  }
+
+  let rows: AnalyzerJobSummary[] = [];
+  let historyUnavailable = false;
+  try {
+    rows = await listJobs(auth.userId);
+  } catch (cause) {
+    // A history outage may not 500 the page or block uploading — a deliberate
+    // divergence from /classes, where `if (error) throw error` fails closed.
+    console.error('[studio/analyzer] listJobs failed', cause);
+    historyUnavailable = true;
+  }
+
+  // Not `rows[0]` gated on being non-terminal: a user whose newest job failed
+  // while an earlier one is still running must still see the running one
+  // resume. A terminal job is never restored into the panel.
+  const initialJob =
+    rows.find((r) => r.status === 'queued' || r.status === 'running') ?? null;
+
+  return (
+    <div className="max-w-[1100px] mx-auto py-12 flex flex-col gap-12">
+      <header className="max-w-[680px]">
+        <h1 className="text-display-2 text-fg mb-3">Video Analyzer.</h1>
+        <p className="text-body-lg text-fgMuted">
+          Upload a short video and get a scored breakdown of why it works.
+        </p>
+        {/* Amendment 1's open item: the profile silently steered every
+            analysis and nothing on this page said so. One caption, only when
+            a profile is actually in play — a user without one sees nothing. */}
+        {businessProfile !== null && (
+          <p className="mt-2 text-caption text-fgSubtle">
+            Scored against your business profile — edit it in{' '}
+            <Link
+              href="/studio/settings"
+              className="underline underline-offset-4 hover:text-fg transition-colors duration-150 ease-out"
+            >
+              Settings
+            </Link>
+            .
+          </p>
+        )}
+      </header>
+      <AnalyzerWorkspace
+        initialJob={initialJob}
+        businessProfile={businessProfile}
+        reportLanguage={reportLanguage}
+        hasHistory={rows.length > 0}
+        historyUnavailable={historyUnavailable}
+      >
+        <HistoryTable rows={rows} />
+      </AnalyzerWorkspace>
+    </div>
+  );
+}

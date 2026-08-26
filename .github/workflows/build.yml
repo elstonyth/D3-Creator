@@ -53,12 +53,17 @@ jobs:
         run: pnpm run lint
 
       - name: Typecheck
-        run: pnpm typecheck
+        run: |
+          pnpm typecheck
+          npx tsc --noEmit -p apps/analyzer/tsconfig.json
 
       - name: Test
         run: |
           pnpm test
           npx jest --config libraries/scrapers/jest.config.cjs
+          for cfg in libraries/openrouter/jest.config.cjs libraries/media/jest.config.cjs apps/analyzer/jest.config.cjs; do
+            if [ -f "$cfg" ]; then echo "--- $cfg"; npx jest --config "$cfg"; fi
+          done
 
       - name: Build
         run: pnpm run build

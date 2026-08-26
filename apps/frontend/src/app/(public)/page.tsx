@@ -6,7 +6,6 @@ import { Reveal } from '@gitroom/frontend/components/ui/reveal';
 import { ShinyText } from '@gitroom/frontend/components/ui/shiny-text';
 import { DottedSurface } from '@gitroom/frontend/components/reactbits/dotted-surface';
 import { D3LogoParticles } from '@gitroom/frontend/components/reactbits/d3-logo-particles';
-import FadeContent from '@gitroom/frontend/components/FadeContent';
 import {
   PLATFORM_ICONS,
   PLATFORM_LABELS,
@@ -159,7 +158,7 @@ export default async function HomePage() {
         aria-labelledby="manifesto-heading"
         className="w-full pb-20 sm:pb-24 max-w-[1100px] mx-auto text-center"
       >
-        <FadeContent>
+        <Reveal>
           <h2 id="manifesto-heading" className="sr-only">
             Manifesto
           </h2>
@@ -176,15 +175,15 @@ export default async function HomePage() {
             <div>Real growth.</div>
             <div>Real-time numbers.</div>
           </blockquote>
-        </FadeContent>
+        </Reveal>
       </section>
 
-      {/* ----- ETHOS (FadeContent on scroll) ----- */}
+      {/* ----- ETHOS ----- */}
       <section
         aria-labelledby="ethos-heading"
         className="w-full pb-20 sm:pb-24 max-w-[1100px] mx-auto"
       >
-        <FadeContent>
+        <Reveal>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <p className="text-micro uppercase text-fgSubtle tracking-[0.04em] mb-2">
@@ -223,7 +222,7 @@ export default async function HomePage() {
               </p>
             </div>
           </div>
-        </FadeContent>
+        </Reveal>
       </section>
 
       {/* ----- LIVE PREVIEW BENTO ----- */}
@@ -387,7 +386,7 @@ export default async function HomePage() {
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-5">
-            {PLATFORM_ORDER.map((platform) => {
+            {PLATFORM_ORDER.map((platform, i) => {
               const Icon = PLATFORM_ICONS[platform];
               const live = liveByPlatform.get(platform);
               const isEmpty = !live;
@@ -395,44 +394,54 @@ export default async function HomePage() {
               const totalViews = live?.totalViews ?? 0;
               const creatorCount = live?.creatorCount ?? 0;
               return (
-                <Link
+                // Sibling stagger driven by the section Reveal's in-view flip.
+                // Lives on its OWN wrapper: the Link carries a conditional
+                // `opacity-50` (untracked platform) that the reveal's
+                // opacity-100 class would fight, and GlassCard's hover
+                // transition-colors would be clobbered by transition-[opacity].
+                <div
                   key={platform}
-                  href="/dashboard"
-                  className={`block h-full group ${isEmpty ? 'opacity-50' : ''}`}
+                  className="h-full opacity-0 translate-y-2 transition-[opacity,transform] duration-200 ease-out group-data-[in-view=true]/reveal:opacity-100 group-data-[in-view=true]/reveal:translate-y-0 motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-y-0"
+                  style={{ transitionDelay: `${i * 60}ms` }}
                 >
-                  <GlassCard
-                    variant="base"
-                    hover
-                    padding="md"
-                    radius="2xl"
-                    className="h-full flex flex-col gap-4"
+                  <Link
+                    href="/dashboard"
+                    className={`block h-full group ${isEmpty ? 'opacity-50' : ''}`}
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="inline-flex items-center justify-center size-10 rounded-md bg-customColor16 border border-borderGlass text-fg">
-                        <Icon size={18} />
-                      </span>
-                      <span className="text-caption text-fgSubtle font-mono tabular-nums">
-                        {isEmpty
-                          ? 'Not yet tracked'
-                          : `${creatorCount} creator${creatorCount === 1 ? '' : 's'}`}
-                      </span>
-                    </div>
+                    <GlassCard
+                      variant="base"
+                      hover
+                      padding="md"
+                      radius="2xl"
+                      className="h-full flex flex-col gap-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="inline-flex items-center justify-center size-10 rounded-md bg-customColor16 border border-borderGlass text-fg">
+                          <Icon size={18} />
+                        </span>
+                        <span className="text-caption text-fgSubtle font-mono tabular-nums">
+                          {isEmpty
+                            ? 'Not yet tracked'
+                            : `${creatorCount} creator${creatorCount === 1 ? '' : 's'}`}
+                        </span>
+                      </div>
 
-                    <div className="flex flex-col gap-1">
-                      <span className="text-label text-fg font-medium">
-                        {PLATFORM_LABELS[platform]}
-                      </span>
-                      <span className="text-[clamp(20px,2vw,24px)] leading-none tracking-[-0.02em] font-semibold text-fg tabular-nums">
-                        {isEmpty ? '—' : formatShowcase(totalViews)}
-                      </span>
-                    </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-label text-fg font-medium">
+                          {PLATFORM_LABELS[platform]}
+                        </span>
+                        <span className="text-[clamp(20px,2vw,24px)] leading-none tracking-[-0.02em] font-semibold text-fg tabular-nums">
+                          {isEmpty ? '—' : formatShowcase(totalViews)}
+                        </span>
+                      </div>
 
-                    <div className="flex items-center justify-between text-caption text-fgMuted font-mono tabular-nums pt-3 border-t border-borderGlass">
-                      <span>{isEmpty ? '—' : formatShowcase(followers)}</span>
-                      <span>followers</span>
-                    </div>
-                  </GlassCard>
-                </Link>
+                      <div className="flex items-center justify-between text-caption text-fgMuted font-mono tabular-nums pt-3 border-t border-borderGlass">
+                        <span>{isEmpty ? '—' : formatShowcase(followers)}</span>
+                        <span>followers</span>
+                      </div>
+                    </GlassCard>
+                  </Link>
+                </div>
               );
             })}
           </div>

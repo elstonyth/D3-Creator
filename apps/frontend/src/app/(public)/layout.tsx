@@ -4,15 +4,34 @@ import { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Analytics } from '@vercel/analytics/next';
-import { getAuthContext } from '@gitroom/frontend/lib/auth';
+import { getAuthContext, isStudioMember } from '@gitroom/frontend/lib/auth';
 import { SignOutButton } from '@gitroom/frontend/components/auth/signout-button';
 import { Footer } from '@gitroom/frontend/components/ui/footer';
 import NavLink from '@gitroom/frontend/components/ui/nav-link';
 import MobileNav from '@gitroom/frontend/components/ui/mobile-nav';
+import NavDropdown, {
+  type StudioViewer,
+} from '@gitroom/frontend/components/ui/nav-dropdown';
 import { SITE_NAME, SITE_URL } from '@gitroom/frontend/lib/site';
 
 const description =
   'Login-free social analytics. Follower counts, views, and engagement across Instagram, TikTok, Facebook and more — no login required.';
+
+// PRD 3 §5.3. Declared here, in a Server Component, and NOT exported, so
+// neither constant enters the client bundle and a rename stays one edit.
+const STUDIO_LABEL = 'Studio';
+// Owner decision 2026-08-23 (supersedes PRD 3 §5.3's list): Studio holds the
+// TOOLS only. Classes is a video library, not a tool — it sits top-level, and
+// /classes carries its own signed-out sign-in CTA, so it no longer needs the
+// dropdown's /login?redirectTo rewrite.
+const STUDIO_ITEMS = [
+  { href: '/studio/analyzer', label: 'Video Analyzer' },
+  { href: '/studio/chat', label: 'Script Coach' },
+  // Amendment 1 Part C.iii. Reaching Settings only from the chat's first-run
+  // form is a dead end — that form is shown only when there is NO active
+  // profile, so the link vanishes the moment one exists.
+  { href: '/studio/settings', label: 'Settings' },
+];
 
 // Default metadata for every public page. metadataBase makes the generated OG
 // image (opengraph-image.tsx) and any relative URLs resolve to absolute. Pages
@@ -45,6 +64,11 @@ export default async function PublicLayout({
   children: ReactNode;
 }) {
   const auth = await getAuthContext();
+  const studioViewer: StudioViewer = !auth
+    ? 'signed-out'
+    : isStudioMember(auth)
+      ? 'member'
+      : 'no-access';
 
   return (
     <html
@@ -66,12 +90,14 @@ export default async function PublicLayout({
         >
           Skip to content
         </a>
-        {/* Header — quiet, full-bleed underline */}
+        {/* Header — DESIGN.md §4 navbar: logo left, nav center, account right.
+            The grid's outer tracks are equal (1fr) so the centre group sits on
+            the true page centreline, not "between logo and account". */}
         <header className="sticky top-0 z-50 border-b border-borderGlass bg-canvas">
-          <div className="max-w-[1200px] mx-auto px-6 md:px-8 h-14 flex items-center justify-between">
+          <div className="max-w-[1200px] mx-auto px-6 md:px-8 h-14 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center">
             <Link
               href="/"
-              className="flex items-center gap-2 select-none hover:opacity-90 transition-opacity"
+              className="justify-self-start flex items-center gap-2 select-none hover:opacity-90 transition-opacity"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -85,12 +111,24 @@ export default async function PublicLayout({
                 D3 Creator
               </span>
             </Link>
-            {/* Desktop nav */}
+
+            {/* Centre — browse surfaces only; account actions live on the right */}
             <nav className="hidden md:flex items-center gap-1 text-label">
               <NavLink href="/about">About</NavLink>
               <NavLink href="/dashboard">Dashboard</NavLink>
               <NavLink href="/leaderboard">Leaderboard</NavLink>
               <NavLink href="/classes">Classes</NavLink>
+              <NavDropdown
+                label={STUDIO_LABEL}
+                items={STUDIO_ITEMS}
+                viewer={studioViewer}
+              />
+            </nav>
+
+            {/* Right — the account cluster. Signed out gets the one bordered
+                affordance in the bar (ghost button per DESIGN.md §4) so the
+                entry action reads as an action, not a sixth sibling link. */}
+            <div className="hidden md:flex items-center gap-1 justify-self-end text-label">
               {auth ? (
                 <>
                   <NavLink href={auth.role === 'admin' ? '/admin' : '/me'}>
@@ -99,19 +137,26 @@ export default async function PublicLayout({
                   <SignOutButton />
                 </>
               ) : (
-                <NavLink href="/login">Sign in</NavLink>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center h-8 px-3 rounded-md border border-borderGlassStrong text-fg hover:bg-white/[0.04] transition-colors duration-150 ease-out"
+                >
+                  Sign in
+                </Link>
               )}
-            </nav>
+            </div>
 
-            {/* Mobile nav — keep primary CTA visible, links go in the hamburger */}
-            <div className="flex md:hidden items-center gap-1 text-label">
+            {/* Mobile — links live in the hamburger; sign-out stays visible */}
+            <div className="flex md:hidden items-center gap-1 justify-self-end text-label">
               {auth && <SignOutButton />}
               <MobileNav
+                viewer={studioViewer}
                 links={[
                   { href: '/about', label: 'About' },
                   { href: '/dashboard', label: 'Dashboard' },
                   { href: '/leaderboard', label: 'Leaderboard' },
                   { href: '/classes', label: 'Classes' },
+                  { label: STUDIO_LABEL, children: STUDIO_ITEMS },
                   ...(auth
                     ? [
                         {
@@ -153,6 +198,7 @@ export default async function PublicLayout({
               { href: '/about', label: 'About' },
               { href: '/dashboard', label: 'Dashboard' },
               { href: '/leaderboard', label: 'Leaderboard' },
+              { href: '/classes', label: 'Classes' },
             ]}
             legalLinks={[
               { href: '/privacy', label: 'Privacy' },

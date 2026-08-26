@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { AuroraButton } from '@gitroom/frontend/components/ui/aurora-button';
-import FadeContent from '@gitroom/frontend/components/FadeContent';
+import { Reveal } from '@gitroom/frontend/components/ui/reveal';
 
 export function TransparencyManifesto() {
   return (
@@ -8,7 +8,7 @@ export function TransparencyManifesto() {
       aria-labelledby="about-transparency-heading"
       className="w-full pb-20 sm:pb-24 max-w-[1100px] mx-auto px-6 md:px-8 text-center"
     >
-      <FadeContent>
+      <Reveal>
         <h2
           id="about-transparency-heading"
           className="text-display-2 text-fg mb-6 max-w-[760px] mx-auto leading-[1.08] tracking-[-0.03em] text-balance"
@@ -31,7 +31,7 @@ export function TransparencyManifesto() {
             See the live leaderboard
           </AuroraButton>
         </Link>
-      </FadeContent>
+      </Reveal>
     </section>
   );
 }

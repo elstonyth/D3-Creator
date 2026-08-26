@@ -106,12 +106,17 @@ export function DottedSurfaceCanvas() {
     scene.add(points);
 
     // Reduced-motion check — render once and skip the loop.
-    const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const reducedMotionQuery = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    );
     let reducedMotion = reducedMotionQuery.matches;
 
     let animationId = 0;
     let count = 0;
     let lastTime = 0;
+    // The hero scrolls away but the page lives on — pause the render loop
+    // whenever the container is offscreen instead of drawing for the session.
+    let visible = true;
 
     const positionAttribute = geometry.attributes.position;
     const positionArray = positionAttribute.array as Float32Array;
@@ -148,7 +153,7 @@ export function DottedSurfaceCanvas() {
     const start = () => {
       if (reducedMotion) {
         renderOnce();
-      } else {
+      } else if (visible) {
         animate();
       }
     };
@@ -180,10 +185,29 @@ export function DottedSurfaceCanvas() {
     const resizeObserver = new ResizeObserver(handleResize);
     resizeObserver.observe(container);
 
+    // Resume only on the hidden→visible TRANSITION; pause always cancels, so
+    // a resume can never stack a second rAF loop. `lastTime` resets so the
+    // first resumed frame doesn't integrate the offscreen gap.
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        const wasVisible = visible;
+        visible = entry.isIntersecting;
+        if (!visible) {
+          stop();
+        } else if (!wasVisible && !reducedMotion) {
+          lastTime = 0;
+          start();
+        }
+      },
+      { rootMargin: '80px' },
+    );
+    io.observe(container);
+
     start();
 
     return () => {
       stop();
+      io.disconnect();
       reducedMotionQuery.removeEventListener('change', handleMotionChange);
       resizeObserver.disconnect();
       scene.traverse((object) => {

@@ -23,11 +23,14 @@ export function Reveal({ children, delay = 0, className }: RevealProps) {
       data-in-view={inView}
       style={delay ? { transitionDelay: `${delay}ms` } : undefined}
       className={clsx(
-        'opacity-0 translate-y-2',
+        // Named group so children can stagger off the same in-view flip
+        // (`group-data-[in-view=true]/reveal:`) without colliding with the
+        // unnamed `group` hover scopes inside cards.
+        'group/reveal opacity-0 translate-y-2',
         'data-[in-view=true]:opacity-100 data-[in-view=true]:translate-y-0',
         'transition-[opacity,transform] duration-200 ease-out',
         'motion-reduce:transition-none motion-reduce:translate-y-0 motion-reduce:opacity-100',
-        className
+        className,
       )}
     >
       {children}

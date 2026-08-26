@@ -4,8 +4,10 @@ import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AtSignIcon } from 'lucide-react';
+import { PasswordField } from '@gitroom/frontend/components/auth/password-field';
 import { Button } from '@gitroom/frontend/components/ui/button';
 import { Input } from '@gitroom/frontend/components/ui/input';
+import { signInErrorMessage } from '@gitroom/frontend/lib/auth-errors';
 import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
 import { safeRedirect } from '@gitroom/frontend/lib/redirects';
 
@@ -30,9 +32,12 @@ export function SignInForm({ redirectTo }: SignInFormProps) {
       password,
     });
     if (signInError) {
-      // Collapse provider errors to one generic message: no Supabase internals
-      // leaked, no account-enumeration signal.
-      setError('Invalid email or password.');
+      // Still no Supabase internals and still no enumeration signal: the table
+      // maps only codes that say nothing about whether the account exists.
+      // `invalid_credentials` and anything unmapped both read "Invalid email or
+      // password"; an unconfirmed address is the one case worth naming, because
+      // the fix is in the user's inbox rather than in the form.
+      setError(signInErrorMessage(signInError));
       setPending(false);
       return;
     }
@@ -61,18 +66,23 @@ export function SignInForm({ redirectTo }: SignInFormProps) {
         </div>
       </label>
 
-      <label className="block space-y-1.5">
-        <span className="text-label text-fgMuted">Password</span>
-        <Input
-          type="password"
-          required
-          maxLength={200}
-          autoComplete="current-password"
-          placeholder="••••••••"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </label>
+      <PasswordField
+        label="Password"
+        value={password}
+        onChange={setPassword}
+        autoComplete="current-password"
+        placeholder="••••••••"
+        disabled={pending}
+      />
+
+      <p className="text-caption text-right">
+        <Link
+          href="/forgot-password"
+          className="text-fgMuted hover:text-fg transition-colors duration-150 ease-out"
+        >
+          Forgot your password?
+        </Link>
+      </p>
 
       {error && (
         <p className="text-caption text-danger-fg" role="alert">

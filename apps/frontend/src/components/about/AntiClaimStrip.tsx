@@ -1,4 +1,4 @@
-import FadeContent from '@gitroom/frontend/components/FadeContent';
+import { Reveal } from '@gitroom/frontend/components/ui/reveal';
 
 export function AntiClaimStrip() {
   return (
@@ -6,7 +6,7 @@ export function AntiClaimStrip() {
       aria-labelledby="about-anti-claim-heading"
       className="w-full pb-20 sm:pb-24 max-w-[1100px] mx-auto text-center"
     >
-      <FadeContent>
+      <Reveal>
         <h2 id="about-anti-claim-heading" className="sr-only">
           What we build
         </h2>
@@ -29,7 +29,7 @@ export function AntiClaimStrip() {
           We build creators that generate leads, sales, influence, and
           long-term brand value.
         </p>
-      </FadeContent>
+      </Reveal>
     </section>
   );
 }

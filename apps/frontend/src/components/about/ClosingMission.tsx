@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { AuroraButton } from '@gitroom/frontend/components/ui/aurora-button';
 import { GlassCard } from '@gitroom/frontend/components/ui/glass-card';
-import FadeContent from '@gitroom/frontend/components/FadeContent';
+import { Reveal } from '@gitroom/frontend/components/ui/reveal';
 
 export function ClosingMission() {
   return (
@@ -9,7 +9,7 @@ export function ClosingMission() {
       aria-labelledby="about-mission-heading"
       className="w-full pb-24 max-w-[1100px] mx-auto px-6 md:px-8"
     >
-      <FadeContent>
+      <Reveal>
         <GlassCard
           variant="base"
           padding="lg"
@@ -48,7 +48,7 @@ export function ClosingMission() {
             </Link>
           </div>
         </GlassCard>
-      </FadeContent>
+      </Reveal>
     </section>
   );
 }

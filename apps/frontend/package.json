@@ -20,6 +20,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@d3/analyzer": "workspace:*",
+    "@d3/openrouter": "workspace:*",
     "@react-three/fiber": "^9.3.0",
     "@react-three/postprocessing": "^3.0.4",
     "@sentry/nextjs": "^10.45.0",
@@ -31,7 +33,6 @@
     "@vercel/analytics": "^2.0.1",
     "clsx": "^2.1.0",
     "framer-motion": "^12.40.0",
-    "gsap": "^3.13.0",
     "lucide-react": "^1.16.0",
     "next": "16.2.11",
     "postprocessing": "^6.36.0",

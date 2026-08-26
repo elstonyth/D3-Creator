@@ -27,6 +27,14 @@ export interface AuthContext {
   userId: string;
   email: string | null;
   role: UserRole;
+  /**
+   * Whether a `public.user_role` row actually exists. `role` below fails OPEN to
+   * 'creator' when it does not, which is right for the showcase pages — but
+   * `public.has_studio_access()` (20260819120000) fails CLOSED on the same
+   * state, so the two disagree for exactly this user and the only symptom is a
+   * generic 500 on their first save. `isStudioMember` reads this to match RLS.
+   */
+  hasRoleRow: boolean;
   creatorLink: CreatorLink | null;
 }
 
@@ -65,6 +73,7 @@ export const getAuthContext = cache(async (): Promise<AuthContext | null> => {
     userId: user.id,
     email: user.email ?? null,
     role,
+    hasRoleRow: roleRes.data != null,
     creatorLink: (linkRes.data as CreatorLink | null) ?? null,
   };
 });
@@ -79,4 +88,20 @@ export async function requireAdmin(): Promise<void> {
   if (!auth || auth.role !== 'admin') {
     throw new Error('Not authorized.');
   }
+}
+
+/**
+ * Studio membership. `getAuthContext()` returns a non-null AuthContext for
+ * EVERY signed-in user including role 'none' (revoked), so `!!auth` is not the
+ * test. This is the same rule /classes uses for member copy
+ * (app/(public)/classes/page.tsx:29) and the same role set the class_video RLS
+ * policy admits (supabase/migrations/20260629000002_class_video_none_excluded.sql:
+ * role in ('member','creator','admin')).
+ */
+export function isStudioMember(auth: AuthContext | null): boolean {
+  // `hasRoleRow` mirrors public.has_studio_access()'s `exists (select 1 from
+  // public.user_role ...)`. Without it a user whose role row is missing passes
+  // here on the 'creator' fail-open default, is shown the Studio, and then has
+  // every write refused by RLS as an undiagnosable 500.
+  return auth !== null && auth.hasRoleRow && auth.role !== 'none';
 }

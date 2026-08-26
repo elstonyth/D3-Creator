@@ -3,9 +3,14 @@ import { createServerClient } from '@supabase/ssr';
 
 const ADMIN_PREFIXES = ['/admin'];
 const CREATOR_PREFIXES = ['/me', '/onboarding'];
+const STUDIO_PREFIXES = ['/studio'];
 // Logged-in users are redirected off these to their role home — keeps an
 // authenticated user from sitting on (or re-submitting) login/signup.
-const AUTH_PAGES = new Set(['/login', '/signup']);
+const AUTH_PAGES = new Set(['/login', '/signup', '/forgot-password']);
+// NOT an auth page: /reset-password is reached WITH a session, because
+// /auth/callback exchanges the emailed code before redirecting here. Putting it
+// in AUTH_PAGES would bounce every user off the page the link exists to reach.
+const RESET_PATH = '/reset-password';
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -65,9 +70,10 @@ export async function proxy(request: NextRequest) {
   const isAuthPage = AUTH_PAGES.has(pathname);
   const isAdminRoute = ADMIN_PREFIXES.some((p) => pathname.startsWith(p));
   const isCreatorRoute = CREATOR_PREFIXES.some((p) => pathname.startsWith(p));
+  const isStudioRoute = STUDIO_PREFIXES.some((p) => pathname.startsWith(p));
 
   if (!user) {
-    if (isAdminRoute || isCreatorRoute) {
+    if (isAdminRoute || isCreatorRoute || isStudioRoute) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirectTo', pathname);
       return redirect(loginUrl);
@@ -122,7 +128,16 @@ export async function proxy(request: NextRequest) {
   // showcase) AND creator routes (/me, /onboarding) — bounces to /admin.
   // Admins are managers; they never go through the creator flow.
   // (auth pages + /api were handled above.)
-  if (role === 'admin' && !isAdminRoute) {
+  // Studio is the one exemption: admins reach /studio/* (PRD 3 §5.5).
+  // /reset-password joins Studio as an exemption: an admin following their own
+  // reset link would otherwise be bounced to /admin with the password unchanged
+  // and no way to finish.
+  if (
+    role === 'admin' &&
+    !isAdminRoute &&
+    !isStudioRoute &&
+    pathname !== RESET_PATH
+  ) {
     return redirect(new URL('/admin', request.url));
   }
 

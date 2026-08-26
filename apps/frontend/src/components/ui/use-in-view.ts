@@ -17,9 +17,13 @@ interface UseInViewResult<T extends Element> {
 }
 
 export function useInView<T extends Element = HTMLElement>(
-  options: UseInViewOptions = {}
+  options: UseInViewOptions = {},
 ): UseInViewResult<T> {
-  const { rootMargin = '0px 0px -10% 0px', threshold = 0.15, once = true } = options;
+  const {
+    rootMargin = '0px 0px -10% 0px',
+    threshold = 0.15,
+    once = true,
+  } = options;
   const ref = useRef<T | null>(null);
   const [inView, setInView] = useState(false);
 
@@ -31,14 +35,20 @@ export function useInView<T extends Element = HTMLElement>(
     // and only ran in environments that don't exist on the client.
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
+        // `top < 0` = the viewport JUMPED past this element (anchor link,
+        // fast flick, find-in-page): it never intersected, so a plain
+        // isIntersecting check strands it at opacity-0 forever.
+        if (
+          entry.isIntersecting ||
+          (once && entry.boundingClientRect.top < 0)
+        ) {
           setInView(true);
           if (once) observer.disconnect();
         } else if (!once) {
           setInView(false);
         }
       },
-      { rootMargin, threshold }
+      { rootMargin, threshold },
     );
     observer.observe(node);
     return () => observer.disconnect();

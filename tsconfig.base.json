@@ -29,7 +29,13 @@
       "@d3/scrapers": ["libraries/scrapers/src/index.ts"],
       "@d3/scrapers/*": ["libraries/scrapers/src/*"],
       "@d3/database": ["libraries/database/src/index.ts"],
-      "@d3/database/*": ["libraries/database/src/*"]
+      "@d3/database/*": ["libraries/database/src/*"],
+      "@d3/analyzer": ["apps/analyzer/src/contract.ts"],
+      "@d3/analyzer/*": ["apps/analyzer/src/*"],
+      "@d3/openrouter": ["libraries/openrouter/src/index.ts"],
+      "@d3/openrouter/*": ["libraries/openrouter/src/*"],
+      "@d3/media": ["libraries/media/src/index.ts"],
+      "@d3/media/*": ["libraries/media/src/*"]
     }
   },
   "exclude": ["node_modules", "tmp"]

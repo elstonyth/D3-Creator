@@ -37,6 +37,10 @@ module.exports = {
           cta: '#F2E600',
           ctaHover: '#FDE047',
         },
+        // Data-viz only (PRD 3 §6 charts). DESIGN.md has no data-viz section,
+        // and aurora.cyan carries the right value under a meaningless name.
+        chartLine: 'rgba(255, 255, 255, 0.78)',
+        chartGrid: 'rgba(255, 255, 255, 0.08)',
         canvas: 'var(--canvas)',
         canvasDeep: 'var(--canvas-deep)',
         glass: {
@@ -336,6 +340,10 @@ module.exports = {
         // Linear-style: 150-200ms ease-out only, no decorative loops
         riseIn: 'riseIn 0.18s ease-out forwards',
         scaleIn: 'scaleIn 0.18s ease-out forwards',
+        // The one sanctioned loop: LOADING-STATE feedback (the chat's thinking
+        // indicator), not decoration — §8's ban targets decorative loops. The
+        // global prefers-reduced-motion rule caps it to one iteration.
+        thinkingDot: 'thinkingDot 1.2s ease-in-out infinite',
         // Legacy preserved — capped to ≤200ms ease-out single-fire
         fade: 'fadeOut 0.18s ease-out',
         normalFadeIn: 'normalFadeIn 0.18s ease-out',
@@ -362,6 +370,10 @@ module.exports = {
         riseIn: {
           '0%': { opacity: '0', transform: 'translateY(8px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        thinkingDot: {
+          '0%, 100%': { opacity: '0.25' },
+          '50%': { opacity: '1' },
         },
         scaleIn: {
           '0%': { opacity: '0', transform: 'scale(0.98)' },

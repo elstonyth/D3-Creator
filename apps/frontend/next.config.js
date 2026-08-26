@@ -6,6 +6,9 @@ const nextConfig = {
   experimental: {
     proxyTimeout: 90_000,
   },
+  // /api/chat reads two markdown files off disk at request time (PRD 2 §10A.1);
+  // without this they are traced out of the serverless bundle.
+  outputFileTracingIncludes: { '/api/chat': ['./src/content/*.md'] },
   // Security and Document-Policy headers
   async headers() {
     // CSP: static policy (no per-request nonce — nonce requires middleware refactor).
@@ -24,7 +27,7 @@ const nextConfig = {
       scriptSrc,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://*.supabase.co https://*.scdn.cc https://picsum.photos",
-      "media-src 'self' https://commondatastorage.googleapis.com",
+      "media-src 'self' blob: https://commondatastorage.googleapis.com",
       "font-src 'self'",
       // Dev points at a local Supabase stack on 127.0.0.1:54321 — allow it (and ws HMR).
       // https://*.sentry.io covers the Sentry ingest endpoint for client-side

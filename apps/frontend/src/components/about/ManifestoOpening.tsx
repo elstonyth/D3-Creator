@@ -1,5 +1,5 @@
 import { DottedSurface } from '@gitroom/frontend/components/reactbits/dotted-surface';
-import FadeContent from '@gitroom/frontend/components/FadeContent';
+import { Reveal } from '@gitroom/frontend/components/ui/reveal';
 
 export function ManifestoOpening() {
   return (
@@ -8,7 +8,7 @@ export function ManifestoOpening() {
         aria-labelledby="about-manifesto-heading"
         className="w-full pt-16 pb-20 sm:pt-24 sm:pb-28 lg:pt-32 lg:pb-36 max-w-[1100px] mx-auto px-6 md:px-8"
       >
-        <FadeContent>
+        <Reveal>
           <p className="text-micro uppercase text-fgSubtle tracking-[0.35em] mb-6">
             About D3
           </p>
@@ -25,7 +25,7 @@ export function ManifestoOpening() {
             talented. They fail because nobody ever taught them how to turn
             attention into business.
           </p>
-        </FadeContent>
+        </Reveal>
       </section>
     </DottedSurface>
   );

@@ -10,27 +10,43 @@ import { safeRedirect } from '@gitroom/frontend/lib/redirects';
 // from crafting /auth/callback?code=…&redirectTo=https://evil.com as a
 // post-auth phishing vector. `new URL(absoluteUrl, base)` silently honours
 // the absolute input, so without this guard the redirect is open.
+//
+// THE CROSS-DEVICE CASE, which is common and is not a bug: the browser client
+// is PKCE, so the code verifier lives in the storage of the browser that
+// STARTED the flow. Sign up on a laptop, open the email on a phone, and the
+// exchange here fails because the phone never had the verifier. Supabase has
+// still confirmed the address server-side by that point, so the honest outcome
+// is "sign in to finish" — not a raw provider error in the query string, which
+// is what this route used to emit and what /login then ignored entirely.
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
   const redirectTo = safeRedirect(searchParams.get('redirectTo'), '/me');
 
+  function toLogin(notice: string): NextResponse {
+    const url = new URL('/login', origin);
+    url.searchParams.set('notice', notice);
+    return NextResponse.redirect(url);
+  }
+
   if (!code) {
     // Missing code means the callback was hit without a real auth handshake
-    // (manual navigation, broken link, expired magic link). Send the user to
-    // /login with an explicit error so they know to retry, instead of
-    // silently dropping them onto /me with no session.
-    const missingUrl = new URL('/login', origin);
-    missingUrl.searchParams.set('error', 'missing_code');
-    return NextResponse.redirect(missingUrl);
+    // (manual navigation, broken link, expired magic link).
+    return toLogin('link_broken');
   }
 
   const supabase = await getSupabaseRoute();
-  const { error: exchangeErr } = await supabase.auth.exchangeCodeForSession(code);
+  const { error: exchangeErr } =
+    await supabase.auth.exchangeCodeForSession(code);
   if (exchangeErr) {
-    const failUrl = new URL('/login', origin);
-    failUrl.searchParams.set('error', exchangeErr.message);
-    return NextResponse.redirect(failUrl);
+    // A dead reset link and a cross-device confirmation need different advice:
+    // one needs a fresh link, the other just needs a sign-in. The destination
+    // is the only thing that tells them apart here, and it is our own value.
+    return toLogin(
+      redirectTo.startsWith('/reset-password')
+        ? 'reset_expired'
+        : 'signin_needed',
+    );
   }
 
   return NextResponse.redirect(new URL(redirectTo, origin));

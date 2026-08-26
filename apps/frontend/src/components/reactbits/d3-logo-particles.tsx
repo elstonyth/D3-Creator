@@ -55,7 +55,11 @@ export function D3LogoParticles({
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    // NO `willReadFrequently` here: that flag pins the context to software
+    // rasterization for its whole life, and this canvas repaints ~7k particles
+    // per frame. The one getImageData happens on a throwaway sampling canvas
+    // in img.onload instead; this context is never read back.
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -75,8 +79,13 @@ export function D3LogoParticles({
     let animationFrameId = 0;
     let cancelled = false;
 
-    const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const reducedMotionQuery = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    );
     let reducedMotion = reducedMotionQuery.matches;
+    // The hero scrolls away but the page lives on — without this the loop
+    // burns CPU for the whole session. Offscreen: cancel; back in: resume.
+    let visible = true;
 
     function sampleParticle(): Particle | null {
       if (!logoImageData || !canvas) return null;
@@ -123,16 +132,19 @@ export function D3LogoParticles({
 
       const { x: mx, y: my } = mouse.current;
       const allowScatter =
-        !reducedMotion &&
-        (touching.current || !('ontouchstart' in window));
+        !reducedMotion && (touching.current || !('ontouchstart' in window));
 
+      // sqrt/atan2 only inside the scatter branch — squared compare gates it,
+      // so the common no-cursor path is add/multiply only.
+      const scatterRadiusSq = scatterRadius * scatterRadius;
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
         const dx = mx - p.x;
         const dy = my - p.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        const distSq = dx * dx + dy * dy;
 
-        if (allowScatter && dist < scatterRadius) {
+        if (allowScatter && distSq < scatterRadiusSq) {
+          const dist = Math.sqrt(distSq);
           const force = (scatterRadius - dist) / scatterRadius;
           const angle = Math.atan2(dy, dx);
           p.x = p.baseX - Math.cos(angle) * force * 22;
@@ -153,7 +165,7 @@ export function D3LogoParticles({
         }
       }
 
-      if (!reducedMotion) {
+      if (!reducedMotion && visible) {
         animationFrameId = requestAnimationFrame(tick);
       }
     }
@@ -168,12 +180,29 @@ export function D3LogoParticles({
     }
 
     function startAnimation() {
-      if (reducedMotion) {
+      if (reducedMotion || !visible) {
         renderStaticFrame();
       } else {
         tick();
       }
     }
+
+    // Resume is gated on the hidden→visible TRANSITION, and pausing zeroes
+    // animationFrameId, so a resume can never stack a second rAF loop.
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        const wasVisible = visible;
+        visible = entry.isIntersecting;
+        if (!visible) {
+          if (animationFrameId) cancelAnimationFrame(animationFrameId);
+          animationFrameId = 0;
+        } else if (!wasVisible && particles.length > 0) {
+          startAnimation();
+        }
+      },
+      { rootMargin: '80px' },
+    );
+    io.observe(canvas);
 
     const handleMotionChange = (e: MediaQueryListEvent) => {
       reducedMotion = e.matches;
@@ -225,16 +254,27 @@ export function D3LogoParticles({
     img.src = logoSrc;
     img.onload = () => {
       if (cancelled || !ctx || !canvas) return;
-      ctx.clearRect(0, 0, size, size);
-      ctx.drawImage(img, 0, 0, size, size);
-      logoImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      ctx.clearRect(0, 0, size, size);
+      // Rasterize + read back on a throwaway canvas so the DISPLAY context is
+      // never getImageData'd and stays GPU-accelerated (see getContext above).
+      const sampler = document.createElement('canvas');
+      sampler.width = canvas.width;
+      sampler.height = canvas.height;
+      const samplerCtx = sampler.getContext('2d', { willReadFrequently: true });
+      if (!samplerCtx) return;
+      samplerCtx.drawImage(img, 0, 0, sampler.width, sampler.height);
+      logoImageData = samplerCtx.getImageData(
+        0,
+        0,
+        sampler.width,
+        sampler.height,
+      );
       seed();
       startAnimation();
     };
 
     return () => {
       cancelled = true;
+      io.disconnect();
       reducedMotionQuery.removeEventListener('change', handleMotionChange);
       canvas.removeEventListener('mousemove', onMouseMove);
       canvas.removeEventListener('mouseleave', onMouseLeave);
