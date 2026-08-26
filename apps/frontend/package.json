@@ -22,8 +22,6 @@
   "dependencies": {
     "@d3/analyzer": "workspace:*",
     "@d3/openrouter": "workspace:*",
-    "@react-three/fiber": "^9.3.0",
-    "@react-three/postprocessing": "^3.0.4",
     "@sentry/nextjs": "^10.45.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.2",
