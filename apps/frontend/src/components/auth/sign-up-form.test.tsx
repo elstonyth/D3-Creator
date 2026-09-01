@@ -81,12 +81,12 @@ it('says the account already exists when identities comes back empty', async () 
   expect(screen.queryByText('Check your email.')).toBeNull();
   // Both exits, since the whole point is that no mail is coming.
   expect(
-    screen.getByRole('link', { name: /^sign in$/i }).getAttribute('href'),
+    screen.getByRole('link', { name: /^sign in$/i }).getAttribute('href')
   ).toBe('/login');
   expect(
     screen
       .getByRole('link', { name: /reset your password/i })
-      .getAttribute('href'),
+      .getAttribute('href')
   ).toBe('/forgot-password');
 });
 
@@ -113,4 +113,21 @@ it('does not claim a resend happened when the resend errored', async () => {
   await screen.findByRole('alert');
   await waitFor(() => expect(signUp).toHaveBeenCalledTimes(2));
   expect(screen.queryByText('Requested again just now.')).toBeNull();
+});
+
+it('switches to the taken screen when a RESEND finds the address confirmed', async () => {
+  signUp.mockResolvedValueOnce(NEW_ACCOUNT).mockResolvedValueOnce(OBFUSCATED);
+  render(<SignUpForm />);
+  submit('new@example.com');
+  await screen.findByText('Check your email.');
+
+  fireEvent.click(screen.getByRole('button', { name: /resend the link/i }));
+
+  await screen.findByText('You already have an account.');
+  // Backing out must reach the form, not the screen the resend came from.
+  fireEvent.click(
+    screen.getByRole('button', { name: /use a different email/i })
+  );
+  await screen.findByRole('button', { name: /create account/i });
+  expect(screen.queryByText('Check your email.')).toBeNull();
 });

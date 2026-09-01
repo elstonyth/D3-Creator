@@ -68,7 +68,20 @@ export function SignUpForm() {
     // Telling the user this does disclose that the address is registered.
     // That is a deliberate trade: the alternative left a real user waiting on
     // a mail that was never sent. Sign-in and reset both remain one click away.
-    if (data.user && (data.user.identities?.length ?? 0) === 0) {
+    // `Array.isArray` deliberately, not `?.length ?? 0`: a response that omits
+    // identities entirely is an unknown shape, and the safe reading of unknown
+    // is "not taken" — that lands on the check-your-email screen, which still
+    // carries the sign in / reset line.
+    if (
+      data.user &&
+      Array.isArray(data.user.identities) &&
+      data.user.identities.length === 0
+    ) {
+      // A resend can land here too — the address may have been confirmed since
+      // the first attempt — so drop the screen that sent us, or "Use a
+      // different email" would fall back to it.
+      setSentTo(null);
+      setResent(false);
       setTaken(address);
       return false;
     }
