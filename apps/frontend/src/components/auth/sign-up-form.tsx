@@ -128,9 +128,9 @@ export function SignUpForm() {
           <div className="space-y-1">
             <p className="text-body text-fg">You already have an account.</p>
             <p className="text-body-sm text-fgMuted">
-              <span className="text-fg">{taken}</span> is already registered and
-              confirmed, so there is no new link to send. Sign in with your
-              password, or reset it if it has slipped your mind.
+              <span className="text-fg">{taken}</span> is already registered, so
+              there is no new link to send. Sign in with your password, or reset
+              it if it has slipped your mind.
             </p>
           </div>
         </div>
