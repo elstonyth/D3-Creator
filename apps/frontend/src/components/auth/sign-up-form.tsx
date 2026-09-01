@@ -1,12 +1,16 @@
 'use client';
 
-import { AtSignIcon, MailCheckIcon } from 'lucide-react';
+import { AtSignIcon, MailCheckIcon, UserCheckIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, type FormEvent } from 'react';
 
 import { PasswordField } from '@gitroom/frontend/components/auth/password-field';
 import { Button } from '@gitroom/frontend/components/ui/button';
+import {
+  primaryCta,
+  secondaryCta,
+} from '@gitroom/frontend/components/ui/empty-state';
 import { Input } from '@gitroom/frontend/components/ui/input';
 import { signUpErrorMessage } from '@gitroom/frontend/lib/auth-errors';
 import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
@@ -24,6 +28,7 @@ export function SignUpForm() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const [taken, setTaken] = useState<string | null>(null);
   const [resent, setResent] = useState(false);
   const [pending, setPending] = useState(false);
 
@@ -48,13 +53,27 @@ export function SignUpForm() {
       return false;
     }
 
-    // Confirmation on: no session yet. This is ALSO the branch an already
-    // registered address takes — Supabase returns a success with no session
-    // rather than admitting the account exists. For an address that is already
-    // CONFIRMED it sends nothing at all (GoTrue logs `user_repeated_signup`
-    // and never stamps confirmation_sent_at), so no link is ever coming and
-    // "Resend" cannot change that. The screen below serves both cases without
-    // telling them apart, which is why it names the way out: sign in, or reset.
+    // An address that already has a CONFIRMED account comes back here looking
+    // like a fresh signup: no session, a FAKE user id, and a decoy
+    // `confirmation_sent_at` — GoTrue obfuscates rather than admit the account
+    // exists. It sends no mail at all in that case (it logs
+    // `user_repeated_signup` and the real row's confirmation_sent_at never
+    // moves), so "check your email" is advice that can never come true.
+    //
+    // The tell is the EMPTY identities array. Verified against production on
+    // 2026-09-01: a repeated signup for a confirmed address returned
+    // `identities: []`, while every user row in the project has exactly one
+    // auth.identities row, so a genuine signup always carries one.
+    //
+    // Telling the user this does disclose that the address is registered.
+    // That is a deliberate trade: the alternative left a real user waiting on
+    // a mail that was never sent. Sign-in and reset both remain one click away.
+    if (data.user && (data.user.identities?.length ?? 0) === 0) {
+      setTaken(address);
+      return false;
+    }
+
+    // Confirmation on: no session yet, and the address really is new.
     if (!data.session) {
       setSentTo(address);
       return true;
@@ -69,6 +88,7 @@ export function SignUpForm() {
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    setTaken(null);
     setPending(true);
     try {
       await submit(email.trim().toLowerCase());
@@ -95,6 +115,51 @@ export function SignUpForm() {
     } finally {
       setPending(false);
     }
+  }
+
+  if (taken !== null) {
+    return (
+      <div className="space-y-5" role="status">
+        <div className="flex items-start gap-3 rounded-lg border border-borderGlass bg-glass-subtle p-4">
+          <UserCheckIcon
+            className="size-5 shrink-0 text-aurora-cta mt-0.5"
+            aria-hidden
+          />
+          <div className="space-y-1">
+            <p className="text-body text-fg">You already have an account.</p>
+            <p className="text-body-sm text-fgMuted">
+              <span className="text-fg">{taken}</span> is already registered and
+              confirmed, so there is no new link to send. Sign in with your
+              password, or reset it if it has slipped your mind.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          {/* h-10 comes from the shared CTA classes; not overridden to h-11
+              because two Tailwind height utilities on one element resolve by
+              stylesheet order, not by which is written last. */}
+          <Link href="/login" className={`${primaryCta} w-full`}>
+            Sign in
+          </Link>
+          <Link href="/forgot-password" className={`${secondaryCta} w-full`}>
+            Reset your password
+          </Link>
+          <Button
+            type="button"
+            variant="ghost"
+            size="lg"
+            className="w-full"
+            onClick={() => {
+              setTaken(null);
+              setError(null);
+            }}
+          >
+            Use a different email
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   if (sentTo !== null) {
