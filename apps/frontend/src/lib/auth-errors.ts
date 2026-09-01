@@ -7,11 +7,12 @@
  * laptop was offline. None of those are fixed by "check your details".
  *
  * WHAT IS DELIBERATELY *NOT* HERE: an "email already registered" message.
- * Supabase obscures that case on purpose — `signUp()` returns a success with an
- * empty `identities` array rather than an error, and it emails the existing
- * account instead. Surfacing it would turn the form into an account-enumeration
- * oracle. The confirmation screen carries a "already have an account? sign in"
- * line instead, which serves the honest user without answering the attacker.
+ * Supabase never reports that as an error — `signUp()` returns a success with
+ * an empty `identities` array — so there is no error code for this table to
+ * map. The sign-up form reads that empty array itself and shows its own
+ * "you already have an account" screen; see the comment on that branch for why
+ * disclosing it was chosen over leaving the user waiting for a mail that, for
+ * an already CONFIRMED address, GoTrue does not send.
  */
 
 /** The shape we need from `AuthError` without importing the class. */

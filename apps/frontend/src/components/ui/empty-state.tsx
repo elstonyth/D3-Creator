@@ -30,12 +30,15 @@ interface EmptyStateProps {
   size?: 'sm' | 'lg';
 }
 
-const primaryCta =
+// Exported: an anchor styled as a call to action. <Button> renders a real
+// <button>, and nesting an anchor inside one is invalid markup, so a link that
+// has to look like a button uses these instead.
+export const primaryCta =
   'inline-flex items-center justify-center gap-2 h-10 px-5 rounded-md font-medium text-label ' +
   'bg-aurora-cta text-brand-darker hover:bg-aurora-ctaHover transition-colors duration-150 ease-out ' +
   'focus-visible:outline-none focus-visible:shadow-focusRing';
 
-const secondaryCta =
+export const secondaryCta =
   'inline-flex items-center justify-center gap-2 h-10 px-5 rounded-md text-label text-fg ' +
   'border border-borderGlassStrong hover:bg-white/[0.04] transition-colors duration-150 ease-out ' +
   'focus-visible:outline-none focus-visible:shadow-focusRing';
