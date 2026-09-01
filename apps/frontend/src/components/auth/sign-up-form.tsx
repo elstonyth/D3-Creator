@@ -50,8 +50,11 @@ export function SignUpForm() {
 
     // Confirmation on: no session yet. This is ALSO the branch an already
     // registered address takes — Supabase returns a success with no session
-    // rather than admitting the account exists, and emails the real owner. The
-    // screen below is written to serve both without telling them apart.
+    // rather than admitting the account exists. For an address that is already
+    // CONFIRMED it sends nothing at all (GoTrue logs `user_repeated_signup`
+    // and never stamps confirmation_sent_at), so no link is ever coming and
+    // "Resend" cannot change that. The screen below serves both cases without
+    // telling them apart, which is why it names the way out: sign in, or reset.
     if (!data.session) {
       setSentTo(address);
       return;
@@ -116,7 +119,7 @@ export function SignUpForm() {
           </p>
         ) : null}
         {resent ? (
-          <p className="text-caption text-fgMuted">Sent again just now.</p>
+          <p className="text-caption text-fgMuted">Requested again just now.</p>
         ) : null}
 
         <div className="space-y-3">
@@ -147,13 +150,21 @@ export function SignUpForm() {
         </div>
 
         <p className="text-caption text-fgMuted text-center">
-          Already have an account?{' '}
+          Only new addresses get a link. Already signed up with this one?{' '}
           <Link
             href="/login"
             className="text-aurora-cta underline underline-offset-4"
           >
             Sign in
+          </Link>{' '}
+          or{' '}
+          <Link
+            href="/forgot-password"
+            className="text-aurora-cta underline underline-offset-4"
+          >
+            reset your password
           </Link>
+          .
         </p>
       </div>
     );
