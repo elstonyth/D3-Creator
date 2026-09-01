@@ -27,7 +27,7 @@ export function SignUpForm() {
   const [resent, setResent] = useState(false);
   const [pending, setPending] = useState(false);
 
-  async function submit(address: string): Promise<void> {
+  async function submit(address: string): Promise<boolean> {
     const supabase = getSupabaseBrowser();
     const { data, error: signUpError } = await supabase.auth.signUp({
       email: address,
@@ -45,7 +45,7 @@ export function SignUpForm() {
 
     if (signUpError) {
       setError(signUpErrorMessage(signUpError));
-      return;
+      return false;
     }
 
     // Confirmation on: no session yet. This is ALSO the branch an already
@@ -57,12 +57,13 @@ export function SignUpForm() {
     // telling them apart, which is why it names the way out: sign in, or reset.
     if (!data.session) {
       setSentTo(address);
-      return;
+      return true;
     }
 
     // Confirmation off: straight in.
     router.push(AFTER_CONFIRM);
     router.refresh();
+    return true;
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -86,8 +87,9 @@ export function SignUpForm() {
     setResent(false);
     setPending(true);
     try {
-      await submit(sentTo);
-      setResent(true);
+      // Only on a real send: submit() returns false after a Supabase error,
+      // and "Requested again just now." next to that error would be a lie.
+      setResent(await submit(sentTo));
     } catch {
       setError(signUpErrorMessage(null));
     } finally {
@@ -106,9 +108,9 @@ export function SignUpForm() {
           <div className="space-y-1">
             <p className="text-body text-fg">Check your email.</p>
             <p className="text-body-sm text-fgMuted">
-              We sent a confirmation link to{' '}
-              <span className="text-fg">{sentTo}</span>. Open it and you will
-              land straight in the Studio.
+              If <span className="text-fg">{sentTo}</span> is new, a
+              confirmation link is on its way — open it and you land straight in
+              the Studio.
             </p>
           </div>
         </div>
