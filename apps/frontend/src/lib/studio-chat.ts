@@ -22,7 +22,7 @@ export const THREAD_WINDOW_MESSAGES = 200;
  */
 export const compactSecondary =
   'inline-flex items-center justify-center h-8 px-3 rounded-md text-caption ' +
-  'text-fg-muted border border-line hover:text-fg hover:bg-white/[0.04] ' +
+  'text-fgMuted border border-borderGlass hover:text-fg hover:bg-white/[0.04] ' +
   'transition-colors duration-150 ease-out ' +
   'disabled:opacity-50 disabled:pointer-events-none';
 

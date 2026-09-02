@@ -4,23 +4,7 @@
     {
       "name": "frontend",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": [
-        "--filter",
-        "./apps/frontend",
-        "run",
-        "dev"
-      ],
-      "port": 4200
-    },
-    {
-      "name": "frontend-prod",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": [
-        "--filter",
-        "./apps/frontend",
-        "run",
-        "start"
-      ],
+      "runtimeArgs": ["--filter", "./apps/frontend", "run", "dev"],
       "port": 4200
     }
   ]

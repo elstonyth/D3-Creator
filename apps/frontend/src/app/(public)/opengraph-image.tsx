@@ -31,7 +31,7 @@ export default function OpengraphImage() {
             backgroundColor: '#F2E600',
           }}
         />
-        <div style={{ display: 'flex', fontSize: 40, fontWeight: 600 }}>
+        <div style={{ display: 'flex', fontSize: 40, fontWeight: 700 }}>
           D3 Creator
         </div>
       </div>
@@ -40,7 +40,7 @@ export default function OpengraphImage() {
           style={{
             display: 'flex',
             fontSize: 72,
-            fontWeight: 600,
+            fontWeight: 800,
             lineHeight: 1.05,
             letterSpacing: -2,
             maxWidth: 960,
@@ -59,9 +59,7 @@ export default function OpengraphImage() {
           Login-free social analytics across every platform.
         </div>
       </div>
-      <div
-        style={{ display: 'flex', fontSize: 26, color: 'rgba(255,255,255,0.55)' }}
-      >
+      <div style={{ display: 'flex', fontSize: 26, color: '#F2E600' }}>
         www.d3creator.com
       </div>
     </div>,

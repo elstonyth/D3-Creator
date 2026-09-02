@@ -1,17 +1,16 @@
-import { Inter, JetBrains_Mono } from 'next/font/google';
+import { Geist, Geist_Mono } from 'next/font/google';
 
-// Self-hosted via next/font (build-time download → served from our origin), so
-// there is no render-blocking Google Fonts request. DESIGN.md §3 specifies
-// Inter for UI and JetBrains Mono for tabular/numeric runs; the CSS variables
-// below are what tailwind.config.cjs reads for fontFamily.{sans,mono}.
-export const fontSans = Inter({
+// Self-hosted via next/font (build-time download → served from our origin).
+// Replaces the render-blocking Google Fonts @import in global.scss; the CSS
+// variables are wired into Tailwind's fontFamily.{sans,mono}.
+export const geistSans = Geist({
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-sans',
+  variable: '--font-geist-sans',
 });
 
-export const fontMono = JetBrains_Mono({
+export const geistMono = Geist_Mono({
   subsets: ['latin'],
   display: 'swap',
-  variable: '--font-mono',
+  variable: '--font-geist-mono',
 });

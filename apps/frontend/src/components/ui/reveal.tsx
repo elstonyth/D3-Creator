@@ -1,64 +1,35 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
-import { cn } from '@gitroom/frontend/lib/utils';
+import { type ReactNode } from 'react';
+import clsx from 'clsx';
+import { useInView } from './use-in-view';
 
 interface RevealProps {
   children: ReactNode;
-  /** Stagger in ms. Keep the whole stagger under ~200ms across a group. */
+  /** Stagger delay in ms (default 0) */
   delay?: number;
   className?: string;
 }
 
 /**
- * Single-fire fade + 8px rise when the element scrolls into view.
- *
- * Hand-rolled rather than pulled from a motion library: this is the only scroll
- * animation on the site and it is ~20 lines.
- *
- * Two deliberate properties:
- *
- * 1. It renders VISIBLE and only hides itself once the observer is attached, so
- *    content is never stranded at opacity 0 when JavaScript does not run — a
- *    crawler, a hydration failure, prefers-reduced-motion.
- * 2. The hidden/shown flip is written straight to a data attribute on the node
- *    instead of through setState. React state would be the obvious choice, but
- *    setting it inside the effect trips react-hooks/set-state-in-effect (an
- *    error under this repo's lint, and CLAUDE.md bans eslint-disable). Nothing
- *    renders from this value — only CSS reads it — so state buys nothing here.
+ * Single-fire fade + rise on scroll-into-view. Linear-flat motion:
+ * opacity 0→1, translateY 8px→0, 200ms ease-out. Honors prefers-reduced-motion.
  */
 export function Reveal({ children, delay = 0, className }: RevealProps) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-    // Already on screen at mount (above the fold): leave it alone, no fade —
-    // a hero that fades in after hydration reads as a flash of broken page.
-    if (el.getBoundingClientRect().top < window.innerHeight) return;
-
-    el.dataset.reveal = 'pending';
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return;
-        el.dataset.reveal = 'shown';
-        observer.disconnect();
-      },
-      { rootMargin: '0px 0px -10% 0px' },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
+  const { ref, inView } = useInView<HTMLDivElement>();
   return (
     <div
       ref={ref}
+      data-in-view={inView}
       style={delay ? { transitionDelay: `${delay}ms` } : undefined}
-      className={cn(
-        'transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none',
-        'data-[reveal=pending]:translate-y-2 data-[reveal=pending]:opacity-0',
+      className={clsx(
+        // Named group so children can stagger off the same in-view flip
+        // (`group-data-[in-view=true]/reveal:`) without colliding with the
+        // unnamed `group` hover scopes inside cards.
+        'group/reveal opacity-0 translate-y-2',
+        'data-[in-view=true]:opacity-100 data-[in-view=true]:translate-y-0',
+        'transition-[opacity,transform] duration-200 ease-out',
+        'motion-reduce:transition-none motion-reduce:translate-y-0 motion-reduce:opacity-100',
         className,
       )}
     >

@@ -1,33 +1,32 @@
-import { Container, Section } from '@gitroom/frontend/components/ui/section';
+import { DottedSurface } from '@gitroom/frontend/components/reactbits/dotted-surface';
+import { Reveal } from '@gitroom/frontend/components/ui/reveal';
 
-/**
- * The one place on the site that gets display-1 type. Editorial opening: a
- * kicker, a claim, and the sentence that explains the claim. No ornament — the
- * whitespace and the measure carry it (DESIGN.md §3).
- */
 export function ManifestoOpening() {
   return (
-    <Section
-      space="lg"
-      aria-labelledby="about-manifesto-heading"
-      className="border-b border-line-subtle"
-    >
-      <Container>
-        <p className="text-micro uppercase text-fg-subtle">About D3</p>
+    <DottedSurface>
+      <section
+        aria-labelledby="about-manifesto-heading"
+        className="w-full pt-16 pb-20 sm:pt-24 sm:pb-28 lg:pt-32 lg:pb-36 max-w-[1100px] mx-auto px-6 md:px-8"
+      >
+        <Reveal>
+          <p className="text-micro uppercase text-fgSubtle tracking-[0.35em] mb-6">
+            About D3
+          </p>
 
-        <h1
-          id="about-manifesto-heading"
-          className="mt-6 max-w-[14ch] text-display-1 text-fg"
-        >
-          It&apos;s not talent.
-        </h1>
+          <h1
+            id="about-manifesto-heading"
+            className="text-[clamp(48px,8vw,112px)] leading-[0.98] tracking-[-0.04em] font-semibold text-fg max-w-[820px]"
+          >
+            It&apos;s not <span className="text-brand">talent</span>.
+          </h1>
 
-        <p className="mt-8 max-w-prose text-body-lg text-fg-muted">
-          Most people don&apos;t fail at content because they aren&apos;t
-          talented. They fail because nobody ever taught them how to turn
-          attention into business.
-        </p>
-      </Container>
-    </Section>
+          <p className="mt-6 text-body-lg text-fgMuted max-w-[520px] leading-relaxed">
+            Most people don&apos;t fail at content because they aren&apos;t
+            talented. They fail because nobody ever taught them how to turn
+            attention into business.
+          </p>
+        </Reveal>
+      </section>
+    </DottedSurface>
   );
 }

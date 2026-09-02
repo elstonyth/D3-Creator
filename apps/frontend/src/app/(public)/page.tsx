@@ -1,24 +1,11 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
-import { ButtonLink } from '@gitroom/frontend/components/ui/button';
-import { Card } from '@gitroom/frontend/components/ui/card';
-import { Badge, LiveBadge } from '@gitroom/frontend/components/ui/badge';
-import { Alert } from '@gitroom/frontend/components/ui/alert';
+import { GlassCard } from '@gitroom/frontend/components/ui/glass-card';
+import { AuroraButton } from '@gitroom/frontend/components/ui/aurora-button';
 import { Reveal } from '@gitroom/frontend/components/ui/reveal';
-import {
-  Container,
-  Section,
-  SectionHeader,
-} from '@gitroom/frontend/components/ui/section';
-import {
-  Table,
-  TableWrap,
-  Td,
-  Th,
-  Tr,
-  Rank,
-} from '@gitroom/frontend/components/ui/table';
-import { ImageWithFallback } from '@gitroom/frontend/components/ui/image-with-fallback';
+import { ShinyText } from '@gitroom/frontend/components/ui/shiny-text';
+import { DottedSurface } from '@gitroom/frontend/components/reactbits/dotted-surface';
+import { D3LogoParticles } from '@gitroom/frontend/components/reactbits/d3-logo-particles';
 import {
   PLATFORM_ICONS,
   PLATFORM_LABELS,
@@ -31,6 +18,7 @@ import {
   demoCreatorRows,
 } from '@gitroom/frontend/components/dashboard-showcase/showcase-data';
 import { ShowcaseNumber } from '@gitroom/frontend/components/dashboard-showcase/showcase-number';
+import { ImageWithFallback } from '@gitroom/frontend/components/ui/image-with-fallback';
 import {
   getLiveCreatorRows,
   summarizeCreatorRows,
@@ -75,29 +63,10 @@ const PLATFORM_ORDER: PlatformKey[] = [
   // xiaohongshu (RedNote) archived — hidden from the platform strip.
 ];
 
-const ETHOS = [
-  {
-    eyebrow: 'Why this exists',
-    title: 'Numbers, not narratives.',
-    body: 'Every creator we have built shows up here with their live counts, not a cherry-picked deck.',
-  },
-  {
-    eyebrow: 'What you will see',
-    title: 'Followers, views, engagement.',
-    body: 'Across every platform we operate, snapshotted daily. No edited screenshots, no rounded-up claims.',
-  },
-  {
-    eyebrow: 'Who is behind it',
-    title: 'A creator-growth studio from Malaysia.',
-    body: 'Operating since 2021. Founders, operators and creators building commercial IP that lasts.',
-  },
-];
-
 /**
- * Public landing page. The hero carries the proof itself — the live totals
- * panel is the same data the dashboard renders, not a decorative graphic — then
- * manifesto, ethos, a top-creators preview, platform coverage and a closing CTA.
- * Falls back to synthetic demo rows when there is no live data yet.
+ * Public landing page: live hero, manifesto, top-creators preview, platform
+ * coverage cards, and the stat strip. Fetches live creator rows on each request
+ * (ISR, hourly) and falls back to synthetic demo rows on error or when empty.
  */
 export default async function HomePage() {
   // One fetch → derive the summary, top creators, and platform breakdown. When
@@ -127,317 +96,461 @@ export default async function HomePage() {
     liveByPlatform.set(p.platform, p);
 
   return (
-    <>
+    <div className="flex flex-col w-full">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(organizationJsonLd),
         }}
       />
+      {/* ----- HERO ----- */}
+      <DottedSurface className="w-screen ml-[calc(50%-50vw)] mr-[calc(50%-50vw)]">
+        <section className="w-full pt-16 pb-24 sm:pt-24 sm:pb-32 lg:pt-32 lg:pb-40 max-w-[1100px] mx-auto px-6 md:px-8">
+          <Reveal>
+            <div className="grid grid-cols-1 lg:grid-cols-[5fr_6fr] gap-12 lg:gap-14 items-center">
+              {/* Text column */}
+              <div className="flex flex-col gap-5 text-center lg:text-left">
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-subtle border border-borderGlass text-caption text-fgMuted self-center lg:self-start">
+                  <span className="inline-block size-1.5 rounded-full bg-brand-500" />
+                  Live showcase
+                </span>
+                <h1 className="text-[clamp(36px,4.5vw,64px)] leading-[1.04] tracking-[-0.03em] font-semibold text-fg max-w-[520px] mx-auto lg:mx-0 text-balance">
+                  We don&rsquo;t sell dreams.{' '}
+                  <span className="text-brand">We show numbers.</span>
+                </h1>
+                <p className="text-body text-fgMuted max-w-[480px] mx-auto lg:mx-0">
+                  D3 Creator is a live showcase of the creators, brands, and IPs
+                  we grow across every platform. Real traffic. Real engagement.
+                  Real growth.
+                </p>
+                <div className="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-3 mt-2">
+                  <Link href="/dashboard" className="contents">
+                    <AuroraButton variant="cta" size="lg">
+                      View Dashboard
+                    </AuroraButton>
+                  </Link>
+                  <Link href="/leaderboard" className="contents">
+                    <AuroraButton variant="ghost" size="lg">
+                      View Leaderboard
+                    </AuroraButton>
+                  </Link>
+                </div>
+                <ShinyText className="text-caption text-fgSubtle mt-1">
+                  Built by D3
+                </ShinyText>
+              </div>
 
-      {/* ----- HERO — the headline and the evidence for it, side by side ----- */}
-      <Section space="lg">
-        <Container>
-          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
-            <div>
-              {/* The badge only claims "live" when the numbers actually are. */}
-              {isLive ? (
-                <LiveBadge>Live showcase</LiveBadge>
-              ) : (
-                <Badge tone="muted">Showcase preview</Badge>
-              )}
-              <h1 className="mt-6 text-display-1 text-fg text-balance">
-                We don’t sell dreams. We show numbers.
-              </h1>
-              <p className="mt-6 max-w-[46ch] text-body-lg text-fg-muted">
-                A live showcase of the creators, brands and IPs we grow. Every
-                figure on this site is scraped from the platforms themselves and
-                refreshed daily — including the bad days.
-              </p>
-              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-                <ButtonLink href="/dashboard" size="lg">
-                  Open the dashboard
-                </ButtonLink>
-                <ButtonLink href="/leaderboard" variant="secondary" size="lg">
-                  See the leaderboard
-                </ButtonLink>
+              {/* Visual column — push logo to the outer right edge */}
+              <div className="flex items-center justify-center lg:justify-end lg:-mr-6">
+                <D3LogoParticles
+                  size={460}
+                  particleCount={22000}
+                  className="cursor-crosshair max-w-full"
+                />
               </div>
             </div>
-
-            {/* The proof panel. Same numbers as /dashboard, no decoration. */}
-            <Card padding="lg" className="lg:justify-self-end lg:w-full">
-              <div className="flex items-baseline justify-between gap-4">
-                <p className="text-micro uppercase text-fg-subtle">
-                  Total views
-                </p>
-                <Link
-                  href="/dashboard"
-                  className="text-caption text-fg-muted transition-colors duration-150 ease-out hover:text-fg"
-                >
-                  Break it down
-                </Link>
-              </div>
-              <p className="tnum mt-3 text-metric-lg text-fg">
-                {formatShowcase(summary.combinedViews)}
-              </p>
-              <p className="mt-2 text-caption text-fg-subtle">
-                All platforms · across every tracked post
-              </p>
-
-              <dl className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line-subtle bg-line-subtle">
-                <div className="bg-surface p-4">
-                  <dt className="text-micro uppercase text-fg-subtle">
-                    Followers
-                  </dt>
-                  <dd className="tnum mt-2 text-heading text-fg">
-                    {formatShowcase(summary.combinedFollowers)}
-                  </dd>
-                  <dd className="mt-1 text-caption text-fg-subtle">
-                    Latest scraped count
-                  </dd>
-                </div>
-                <div className="bg-surface p-4">
-                  <dt className="text-micro uppercase text-fg-subtle">
-                    Engagement
-                  </dt>
-                  <dd className="tnum mt-2 text-heading text-fg">
-                    {formatShowcase(combinedEngagement)}
-                  </dd>
-                  <dd className="mt-1 text-caption text-fg-subtle">
-                    All tracked posts
-                  </dd>
-                </div>
-              </dl>
-
-              <p className="mt-4 text-caption text-fg-subtle">
-                <span className="tnum">
-                  {exactFormatter.format(summary.trackedCreators)}
-                </span>{' '}
-                creators tracked across{' '}
-                <span className="tnum">{PLATFORM_ORDER.length}</span> platforms.
-              </p>
-            </Card>
-          </div>
-
-          {!isLive && (
-            <Alert tone="info" title="Showcase preview" className="mt-10">
-              These are synthetic figures. Live numbers replace them the moment
-              the scraper switches on.
-            </Alert>
-          )}
-        </Container>
-      </Section>
-
-      {/* ----- MANIFESTO ----- */}
-      <Section divided>
-        <Container>
-          <Reveal>
-            <h2 className="sr-only">Manifesto</h2>
-            <p className="text-body-lg text-fg-subtle">
-              <span className="mr-3 line-through decoration-fg-subtle">
-                No screenshots.
-              </span>
-              <span className="mr-3 line-through decoration-fg-subtle">
-                No fake case studies.
-              </span>
-              <span className="text-fg">Just live numbers.</span>
-            </p>
-            <blockquote className="mt-6 max-w-prose text-display-2 text-fg">
-              Real growth, published the same way it happens — daily, in public,
-              without editing.
-            </blockquote>
           </Reveal>
-        </Container>
-      </Section>
+        </section>
+      </DottedSurface>
+
+      {/* ----- MANIFESTO STRIP ----- */}
+      <section
+        aria-labelledby="manifesto-heading"
+        className="w-full pb-20 sm:pb-24 max-w-[1100px] mx-auto text-center"
+      >
+        <Reveal>
+          <h2 id="manifesto-heading" className="sr-only">
+            Manifesto
+          </h2>
+          <p className="text-body-lg text-fgSubtle">
+            <span className="line-through decoration-fgSubtle/60 mr-3">
+              No screenshots.
+            </span>
+            <span className="line-through decoration-fgSubtle/60 mr-3">
+              No fake case studies.
+            </span>
+            <span className="text-brand font-medium">Just live numbers.</span>
+          </p>
+          <blockquote className="mt-8 text-display-2 text-fg tracking-[-0.03em] leading-[1.06] max-w-[640px] mx-auto">
+            <div>Real growth.</div>
+            <div>Real-time numbers.</div>
+          </blockquote>
+        </Reveal>
+      </section>
 
       {/* ----- ETHOS ----- */}
-      <Section divided>
-        <Container>
-          <Reveal>
-            <SectionHeader title="Why the numbers are public" />
-            <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-line bg-line md:grid-cols-3">
-              {ETHOS.map((item) => (
-                <div key={item.eyebrow} className="bg-surface p-6 sm:p-8">
-                  <p className="text-micro uppercase text-fg-subtle">
-                    {item.eyebrow}
-                  </p>
-                  <h3 className="mt-3 text-subsection text-fg">{item.title}</h3>
-                  <p className="mt-3 text-body text-fg-muted">{item.body}</p>
-                </div>
-              ))}
+      <section
+        aria-labelledby="ethos-heading"
+        className="w-full pb-20 sm:pb-24 max-w-[1100px] mx-auto"
+      >
+        <Reveal>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <p className="text-micro uppercase text-fgSubtle tracking-[0.04em] mb-2">
+                Why this exists
+              </p>
+              <h3 id="ethos-heading" className="text-subsection text-fg mb-3">
+                Numbers, not narratives.
+              </h3>
+              <p className="text-body text-fgMuted">
+                Every creator we&apos;ve built shows up here with their live
+                counts — not a cherry-picked deck.
+              </p>
             </div>
-          </Reveal>
-        </Container>
-      </Section>
+            <div>
+              <p className="text-micro uppercase text-fgSubtle tracking-[0.04em] mb-2">
+                What you&apos;ll see
+              </p>
+              <h3 className="text-subsection text-fg mb-3">
+                Followers, engagement, growth, reach.
+              </h3>
+              <p className="text-body text-fgMuted">
+                Across every platform we operate. Snapshots every day. No edited
+                screenshots.
+              </p>
+            </div>
+            <div>
+              <p className="text-micro uppercase text-fgSubtle tracking-[0.04em] mb-2">
+                Who&apos;s behind it
+              </p>
+              <h3 className="text-subsection text-fg mb-3">
+                A creator-growth ecosystem from Malaysia.
+              </h3>
+              <p className="text-body text-fgMuted">
+                Since 2021. Founders, operators, and creators building real
+                commercial IP.
+              </p>
+            </div>
+          </div>
+        </Reveal>
+      </section>
 
-      {/* ----- LIVE PREVIEW ----- */}
-      <Section divided>
-        <Container>
-          <Reveal>
-            <SectionHeader
-              eyebrow="Live preview"
-              title="The five biggest right now"
-              lede="Ranked by total views across every tracked post, on every platform we run."
-              action={
+      {/* ----- LIVE PREVIEW BENTO ----- */}
+      <section className="w-full pb-20 sm:pb-24 max-w-[1100px] mx-auto">
+        <Reveal>
+          <SectionLabel
+            eyebrow="Live preview"
+            title="What's behind the door."
+            caption="A snapshot of the dashboard, refreshed continuously."
+          />
+
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,400px)] gap-4 items-stretch">
+            {/* Top creators — top 5, by followers (no platform column) */}
+            <GlassCard
+              variant="base"
+              padding="md"
+              radius="2xl"
+              className="flex flex-col"
+            >
+              <div className="flex items-end justify-between mb-4">
+                <div className="flex flex-col gap-1">
+                  <span className="text-label text-fg font-medium">
+                    Top Creators
+                  </span>
+                  <span className="text-body-sm text-fgMuted">
+                    By views · all platforms
+                  </span>
+                </div>
                 <Link
                   href="/leaderboard"
-                  className="text-label text-fg-muted transition-colors duration-150 ease-out hover:text-fg"
+                  className="text-caption text-fgMuted hover:text-fg transition-colors duration-150 ease-out"
                 >
-                  Full leaderboard →
+                  See all →
                 </Link>
-              }
-            />
-
-            <TableWrap>
-              <Table>
-                <caption className="sr-only">
-                  Top five creators by total views across all platforms
-                </caption>
-                <thead>
-                  <tr>
-                    <Th className="w-14">
-                      <span className="sr-only">Rank</span>
-                      <span aria-hidden="true">#</span>
-                    </Th>
-                    <Th className="w-full">Creator</Th>
-                    <Th numeric>Views</Th>
-                    <Th numeric className="hidden sm:table-cell">
-                      Followers
-                    </Th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topCreators.map((creator) => {
-                    const initial =
-                      creator.displayName.trim().charAt(0).toUpperCase() || '?';
-                    const slug = creator.primaryHandle
-                      ? handleToSlug(creator.primaryHandle)
-                      : null;
-                    return (
-                      <Tr key={creator.creatorId}>
-                        <Td>
-                          <Rank n={creator.rank} />
-                        </Td>
-                        {/* w-full + max-w-0: the name truncates rather than
-                            pushing Views past the wrapper's edge on a phone. */}
-                        <Td className="w-full max-w-0">
-                          <span className="flex min-w-0 items-center gap-3">
-                            <span className="grid size-7 shrink-0 place-items-center overflow-hidden rounded-full border border-line bg-surface-subtle text-caption text-fg-muted">
-                              <ImageWithFallback
-                                src={creator.avatarUrl}
-                                alt=""
-                                className="size-full object-cover"
-                                fallback={initial}
-                              />
-                            </span>
-                            {slug ? (
-                              <Link
-                                href={`/creators/${slug}`}
-                                className="truncate text-body text-fg underline-offset-4 hover:underline"
-                              >
-                                {creator.displayName}
-                              </Link>
-                            ) : (
-                              <span className="truncate text-body text-fg">
-                                {creator.displayName}
-                              </span>
-                            )}
-                          </span>
-                        </Td>
-                        <Td numeric>
-                          <ShowcaseNumber value={creator.totalViews} />
-                        </Td>
-                        <Td numeric className="hidden sm:table-cell">
-                          <span className="text-fg-muted">
-                            <ShowcaseNumber value={creator.followers} />
-                          </span>
-                        </Td>
-                      </Tr>
-                    );
-                  })}
-                </tbody>
-              </Table>
-            </TableWrap>
-          </Reveal>
-        </Container>
-      </Section>
-
-      {/* ----- PLATFORM COVERAGE ----- */}
-      <Section divided>
-        <Container>
-          <Reveal>
-            <SectionHeader
-              eyebrow="Coverage"
-              title="Four platforms, one set of numbers"
-              lede="Views are summed across every tracked post on that platform; followers are the latest count we scraped."
-            />
-
-            <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
-              {PLATFORM_ORDER.map((platform) => {
-                const Icon = PLATFORM_ICONS[platform];
-                const live = liveByPlatform.get(platform);
-                const creatorCount = live?.creatorCount ?? 0;
-                return (
-                  <Link
-                    key={platform}
-                    href="/dashboard"
-                    className="group bg-surface p-6 transition-colors duration-150 ease-out hover:bg-surface-subtle focus-visible:bg-surface-subtle"
-                  >
-                    <span className="flex items-center justify-between">
-                      <span className="inline-flex size-9 items-center justify-center rounded-lg border border-line bg-surface-subtle text-fg">
-                        <Icon size={16} />
-                      </span>
-                      <span className="tnum text-caption text-fg-subtle">
-                        {live
-                          ? `${creatorCount} creator${creatorCount === 1 ? '' : 's'}`
-                          : 'Not yet tracked'}
-                      </span>
-                    </span>
-                    <span className="mt-5 block text-label text-fg">
-                      {PLATFORM_LABELS[platform]}
-                    </span>
-                    <span className="tnum mt-1 block text-metric text-fg">
-                      {live ? formatShowcase(live.totalViews) : '—'}
-                    </span>
-                    <span className="mt-1 block text-caption text-fg-subtle">
-                      views · all tracked posts
-                    </span>
-                    <span className="mt-4 flex items-center justify-between border-t border-line-subtle pt-3 text-caption text-fg-muted">
-                      <span className="tnum">
-                        {live ? formatShowcase(live.followers) : '—'}
-                      </span>
-                      <span className="text-fg-subtle">followers</span>
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          </Reveal>
-        </Container>
-      </Section>
-
-      {/* ----- CLOSING ----- */}
-      <Section divided space="lg">
-        <Container>
-          <Reveal>
-            <div className="mx-auto max-w-prose text-center">
-              <h2 className="text-section text-fg">Watch the numbers move</h2>
-              <p className="mt-4 text-body-lg text-fg-muted">
-                The dashboard updates as our scraper collects. Filter by
-                platform, pick a window, and read the same figures we do.
-              </p>
-              <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-                <ButtonLink href="/dashboard" variant="secondary" size="lg">
-                  Open the dashboard
-                </ButtonLink>
-                <ButtonLink href="/about" variant="ghost" size="lg">
-                  How we work
-                </ButtonLink>
               </div>
+
+              <ul>
+                {topCreators.map((creator) => {
+                  const isWinner = creator.rank === 1;
+                  const initial =
+                    creator.displayName.trim().charAt(0).toUpperCase() || '?';
+                  const slug = creator.primaryHandle
+                    ? handleToSlug(creator.primaryHandle)
+                    : null;
+                  const rowClass = `grid grid-cols-[28px_minmax(0,1fr)_auto] gap-3 items-center px-2 min-h-[52px] rounded-lg border-b border-borderGlass last:border-b-0 transition-colors duration-150 ease-out ${
+                    isWinner ? 'bg-brand/[0.06]' : ''
+                  }`;
+                  const cells = (
+                    <>
+                      <span
+                        className={`font-mono tabular-nums text-body-sm ${
+                          isWinner
+                            ? 'text-brand font-semibold'
+                            : 'text-fgSubtle'
+                        }`}
+                      >
+                        {String(creator.rank).padStart(2, '0')}
+                      </span>
+                      <span className="flex items-center gap-3 min-w-0">
+                        <span className="size-8 shrink-0 rounded-full bg-customColor1 border border-borderGlass grid place-items-center overflow-hidden text-caption text-fgMuted">
+                          <ImageWithFallback
+                            src={creator.avatarUrl}
+                            alt=""
+                            className="size-full object-cover"
+                            fallback={initial}
+                          />
+                        </span>
+                        <span className="truncate text-body text-fg font-medium">
+                          {creator.displayName}
+                        </span>
+                      </span>
+                      <span className="text-right font-mono tabular-nums text-body text-fg">
+                        <ShowcaseNumber value={creator.totalViews} />
+                      </span>
+                    </>
+                  );
+                  return (
+                    <li key={creator.creatorId}>
+                      {slug ? (
+                        <Link
+                          href={`/creators/${slug}`}
+                          className={`${rowClass} hover:bg-white/[0.03] focus-visible:bg-white/[0.05] outline-none`}
+                        >
+                          {cells}
+                        </Link>
+                      ) : (
+                        <div className={rowClass}>{cells}</div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </GlassCard>
+
+            {/* Total views + supporting stats (fills the card) */}
+            <Link href="/dashboard" className="group block">
+              <GlassCard
+                variant="base"
+                hover
+                padding="md"
+                radius="2xl"
+                className="h-full flex flex-col"
+              >
+                <div className="flex items-end justify-between mb-4">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-label text-fg font-medium">
+                      Total Views
+                    </span>
+                    <span className="text-body-sm text-fgMuted">
+                      All platforms · recent posts
+                    </span>
+                  </div>
+                  <span className="text-caption text-fgMuted">
+                    Open{' '}
+                    <span className="inline-block transition-transform duration-150 ease-out group-hover:translate-x-0.5">
+                      →
+                    </span>
+                  </span>
+                </div>
+
+                <div className="flex flex-1 flex-col justify-center py-2">
+                  <div className="text-[clamp(34px,4.2vw,52px)] leading-[1.0] tracking-[-0.03em] font-semibold text-fg tabular-nums">
+                    {formatShowcase(summary.combinedViews)}
+                  </div>
+                  <div className="text-caption text-fgMuted mt-2">
+                    views across tracked recent posts
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-4 border-t border-borderGlass">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-caption text-fgSubtle">
+                      Combined followers
+                    </span>
+                    <span className="text-heading text-fg tabular-nums">
+                      {formatShowcase(summary.combinedFollowers)}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-caption text-fgSubtle">
+                      Total engagement
+                    </span>
+                    <span className="text-heading text-fg tabular-nums">
+                      {formatShowcase(combinedEngagement)}
+                    </span>
+                  </div>
+                </div>
+              </GlassCard>
+            </Link>
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ----- PLATFORMS ----- */}
+      <section className="w-full pb-20 sm:pb-24 max-w-[1100px] mx-auto">
+        <Reveal>
+          <SectionLabel
+            eyebrow="Coverage"
+            title="Four platforms. One showcase."
+            caption="Every creator we manage, every platform we run."
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-5">
+            {PLATFORM_ORDER.map((platform, i) => {
+              const Icon = PLATFORM_ICONS[platform];
+              const live = liveByPlatform.get(platform);
+              const isEmpty = !live;
+              const followers = live?.followers ?? 0;
+              const totalViews = live?.totalViews ?? 0;
+              const creatorCount = live?.creatorCount ?? 0;
+              return (
+                // Sibling stagger driven by the section Reveal's in-view flip.
+                // Lives on its OWN wrapper: the Link carries a conditional
+                // `opacity-50` (untracked platform) that the reveal's
+                // opacity-100 class would fight, and GlassCard's hover
+                // transition-colors would be clobbered by transition-[opacity].
+                <div
+                  key={platform}
+                  className="h-full opacity-0 translate-y-2 transition-[opacity,transform] duration-200 ease-out group-data-[in-view=true]/reveal:opacity-100 group-data-[in-view=true]/reveal:translate-y-0 motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-y-0"
+                  style={{ transitionDelay: `${i * 60}ms` }}
+                >
+                  <Link
+                    href="/dashboard"
+                    className={`block h-full group ${isEmpty ? 'opacity-50' : ''}`}
+                  >
+                    <GlassCard
+                      variant="base"
+                      hover
+                      padding="md"
+                      radius="2xl"
+                      className="h-full flex flex-col gap-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="inline-flex items-center justify-center size-10 rounded-md bg-customColor16 border border-borderGlass text-fg">
+                          <Icon size={18} />
+                        </span>
+                        <span className="text-caption text-fgSubtle font-mono tabular-nums">
+                          {isEmpty
+                            ? 'Not yet tracked'
+                            : `${creatorCount} creator${creatorCount === 1 ? '' : 's'}`}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <span className="text-label text-fg font-medium">
+                          {PLATFORM_LABELS[platform]}
+                        </span>
+                        <span className="text-[clamp(20px,2vw,24px)] leading-none tracking-[-0.02em] font-semibold text-fg tabular-nums">
+                          {isEmpty ? '—' : formatShowcase(totalViews)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-caption text-fgMuted font-mono tabular-nums pt-3 border-t border-borderGlass">
+                        <span>{isEmpty ? '—' : formatShowcase(followers)}</span>
+                        <span>followers</span>
+                      </div>
+                    </GlassCard>
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        </Reveal>
+      </section>
+
+      {/* ----- STATS STRIP ----- */}
+      <section className="w-full pb-20 sm:pb-24 max-w-[1100px] mx-auto">
+        <Reveal>
+          <GlassCard variant="base" padding="none" radius="2xl">
+            <dl className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-borderGlass">
+              <StatCell
+                label="Tracked Creators"
+                value={exactFormatter.format(summary.trackedCreators)}
+                note="Across every platform"
+              />
+              <StatCell
+                label="Combined Followers"
+                value={formatShowcase(summary.combinedFollowers)}
+                note="Summed across all profiles"
+              />
+              <StatCell
+                label="Total Views"
+                value={formatShowcase(summary.combinedViews)}
+                note="across tracked recent posts"
+              />
+            </dl>
+          </GlassCard>
+        </Reveal>
+      </section>
+
+      {/* ----- BOTTOM CTA BAND ----- */}
+      <section className="w-full pb-24 max-w-[1100px] mx-auto">
+        <Reveal>
+          <GlassCard
+            variant="base"
+            padding="lg"
+            radius="2xl"
+            className="text-center"
+          >
+            <h2 className="text-display-2 text-fg max-w-[640px] mx-auto mb-4">
+              Watch creators grow, live.
+            </h2>
+            <p className="text-body-lg text-fgMuted max-w-[520px] mx-auto mb-8">
+              The dashboard refreshes the moment our scraper kicks in. Pick a
+              platform, sort by growth, watch the numbers move.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Link href="/dashboard" className="contents">
+                <AuroraButton variant="cta" size="lg">
+                  Open the dashboard
+                </AuroraButton>
+              </Link>
+              <Link href="/leaderboard" className="contents">
+                <AuroraButton variant="ghost" size="lg">
+                  See the leaderboard
+                </AuroraButton>
+              </Link>
             </div>
-          </Reveal>
-        </Container>
-      </Section>
-    </>
+            {!isLive && (
+              <p className="text-caption text-fgSubtle mt-8 tabular-nums">
+                Showcase preview · synthetic data until the scraper switches on.
+              </p>
+            )}
+          </GlassCard>
+        </Reveal>
+      </section>
+    </div>
+  );
+}
+
+interface SectionLabelProps {
+  eyebrow: string;
+  title: string;
+  caption?: string;
+}
+
+/** Eyebrow + title + optional caption heading block for a landing-page section. */
+function SectionLabel({ eyebrow, title, caption }: SectionLabelProps) {
+  return (
+    <div className="mb-6 flex flex-col gap-1.5">
+      <span className="text-micro uppercase text-fgSubtle tracking-[0.04em]">
+        {eyebrow}
+      </span>
+      <h2 className="text-subsection text-fg">{title}</h2>
+      {caption ? (
+        <p className="text-body-sm text-fgMuted max-w-[520px]">{caption}</p>
+      ) : null}
+    </div>
+  );
+}
+
+interface StatCellProps {
+  label: string;
+  value: string;
+  note: string;
+}
+
+/** Single stat cell (label · value · note) in the bottom stats strip. */
+function StatCell({ label, value, note }: StatCellProps) {
+  return (
+    <div className="p-6 sm:p-8 flex flex-col gap-3">
+      <dt className="text-micro uppercase text-fgSubtle tracking-[0.04em]">
+        {label}
+      </dt>
+      <dd className="text-[clamp(28px,3vw,40px)] leading-[1.02] tracking-[-0.03em] font-semibold text-fg tabular-nums">
+        {value}
+      </dd>
+      <p className="text-caption text-fgMuted tabular-nums">{note}</p>
+    </div>
   );
 }

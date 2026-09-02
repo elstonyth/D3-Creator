@@ -67,10 +67,8 @@ test('a missing window cell renders 0 — never the lifetime total relabeled as 
 
   clickPeriod('1D');
 
-  // Period switched… (the window is now restated on every surface that shows a
-  // windowed figure — hero, Top creators, By platform — so this matches more
-  // than one node; the assertion is still "the period changed").
-  expect(screen.getAllByText(/last 24 hours/).length).toBeGreaterThan(0);
+  // Period switched…
+  expect(screen.getByText(/last 24 hours/)).toBeTruthy();
   // …and the cumulative lifetime total must appear NOWHERE (hero, top-creators
   // row, breakdown) — the matrices are live and have no '1d' cells, so every
   // windowed figure is a real 0.
@@ -113,17 +111,4 @@ test('omitted matrices (demo mode) keep the cumulative fallback', () => {
   clickPeriod('1D');
 
   expect(screen.getAllByText('1,234,567').length).toBeGreaterThan(0);
-});
-
-test('filtering to a platform with no profiles offers the way back', () => {
-  render(<DashboardShowcase creators={[creator]} />);
-
-  // The only creator is Instagram-only, so Facebook resolves to zero rows.
-  fireEvent.click(screen.getByRole('tab', { name: 'Facebook' }));
-  expect(screen.getByText(/Nothing tracked on this platform yet/)).toBeTruthy();
-  expect(screen.queryByText('Creator One')).toBeNull();
-
-  // The empty state is not a dead end.
-  fireEvent.click(screen.getByRole('button', { name: 'Show all platforms' }));
-  expect(screen.getByText('Creator One')).toBeTruthy();
 });

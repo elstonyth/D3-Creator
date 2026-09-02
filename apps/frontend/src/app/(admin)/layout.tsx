@@ -1,5 +1,5 @@
 import '../global.scss';
-import { fontSans, fontMono } from '../fonts';
+import { geistSans, geistMono } from '../fonts';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -37,7 +37,7 @@ export default async function AdminLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${fontSans.variable} ${fontMono.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable}`}
     >
       <head>
         <link rel="icon" href="/d3-logo.png?v=3" type="image/png" />

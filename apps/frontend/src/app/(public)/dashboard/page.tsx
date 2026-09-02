@@ -1,7 +1,5 @@
 import { Metadata } from 'next';
 import { DashboardShowcase } from '@gitroom/frontend/components/dashboard-showcase/dashboard-showcase';
-import { Badge, LiveBadge } from '@gitroom/frontend/components/ui/badge';
-import { Container, Section } from '@gitroom/frontend/components/ui/section';
 import {
   getLiveCreatorRows,
   type LiveCreatorRow,
@@ -37,33 +35,33 @@ export default async function DashboardPage() {
   const isLive = !!(creators && creators.length > 0);
 
   return (
-    <Section space="md">
-      <Container>
-        <header className="mb-10 max-w-prose">
-          {/* Only claim "live" when the query actually returned rows. */}
-          {isLive ? <LiveBadge>Live</LiveBadge> : <Badge tone="muted">Preview</Badge>}
-          <h1 className="mt-6 text-display-2 text-fg">
-            Every creator, every platform
-          </h1>
-          <p className="mt-4 text-body-lg text-fg-muted">
-            A roll-up of every account we manage. Pick a platform and a window;
-            the figures update as our scraper collects them.
+    <div className="flex flex-col gap-10 pt-12 pb-24">
+      <header className="max-w-[760px]">
+        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-subtle border border-borderGlass text-caption text-fgMuted mb-6">
+          <span className="inline-block size-1.5 rounded-full bg-white/[0.78]" />
+          Dashboard
+        </span>
+        <h1 className="text-display-2 text-fg mb-4">
+          Every creator. Every platform.
+        </h1>
+        <p className="text-body-lg text-fgMuted max-w-[600px]">
+          A live roll-up of every account we manage. Filter by platform; numbers
+          refresh as our scraper collects them.
+        </p>
+        {isLive && (
+          <p className="mt-4 text-caption text-fgSubtle">
+            Tracking {creators!.length} creator
+            {creators!.length === 1 ? '' : 's'} · combined followers and views
+            across every platform.
           </p>
-          {isLive && (
-            <p className="mt-4 text-caption text-fg-subtle">
-              <span className="tnum">{creators!.length}</span> creator
-              {creators!.length === 1 ? '' : 's'} tracked · followers are the
-              latest scraped count, views are summed over the window you select.
-            </p>
-          )}
-        </header>
+        )}
+      </header>
 
-        <DashboardShowcase
-          creators={creators}
-          viewsByWindow={windowed?.byPlatform}
-          creatorViewsByWindow={windowed?.byCreator}
-        />
-      </Container>
-    </Section>
+      <DashboardShowcase
+        creators={creators}
+        viewsByWindow={windowed?.byPlatform}
+        creatorViewsByWindow={windowed?.byCreator}
+      />
+    </div>
   );
 }

@@ -31,14 +31,17 @@
     "@upstash/redis": "^1.38.0",
     "@vercel/analytics": "^2.0.1",
     "clsx": "^2.1.0",
+    "framer-motion": "^12.40.0",
     "lucide-react": "^1.16.0",
     "next": "16.2.11",
+    "postprocessing": "^6.36.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-use-cookie": "^1.6.1",
     "tailwind-merge": "^3.6.0",
     "tailwind-scrollbar": "^3.1.0",
     "tailwindcss-rtl": "^0.9.0",
+    "three": "^0.167.1",
     "tslib": "^2.3.0"
   },
   "devDependencies": {

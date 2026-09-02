@@ -70,14 +70,14 @@ describe('the trigger', () => {
 
   it('turns yellow when ANY child route is active', () => {
     const first = setup();
-    expect(first.trigger.className).toContain('text-fg-muted');
+    expect(first.trigger.className).toContain('text-fgMuted');
     first.panel.remove();
 
     pathname = '/studio/analyzer/3f2b6c40';
     render(<NavDropdown label="Studio" items={ITEMS} viewer="member" />);
     const triggers = screen.getAllByRole('button', { name: /studio/i });
     expect(triggers[triggers.length - 1].className).toContain(
-      'text-brand',
+      'text-aurora-cta',
     );
   });
 });

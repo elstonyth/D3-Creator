@@ -1,5 +1,5 @@
 import '../global.scss';
-import { fontSans, fontMono } from '../fonts';
+import { geistSans, geistMono } from '../fonts';
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import { Analytics } from '@vercel/analytics/next';
@@ -20,7 +20,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${fontSans.variable} ${fontMono.variable}`}
+      className={`${geistSans.variable} ${geistMono.variable}`}
     >
       <head>
         <link rel="icon" href="/d3-logo.png?v=3" type="image/png" />

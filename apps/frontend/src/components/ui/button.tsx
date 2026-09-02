@@ -2,37 +2,8 @@ import * as React from 'react';
 import Link from 'next/link';
 import { cn } from '@gitroom/frontend/lib/utils';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
-export type ButtonSize = 'sm' | 'md' | 'lg';
-
-// DESIGN.md §1 yellow ledger: exactly ONE solid-yellow button per screen. Every
-// other action is `secondary` (hairline) or `ghost` (bare). If a screen needs
-// two yellow buttons, the screen has two primary actions and that is the bug.
-const VARIANT: Record<ButtonVariant, string> = {
-  primary:
-    'bg-brand text-fg-on-brand hover:bg-brand-300 active:bg-brand-600 font-medium',
-  secondary:
-    'border border-line-strong text-fg hover:bg-white/[0.05] active:bg-white/[0.08]',
-  ghost: 'text-fg-muted hover:text-fg hover:bg-white/[0.05]',
-  // Yellow-mono: destructive reads as dark-yellow ground + pale-yellow text.
-  // Callers must also supply the word ("Delete") — never colour alone.
-  danger:
-    'bg-danger text-danger-fg hover:bg-brand-800 hover:text-fg-on-brand font-medium',
-};
-
-const SIZE: Record<ButtonSize, string> = {
-  sm: 'h-8 px-3 text-caption gap-1.5',
-  md: 'h-9 px-4 text-label gap-2',
-  lg: 'h-11 px-5 text-body gap-2',
-};
-
-const BASE = cn(
-  'relative inline-flex items-center justify-center whitespace-nowrap rounded-lg select-none',
-  'transition-[background-color,border-color,color,opacity,transform] duration-150 ease-out',
-  'focus-visible:outline-none focus-visible:shadow-focus',
-  'active:scale-[0.985] motion-reduce:active:scale-100',
-  'disabled:opacity-45 disabled:pointer-events-none aria-disabled:opacity-45 aria-disabled:pointer-events-none',
-);
+type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'outline' | 'danger';
+type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant;
@@ -41,8 +12,33 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   loading?: boolean;
 }
 
+const base =
+  'inline-flex items-center justify-center gap-2 rounded-md font-medium text-label whitespace-nowrap select-none ' +
+  'transition-colors duration-150 ease-out ' +
+  'focus-visible:outline-none focus-visible:shadow-focusRing ' +
+  'disabled:opacity-50 disabled:pointer-events-none';
+
+const variantStyles: Record<ButtonVariant, string> = {
+  primary:
+    'bg-aurora-cta text-brand-darker hover:bg-aurora-ctaHover',
+  secondary:
+    'glass-elevated text-fg hover:bg-white/[0.06]',
+  ghost:
+    'bg-transparent text-fgMuted hover:text-fg hover:bg-white/[0.04]',
+  outline:
+    'border border-borderGlassStrong text-fg hover:bg-white/[0.04]',
+  danger:
+    'bg-brand-900 text-brand-200 hover:bg-brand-800 hover:text-fg font-medium',
+};
+
+const sizeStyles: Record<ButtonSize, string> = {
+  sm: 'h-8 px-3 text-caption',
+  md: 'h-10 px-4',
+  lg: 'h-11 px-5',
+};
+
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  function Button(
+  (
     {
       className,
       variant = 'primary',
@@ -54,26 +50,29 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       ...props
     },
     ref,
-  ) {
-    return (
-      <button
-        ref={ref}
-        type={type}
-        disabled={disabled || loading}
-        aria-busy={loading || undefined}
-        className={cn(BASE, VARIANT[variant], SIZE[size], className)}
-        {...props}
-      >
-        {/* The label keeps its box while loading, so the button never resizes
-            mid-submit and the row below it never jumps. */}
-        <span className={cn('contents', loading && 'invisible')}>
-          {children}
-        </span>
-        {loading ? <Spinner className="absolute" /> : null}
-      </button>
-    );
-  },
+  ) => (
+    <button
+      ref={ref}
+      type={type}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      className={cn(
+        base,
+        'relative',
+        variantStyles[variant],
+        sizeStyles[size],
+        className,
+      )}
+      {...props}
+    >
+      {/* The label keeps its box while loading, so the button never resizes
+          mid-submit and the row below it never jumps. */}
+      <span className={cn('contents', loading && 'invisible')}>{children}</span>
+      {loading ? <Spinner className="absolute" /> : null}
+    </button>
+  ),
 );
+Button.displayName = 'Button';
 
 interface ButtonLinkProps
   extends Omit<React.ComponentProps<typeof Link>, 'className'> {
@@ -94,7 +93,7 @@ export function ButtonLink({
 }: ButtonLinkProps) {
   return (
     <Link
-      className={cn(BASE, VARIANT[variant], SIZE[size], className)}
+      className={cn(base, variantStyles[variant], sizeStyles[size], className)}
       {...props}
     />
   );
