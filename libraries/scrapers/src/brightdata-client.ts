@@ -159,12 +159,18 @@ async function brightdataFetchJson<T>(
       );
     }
 
+    // Auth and billing are properties of the ACCOUNT, not of the profile being
+    // scraped: every profile on this platform will fail identically until an
+    // operator fixes the credential. Scope them so the caller can alert once
+    // and stop, instead of stamping the whole roster `failed` one row at a time.
     if (res.status === 401 || res.status === 403) {
       throw new ScrapeError(
         'failed',
         `Bright Data auth rejected (${res.status}) — check BRIGHTDATA_API_KEY`,
         platform,
         profileUrl,
+        false,
+        'platform',
       );
     }
     if (res.status === 402) {
@@ -173,6 +179,8 @@ async function brightdataFetchJson<T>(
         `Bright Data returned 402 — out of credits or dataset not in plan`,
         platform,
         profileUrl,
+        false,
+        'platform',
       );
     }
     if (res.status === 429) {
