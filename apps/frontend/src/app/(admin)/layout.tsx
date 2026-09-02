@@ -8,9 +8,19 @@ import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { SignOutButton } from '@gitroom/frontend/components/auth/signout-button';
 import NavLink from '@gitroom/frontend/components/ui/nav-link';
 import MobileNav from '@gitroom/frontend/components/ui/mobile-nav';
+import { Container } from '@gitroom/frontend/components/ui/section';
 
 // Cookie-bound. Never prerender — Supabase env required at construction.
 export const dynamic = 'force-dynamic';
+
+// The console's own nav. Declared once so the desktop bar and the mobile
+// hamburger can never drift apart.
+const NAV = [
+  { href: '/admin', label: 'Overview', exact: true },
+  { href: '/admin/profiles', label: 'Accounts' },
+  { href: '/admin/classes', label: 'Classes' },
+  { href: '/admin/users', label: 'Users' },
+];
 
 // Admin-only layout. There is NO middleware.ts — THIS server-side check is the
 // gate for admin pages. Admin mutations re-check requireAdmin() independently.
@@ -33,61 +43,50 @@ export default async function AdminLayout({
         <link rel="icon" href="/d3-logo.png?v=3" type="image/png" />
         <meta name="darkreader-lock" />
       </head>
-      <body className="dark bg-canvas text-fg font-sans antialiased min-h-screen flex flex-col">
+      <body className="dark flex min-h-screen flex-col bg-canvas font-sans text-fg antialiased">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-black focus:shadow-lg"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-lg focus:bg-brand focus:px-4 focus:py-2 focus:text-label focus:text-fg-on-brand"
         >
           Skip to content
         </a>
+
         <header className="sticky top-0 z-50 border-b border-line bg-canvas">
-          <div className="max-w-[1200px] mx-auto px-6 md:px-8 h-14 flex items-center justify-between">
+          <Container className="flex h-14 items-center justify-between gap-4">
             <Link
               href="/admin"
-              className="flex items-center gap-2 select-none hover:opacity-90 transition-opacity"
+              className="flex shrink-0 items-center gap-2.5 rounded-md transition-opacity duration-150 ease-out hover:opacity-80 focus-visible:outline-none focus-visible:shadow-focus"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/d3-logo.png" alt="D3" width={28} height={28} />
-              <span className="text-heading font-semibold tracking-[-0.02em] text-fg">
-                D3 Admin
-              </span>
+              <img src="/d3-logo.png" alt="D3 Creator" width={26} height={26} />
+              <span className="text-heading text-fg">Console</span>
             </Link>
-            {/* Desktop nav */}
-            <nav className="hidden md:flex items-center gap-1 text-label">
-              <NavLink href="/admin" exact>
-                Dashboard
-              </NavLink>
-              <NavLink href="/admin/profiles">Accounts</NavLink>
-              <NavLink href="/admin/classes">Classes</NavLink>
-              <NavLink href="/admin/users">Users</NavLink>
-              <span className="ml-3 text-caption text-fg-subtle">
-                {auth.email}
-              </span>
-              <SignOutButton />
+
+            <nav aria-label="Admin" className="hidden items-center gap-1 md:flex">
+              {NAV.map((item) => (
+                <NavLink key={item.href} href={item.href} exact={item.exact}>
+                  {item.label}
+                </NavLink>
+              ))}
             </nav>
 
-            {/* Mobile nav — keep sign-out reachable, links go in the hamburger */}
-            <div className="flex md:hidden items-center gap-1 text-label">
-              {/* Email returns from sm up (matches the old sm:inline-block), truncated
-                  so it can't overflow; below sm it stays hidden to keep the header tight. */}
-              <span className="hidden sm:block max-w-[160px] truncate text-caption text-fg-subtle">
-                {auth.email}
-              </span>
+            <div className="flex items-center gap-2">
+              {auth.email ? (
+                <span
+                  className="hidden max-w-[180px] truncate text-caption text-fg-subtle sm:block"
+                  title={auth.email}
+                >
+                  {auth.email}
+                </span>
+              ) : null}
               <SignOutButton />
-              <MobileNav
-                links={[
-                  { href: '/admin', label: 'Dashboard', exact: true },
-                  { href: '/admin/profiles', label: 'Accounts' },
-                  { href: '/admin/classes', label: 'Classes' },
-                  { href: '/admin/users', label: 'Users' },
-                ]}
-              />
+              <MobileNav links={NAV} />
             </div>
-          </div>
+          </Container>
         </header>
 
-        <main id="main" tabIndex={-1} className="relative z-10 flex-1 w-full">
-          <div className="max-w-[1200px] mx-auto px-6 md:px-8">{children}</div>
+        <main id="main" tabIndex={-1} className="flex-1">
+          {children}
         </main>
         <Analytics />
       </body>

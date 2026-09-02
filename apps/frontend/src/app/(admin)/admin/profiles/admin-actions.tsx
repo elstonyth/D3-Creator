@@ -5,8 +5,9 @@
  *
  * Each wraps a server action with useActionState so the button can show a
  * pending state and surface the returned {ok, message} instead of throwing
- * into an error boundary. Delete is gated behind an inline confirm step
- * (no portal/modal dependency) because it permanently cascades snapshots.
+ * into an error boundary. Delete is gated behind an inline confirm that names
+ * the exact profile and what goes with it (no portal/modal dependency),
+ * because the delete permanently cascades every snapshot.
  *
  * On success the server action calls revalidatePath, so the affected row
  * disappears (claim resolved / profile removed) — no success toast needed;
@@ -16,29 +17,37 @@
 import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 
+import { Button } from '@gitroom/frontend/components/ui/button';
+import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { approveClaim, rejectClaim, deleteProfile } from './actions';
 
-// Yellow-mono: destructive intent reads from icon + label, not a red hue.
-const APPROVE_CLS = 'px-3 py-1.5 rounded-md bg-brand text-fg-on-brand text-label disabled:opacity-50 disabled:pointer-events-none';
-const REJECT_CLS = 'px-3 py-1.5 rounded-md text-fg hover:bg-white/[0.06] text-label border border-line disabled:opacity-50 disabled:pointer-events-none';
-const DELETE_CLS = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-fg-muted hover:bg-white/[0.04] text-label border border-white/10';
-const DELETE_CONFIRM_CLS = 'px-3 py-1.5 rounded-md text-fg-muted hover:bg-white/[0.04] text-label border border-white/10 disabled:opacity-50 disabled:pointer-events-none';
-const CANCEL_CLS = 'px-3 py-1.5 rounded-md text-fg-subtle hover:text-fg text-label';
-
+/**
+ * Submit button that reads the enclosing <form>'s pending state.
+ *
+ * useFormStatus only reports for the form it is rendered inside, which is why
+ * each action gets its own tiny form rather than one form with several buttons.
+ */
 function SubmitButton({
-  className,
+  variant = 'secondary',
   children,
-  pendingLabel,
+  label,
 }: {
-  className: string;
+  variant?: 'primary' | 'secondary' | 'danger';
   children: React.ReactNode;
-  pendingLabel: string;
+  /** Accessible name when the visible label alone is ambiguous ("Confirm"). */
+  label?: string;
 }) {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} className={className} aria-busy={pending}>
-      {pending ? pendingLabel : children}
-    </button>
+    <Button
+      type="submit"
+      size="sm"
+      variant={variant}
+      loading={pending}
+      aria-label={label}
+    >
+      {children}
+    </Button>
   );
 }
 
@@ -46,10 +55,13 @@ export function ClaimActions({
   userId,
   profileId,
   alreadyOwned,
+  target,
 }: {
   userId: string;
   profileId: string;
   alreadyOwned: boolean;
+  /** The profile being claimed, for the button's accessible name. */
+  target: string;
 }) {
   const [approveState, approveAction] = useActionState(approveClaim, null);
   const [rejectState, rejectAction] = useActionState(rejectClaim, null);
@@ -61,13 +73,16 @@ export function ClaimActions({
         : null;
 
   return (
-    <div className="flex flex-col items-end gap-1.5 shrink-0">
+    <div className="flex shrink-0 flex-col gap-2 sm:items-end">
       <div className="flex gap-2">
         {!alreadyOwned && (
           <form action={approveAction}>
             <input type="hidden" name="user_id" value={userId} />
             <input type="hidden" name="profile_id" value={profileId} />
-            <SubmitButton className={APPROVE_CLS} pendingLabel="Approving…">
+            <SubmitButton
+              variant="primary"
+              label={`Approve claim on ${target}`}
+            >
               Approve
             </SubmitButton>
           </form>
@@ -75,48 +90,75 @@ export function ClaimActions({
         <form action={rejectAction}>
           <input type="hidden" name="user_id" value={userId} />
           <input type="hidden" name="profile_id" value={profileId} />
-          <SubmitButton className={REJECT_CLS} pendingLabel="Rejecting…">
+          <SubmitButton label={`Reject claim on ${target}`}>
             Reject
           </SubmitButton>
         </form>
       </div>
       {alreadyOwned && (
-        <span className="text-caption text-fg-subtle max-w-[220px] text-right">
-          Already owned — reject, or reassign in the creator&apos;s editor.
-        </span>
+        <p className="max-w-[240px] text-caption text-fg-subtle sm:text-right">
+          Already owned. Reject this, or reassign it in the creator&apos;s
+          editor.
+        </p>
       )}
-      {error && <span className="text-caption text-red-400 max-w-[220px] text-right">{error}</span>}
+      {error && (
+        <Alert tone="danger" className="max-w-[280px] text-caption">
+          {error}
+        </Alert>
+      )}
     </div>
   );
 }
 
-export function DeleteProfileButton({ profileId }: { profileId: string }) {
+export function DeleteProfileButton({
+  profileId,
+  target,
+}: {
+  profileId: string;
+  /** Named in the confirmation so the operator deletes what they think they do. */
+  target: string;
+}) {
   const [state, action] = useActionState(deleteProfile, null);
   const [confirming, setConfirming] = useState(false);
 
   return (
-    <div className="flex flex-col items-end gap-1.5">
+    <div className="flex flex-col items-end gap-2">
       {confirming ? (
-        <form action={action} className="flex items-center gap-2">
+        <form action={action} className="flex flex-col items-end gap-2">
           <input type="hidden" name="profile_id" value={profileId} />
-          <span className="text-caption text-fg-muted">Delete &amp; all stats?</span>
-          <SubmitButton className={DELETE_CONFIRM_CLS} pendingLabel="Deleting…">
-            Confirm
-          </SubmitButton>
-          <button type="button" onClick={() => setConfirming(false)} className={CANCEL_CLS}>
-            Cancel
-          </button>
+          <p className="max-w-[220px] text-right text-caption text-fg-muted">
+            Delete <span className="text-fg">{target}</span> and every snapshot
+            ever taken of it? This cannot be undone.
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setConfirming(false)}
+            >
+              Keep
+            </Button>
+            <SubmitButton variant="danger" label={`Delete ${target}`}>
+              Delete
+            </SubmitButton>
+          </div>
         </form>
       ) : (
-        <button type="button" onClick={() => setConfirming(true)} className={DELETE_CLS}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <path d="M3 6h18M8 6V4h8v2m-9 0v14a1 1 0 001 1h8a1 1 0 001-1V6" />
-          </svg>
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          onClick={() => setConfirming(true)}
+          aria-label={`Delete ${target}`}
+        >
           Delete
-        </button>
+        </Button>
       )}
       {state && !state.ok && (
-        <span className="text-caption text-red-400 max-w-[220px] text-right">{state.message}</span>
+        <Alert tone="danger" className="max-w-[240px] text-caption">
+          {state.message}
+        </Alert>
       )}
     </div>
   );

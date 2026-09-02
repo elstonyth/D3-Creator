@@ -11,7 +11,6 @@
  * says must survive.
  */
 
-import { XIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import {
   useEffect,
@@ -24,6 +23,7 @@ import {
 
 import { ProfileForm } from '@gitroom/frontend/components/studio/chat/profile-form';
 import { ScriptCard } from '@gitroom/frontend/components/studio/chat/script-card';
+import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { Button } from '@gitroom/frontend/components/ui/button';
 import {
   COACH_NOT_READY_COPY,
@@ -77,8 +77,9 @@ const STARTERS = [
   { copy: 'Rewrite this hook:', fillsOnly: true },
 ] as const;
 
-/** §7.7's one shape for every inline failure on this page. This palette has no
- *  red, so an error is an icon plus a sentence, never a colour change. */
+/** §7.7's one shape for every inline SEND failure. This palette has no red, so
+ *  a failure is an icon plus a sentence, never a colour change — `Alert` is the
+ *  primitive that owns that pairing. */
 function FailureBlock({
   copy,
   onRetry,
@@ -87,21 +88,18 @@ function FailureBlock({
   onRetry?: () => void;
 }): ReactElement {
   return (
-    <div role="alert" className="flex flex-col gap-2">
-      <div className="flex items-start gap-2">
-        <XIcon aria-hidden className="h-3.5 w-3.5 mt-1 shrink-0 text-fg-muted" />
-        <p className="text-body text-fg-muted">{copy}</p>
-      </div>
+    <Alert tone="danger" title="That message did not send">
+      <p>{copy}</p>
       {onRetry !== undefined && (
         <button
           type="button"
-          className={`${compactSecondary} self-start`}
+          className={`${compactSecondary} min-h-10 sm:min-h-8 mt-2`}
           onClick={onRetry}
         >
           Try again
         </button>
       )}
-    </div>
+    </Alert>
   );
 }
 
@@ -343,10 +341,14 @@ export function ChatWorkspace({
         className="flex-1 min-h-0 overflow-y-auto py-6 md:py-8"
       >
         <div className="max-w-[720px] mx-auto flex flex-col gap-6">
+          {/* Scrolls away with the thread on purpose: it is an introduction,
+              not chrome, and a pinned title costs a phone 60px of message list
+              on every turn. */}
           <header className="flex flex-col gap-2">
             <h1 className="text-section text-fg">Script coach.</h1>
             <p className="text-body-lg text-fg-muted">
-              Ideas, hooks and full scripts, built on the D3 method.
+              Ideas, hooks and full scripts, built on the D3 method and on what
+              you have told it about your business.
             </p>
           </header>
 
@@ -360,19 +362,30 @@ export function ChatWorkspace({
           {showProfileForm && <ProfileForm />}
 
           {turns.length === 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {STARTERS.map((starter) => (
-                <button
-                  key={starter.copy}
-                  type="button"
-                  disabled={sendBlocked}
-                  onClick={() => onStarter(starter.copy, starter.fillsOnly)}
-                  className="text-left bg-surface-subtle border border-line rounded-2xl px-4 py-3 text-body text-fg-muted hover:text-fg hover:bg-white/[0.04] transition-colors duration-150 ease-out disabled:opacity-50 disabled:pointer-events-none"
-                >
-                  {starter.copy}
-                </button>
-              ))}
-            </div>
+            <section
+              aria-labelledby="chat-starters"
+              className="flex flex-col gap-3"
+            >
+              <h2
+                id="chat-starters"
+                className="text-micro uppercase text-fg-subtle"
+              >
+                Start with
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {STARTERS.map((starter) => (
+                  <button
+                    key={starter.copy}
+                    type="button"
+                    disabled={sendBlocked}
+                    onClick={() => onStarter(starter.copy, starter.fillsOnly)}
+                    className="min-h-[52px] text-left bg-surface-subtle border border-line rounded-2xl px-4 py-3 text-body text-fg-muted hover:text-fg hover:border-line-strong hover:bg-white/[0.03] transition-colors duration-150 ease-out disabled:opacity-45 disabled:pointer-events-none"
+                  >
+                    {starter.copy}
+                  </button>
+                ))}
+              </div>
+            </section>
           )}
 
           {/* Rendered only when there is at least one turn: an always-rendered
@@ -386,7 +399,7 @@ export function ChatWorkspace({
                     key={turn.id}
                     className="animate-riseIn flex justify-end"
                   >
-                    <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-surface-elevated text-body text-fg whitespace-pre-wrap break-words">
+                    <div className="max-w-[85%] rounded-2xl border border-line-subtle bg-surface-elevated px-4 py-3 text-body text-fg whitespace-pre-wrap break-words">
                       {turn.content}
                     </div>
                   </div>
@@ -435,7 +448,7 @@ export function ChatWorkspace({
                 {[0, 1, 2].map((dot) => (
                   <span
                     key={dot}
-                    className="size-1.5 rounded-full bg-fg-muted animate-thinkingDot"
+                    className="size-1.5 rounded-full bg-fg-muted animate-pulseDot"
                     style={{ animationDelay: `${dot * 200}ms` }}
                   />
                 ))}
@@ -461,9 +474,19 @@ export function ChatWorkspace({
         // Replaces the composer for the life of this page render, inside the
         // composer's own block so the column geometry does not shift. No Try
         // again, and no yellow control anywhere on this render.
+        //
+        // tone="info", NOT "danger": `POST /api/chat` answers 503 by design
+        // until the playbook row exists. Nothing the reader did is wrong and
+        // nothing they typed was lost, so this reads as a notice, not a fault.
         <div className="shrink-0 border-t border-line py-4">
           <div className="max-w-[720px] mx-auto">
-            <FailureBlock copy={COACH_NOT_READY_COPY} />
+            <Alert tone="info" title="The coach is offline">
+              <p>{COACH_NOT_READY_COPY}</p>
+              <p className="mt-1 text-fg-subtle">
+                Nothing is wrong with your account, and your past conversations
+                are still here. The Video Analyzer is unaffected.
+              </p>
+            </Alert>
           </div>
         </div>
       ) : (
@@ -483,7 +506,7 @@ export function ChatWorkspace({
                 rows={1}
                 maxLength={MESSAGE_MAX_CHARS}
                 value={draft}
-                placeholder="Ask for ideas, a hook, or a full script…"
+                placeholder="Ask for ideas, a hook, or a full script"
                 onChange={(event) => {
                   setDraft(event.target.value);
                   // Set directly and never transitioned.
@@ -498,7 +521,7 @@ export function ChatWorkspace({
                 onCompositionEnd={() => {
                   composingRef.current = false;
                 }}
-                className="flex-1 min-h-10 max-h-[168px] resize-none overflow-y-auto rounded-md bg-surface-subtle border border-line px-3 py-3 text-body text-fg placeholder:text-fg-subtle transition-colors duration-150 ease-out focus-visible:outline-none focus-visible:border-brand focus-visible:shadow-focus"
+                className="flex-1 min-h-10 max-h-[168px] resize-none overflow-y-auto rounded-lg bg-surface-subtle border border-line px-3 py-2.5 text-body text-fg placeholder:text-fg-subtle transition-[border-color,box-shadow] duration-150 ease-out hover:border-line-strong focus:outline-none focus:border-brand focus:shadow-focus"
               />
               {/* Empty is a no-op in `onSubmit` already; disabling is the
                   affordance for it, so Send stops looking armed over a blank
@@ -526,7 +549,7 @@ export function ChatWorkspace({
                   keystroke in silence. */}
               {draft.length > MESSAGE_MAX_CHARS * COUNTER_AT ? (
                 <span
-                  className={`ml-auto text-caption tabular-nums ${
+                  className={`ml-auto text-caption tnum ${
                     draft.length >= MESSAGE_MAX_CHARS
                       ? 'text-fg'
                       : 'text-fg-subtle'

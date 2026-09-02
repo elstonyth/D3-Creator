@@ -1,90 +1,75 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { FloatingPaths } from '@gitroom/frontend/components/ui/floating-paths';
 
 interface AuthShellProps {
   children: ReactNode;
-  // Visible eyebrow + heading shown above the right-panel form.
-  eyebrow: string;
+  /** The page's <h1>. One per screen. */
   heading: string;
   subheading?: string;
 }
 
-// Two-column auth layout: brand panel on the left (with FloatingPaths),
-// form panel on the right. Used for /login and /onboarding.
-export function AuthShell({ children, eyebrow, heading, subheading }: AuthShellProps) {
+/**
+ * The single surface behind every auth screen: sign in, sign up, forgot and
+ * reset all render this, so moving between them changes the words and nothing
+ * else.
+ *
+ * Deliberately a centred 400px card rather than a split pane. Three of the four
+ * screens have nothing to sell — nobody halfway through a password reset wants
+ * a testimonial — and a marketing panel that has to go blank on one screen is
+ * not the same shell any more.
+ */
+export function AuthShell({ children, heading, subheading }: AuthShellProps) {
   return (
-    <div className="min-h-screen w-full grid lg:grid-cols-[1.05fr_1fr] bg-canvas text-fg">
-      {/* Left: brand panel */}
-      <aside className="relative hidden lg:flex flex-col justify-between overflow-hidden border-r border-line bg-surface-subtle p-12">
-        <FloatingPaths position={1} />
-        <div className="absolute inset-0 bg-gradient-to-b from-brand/[0.04] via-transparent to-canvas/80 pointer-events-none" />
-
-        <Link
-          href="/"
-          className="relative z-10 flex items-center gap-2 select-none hover:opacity-90 transition-opacity"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/d3-logo.png" alt="D3" width={32} height={32} />
-          <span className="text-heading font-semibold tracking-[-0.02em] text-fg">
-            D3 Creator
-          </span>
-        </Link>
-
-        <div className="relative z-10 max-w-md">
-          <blockquote className="text-section text-fg leading-tight tracking-[-0.02em]">
-            “D3 lets us watch every creator we manage in one place —
-            no logins to platforms, no chasing screenshots.”
-          </blockquote>
-          <div className="mt-6 flex items-center gap-3 text-label text-fg-muted">
-            <span className="size-8 rounded-full bg-brand/20 grid place-items-center text-brand font-semibold">
-              D
-            </span>
-            <span>D3 Talent Academy team</span>
-          </div>
-        </div>
-
-        <div className="relative z-10 flex items-center gap-3 text-caption text-fg-subtle">
-          <span className="size-1.5 rounded-full bg-brand" />
-          Live analytics · 5 platforms · daily snapshots
-        </div>
-      </aside>
-
-      {/* Right: form panel */}
-      <main className="relative flex flex-col justify-center px-6 sm:px-12 py-10">
-        <div className="absolute top-6 left-6 lg:left-12">
+    <div className="flex min-h-screen flex-col bg-canvas text-fg">
+      <main className="flex flex-1 items-center justify-center px-5 py-12 sm:px-6">
+        <div className="w-full max-w-[400px]">
           <Link
             href="/"
-            className="text-caption text-fg-muted hover:text-fg transition-colors"
+            className="mx-auto mb-8 flex w-fit select-none items-center gap-2 rounded-lg px-1 py-1 transition-opacity duration-150 ease-out hover:opacity-80 focus-visible:outline-none focus-visible:shadow-focus"
           >
-            ← Home
-          </Link>
-        </div>
-
-        {/* Mobile-only brand bar (the full brand panel is lg+ only). Kept to a
-            logo + wordmark so it doesn't duplicate the form's eyebrow pill /
-            heading that sit directly below. */}
-        <div className="lg:hidden flex items-center gap-2 select-none mb-8 mt-8">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/d3-logo.png" alt="D3" width={28} height={28} />
-          <span className="text-heading font-semibold tracking-[-0.02em] text-fg">
-            D3 Creator
-          </span>
-        </div>
-
-        <div className="mx-auto w-full max-w-[420px] space-y-8">
-          <header className="space-y-2">
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-subtle border border-line border border-line text-caption text-fg-muted">
-              <span className="inline-block size-1.5 rounded-full bg-brand" />
-              {eyebrow}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/d3-logo.png"
+              alt=""
+              width={26}
+              height={26}
+              aria-hidden
+              suppressHydrationWarning
+            />
+            <span className="text-heading tracking-[-0.01em] text-fg">
+              D3 Creator
             </span>
-            <h1 className="text-section text-fg tracking-[-0.02em]">{heading}</h1>
-            {subheading && <p className="text-body text-fg-muted">{subheading}</p>}
-          </header>
+          </Link>
 
-          {children}
+          <div className="rounded-2xl border border-line bg-surface p-6 sm:p-8">
+            <h1 className="text-subsection text-fg">{heading}</h1>
+            {subheading ? (
+              <p className="mt-2 text-body-sm text-fg-muted">{subheading}</p>
+            ) : null}
+            <div className="mt-6">{children}</div>
+          </div>
         </div>
       </main>
+
+      <footer className="px-5 pb-10 sm:px-6">
+        <p className="mx-auto max-w-[400px] text-center text-caption text-fg-muted">
+          No account needed to browse the{' '}
+          <Link
+            href="/dashboard"
+            className="text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
+          >
+            dashboard
+          </Link>{' '}
+          or the{' '}
+          <Link
+            href="/leaderboard"
+            className="text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
+          >
+            leaderboard
+          </Link>
+          .
+        </p>
+      </footer>
     </div>
   );
 }

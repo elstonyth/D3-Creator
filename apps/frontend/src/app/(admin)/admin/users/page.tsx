@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getSupabaseAdmin } from '@d3/database';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
+import { Container, Section } from '@gitroom/frontend/components/ui/section';
 import { RoleTable } from './role-table';
 
 export const dynamic = 'force-dynamic';
@@ -37,16 +38,49 @@ export default async function AdminUsersPage() {
   }));
 
   return (
-    <div className="flex flex-col gap-8 pt-12 pb-24">
-      <header className="max-w-[680px]">
-        <h1 className="text-display-2 text-fg mb-3">Users &amp; roles.</h1>
-        <p className="text-body-lg text-fg-muted">
-          Assign each account a role. Members watch classes; creators get the
-          /me dashboard; &ldquo;none&rdquo; revokes access. Public listing still
-          requires the provision-creator flow.
+    <Container>
+      <Section space="sm" className="space-y-8">
+        <header className="max-w-prose">
+          <p className="text-micro uppercase text-fg-subtle">Users</p>
+          <h1 className="mt-3 text-display-2 text-fg">Roles</h1>
+          <p className="mt-3 text-body-lg text-fg-muted">
+            A role decides what a signed-in account can reach. Changing one
+            takes effect on their next request — it does not sign them out.
+          </p>
+        </header>
+
+        <dl className="grid grid-cols-1 gap-x-8 gap-y-3 text-body-sm sm:grid-cols-2">
+          <div className="flex gap-3">
+            <dt className="w-16 shrink-0 text-fg">Admin</dt>
+            <dd className="text-fg-muted">
+              This console, and everything below.
+            </dd>
+          </div>
+          <div className="flex gap-3">
+            <dt className="w-16 shrink-0 text-fg">Creator</dt>
+            <dd className="text-fg-muted">
+              The /me dashboard for their own profiles.
+            </dd>
+          </div>
+          <div className="flex gap-3">
+            <dt className="w-16 shrink-0 text-fg">Member</dt>
+            <dd className="text-fg-muted">Online classes only.</dd>
+          </div>
+          <div className="flex gap-3">
+            <dt className="w-16 shrink-0 text-fg">None</dt>
+            <dd className="text-fg-muted">
+              Signed in, but every gated page is closed.
+            </dd>
+          </div>
+        </dl>
+
+        <RoleTable rows={rows} selfId={auth.userId} />
+
+        <p className="max-w-prose text-caption text-fg-subtle">
+          A role never puts someone on the public leaderboard — that still runs
+          through the provision-creator flow on the overview.
         </p>
-      </header>
-      <RoleTable rows={rows} selfId={auth.userId} />
-    </div>
+      </Section>
+    </Container>
   );
 }

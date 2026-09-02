@@ -1,17 +1,13 @@
 'use client';
 
-import { AtSignIcon, MailCheckIcon, UserCheckIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 
 import { PasswordField } from '@gitroom/frontend/components/auth/password-field';
-import { Button } from '@gitroom/frontend/components/ui/button';
-import {
-  primaryCta,
-  secondaryCta,
-} from '@gitroom/frontend/components/ui/empty-state';
-import { Input } from '@gitroom/frontend/components/ui/input';
+import { Alert } from '@gitroom/frontend/components/ui/alert';
+import { Button, ButtonLink } from '@gitroom/frontend/components/ui/button';
+import { Field, Input } from '@gitroom/frontend/components/ui/input';
 import { signUpErrorMessage } from '@gitroom/frontend/lib/auth-errors';
 import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
 
@@ -24,6 +20,7 @@ const AFTER_CONFIRM = '/studio/chat';
 
 export function SignUpForm() {
   const router = useRouter();
+  const emailId = useId();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -132,32 +129,25 @@ export function SignUpForm() {
 
   if (taken !== null) {
     return (
-      <div className="space-y-5" role="status">
-        <div className="flex items-start gap-3 rounded-lg border border-line bg-surface-subtle p-4">
-          <UserCheckIcon
-            className="size-5 shrink-0 text-brand mt-0.5"
-            aria-hidden
-          />
-          <div className="space-y-1">
-            <p className="text-body text-fg">You already have an account.</p>
-            <p className="text-body-sm text-fg-muted">
-              <span className="text-fg">{taken}</span> is already registered, so
-              there is no new link to send. Sign in with your password, or reset
-              it if it has slipped your mind.
-            </p>
-          </div>
-        </div>
+      <div className="space-y-5">
+        <Alert tone="info" title="You already have an account.">
+          <span className="break-words text-fg">{taken}</span> is already registered, so
+          there is no new link to send. Sign in with your password, or reset it
+          if it has slipped your mind.
+        </Alert>
 
-        <div className="space-y-3">
-          {/* h-10 comes from the shared CTA classes; not overridden to h-11
-              because two Tailwind height utilities on one element resolve by
-              stylesheet order, not by which is written last. */}
-          <Link href="/login" className={`${primaryCta} w-full`}>
+        <div className="space-y-2.5">
+          <ButtonLink href="/login" size="lg" className="w-full">
             Sign in
-          </Link>
-          <Link href="/forgot-password" className={`${secondaryCta} w-full`}>
+          </ButtonLink>
+          <ButtonLink
+            href="/forgot-password"
+            variant="secondary"
+            size="lg"
+            className="w-full"
+          >
             Reset your password
-          </Link>
+          </ButtonLink>
           <Button
             type="button"
             variant="ghost"
@@ -177,41 +167,29 @@ export function SignUpForm() {
 
   if (sentTo !== null) {
     return (
-      <div className="space-y-5" role="status">
-        <div className="flex items-start gap-3 rounded-lg border border-line bg-surface-subtle p-4">
-          <MailCheckIcon
-            className="size-5 shrink-0 text-brand mt-0.5"
-            aria-hidden
-          />
-          <div className="space-y-1">
-            <p className="text-body text-fg">Check your email.</p>
-            <p className="text-body-sm text-fg-muted">
-              If <span className="text-fg">{sentTo}</span> is new, a
-              confirmation link is on its way — open it and you land straight in
-              the Studio.
-            </p>
-          </div>
-        </div>
+      <div className="space-y-5">
+        <Alert tone="success" title="Check your email.">
+          If <span className="break-words text-fg">{sentTo}</span> is new, a confirmation
+          link is on its way — open it and you land straight in the Studio.
+        </Alert>
 
-        {error ? (
-          <p className="text-caption text-danger-fg" role="alert">
-            {error}
+        {error ? <Alert tone="danger">{error}</Alert> : null}
+        {resent ? (
+          <p role="status" className="text-caption text-fg-muted">
+            Requested again just now.
           </p>
         ) : null}
-        {resent ? (
-          <p className="text-caption text-fg-muted">Requested again just now.</p>
-        ) : null}
 
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           <Button
             type="button"
             variant="secondary"
             size="lg"
             className="w-full"
             onClick={handleResend}
-            disabled={pending}
+            loading={pending}
           >
-            {pending ? 'Sending…' : 'Resend the link'}
+            Resend the link
           </Button>
           <Button
             type="button"
@@ -229,18 +207,18 @@ export function SignUpForm() {
           </Button>
         </div>
 
-        <p className="text-caption text-fg-muted text-center">
+        <p className="text-center text-caption text-fg-muted">
           Only new addresses get a link. Already signed up with this one?{' '}
           <Link
             href="/login"
-            className="text-brand underline underline-offset-4"
+            className="rounded text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
           >
             Sign in
           </Link>{' '}
           or{' '}
           <Link
             href="/forgot-password"
-            className="text-brand underline underline-offset-4"
+            className="rounded text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
           >
             reset your password
           </Link>
@@ -251,24 +229,21 @@ export function SignUpForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <label className="block space-y-1.5">
-        <span className="text-label text-fg-muted">Email</span>
-        <div className="relative">
-          <AtSignIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-fg-subtle pointer-events-none" />
-          <Input
-            type="email"
-            required
-            maxLength={254}
-            autoComplete="email"
-            placeholder="you@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={pending}
-            className="pl-9"
-          />
-        </div>
-      </label>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <Field label="Email" htmlFor={emailId}>
+        <Input
+          id={emailId}
+          type="email"
+          required
+          maxLength={254}
+          autoComplete="email"
+          autoFocus
+          placeholder="you@email.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={pending}
+        />
+      </Field>
 
       <PasswordField
         label="Password"
@@ -281,20 +256,17 @@ export function SignUpForm() {
         hint="8 characters or more. A short phrase beats a clever word."
       />
 
-      {error && (
-        <p className="text-caption text-danger-fg" role="alert">
-          {error}
-        </p>
-      )}
+      {error ? <Alert tone="danger">{error}</Alert> : null}
 
-      <Button type="submit" size="lg" className="w-full" disabled={pending}>
-        {pending ? 'Creating account…' : 'Create account'}
+      <Button type="submit" size="lg" className="w-full" loading={pending}>
+        Create account
       </Button>
-      <p className="text-caption text-fg-muted text-center">
+
+      <p className="text-center text-caption text-fg-muted">
         Already have an account?{' '}
         <Link
           href="/login"
-          className="text-brand underline underline-offset-4"
+          className="rounded text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
         >
           Sign in
         </Link>

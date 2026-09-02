@@ -6,13 +6,15 @@
  * the single most common reason a correct password is rejected.
  *
  * The toggle is a `<button type="button">`: inside a form, a bare `<button>`
- * defaults to `type="submit"` and would submit the form on every reveal.
+ * defaults to `type="submit"` and would submit the form on every reveal. It
+ * fills the 44px gutter the input reserves with `pr-11`, so it is a real tap
+ * target rather than a 16px icon, and it takes the same focus ring as
+ * everything else.
  */
 
-import { EyeIcon, EyeOffIcon } from 'lucide-react';
-import { useId, useState, type ReactElement } from 'react';
+import { useId, useState, type ReactElement, type ReactNode } from 'react';
 
-import { Input } from '@gitroom/frontend/components/ui/input';
+import { Field, Input } from '@gitroom/frontend/components/ui/input';
 
 interface PasswordFieldProps {
   label: string;
@@ -25,6 +27,8 @@ interface PasswordFieldProps {
   disabled?: boolean;
   /** Rendered under the field, e.g. the strength hint on a new password. */
   hint?: string;
+  /** Rendered beside the label, e.g. the "Forgot password?" link. */
+  aside?: ReactNode;
 }
 
 export function PasswordField({
@@ -36,15 +40,16 @@ export function PasswordField({
   minLength,
   disabled = false,
   hint,
+  aside,
 }: PasswordFieldProps): ReactElement {
   const [shown, setShown] = useState(false);
-  const hintId = useId();
+  const id = useId();
 
   return (
-    <label className="block space-y-1.5">
-      <span className="text-label text-fg-muted">{label}</span>
+    <Field label={label} htmlFor={id} hint={hint} aside={aside}>
       <div className="relative">
         <Input
+          id={id}
           type={shown ? 'text' : 'password'}
           required
           minLength={minLength}
@@ -54,7 +59,7 @@ export function PasswordField({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
-          aria-describedby={hint ? hintId : undefined}
+          aria-describedby={hint ? `${id}-hint` : undefined}
           className="pr-11"
         />
         <button
@@ -63,20 +68,24 @@ export function PasswordField({
           disabled={disabled}
           aria-label={shown ? 'Hide password' : 'Show password'}
           aria-pressed={shown}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-fg transition-colors duration-150 ease-out disabled:opacity-50"
+          className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-lg text-fg-subtle transition-colors duration-150 ease-out hover:text-fg focus-visible:outline-none focus-visible:shadow-focus disabled:pointer-events-none disabled:opacity-50"
         >
-          {shown ? (
-            <EyeOffIcon className="size-4" aria-hidden />
-          ) : (
-            <EyeIcon className="size-4" aria-hidden />
-          )}
+          <svg
+            viewBox="0 0 16 16"
+            aria-hidden="true"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-4 w-4"
+          >
+            <path d="M1.4 8S3.9 3.6 8 3.6 14.6 8 14.6 8 12.1 12.4 8 12.4 1.4 8 1.4 8Z" />
+            <circle cx="8" cy="8" r="1.9" />
+            {shown ? <path d="m2.6 13.4 10.8-10.8" /> : null}
+          </svg>
         </button>
       </div>
-      {hint ? (
-        <span id={hintId} className="block text-caption text-fg-subtle">
-          {hint}
-        </span>
-      ) : null}
-    </label>
+    </Field>
   );
 }

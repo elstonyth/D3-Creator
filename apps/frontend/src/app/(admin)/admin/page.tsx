@@ -9,6 +9,9 @@ import {
 } from '@gitroom/frontend/lib/metrics-windowed';
 import { rankCreatorsByFollowerDelta } from '@gitroom/frontend/lib/admin-top30';
 import { ViewLeaderboard } from '@gitroom/frontend/components/leaderboard-showcase/view-leaderboard';
+import { Container, Section } from '@gitroom/frontend/components/ui/section';
+import { Card } from '@gitroom/frontend/components/ui/card';
+import { Stat, StatRow } from '@gitroom/frontend/components/ui/stat';
 import { Top30Creators } from './top30-creators';
 import { ProvisionForm } from './provision-form';
 
@@ -42,79 +45,100 @@ export default async function AdminPage() {
     getTopContentWindowed('30d', { client: admin, limit: 30 }),
   ]);
 
+  // Every tile says what it counts AND over what window — the single biggest
+  // source of confusion on this product is which window a number covers.
   const stats = [
-    { label: 'Creators', value: creatorCount ?? 0 },
-    { label: 'Platform profiles', value: profileCount ?? 0 },
-    { label: 'Users', value: userCount ?? 0 },
+    {
+      label: 'Creators',
+      value: creatorCount ?? 0,
+      meta: 'Accounts on the roster',
+    },
+    {
+      label: 'Platform profiles',
+      value: profileCount ?? 0,
+      meta: 'Scrape targets across all platforms',
+    },
+    {
+      label: 'Users',
+      value: userCount ?? 0,
+      meta: 'Sign-ins with a role assigned',
+    },
   ];
-  const rankedCreators = rankCreatorsByFollowerDelta(creatorMetrics).slice(0, 30);
+  const rankedCreators = rankCreatorsByFollowerDelta(creatorMetrics).slice(
+    0,
+    30,
+  );
 
   return (
-    <div className="flex flex-col gap-10 pt-12 pb-24">
-      <header className="max-w-[760px]">
-        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-subtle border border-line border border-line text-caption text-brand mb-6">
-          <span className="inline-block size-1.5 rounded-full bg-brand" />
-          Admin
-        </span>
-        <h1 className="text-display-2 text-fg mb-4">Full agency view.</h1>
-        <p className="text-body-lg text-fg-muted max-w-[600px]">
-          Top growth across every creator and platform, plus everything you need
-          to provision a new creator account.
-        </p>
-      </header>
+    <Container>
+      <Section space="sm" className="space-y-10">
+        <header className="max-w-prose">
+          <p className="text-micro uppercase text-fg-subtle">Overview</p>
+          <h1 className="mt-3 text-display-2 text-fg">Agency console</h1>
+          <p className="mt-3 text-body-lg text-fg-muted">
+            Roster size, thirty-day movers, and the form that puts a new creator
+            in the system. Everything here reads live — no cache.
+          </p>
+        </header>
 
-      {/* Stat tiles with drill-in footer */}
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {stats.map((s) => (
-          <article
-            key={s.label}
-            className="bg-surface-elevated border border-line-strong rounded-2xl overflow-hidden flex flex-col"
-          >
-            <div className="p-6">
-              <div className="text-caption text-fg-muted">{s.label}</div>
-              <div className="text-display-2 text-fg tabular-nums mt-2">
-                {Intl.NumberFormat().format(s.value)}
-              </div>
-            </div>
+        <div className="space-y-3">
+          <StatRow>
+            {stats.map((s) => (
+              <Stat
+                key={s.label}
+                label={s.label}
+                value={Intl.NumberFormat().format(s.value)}
+                meta={s.meta}
+              />
+            ))}
+          </StatRow>
+          <p className="text-caption text-fg-subtle">
             <Link
               href="/admin/profiles"
-              className="border-t border-line px-6 py-3 text-caption text-fg-muted hover:text-fg hover:bg-white/[0.04] transition-colors text-right"
+              className="text-fg-muted underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg focus-visible:outline-none focus-visible:shadow-focus"
             >
-              View accounts →
-            </Link>
-          </article>
-        ))}
-      </section>
-
-      {/* Provision a creator */}
-      <section className="flex flex-col gap-4">
-        <div>
-          <h2 className="text-section text-fg">Provision a creator</h2>
-          <p className="text-caption text-fg-muted mt-1">
-            Create the login and assign social URLs. The creator can sign in
-            immediately — public signup is disabled.
+              Review every account
+            </Link>{' '}
+            to see per-profile scrape health.
           </p>
         </div>
-        <div className="bg-surface-elevated border border-line-strong rounded-2xl p-6">
-          <ProvisionForm />
-        </div>
-      </section>
 
-      {/* Top-30 split */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <Top30Creators rows={rankedCreators} />
-        <ViewLeaderboard
-          rows={topContent}
-          title="Top Content"
-          subtitle="Top 30 by views · last 30 days"
-        />
-      </section>
+        <section aria-labelledby="provision-heading" className="space-y-4">
+          <div className="max-w-prose">
+            <h2 id="provision-heading" className="text-section text-fg">
+              Provision a creator
+            </h2>
+            <p className="mt-2 text-body text-fg-muted">
+              Creates the login and attaches social URLs in one step. The
+              password is shown once, right here, and never again — copy it
+              before you leave the page.
+            </p>
+          </div>
+          <Card tone="subtle" padding="lg">
+            <ProvisionForm />
+          </Card>
+        </section>
 
-      <div className="text-caption text-fg-muted">
-        <Link href="/admin/profiles" className="text-brand underline underline-offset-4">
-          Manage accounts →
-        </Link>
-      </div>
-    </div>
+        <section aria-labelledby="movers-heading" className="space-y-4">
+          <div className="max-w-prose">
+            <h2 id="movers-heading" className="text-section text-fg">
+              Thirty-day movers
+            </h2>
+            <p className="mt-2 text-body text-fg-muted">
+              Ranked on change since 30 days ago. Accounts with less than a full
+              window of history are marked instead of ranked.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+            <Top30Creators rows={rankedCreators} />
+            <ViewLeaderboard
+              rows={topContent}
+              title="Top Content"
+              subtitle="Top 30 by views · last 30 days"
+            />
+          </div>
+        </section>
+      </Section>
+    </Container>
   );
 }

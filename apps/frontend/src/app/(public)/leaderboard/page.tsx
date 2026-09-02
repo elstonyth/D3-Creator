@@ -1,5 +1,7 @@
 import { Metadata } from 'next';
 import { LeaderboardShowcase } from '@gitroom/frontend/components/leaderboard-showcase/leaderboard-showcase';
+import { Container, Section } from '@gitroom/frontend/components/ui/section';
+import { LiveBadge } from '@gitroom/frontend/components/ui/badge';
 import {
   getLiveCreatorRows,
   getTopContentRankingsWindowed,
@@ -30,25 +32,32 @@ export default async function LeaderboardPage() {
   ]);
 
   return (
-    <div className="flex flex-col gap-8 pt-12 pb-24">
-      <header className="max-w-[760px]">
-        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-subtle border border-line border border-line text-caption text-fg-muted mb-6">
-          <span className="inline-block size-1.5 rounded-full bg-white/[0.78]" />
-          Leaderboard
-        </span>
-        <h1 className="text-display-2 text-fg mb-4">
-          A public leaderboard of the creators built by D3.
-        </h1>
-        <p className="text-body-lg text-fg-muted max-w-[600px]">
-          Top creators by views, and their best content by views and engagement.
-          No screenshots. No fake case studies. Just live numbers.
-        </p>
-      </header>
+    <>
+      <Section space="md">
+        <Container>
+          <div className="max-w-prose">
+            <LiveBadge>Updated daily</LiveBadge>
+            <h1 className="mt-5 text-display-2 text-fg">
+              Every creator we grow, ranked by the numbers.
+            </h1>
+            <p className="mt-4 text-body-lg text-fg-muted">
+              Creators ordered by total views across their tracked posts, then
+              the individual posts that pulled the most views and the most
+              interactions. Straight from the daily scrape — no screenshots, no
+              case studies.
+            </p>
+          </div>
+        </Container>
+      </Section>
 
-      <LeaderboardShowcase
-        liveCreators={creators}
-        topContentByWindow={content}
-      />
-    </div>
+      <Section space="md" divided>
+        <Container>
+          <LeaderboardShowcase
+            liveCreators={creators}
+            topContentByWindow={content}
+          />
+        </Container>
+      </Section>
+    </>
   );
 }

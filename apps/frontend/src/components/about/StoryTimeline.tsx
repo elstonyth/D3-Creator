@@ -1,7 +1,6 @@
-'use client';
-
-import { motion, useReducedMotion } from 'framer-motion';
-import { GlassCard } from '@gitroom/frontend/components/ui/glass-card';
+import { Container, Section } from '@gitroom/frontend/components/ui/section';
+import { Reveal } from '@gitroom/frontend/components/ui/reveal';
+import { cn } from '@gitroom/frontend/lib/utils';
 
 interface Milestone {
   year: string;
@@ -38,81 +37,56 @@ const MILESTONES: Milestone[] = [
   },
 ];
 
+/**
+ * A list, so it reads as hairline rows against a single rule — not five boxed
+ * cards. The only yellow is the marker on the current entry: the "active data
+ * point" slot in DESIGN.md's yellow ledger.
+ */
 export function StoryTimeline() {
-  const reducedMotion = useReducedMotion();
-
   return (
-    <section
-      aria-labelledby="about-timeline-heading"
-      className="w-full pb-20 sm:pb-28 max-w-[1100px] mx-auto px-6 md:px-8"
-    >
-      <header className="mb-12 max-w-[760px]">
-        <p className="text-micro uppercase text-fg-subtle tracking-[0.35em] mb-3">
-          Since 2023
-        </p>
-        <h2
-          id="about-timeline-heading"
-          className="text-display-2 text-fg tracking-[-0.03em] leading-[1.08]"
-        >
-          Three years of building creators that actually{' '}
-          <span className="text-brand">generate business</span>.
-        </h2>
-        <p className="text-body-lg text-fg-muted mt-6">
-          Not influencer vanity. Not motivational decks. A short, real history
-          of an operating company that turns short-video attention into leads,
-          sales, and long-term brand value.
-        </p>
-      </header>
+    <Section space="lg" aria-labelledby="about-timeline-heading">
+      <Container>
+        <header className="max-w-prose">
+          <p className="text-micro uppercase text-fg-subtle">Since 2023</p>
+          <h2
+            id="about-timeline-heading"
+            className="mt-4 text-display-2 text-fg"
+          >
+            Three years of building creators that actually generate business.
+          </h2>
+          <p className="mt-6 text-body-lg text-fg-muted">
+            Not influencer vanity. Not motivational decks. A short, real history
+            of an operating company that turns short-video attention into leads,
+            sales, and long-term brand value.
+          </p>
+        </header>
 
-      <div className="relative mx-auto max-w-[820px]">
-        {/* Vertical guide line */}
-        <div
-          aria-hidden="true"
-          className="absolute left-[7px] sm:left-[11px] top-2 bottom-2 w-px bg-line"
-        />
-
-        <ol className="space-y-10 sm:space-y-12">
+        <ol className="mt-12 max-w-prose border-l border-line sm:mt-16">
           {MILESTONES.map((milestone, index) => (
-            <motion.li
+            <li
               key={milestone.year + milestone.title}
-              initial={reducedMotion ? false : { opacity: 0, y: 24 }}
-              whileInView={reducedMotion ? undefined : { opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: '0px 0px -10% 0px' }}
-              transition={{
-                duration: 0.5,
-                delay: index * 0.08,
-                ease: [0.16, 1, 0.3, 1],
-              }}
-              className="relative pl-10 sm:pl-14"
+              className="relative pb-10 pl-6 last:pb-0 sm:pl-10"
             >
-              {/* Dot on the line */}
               <span
-                aria-hidden="true"
-                className="absolute left-0 top-[10px] flex h-4 w-4 sm:h-6 sm:w-6 items-center justify-center rounded-full bg-canvas ring-1 ring-line"
-              >
-                <span className="h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-brand-500" />
-              </span>
-
-              <p className="font-mono text-caption text-fg-subtle uppercase tracking-[0.2em] mb-2 tabular-nums">
-                {milestone.year}
-              </p>
-              <GlassCard
-                variant="base"
-                padding="lg"
-                radius="2xl"
-                className="flex flex-col gap-2"
-              >
-                <h3 className="text-subsection text-fg tracking-[-0.015em]">
+                aria-hidden
+                className={cn(
+                  'absolute -left-1 top-[9px] h-[7px] w-[7px] rounded-full',
+                  index === MILESTONES.length - 1 ? 'bg-brand' : 'bg-fg-subtle',
+                )}
+              />
+              <Reveal delay={index * 40}>
+                <p className="font-mono text-micro uppercase text-fg-subtle tnum">
+                  {milestone.year}
+                </p>
+                <h3 className="mt-2 text-subsection text-fg">
                   {milestone.title}
                 </h3>
-                <p className="text-body text-fg-muted leading-relaxed">
-                  {milestone.body}
-                </p>
-              </GlassCard>
-            </motion.li>
+                <p className="mt-2 text-body text-fg-muted">{milestone.body}</p>
+              </Reveal>
+            </li>
           ))}
         </ol>
-      </div>
-    </section>
+      </Container>
+    </Section>
   );
 }

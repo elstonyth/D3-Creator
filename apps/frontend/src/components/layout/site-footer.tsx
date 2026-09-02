@@ -10,7 +10,7 @@ const YEAR = new Date().getFullYear();
 const BROWSE = [
   { href: '/dashboard', label: 'Dashboard' },
   { href: '/leaderboard', label: 'Leaderboard' },
-  { href: '/creators', label: 'Creators' },
+  
 ];
 
 const LEARN = [

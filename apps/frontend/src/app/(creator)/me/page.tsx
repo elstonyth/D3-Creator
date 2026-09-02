@@ -8,11 +8,10 @@ import {
   getCreatorMetricsWindowed,
   getTopContentWindowed,
 } from '@gitroom/frontend/lib/metrics-windowed';
-import {
-  parseWindowParam,
-  WINDOW_LABEL,
-} from '@gitroom/frontend/lib/me-window';
+import { parseWindowParam } from '@gitroom/frontend/lib/me-window';
 import { EmptyState } from '@gitroom/frontend/components/ui/empty-state';
+import { Badge } from '@gitroom/frontend/components/ui/badge';
+import { Container, Section } from '@gitroom/frontend/components/ui/section';
 import { ViewLeaderboard } from '@gitroom/frontend/components/leaderboard-showcase/view-leaderboard';
 import { getCreatorPlatformBreakdown } from '@gitroom/frontend/lib/creator-platform-breakdown';
 import { PlatformCards } from '@gitroom/frontend/components/insights/platform-cards';
@@ -23,7 +22,7 @@ import {
 } from '@gitroom/frontend/components/ui/platform-icons';
 
 import { WindowTabs } from './window-tabs';
-import { CreatorStats } from './creator-stats';
+import { CreatorStats, WINDOW_SCOPE } from './creator-stats';
 
 const SUPPORTED_PLATFORMS: PlatformKey[] = [
   'facebook',
@@ -59,16 +58,19 @@ function NoAccountsState() {
         </svg>
       }
       title="Your accounts are being set up"
-      description="Your agency adds and manages your social accounts. Your stats will appear here once they're connected."
+      description="Your agency adds and manages the accounts we track. Followers, views and engagement appear here within a day of the first one going live."
+      action={{ href: '/me/account', label: 'View your account' }}
     >
-      <div className="flex items-center gap-2.5 mt-1">
+      <div className="mt-1 flex items-center gap-2.5">
         {SUPPORTED_PLATFORMS.map((p) => {
           const Icon = PLATFORM_ICONS[p];
           return (
             <span
               key={p}
+              role="img"
+              aria-label={PLATFORM_LABELS[p]}
               title={PLATFORM_LABELS[p]}
-              className="flex items-center justify-center size-9 rounded-full bg-surface border border-line border border-line text-fg-muted"
+              className="flex size-9 items-center justify-center rounded-full border border-line bg-surface text-fg-muted"
             >
               <Icon size={16} />
             </span>
@@ -91,10 +93,15 @@ export default async function CreatorMePage({
 
   const creatorId = auth.creatorLink?.creator_id ?? null;
   const metricWindow = parseWindowParam(await searchParams);
+  const scope = WINDOW_SCOPE[metricWindow];
 
-  let body: ReactNode;
+  // Split in two so the header and the numbers it introduces share ONE
+  // <Section>: a bare div between two Sections collapses to zero padding and
+  // the next `divided` Section's hairline lands flush on the stat panel.
+  let lede: ReactNode;
+  let sections: ReactNode = null;
   if (!creatorId) {
-    body = <NoAccountsState />;
+    lede = <NoAccountsState />;
   } else {
     // Cookie-aware client (NOT service-role). The windowed RPCs read public-RLS
     // tables; creatorIds scopes the aggregation to this creator.
@@ -112,37 +119,58 @@ export default async function CreatorMePage({
       getCreatorPlatformBreakdown(metricWindow, { client: sb, creatorId }),
     ]);
     const row = rows[0];
-    body = !row ? (
-      <NoAccountsState />
-    ) : (
-      <div className="flex flex-col gap-8">
-        <WindowTabs current={metricWindow} />
-        <CreatorStats row={row} />
-        <ViewLeaderboard
-          rows={topContent}
-          title="Top content"
-          subtitle={`Top by views · ${WINDOW_LABEL[metricWindow]}`}
-        />
-        <PlatformCards cards={platformCards} />
-      </div>
-    );
+    if (!row) {
+      lede = <NoAccountsState />;
+    } else {
+      // The window switcher sits directly above the numbers it scopes — it is
+      // the control for everything below it, not a filter chip.
+      lede = (
+        <div className="flex flex-col gap-6">
+          <WindowTabs current={metricWindow} />
+          <CreatorStats row={row} metricWindow={metricWindow} />
+        </div>
+      );
+      sections = (
+        <>
+          <Section space="sm" divided>
+            <ViewLeaderboard
+              rows={topContent}
+              title="Top content"
+              subtitle={`Ranked by views · ${scope}`}
+            />
+          </Section>
+
+          {platformCards.length > 0 ? (
+            <Section space="sm" divided>
+              <PlatformCards cards={platformCards} scope={scope} />
+            </Section>
+          ) : null}
+        </>
+      );
+    }
   }
 
   return (
-    <div className="flex flex-col gap-10 pt-12 pb-24">
-      <header className="max-w-[760px]">
-        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-subtle border border-line border border-line text-caption text-fg-muted mb-6">
-          <span className="inline-block size-1.5 rounded-full bg-brand" />
-          My data
-        </span>
-        <h1 className="text-display-2 text-fg mb-4">Your creator view.</h1>
-        <p className="text-body-lg text-fg-muted max-w-[600px]">
-          Signed in as <span className="text-fg">{auth.email}</span>. Live stats
-          across the accounts your agency manages for you.
-        </p>
-      </header>
+    <Container className="pb-16">
+      <Section space="sm" className="flex flex-col gap-10 sm:gap-12">
+        <header className="max-w-prose">
+          <Badge tone="muted" className="mb-5 uppercase tracking-[0.08em]">
+            Refreshed daily
+          </Badge>
+          <h1 className="text-display-2 text-fg">Your numbers.</h1>
+          <p className="mt-4 text-body-lg text-fg-muted">
+            Followers, views and engagement across every account your agency
+            tracks for you — scraped straight from the platforms, unedited.
+          </p>
+          <p className="mt-2 break-words text-body-sm text-fg-subtle">
+            Signed in as {auth.email}
+          </p>
+        </header>
 
-      {body}
-    </div>
+        {lede}
+      </Section>
+
+      {sections}
+    </Container>
   );
 }

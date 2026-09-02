@@ -1,54 +1,41 @@
-import Link from 'next/link';
-import { AuroraButton } from '@gitroom/frontend/components/ui/aurora-button';
-import { GlassCard } from '@gitroom/frontend/components/ui/glass-card';
+import { ButtonLink } from '@gitroom/frontend/components/ui/button';
+import { Container, Section } from '@gitroom/frontend/components/ui/section';
 import { Reveal } from '@gitroom/frontend/components/ui/reveal';
 
+/**
+ * Where the page lands. One yellow button — the leaderboard is the thing the
+ * whole page argues for — and one hairline secondary beside it.
+ */
 export function ClosingMission() {
   return (
-    <section
-      aria-labelledby="about-mission-heading"
-      className="w-full pb-24 max-w-[1100px] mx-auto px-6 md:px-8"
-    >
-      <Reveal>
-        <GlassCard
-          variant="base"
-          padding="lg"
-          radius="3xl"
-          className="flex flex-col gap-8 sm:gap-10 sm:p-12 lg:p-16"
-        >
-          <p className="text-micro uppercase text-fg-subtle tracking-[0.35em]">
-            Our mission
-          </p>
+    <Section space="lg" aria-labelledby="about-mission-heading">
+      <Container>
+        <Reveal className="max-w-prose">
+          <p className="text-micro uppercase text-fg-subtle">Our mission</p>
 
           <h2
             id="about-mission-heading"
-            className="text-display-2 text-fg tracking-[-0.03em] leading-[1.04] max-w-[760px] text-balance"
+            className="mt-6 text-display-2 text-fg"
           >
-            More <span className="text-brand">creators</span>. More{' '}
-            <span className="text-brand">founders</span>. More{' '}
-            <span className="text-brand">businesses</span>.
+            More creators. More founders. More businesses.
           </h2>
 
-          <p className="text-body-lg text-fg-muted max-w-[640px] leading-relaxed">
+          <p className="mt-6 text-body-lg text-fg-muted">
             Helping Malaysia use content to actually change lives — leads,
-            sales, real commercial IP. D3 is both a creator growth ecosystem
-            and an operating company built on that thesis.
+            sales, real commercial IP. D3 is both a creator growth ecosystem and
+            an operating company built on that thesis.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pt-2">
-            <Link href="/dashboard" className="contents">
-              <AuroraButton variant="cta" size="lg">
-                Open the dashboard
-              </AuroraButton>
-            </Link>
-            <Link href="/leaderboard" className="contents">
-              <AuroraButton variant="ghost" size="lg">
-                See the leaderboard
-              </AuroraButton>
-            </Link>
+          <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <ButtonLink href="/leaderboard" size="lg">
+              See the live leaderboard
+            </ButtonLink>
+            <ButtonLink href="/dashboard" variant="secondary" size="lg">
+              Open the dashboard
+            </ButtonLink>
           </div>
-        </GlassCard>
-      </Reveal>
-    </section>
+        </Reveal>
+      </Container>
+    </Section>
   );
 }

@@ -55,13 +55,13 @@ export function EmptyState({
   const lg = size === 'lg';
   return (
     <div
-      className={`bg-surface-subtle border border-line border border-line rounded-2xl flex flex-col items-center text-center ${
+      className={`bg-surface-subtle border border-line rounded-2xl flex flex-col items-center text-center ${
         lg ? 'px-6 py-14 gap-4' : 'px-6 py-8 gap-3'
       }`}
     >
       {icon && (
         <div
-          className={`flex items-center justify-center rounded-2xl bg-surface border border-line border border-line text-fg-muted shrink-0 ${
+          className={`flex items-center justify-center rounded-2xl bg-surface border border-line text-fg-muted shrink-0 ${
             lg ? 'size-14' : 'size-11'
           }`}
         >

@@ -85,13 +85,13 @@ afterEach(() => {
 it('shows the labeled dot indicator while a reply is outstanding', () => {
   deferredFetch();
   renderWorkspace();
-  expect(document.querySelectorAll('.animate-thinkingDot')).toHaveLength(0);
+  expect(document.querySelectorAll('.animate-pulseDot')).toHaveLength(0);
 
   sendMessage('Write me a hook');
 
   // Labeled like an assistant turn, where the reply will land.
   expect(screen.getByText('Script coach')).toBeTruthy();
-  expect(document.querySelectorAll('.animate-thinkingDot')).toHaveLength(3);
+  expect(document.querySelectorAll('.animate-pulseDot')).toHaveLength(3);
 });
 
 it('adds the reassurance line at 10s, and clears everything when the reply lands', async () => {
@@ -112,7 +112,7 @@ it('adds the reassurance line at 10s, and clears everything when the reply lands
   });
 
   expect(screen.getByText('Here is your hook.')).toBeTruthy();
-  expect(document.querySelectorAll('.animate-thinkingDot')).toHaveLength(0);
+  expect(document.querySelectorAll('.animate-pulseDot')).toHaveLength(0);
   expect(screen.queryByText(/Still working/)).toBeNull();
 });
 
@@ -134,6 +134,6 @@ it('a fresh send resets the reassurance line instead of inheriting the last one'
   deferredFetch();
   sendMessage('Second');
   // Dots are back immediately; the slow line must NOT be.
-  expect(document.querySelectorAll('.animate-thinkingDot')).toHaveLength(3);
+  expect(document.querySelectorAll('.animate-pulseDot')).toHaveLength(3);
   expect(screen.queryByText(/Still working/)).toBeNull();
 });

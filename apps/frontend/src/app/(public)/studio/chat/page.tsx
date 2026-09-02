@@ -23,6 +23,7 @@ import {
   type ThreadRow,
 } from '@gitroom/frontend/components/studio/chat/thread-rail';
 import { StudioLocked } from '@gitroom/frontend/components/studio/studio-locked';
+import { Container } from '@gitroom/frontend/components/ui/section';
 import { getAuthContext, isStudioMember } from '@gitroom/frontend/lib/auth';
 import { readPlaybook } from '@gitroom/frontend/lib/chat-playbook';
 import { isPlaybookReady } from '@gitroom/frontend/lib/chat-prompt';
@@ -134,7 +135,10 @@ export default async function ScriptCoachPage({
   }
 
   return (
-    <div className="md:grid md:grid-cols-[260px_1fr] md:gap-8">
+    // The page owns its gutter — the (public) layout no longer wraps children
+    // in one. NO <Section>: its py-* would break the rail's `md:top-14` and the
+    // workspace's `100dvh - 56px` height, both of which assume no offset.
+    <Container className="md:grid md:grid-cols-[260px_1fr] md:gap-8">
       <ThreadRail threads={threads} activeThreadId={threadId} />
       {/* No `key` prop: a key remounts the island on the first reply of a new
           conversation and discards the overlay §7.6 says must survive. */}
@@ -144,6 +148,6 @@ export default async function ScriptCoachPage({
         showProfileForm={profile === null}
         coachReady={coachReady}
       />
-    </div>
+    </Container>
   );
 }

@@ -1,37 +1,37 @@
-import Link from 'next/link';
-import { AuroraButton } from '@gitroom/frontend/components/ui/aurora-button';
+import { Container, Section } from '@gitroom/frontend/components/ui/section';
 import { Reveal } from '@gitroom/frontend/components/ui/reveal';
 
+/**
+ * The pivot of the page: why a public leaderboard exists at all. It is a
+ * statement, so it gets a band of its own and no button — the actions sit in
+ * the closing block so the page has exactly one primary CTA.
+ */
 export function TransparencyManifesto() {
   return (
-    <section
+    <Section
+      space="lg"
       aria-labelledby="about-transparency-heading"
-      className="w-full pb-20 sm:pb-24 max-w-[1100px] mx-auto px-6 md:px-8 text-center"
+      className="border-y border-line-subtle bg-surface-subtle"
     >
-      <Reveal>
-        <h2
-          id="about-transparency-heading"
-          className="text-display-2 text-fg mb-6 max-w-[760px] mx-auto leading-[1.08] tracking-[-0.03em] text-balance"
-        >
-          That&apos;s why D3 Creator exists.
-        </h2>
-        <p className="text-body-lg text-fg-muted max-w-[680px] mx-auto mb-8">
-          Instead of showing screenshots or edited case studies, we made our
-          creator ecosystem public. Followers, views, engagement, growth
-          rankings, and live performance are displayed transparently across
-          every platform we operate.
-        </p>
-        <p className="text-body-lg text-fg max-w-[640px] mx-auto mb-10">
-          In our culture,{' '}
-          <span className="text-brand font-medium">numbers</span> speak louder
-          than promises.
-        </p>
-        <Link href="/leaderboard" className="contents">
-          <AuroraButton variant="cta" size="lg">
-            See the live leaderboard
-          </AuroraButton>
-        </Link>
-      </Reveal>
-    </section>
+      <Container className="max-w-prose text-center">
+        <Reveal>
+          <h2
+            id="about-transparency-heading"
+            className="text-display-2 text-fg"
+          >
+            That&apos;s why D3 Creator exists.
+          </h2>
+          <p className="mt-6 text-body-lg text-fg-muted">
+            Instead of showing screenshots or edited case studies, we made our
+            creator ecosystem public. Followers, views, engagement, growth
+            rankings, and live performance are displayed transparently across
+            every platform we operate.
+          </p>
+          <p className="mt-6 text-body-lg text-fg">
+            In our culture, numbers speak louder than promises.
+          </p>
+        </Reveal>
+      </Container>
+    </Section>
   );
 }

@@ -1,6 +1,6 @@
 # Design System: D3 Yellow — Linear-Flat
 
-> **Style:** Linear-flat · **Mood:** Premium, minimal, intentional · **Default theme:** Dark (near-black) · **Brand:** Yellow `#F2E600` on near-black `#0A0A0A`
+> **Style:** Linear-flat · **Mood:** Premium, minimal, intentional · **Default theme:** Dark (near-black) · **Brand:** Yellow `#F2E600` on near-black `#0A0A0D`
 
 ## 1. Visual Theme & Atmosphere
 
@@ -29,12 +29,12 @@ Surfaces are **flat**: solid fills, 1px borders, square-cornered or `8-12px` rad
 |---------|-----|
 | Logo | The D3 chain-link icon (image asset) |
 | Primary CTA | One per screen — solid `#F2E600` bg + near-black text |
-| CTA hover | Lighter `#FDE047` |
+| CTA hover | Lighter `#FFEE4A` |
 | Focus ring | `outline: 2px solid #F2E600` on keyboard focus |
 | Active nav | Indicator stripe / dot |
 | Active data point | Highlighted row / focused table cell |
 
-**Everywhere else: neutral.** Chip/badge bg → white at 6-8% opacity. Section divider → white at 8% opacity. Status dot → white at 78%. Hero headline → solid white (`#F5F5F5`).
+**Everywhere else: neutral.** Chip/badge bg → white at 6-8% opacity. Section divider → white at 8% opacity. Status dot → white at 78%. Hero headline → solid white (`#FFFFFF`).
 
 ---
 
@@ -61,9 +61,9 @@ Surfaces are **flat**: solid fills, 1px borders, square-cornered or `8-12px` rad
 |-------|-------------|------|
 | `--canvas` | `#0A0A0D` | Page background |
 | `--canvas-deep` | `#050507` | Deepest layer, behind canvas |
-| `--glass-subtle` | `#0F0F12` | Inset well, code block, subtle container |
-| `--glass-base` | `#16161A` | Card / panel base |
-| `--glass-elevated` | `#1A1A1F` | Elevated card, dropdown, modal |
+| `--surface-subtle` | `#0F0F12` | Inset well, code block, subtle container |
+| `--surface` | `#16161A` | Card / panel base |
+| `--surface-elevated` | `#1A1A1F` | Elevated card, dropdown, modal |
 | `--scrim` | `rgba(0,0,0,0.72)` | Modal backdrop |
 
 > Surfaces moved from yellow-undertone (`#0E0D00`/`#1A1900`) to true neutral cool-black after the scarce-yellow rebalance. Chrome reads gray-neutral; yellow only appears where the Yellow Ledger §1 allows.
@@ -73,7 +73,7 @@ Surfaces are **flat**: solid fills, 1px borders, square-cornered or `8-12px` rad
 | Token | Value | Role |
 |-------|-------|------|
 | `--border-subtle` | `rgba(255,255,255,0.06)` | Faintest divider |
-| `--border-default` | `rgba(255,255,255,0.08)` | Card / panel border |
+| `--border` | `rgba(255,255,255,0.08)` | Card / panel border |
 | `--border-strong` | `rgba(255,255,255,0.14)` | Hovered card, emphasized input |
 | `--border-brand` | `#F2E600` | Focused input, active tab |
 
@@ -83,9 +83,8 @@ Surfaces are **flat**: solid fills, 1px borders, square-cornered or `8-12px` rad
 |-------|-------|------|
 | `--fg` | `#FFFFFF` | Headings, primary body, **all hero headlines (NOT yellow)** |
 | `--fg-muted` | `rgba(255,255,255,0.62)` | Secondary body, captions |
-| `--fg-subtle` | `rgba(255,255,255,0.40)` | Disabled, meta, timestamps, placeholders |
-| `--text-on-brand` | `#0A0A0D` | Text on yellow CTAs (near-black) |
-| `--text-inverse` | `#0A0A0D` | Text on white surfaces (light mode) |
+| `--fg-subtle` | `rgba(255,255,255,0.55)` | Disabled, meta, timestamps, placeholders. Was `0.40`, which measured ~3.8:1 on the canvas and failed WCAG AA; `0.55` clears ~6:1. |
+| `--fg-on-brand` | `#0A0A0D` | Text on yellow CTAs (near-black) |
 
 > **Headlines stay white.** Yellow text is forbidden except inside the Yellow Ledger §1 surfaces. ShinyText component renders solid white in this system.
 
@@ -96,9 +95,9 @@ User mandate: **zero foreign colors anywhere**. Status states communicate throug
 | Token | Hex | Role |
 |-------|-----|------|
 | `--success` | `#F2E600` (brand-500) | Success — paired with checkmark icon |
-| `--warning` | `#FDE047` (brand-300) | Warning — paired with caution icon |
-| `--danger` | `#4D3800` (brand-900) | Error / destructive — paired with X icon + clear label |
-| `--info` | `#FACC15` (brand-400) | Info — paired with info icon |
+| `--warning` | `#FFEE4A` (brand-300) | Warning — paired with caution icon |
+| `--danger` | `#3E3A00` (brand-900) | Error / destructive — paired with X icon + clear label |
+| `--info` | `#F8EA10` (brand-400) | Info — paired with info icon |
 
 > All status comes from icon + label. Color tones stay inside the yellow scale. No red, green, blue, or any foreign hue — anywhere. WCAG safety covered by icon + text, not chromatic differentiation.
 
@@ -117,33 +116,41 @@ Inter is loaded with `font-display: swap`. Variable-weight axis used (`100-900`)
 
 ### Scale
 
-| Token | Size | Line | Tracking | Use |
-|-------|------|------|----------|-----|
-| `--text-xs` | `12px` | `1.5` | `0` | Meta, labels, badges |
-| `--text-sm` | `14px` | `1.55` | `-0.005em` | Secondary body, captions |
-| `--text-base` | `15px` | `1.6` | `-0.01em` | **Body default** |
-| `--text-md` | `16px` | `1.6` | `-0.01em` | Long-form reading |
-| `--text-lg` | `18px` | `1.5` | `-0.015em` | Lead paragraphs |
-| `--text-xl` | `22px` | `1.4` | `-0.02em` | Section subheads |
-| `--text-2xl` | `28px` | `1.3` | `-0.025em` | Card titles, h3 |
-| `--text-3xl` | `36px` | `1.2` | `-0.03em` | Page headings, h2 |
-| `--text-4xl` | `48px` | `1.1` | `-0.032em` | Section heroes, h1 |
-| `--text-5xl` | `64px` | `1.05` | `-0.035em` | Landing hero |
-| `--text-6xl` | `80px` | `1.0` | `-0.035em` | Marquee only |
+These are the real Tailwind class names; there is no `--text-xs`-style token
+layer. Sizes marked `clamp()` scale with the viewport.
+
+| Class | Size | Line | Tracking | Weight | Use |
+|-------|------|------|----------|--------|-----|
+| `text-display-1` | `clamp(44px, 6vw, 84px)` | `1.04` | `-0.035em` | 600 | Landing hero, once per site |
+| `text-display-2` | `clamp(32px, 4vw, 52px)` | `1.08` | `-0.03em` | 600 | Page hero |
+| `text-section` | `clamp(26px, 2.4vw, 34px)` | `1.15` | `-0.025em` | 600 | Section heading (h2) |
+| `text-subsection` | `21px` | `1.3` | `-0.015em` | 600 | Sub-heading (h3) |
+| `text-heading` | `17px` | `1.4` | `-0.01em` | 600 | Card title |
+| `text-body-lg` | `17px` | `1.6` | — | 400 | Lede paragraph |
+| `text-body` | `15px` | `1.6` | — | 400 | **Body default** |
+| `text-body-sm` | `13.5px` | `1.55` | — | 400 | Secondary body |
+| `text-label` | `13px` | `1.4` | — | 500 | Form label, nav item, button |
+| `text-caption` | `12px` | `1.4` | — | 500 | Meta, badge, captions |
+| `text-micro` | `11px` | `1.4` | `0.08em` | 500 | Section eyebrow — the ONLY uppercase |
+| `text-metric` | `24px` | `1.1` | `-0.02em` | 600 | Metric readout |
+| `text-metric-lg` | `clamp(30px, 3.4vw, 44px)` | `1.05` | `-0.03em` | 600 | Hero metric |
+
+Any element rendering a number also takes `.tnum`.
 
 ### Weight
 
 - Body: `400`
 - Medium emphasis: `500`
 - Headings: `600` (not 700 — avoid heavy)
-- Display hero: `700` (rare)
+- Display hero: `600` — the scale tops out here; 700 reads heavy at 84px
 
 ### Rules
 
 - **No gradient text.** Solid color only.
 - **No text-shadow.** Ever.
-- **No uppercase tracking-wide titles.** (Linear-flat is sentence-case, tight-tracked.)
-- Headings use `--text-primary` (`#F5F5F5`), never yellow.
+- **No uppercase tracking-wide titles.** Sentence case, tight-tracked. The one
+  sanctioned uppercase run is `text-micro` used as a section eyebrow.
+- Headings use `--fg` (`#FFFFFF`), never yellow.
 - Yellow text reserved for inline brand mentions and active nav state.
 - Line-length: max `68ch` for long-form, `52ch` for marketing prose.
 
@@ -156,7 +163,7 @@ Inter is loaded with `font-display: swap`. Variable-weight axis used (`100-900`)
 **Primary (yellow)**
 ```css
 background: #F2E600;
-color: #0A0A0A;
+color: #0A0A0D;
 border: 1px solid #F2E600;
 border-radius: 8px;
 padding: 10px 16px;
@@ -179,7 +186,7 @@ outline-offset: 2px;
 **Secondary (ghost)**
 ```css
 background: transparent;
-color: #F5F5F5;
+color: #FFFFFF;
 border: 1px solid rgba(255,255,255,0.14);
 border-radius: 8px;
 padding: 10px 16px;
@@ -192,20 +199,20 @@ border-color: rgba(255,255,255,0.20);
 **Tertiary (text)**
 ```css
 background: transparent;
-color: #A3A3A3;
+color: rgba(255,255,255,0.62);
 border: none;
 padding: 8px 12px;
 
 /* hover */
-color: #F5F5F5;
+color: #FFFFFF;
 ```
 
-**Sizes:** `sm` (32px h, 12px font), `md` (40px h, 14px font), `lg` (48px h, 16px font).
+**Sizes:** `sm` (32px h, 12px font), `md` (36px h, 13px font), `lg` (44px h, 15px font).
 
 ### Cards
 
 ```css
-background: #111111;
+background: #16161A;
 border: 1px solid rgba(255,255,255,0.08);
 border-radius: 12px;
 padding: 24px;
@@ -230,16 +237,16 @@ padding: 0 24px;
 
 - Logo left, nav center, profile right.
 - Active link: `color: #F2E600`, no underline, no pill.
-- Inactive link: `color: #A3A3A3` → hover `#F5F5F5`.
+- Inactive link: `color: rgba(255,255,255,0.62)` → hover `#FFFFFF`.
 
 ### Inputs
 
 ```css
-background: #0A0A0A;
+background: #0A0A0D;
 border: 1px solid rgba(255,255,255,0.08);
 border-radius: 8px;
 padding: 10px 12px;
-color: #F5F5F5;
+color: #FFFFFF;
 font-size: 14px;
 transition: border-color 150ms ease-out;
 
@@ -264,12 +271,12 @@ font-weight: 500;
 height: 22px;
 ```
 
-Variants: `default` (`#161616` bg, `#A3A3A3` text), `brand` (`rgba(242,230,0,0.12)` bg, `#F2E600` text), `success` / `warning` / `danger` / `info` (use semantic tokens).
+Variants: `default` (`#161616` bg, `rgba(255,255,255,0.62)` text), `brand` (`rgba(242,230,0,0.12)` bg, `#F2E600` text), `success` / `warning` / `danger` / `info` (use semantic tokens).
 
 ### Tables
 
 - Row height `48px`, cell padding `12px 16px`.
-- Header row: `#A3A3A3` text, `12px` uppercase tracking `0.04em` (only place caps are allowed).
+- Header row: `rgba(255,255,255,0.62)` text, `12px` uppercase tracking `0.04em` (only place caps are allowed).
 - Row border-bottom: `1px solid rgba(255,255,255,0.06)`.
 - Hover row: `background: rgba(255,255,255,0.02)`.
 
@@ -322,8 +329,8 @@ Depth is **structural, not visual**. No glow. No colored shadows. No outer-glow 
 
 | Tier | Treatment |
 |------|-----------|
-| **0** (canvas) | `#0A0A0A`, no border |
-| **1** (card) | `#111111`, `1px solid rgba(255,255,255,0.08)` |
+| **0** (canvas) | `#0A0A0D`, no border |
+| **1** (card) | `#16161A`, `1px solid rgba(255,255,255,0.08)` |
 | **2** (raised card) | `#161616`, `1px solid rgba(255,255,255,0.08)` |
 | **3** (popover) | `#1C1C1C`, `1px solid rgba(255,255,255,0.10)`, `box-shadow: 0 4px 16px rgba(0,0,0,0.4)` |
 | **4** (modal) | `#1C1C1C`, `1px solid rgba(255,255,255,0.12)`, `box-shadow: 0 16px 48px rgba(0,0,0,0.6)` |
@@ -395,7 +402,7 @@ Only colored shadow permitted: focus ring `box-shadow: 0 0 0 3px rgba(242,230,0,
 
 **Permitted single-axis gradients only:**
 
-- Background fade `#0A0A0A` → `#111111` for sectioning (vertical only)
+- Background fade `#0A0A0D` → `#16161A` for sectioning (vertical only)
 - Yellow-to-yellow tonal gradient `#F2E600` → `#D4C900` on hero CTA (vertical, subtle)
 
 ---
@@ -410,7 +417,7 @@ Only colored shadow permitted: focus ring `box-shadow: 0 0 0 3px rgba(242,230,0,
 
 ### Style
 
-- Fill: `#FFFFFF` on dark surfaces, `#0A0A0A` on light surfaces.
+- Fill: `#FFFFFF` on dark surfaces, `#0A0A0D` on light surfaces.
 - Size: `16px` (badges), `20px` (nav), `24px` (cards), `32px` (heroes).
 - Always within a flat circular or square container — never raw on canvas.
 - Container background: `#161616` with `1px solid rgba(255,255,255,0.08)`.
@@ -452,3 +459,59 @@ Containers stay neutral — **never** tint container with platform brand color.
 ---
 
 **Owner:** Brand Agent · **Source of truth:** this file · **Conflicts:** this file wins.
+
+---
+
+## 10. Implementation Map
+
+The doc is only worth having if the code can be checked against it. These are
+the exact artefacts. If a rule here has no entry, it is not enforced anywhere.
+
+| Concern | Lives in |
+|---------|----------|
+| Raw values (the tokens above) | `apps/frontend/src/app/colors.scss` |
+| Tailwind names for them | `apps/frontend/tailwind.config.cjs` |
+| Reset, focus ring, selection, scrollbar, reduced motion | `apps/frontend/src/app/global.scss` |
+| Fonts | `apps/frontend/src/app/fonts.ts` (Inter + JetBrains Mono, self-hosted via `next/font`) |
+| Primitives | `apps/frontend/src/components/ui/` |
+| Site chrome | `apps/frontend/src/components/layout/` |
+
+### Token → class
+
+| Token | Tailwind class |
+|-------|----------------|
+| `--canvas` / `--canvas-deep` | `bg-canvas` / `bg-canvas-deep` |
+| `--surface-subtle` / `--surface` / `--surface-elevated` | `bg-surface-subtle` / `bg-surface` / `bg-surface-elevated` |
+| `--border-subtle` / `--border` / `--border-strong` | `border-line-subtle` / `border-line` / `border-line-strong` |
+| `--fg` / `--fg-muted` / `--fg-subtle` / `--fg-on-brand` | `text-fg` / `text-fg-muted` / `text-fg-subtle` / `text-fg-on-brand` |
+| `--brand-500` | `bg-brand`, `text-brand`, `border-brand` |
+
+Type scale classes: `text-display-1`, `display-2`, `section`, `subsection`,
+`heading`, `body-lg`, `body`, `body-sm`, `label`, `caption`, `micro`, `metric`,
+`metric-lg`. Any element rendering a number also takes `.tnum` (tabular lining
+figures) so columns of counts do not reflow as digits change width.
+
+### Deleted vocabulary
+
+These existed before the 2026-09 rebuild and are gone. A class name matching any
+of them renders as **nothing at all**, silently:
+
+`--color-custom1..55` · `--new-*` · `lambo*` · `aurora-*` (including
+`bg-aurora-cta`) · `glass-base` / `glass-subtle` / `glass-elevated` /
+`glass-modal` · `borderGlass` / `borderGlassStrong` · `fgMuted` / `fgSubtle` ·
+`brand-darker` / `brand-light` / `brand-lighter` · `shadow-focusRing` ·
+`shadow-menu` · `shadow-glass*` · `chartLine` / `chartGrid` · `customColor*`
+
+Deleted components: `aurora-background`, `aurora-button`, `floating-paths`,
+`click-spark`, `shiny-text`, `animated-list`, `glass-card`, `bento-grid`,
+`reactbits/*` (three.js dotted surface and the WebGL logo particle field),
+`ui/icons/index.tsx`, `layout/mode.component`. There is no light theme: both
+layouts hard-code `class="dark"` and the toggle had no call site.
+
+### Checking a change
+
+```bash
+cd apps/frontend && npx tsc --noEmit   # pnpm lint and pnpm test do NOT type-check
+```
+
+Then grep the diff for the deleted vocabulary above. A hit is always a bug.

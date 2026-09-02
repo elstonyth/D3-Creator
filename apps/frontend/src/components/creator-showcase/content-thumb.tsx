@@ -1,17 +1,13 @@
 'use client';
 
-import { useRef, useState, type MouseEvent, type FocusEvent } from 'react';
+import { useState } from 'react';
 import clsx from 'clsx';
+import { PLATFORM_ICONS, PLATFORM_LABELS } from '../ui/platform-icons';
 import {
-  PLATFORM_ICONS,
-  type PlatformKey,
-} from '../ui/platform-icons';
-import {
-  formatCompact,
   formatDuration,
+  formatPostDate,
   formatPrimaryMetric,
   PLATFORM_ASPECT,
-  relativeTime,
   type ContentPost,
 } from './content-data';
 
@@ -20,150 +16,105 @@ interface ContentThumbProps {
   onOpen: (post: ContentPost) => void;
 }
 
-const HOVER_INTENT_MS = 150;
-
+/**
+ * One tile in the content grid: the post image, the one number that post is
+ * judged on, and its publish date. The caption slides in over the image on
+ * hover/focus — it is context, not the headline.
+ *
+ * Thumbnails are signed social-CDN URLs proxied through /api/proxy-image and
+ * expire, so a failed load falls back to the caption rather than the browser's
+ * broken-image glyph.
+ *
+ * Every fill over the image is fully opaque `bg-canvas`. An alpha modifier on
+ * a surface token looks right in source but generates NO CSS at all: those
+ * tokens are `var(--canvas)` strings, and Tailwind can only fold an alpha into
+ * a literal colour (which is why `bg-brand/10` works and this did not). The
+ * metric bar was rendering white text straight onto the photo.
+ */
 export function ContentThumb({ post, onOpen }: ContentThumbProps) {
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const timerRef = useRef<number | undefined>(undefined);
-  const [active, setActive] = useState(false);
+  const [failed, setFailed] = useState(false);
 
-  const Icon = PLATFORM_ICONS[post.platform as PlatformKey];
-  const hasVideo = !!post.previewVideoUrl;
+  const Icon = PLATFORM_ICONS[post.platform];
   const metric = formatPrimaryMetric(post);
-
-  const enter = () => {
-    window.clearTimeout(timerRef.current);
-    timerRef.current = window.setTimeout(() => setActive(true), HOVER_INTENT_MS);
-  };
-
-  const leave = () => {
-    window.clearTimeout(timerRef.current);
-    setActive(false);
-    const v = videoRef.current;
-    if (v) {
-      v.pause();
-      v.currentTime = 0;
-    }
-  };
-
-  const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
-    e.preventDefault();
-    onOpen(post);
-  };
-
-  const handleFocus = (_e: FocusEvent<HTMLButtonElement>) => enter();
-  const handleBlur = (_e: FocusEvent<HTMLButtonElement>) => leave();
+  const date = formatPostDate(post.publishedAt);
+  const showImage = post.thumbnailUrl != null && !failed;
 
   return (
     <button
       type="button"
-      onClick={handleClick}
-      onMouseEnter={enter}
-      onMouseLeave={leave}
-      onFocus={handleFocus}
-      onBlur={handleBlur}
-      aria-label={`Open post: ${post.caption.slice(0, 80)}`}
+      onClick={() => onOpen(post)}
+      aria-label={`Open ${PLATFORM_LABELS[post.platform]} post${date ? ` from ${date}` : ''} — ${metric.value} ${metric.label}`}
       className={clsx(
         'group relative block w-full overflow-hidden rounded-xl border border-line bg-surface-subtle text-left',
         'transition-colors duration-150 ease-out hover:border-line-strong',
-        'focus-visible:outline-2 focus-visible:outline-brand-500 focus-visible:outline-offset-2',
-        PLATFORM_ASPECT[post.platform as PlatformKey]
+        'focus-visible:outline-none focus-visible:shadow-focus',
+        PLATFORM_ASPECT[post.platform],
       )}
     >
-      {/* Static thumbnail layer */}
-      {post.thumbnailUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
+      {showImage ? (
+        // eslint-disable-next-line @next/next/no-img-element -- proxied external media, dimensions vary by platform
         <img
-          src={post.thumbnailUrl}
+          src={post.thumbnailUrl ?? undefined}
           alt=""
           loading="lazy"
-          // IG/TikTok/etc CDNs return 403 when Referer is set to localhost or
-          // any unfamiliar domain. no-referrer drops the header entirely so
-          // their public-asset path serves the file.
+          decoding="async"
+          // Social CDNs 403 when a Referer they don't recognise is sent; drop
+          // the header so their public-asset path serves the file.
           referrerPolicy="no-referrer"
-          className="absolute inset-0 w-full h-full object-cover transition-opacity duration-150 ease-out motion-reduce:transition-none"
-          style={{ opacity: active && hasVideo ? 0 : 1 }}
+          onError={() => setFailed(true)}
+          className="absolute inset-0 h-full w-full object-cover"
         />
       ) : (
-        <div className="absolute inset-0 p-4 flex items-end bg-surface-subtle">
-          <p className="text-body-sm text-fg-muted line-clamp-6">{post.caption}</p>
+        <div className="absolute inset-0 flex items-end p-4 pb-16">
+          <p className="line-clamp-5 text-body-sm text-fg-muted">
+            {post.caption || 'No caption'}
+          </p>
         </div>
       )}
 
-      {/* Hover video — only mounts when active. Hidden under reduced-motion. */}
-      {hasVideo && active && (
-        <video
-          ref={videoRef}
-          src={post.previewVideoUrl ?? undefined}
-          muted
-          autoPlay
-          loop
-          playsInline
-          preload="metadata"
-          className="absolute inset-0 w-full h-full object-cover motion-reduce:hidden"
-          onCanPlay={() => {
-            videoRef.current?.play().catch(() => {
-              /* autoplay blocked — leave thumbnail visible */
-            });
-          }}
-        />
-      )}
+      {/* Caption on hover / keyboard focus. Solid fill, no blur (DESIGN.md §8). */}
+      {showImage && post.caption ? (
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 flex items-end bg-canvas px-4 pb-16 pt-4 opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none"
+        >
+          <p className="line-clamp-5 text-body-sm text-fg">{post.caption}</p>
+        </div>
+      ) : null}
 
-      {/* Platform chip — solid bg, no backdrop-filter per DESIGN.md */}
-      <span className="absolute top-2 left-2 inline-flex items-center justify-center size-6 rounded-md bg-canvas/85 border border-line text-fg">
+      <span className="absolute left-2 top-2 inline-flex size-6 items-center justify-center rounded-md border border-line bg-canvas text-fg">
         <Icon size={12} />
       </span>
 
-      {/* Top-right type/duration chip */}
-      {hasVideo && post.durationSec != null ? (
-        <span className="absolute top-2 right-2 px-1.5 h-5 inline-flex items-center rounded bg-canvas/85 border border-line text-micro font-mono tabular-nums text-fg">
+      {post.durationSec != null ? (
+        <span className="tnum absolute right-2 top-2 inline-flex h-5 items-center rounded border border-line bg-canvas px-1.5 text-micro text-fg">
           {formatDuration(post.durationSec)}
         </span>
       ) : post.type === 'carousel' && post.mediaCount != null ? (
-        <span className="absolute top-2 right-2 px-1.5 h-5 inline-flex items-center gap-1 rounded bg-canvas/85 border border-line text-micro font-mono tabular-nums text-fg">
-          <CarouselGlyph /> {post.mediaCount}
+        <span className="tnum absolute right-2 top-2 inline-flex h-5 items-center gap-1 rounded border border-line bg-canvas px-1.5 text-micro text-fg">
+          <CarouselGlyph />
+          {post.mediaCount}
         </span>
       ) : null}
 
-      {/* Bottom solid scrim — headline metric + shares + relative time */}
-      <div className="absolute bottom-0 inset-x-0 px-3 py-2 bg-canvas/85 border-t border-line flex items-center justify-between gap-2">
-        <span className="text-caption font-mono tabular-nums text-fg">
-          {metric.value}
-        </span>
-        <div className="flex items-center gap-2 text-micro font-mono tabular-nums text-fg-subtle">
-          {post.metrics.shares > 0 && (
-            <span title="shares" aria-label={`${post.metrics.shares} shares`}>
-              ↗ {formatCompact(post.metrics.shares)}
-            </span>
-          )}
-          {/* suppressHydrationWarning: relativeTime() reads "now", so the server
-              and client renders differ by ~seconds for very-recent posts. */}
-          <span suppressHydrationWarning>{relativeTime(post.publishedAt)}</span>
-        </div>
+      {/* Metric bar. Always visible — it is the reason the tile exists. The
+          value sits over the date rather than beside it: side by side, a
+          two-column tile at 360px leaves ~126px and the number truncates. */}
+      <div className="absolute inset-x-0 bottom-0 border-t border-line bg-canvas px-3 py-2">
+        <p className="tnum truncate text-caption text-fg">
+          {metric.value} <span className="text-fg-subtle">{metric.label}</span>
+        </p>
+        {date ? (
+          <p className="tnum truncate text-caption text-fg-subtle">{date}</p>
+        ) : null}
       </div>
-
-      {/* Caption fallback overlay — for posts WITHOUT video preview */}
-      {!hasVideo && (
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 bg-canvas/92 px-4 pt-4 pb-12 flex items-end opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none"
-        >
-          <p className="text-body-sm text-fg line-clamp-6">{post.caption}</p>
-        </div>
-      )}
     </button>
   );
 }
 
 function CarouselGlyph() {
   return (
-    <svg
-      width="10"
-      height="10"
-      viewBox="0 0 16 16"
-      fill="none"
-      aria-hidden="true"
-    >
+    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true">
       <rect
         x="3"
         y="3"
