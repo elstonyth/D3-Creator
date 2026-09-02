@@ -61,7 +61,7 @@ export function ClassManager({ videos }: { videos: Video[] }) {
   return (
     <div className="flex flex-col gap-8">
       {msg && (
-        <p className="text-caption text-aurora-cta" role="status">
+        <p className="text-caption text-brand" role="status">
           {msg}
         </p>
       )}
@@ -69,7 +69,7 @@ export function ClassManager({ videos }: { videos: Video[] }) {
       {/* Add new */}
       <form
         action={onCreate}
-        className="glass-elevated rounded-2xl p-6 flex flex-col gap-3"
+        className="bg-surface-elevated border border-line-strong rounded-2xl p-6 flex flex-col gap-3"
       >
         <h2 className="text-section text-fg">Add a class</h2>
         <Input name="title" required placeholder="Title" maxLength={200} />
@@ -79,12 +79,12 @@ export function ClassManager({ videos }: { videos: Video[] }) {
           maxLength={500}
         />
         <Input name="drive_link" required placeholder="Google Drive link" />
-        <div className="flex flex-wrap gap-4 text-label text-fgMuted items-center">
+        <div className="flex flex-wrap gap-4 text-label text-fg-muted items-center">
           <label className="flex items-center gap-2">
             Visibility
             <select
               name="visibility"
-              className="bg-canvas border border-borderGlass rounded-md px-2 py-1"
+              className="bg-canvas border border-line rounded-md px-2 py-1"
             >
               <option value="members">Members</option>
               <option value="public">Public</option>
@@ -111,7 +111,7 @@ export function ClassManager({ videos }: { videos: Video[] }) {
           <form
             key={v.id}
             action={onUpdate}
-            className="glass-elevated rounded-2xl p-5 flex flex-col gap-3"
+            className="bg-surface-elevated border border-line-strong rounded-2xl p-5 flex flex-col gap-3"
           >
             <input type="hidden" name="id" value={v.id} />
             <Input
@@ -131,13 +131,13 @@ export function ClassManager({ videos }: { videos: Video[] }) {
               defaultValue={`https://drive.google.com/file/d/${v.drive_file_id}/view`}
               required
             />
-            <div className="flex flex-wrap gap-4 text-label text-fgMuted items-center">
+            <div className="flex flex-wrap gap-4 text-label text-fg-muted items-center">
               <label className="flex items-center gap-2">
                 Visibility
                 <select
                   name="visibility"
                   defaultValue={v.visibility}
-                  className="bg-canvas border border-borderGlass rounded-md px-2 py-1"
+                  className="bg-canvas border border-line rounded-md px-2 py-1"
                 >
                   <option value="members">Members</option>
                   <option value="public">Public</option>

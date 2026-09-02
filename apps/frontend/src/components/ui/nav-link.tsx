@@ -35,8 +35,8 @@ export default function NavLink({ href, children, className, exact = false }: Na
       className={cn(
         'px-3 py-1.5 rounded-md transition-colors duration-150',
         isActive
-          ? 'text-aurora-cta font-medium'
-          : 'text-fgMuted hover:text-fg hover:bg-white/[0.04]',
+          ? 'text-brand font-medium'
+          : 'text-fg-muted hover:text-fg hover:bg-white/[0.04]',
         className,
       )}
     >

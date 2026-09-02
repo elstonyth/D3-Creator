@@ -33,7 +33,7 @@ export function PlatformPill({
 
   return (
     <span
-      className={`inline-flex items-center gap-2 px-4 py-2 rounded-full bg-customColor1 border border-borderGlass text-label text-fg hover:border-borderGlassStrong transition-colors ${className}`}
+      className={`inline-flex items-center gap-2 px-4 py-2 rounded-full bg-surface border border-line text-label text-fg hover:border-line-strong transition-colors ${className}`}
     >
       <Icon size={iconSize} className="text-fg shrink-0" />
       <span className="leading-none">{children ?? resolvedLabel}</span>

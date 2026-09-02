@@ -34,7 +34,7 @@ export const metadata: Metadata = {
 };
 
 const HEADER_CELL =
-  'px-4 text-caption uppercase tracking-[0.04em] text-fgMuted text-left';
+  'px-4 text-caption uppercase tracking-[0.04em] text-fg-muted text-left';
 
 /**
  * What a row with no score says instead of a bare em dash.
@@ -56,7 +56,7 @@ const ROW_STATUS_LABEL: Partial<Record<JobStatus, string>> = {
 
 function HistoryTable({ rows }: { rows: AnalyzerJobSummary[] }): ReactElement {
   return (
-    <div className="glass-elevated rounded-2xl overflow-hidden">
+    <div className="bg-surface-elevated border border-line-strong rounded-2xl overflow-hidden">
       <div className="overflow-x-auto">
         {/* text-label on the table so every cell inherits its size and no cell
             puts a size token in its own className (§0.5 trap 1). */}
@@ -88,7 +88,7 @@ function HistoryTable({ rows }: { rows: AnalyzerJobSummary[] }): ReactElement {
               </th>
               <th
                 scope="col"
-                className="px-4 text-caption uppercase tracking-[0.04em] text-fgMuted text-right"
+                className="px-4 text-caption uppercase tracking-[0.04em] text-fg-muted text-right"
               >
                 <span className="sr-only">Open report</span>
               </th>
@@ -109,7 +109,7 @@ function HistoryTable({ rows }: { rows: AnalyzerJobSummary[] }): ReactElement {
                     alt=""
                     className="h-8 w-14 min-w-14 rounded-md object-cover"
                     fallback={
-                      <div className="h-8 w-14 min-w-14 rounded-md bg-glass-base border border-borderGlass" />
+                      <div className="h-8 w-14 min-w-14 rounded-md bg-surface border border-line" />
                     }
                   />
                 </td>
@@ -120,12 +120,12 @@ function HistoryTable({ rows }: { rows: AnalyzerJobSummary[] }): ReactElement {
                     {row.filename}
                   </span>
                 </td>
-                <td className="px-4 text-fgMuted whitespace-nowrap">
+                <td className="px-4 text-fg-muted whitespace-nowrap">
                   {formatJobDate(row.created_at)}
                 </td>
                 <td className="px-4 whitespace-nowrap tabular-nums">
                   {row.overall_score === null ? (
-                    <span className="text-fgSubtle">
+                    <span className="text-fg-subtle">
                       {ROW_STATUS_LABEL[row.status] ?? '—'}
                     </span>
                   ) : (
@@ -133,14 +133,14 @@ function HistoryTable({ rows }: { rows: AnalyzerJobSummary[] }): ReactElement {
                       <span className="text-fg">
                         {row.overall_score.toFixed(1)}
                       </span>
-                      <span className="text-fgSubtle">/10</span>
+                      <span className="text-fg-subtle">/10</span>
                     </>
                   )}
                 </td>
                 <td className="px-4 text-right">
                   <Link
                     href={`/studio/analyzer/${row.id}`}
-                    className="text-fgMuted hover:text-fg transition-colors duration-150 ease-out"
+                    className="text-fg-muted hover:text-fg transition-colors duration-150 ease-out"
                   >
                     Open
                     <span className="sr-only"> {row.filename} report</span>
@@ -221,14 +221,14 @@ export default async function VideoAnalyzerPage(): Promise<ReactElement> {
     <div className="max-w-[1100px] mx-auto py-12 flex flex-col gap-12">
       <header className="max-w-[680px]">
         <h1 className="text-display-2 text-fg mb-3">Video Analyzer.</h1>
-        <p className="text-body-lg text-fgMuted">
+        <p className="text-body-lg text-fg-muted">
           Upload a short video and get a scored breakdown of why it works.
         </p>
         {/* Amendment 1's open item: the profile silently steered every
             analysis and nothing on this page said so. One caption, only when
             a profile is actually in play — a user without one sees nothing. */}
         {businessProfile !== null && (
-          <p className="mt-2 text-caption text-fgSubtle">
+          <p className="mt-2 text-caption text-fg-subtle">
             Scored against your business profile — edit it in{' '}
             <Link
               href="/studio/settings"

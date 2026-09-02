@@ -110,7 +110,7 @@ export default async function HomePage() {
             <div className="grid grid-cols-1 lg:grid-cols-[5fr_6fr] gap-12 lg:gap-14 items-center">
               {/* Text column */}
               <div className="flex flex-col gap-5 text-center lg:text-left">
-                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-subtle border border-borderGlass text-caption text-fgMuted self-center lg:self-start">
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-subtle border border-line border border-line text-caption text-fg-muted self-center lg:self-start">
                   <span className="inline-block size-1.5 rounded-full bg-brand-500" />
                   Live showcase
                 </span>
@@ -118,7 +118,7 @@ export default async function HomePage() {
                   We don&rsquo;t sell dreams.{' '}
                   <span className="text-brand">We show numbers.</span>
                 </h1>
-                <p className="text-body text-fgMuted max-w-[480px] mx-auto lg:mx-0">
+                <p className="text-body text-fg-muted max-w-[480px] mx-auto lg:mx-0">
                   D3 Creator is a live showcase of the creators, brands, and IPs
                   we grow across every platform. Real traffic. Real engagement.
                   Real growth.
@@ -135,7 +135,7 @@ export default async function HomePage() {
                     </AuroraButton>
                   </Link>
                 </div>
-                <ShinyText className="text-caption text-fgSubtle mt-1">
+                <ShinyText className="text-caption text-fg-subtle mt-1">
                   Built by D3
                 </ShinyText>
               </div>
@@ -162,11 +162,11 @@ export default async function HomePage() {
           <h2 id="manifesto-heading" className="sr-only">
             Manifesto
           </h2>
-          <p className="text-body-lg text-fgSubtle">
-            <span className="line-through decoration-fgSubtle/60 mr-3">
+          <p className="text-body-lg text-fg-subtle">
+            <span className="line-through decoration-fg-subtle/60 mr-3">
               No screenshots.
             </span>
-            <span className="line-through decoration-fgSubtle/60 mr-3">
+            <span className="line-through decoration-fg-subtle/60 mr-3">
               No fake case studies.
             </span>
             <span className="text-brand font-medium">Just live numbers.</span>
@@ -186,37 +186,37 @@ export default async function HomePage() {
         <Reveal>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <p className="text-micro uppercase text-fgSubtle tracking-[0.04em] mb-2">
+              <p className="text-micro uppercase text-fg-subtle tracking-[0.04em] mb-2">
                 Why this exists
               </p>
               <h3 id="ethos-heading" className="text-subsection text-fg mb-3">
                 Numbers, not narratives.
               </h3>
-              <p className="text-body text-fgMuted">
+              <p className="text-body text-fg-muted">
                 Every creator we&apos;ve built shows up here with their live
                 counts — not a cherry-picked deck.
               </p>
             </div>
             <div>
-              <p className="text-micro uppercase text-fgSubtle tracking-[0.04em] mb-2">
+              <p className="text-micro uppercase text-fg-subtle tracking-[0.04em] mb-2">
                 What you&apos;ll see
               </p>
               <h3 className="text-subsection text-fg mb-3">
                 Followers, engagement, growth, reach.
               </h3>
-              <p className="text-body text-fgMuted">
+              <p className="text-body text-fg-muted">
                 Across every platform we operate. Snapshots every day. No edited
                 screenshots.
               </p>
             </div>
             <div>
-              <p className="text-micro uppercase text-fgSubtle tracking-[0.04em] mb-2">
+              <p className="text-micro uppercase text-fg-subtle tracking-[0.04em] mb-2">
                 Who&apos;s behind it
               </p>
               <h3 className="text-subsection text-fg mb-3">
                 A creator-growth ecosystem from Malaysia.
               </h3>
-              <p className="text-body text-fgMuted">
+              <p className="text-body text-fg-muted">
                 Since 2021. Founders, operators, and creators building real
                 commercial IP.
               </p>
@@ -247,13 +247,13 @@ export default async function HomePage() {
                   <span className="text-label text-fg font-medium">
                     Top Creators
                   </span>
-                  <span className="text-body-sm text-fgMuted">
+                  <span className="text-body-sm text-fg-muted">
                     By views · all platforms
                   </span>
                 </div>
                 <Link
                   href="/leaderboard"
-                  className="text-caption text-fgMuted hover:text-fg transition-colors duration-150 ease-out"
+                  className="text-caption text-fg-muted hover:text-fg transition-colors duration-150 ease-out"
                 >
                   See all →
                 </Link>
@@ -267,7 +267,7 @@ export default async function HomePage() {
                   const slug = creator.primaryHandle
                     ? handleToSlug(creator.primaryHandle)
                     : null;
-                  const rowClass = `grid grid-cols-[28px_minmax(0,1fr)_auto] gap-3 items-center px-2 min-h-[52px] rounded-lg border-b border-borderGlass last:border-b-0 transition-colors duration-150 ease-out ${
+                  const rowClass = `grid grid-cols-[28px_minmax(0,1fr)_auto] gap-3 items-center px-2 min-h-[52px] rounded-lg border-b border-line last:border-b-0 transition-colors duration-150 ease-out ${
                     isWinner ? 'bg-brand/[0.06]' : ''
                   }`;
                   const cells = (
@@ -276,13 +276,13 @@ export default async function HomePage() {
                         className={`font-mono tabular-nums text-body-sm ${
                           isWinner
                             ? 'text-brand font-semibold'
-                            : 'text-fgSubtle'
+                            : 'text-fg-subtle'
                         }`}
                       >
                         {String(creator.rank).padStart(2, '0')}
                       </span>
                       <span className="flex items-center gap-3 min-w-0">
-                        <span className="size-8 shrink-0 rounded-full bg-customColor1 border border-borderGlass grid place-items-center overflow-hidden text-caption text-fgMuted">
+                        <span className="size-8 shrink-0 rounded-full bg-surface border border-line grid place-items-center overflow-hidden text-caption text-fg-muted">
                           <ImageWithFallback
                             src={creator.avatarUrl}
                             alt=""
@@ -331,11 +331,11 @@ export default async function HomePage() {
                     <span className="text-label text-fg font-medium">
                       Total Views
                     </span>
-                    <span className="text-body-sm text-fgMuted">
+                    <span className="text-body-sm text-fg-muted">
                       All platforms · recent posts
                     </span>
                   </div>
-                  <span className="text-caption text-fgMuted">
+                  <span className="text-caption text-fg-muted">
                     Open{' '}
                     <span className="inline-block transition-transform duration-150 ease-out group-hover:translate-x-0.5">
                       →
@@ -347,14 +347,14 @@ export default async function HomePage() {
                   <div className="text-[clamp(34px,4.2vw,52px)] leading-[1.0] tracking-[-0.03em] font-semibold text-fg tabular-nums">
                     {formatShowcase(summary.combinedViews)}
                   </div>
-                  <div className="text-caption text-fgMuted mt-2">
+                  <div className="text-caption text-fg-muted mt-2">
                     views across tracked recent posts
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3 pt-4 border-t border-borderGlass">
+                <div className="grid grid-cols-2 gap-3 pt-4 border-t border-line">
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-caption text-fgSubtle">
+                    <span className="text-caption text-fg-subtle">
                       Combined followers
                     </span>
                     <span className="text-heading text-fg tabular-nums">
@@ -362,7 +362,7 @@ export default async function HomePage() {
                     </span>
                   </div>
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-caption text-fgSubtle">
+                    <span className="text-caption text-fg-subtle">
                       Total engagement
                     </span>
                     <span className="text-heading text-fg tabular-nums">
@@ -416,10 +416,10 @@ export default async function HomePage() {
                       className="h-full flex flex-col gap-4"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="inline-flex items-center justify-center size-10 rounded-md bg-customColor16 border border-borderGlass text-fg">
+                        <span className="inline-flex items-center justify-center size-10 rounded-md bg-surface-subtle border border-line text-fg">
                           <Icon size={18} />
                         </span>
-                        <span className="text-caption text-fgSubtle font-mono tabular-nums">
+                        <span className="text-caption text-fg-subtle font-mono tabular-nums">
                           {isEmpty
                             ? 'Not yet tracked'
                             : `${creatorCount} creator${creatorCount === 1 ? '' : 's'}`}
@@ -435,7 +435,7 @@ export default async function HomePage() {
                         </span>
                       </div>
 
-                      <div className="flex items-center justify-between text-caption text-fgMuted font-mono tabular-nums pt-3 border-t border-borderGlass">
+                      <div className="flex items-center justify-between text-caption text-fg-muted font-mono tabular-nums pt-3 border-t border-line">
                         <span>{isEmpty ? '—' : formatShowcase(followers)}</span>
                         <span>followers</span>
                       </div>
@@ -452,7 +452,7 @@ export default async function HomePage() {
       <section className="w-full pb-20 sm:pb-24 max-w-[1100px] mx-auto">
         <Reveal>
           <GlassCard variant="base" padding="none" radius="2xl">
-            <dl className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-borderGlass">
+            <dl className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-line">
               <StatCell
                 label="Tracked Creators"
                 value={exactFormatter.format(summary.trackedCreators)}
@@ -485,7 +485,7 @@ export default async function HomePage() {
             <h2 className="text-display-2 text-fg max-w-[640px] mx-auto mb-4">
               Watch creators grow, live.
             </h2>
-            <p className="text-body-lg text-fgMuted max-w-[520px] mx-auto mb-8">
+            <p className="text-body-lg text-fg-muted max-w-[520px] mx-auto mb-8">
               The dashboard refreshes the moment our scraper kicks in. Pick a
               platform, sort by growth, watch the numbers move.
             </p>
@@ -502,7 +502,7 @@ export default async function HomePage() {
               </Link>
             </div>
             {!isLive && (
-              <p className="text-caption text-fgSubtle mt-8 tabular-nums">
+              <p className="text-caption text-fg-subtle mt-8 tabular-nums">
                 Showcase preview · synthetic data until the scraper switches on.
               </p>
             )}
@@ -523,12 +523,12 @@ interface SectionLabelProps {
 function SectionLabel({ eyebrow, title, caption }: SectionLabelProps) {
   return (
     <div className="mb-6 flex flex-col gap-1.5">
-      <span className="text-micro uppercase text-fgSubtle tracking-[0.04em]">
+      <span className="text-micro uppercase text-fg-subtle tracking-[0.04em]">
         {eyebrow}
       </span>
       <h2 className="text-subsection text-fg">{title}</h2>
       {caption ? (
-        <p className="text-body-sm text-fgMuted max-w-[520px]">{caption}</p>
+        <p className="text-body-sm text-fg-muted max-w-[520px]">{caption}</p>
       ) : null}
     </div>
   );
@@ -544,13 +544,13 @@ interface StatCellProps {
 function StatCell({ label, value, note }: StatCellProps) {
   return (
     <div className="p-6 sm:p-8 flex flex-col gap-3">
-      <dt className="text-micro uppercase text-fgSubtle tracking-[0.04em]">
+      <dt className="text-micro uppercase text-fg-subtle tracking-[0.04em]">
         {label}
       </dt>
       <dd className="text-[clamp(28px,3vw,40px)] leading-[1.02] tracking-[-0.03em] font-semibold text-fg tabular-nums">
         {value}
       </dd>
-      <p className="text-caption text-fgMuted tabular-nums">{note}</p>
+      <p className="text-caption text-fg-muted tabular-nums">{note}</p>
     </div>
   );
 }

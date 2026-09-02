@@ -18,21 +18,21 @@ export const metadata: Metadata = {
 
 const sectionTitle = 'text-section mt-12 mb-4 text-fg';
 const subTitle = 'text-subsection mt-8 mb-3 text-fg';
-const paragraph = 'text-body text-fgMuted mb-4';
-const bullet = 'text-body text-fgMuted mb-2';
+const paragraph = 'text-body text-fg-muted mb-4';
+const bullet = 'text-body text-fg-muted mb-2';
 const linkClass =
-  'text-brand hover:text-brand-light transition-colors underline underline-offset-4 decoration-brand/40 hover:decoration-brand-light/60';
+  'text-brand hover:text-brand-300 transition-colors underline underline-offset-4 decoration-brand/40 hover:decoration-brand-300/60';
 const inlineStrong = 'text-fg font-semibold';
 
 export default function PrivacyPage() {
   return (
     <article className="max-w-[720px] mx-auto pt-12 pb-24">
-      <header className="mb-12 pb-8 border-b border-borderGlass">
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full glass-subtle border border-borderGlass text-caption text-fgMuted mb-6">
+      <header className="mb-12 pb-8 border-b border-line">
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-surface-subtle border border-line border border-line text-caption text-fg-muted mb-6">
           Legal
         </span>
         <h1 className="text-display-2 text-fg mb-4">Privacy Policy</h1>
-        <p className="text-caption text-fgSubtle">
+        <p className="text-caption text-fg-subtle">
           Effective Date: 1 January 2025 · Last Updated: 29 June 2026
         </p>
       </header>
@@ -353,10 +353,10 @@ export default function PrivacyPage() {
         Privacy Policy or your personal data, please contact us at:
       </p>
       <GlassCard variant="base" padding="md" radius="xl" className="my-6">
-        <p className="text-body-sm text-fgMuted mb-2">
+        <p className="text-body-sm text-fg-muted mb-2">
           <span className={inlineStrong}>D3 Creator</span>
         </p>
-        <p className="text-body-sm text-fgMuted">
+        <p className="text-body-sm text-fg-muted">
           Email:{' '}
           <a className={linkClass} href={`mailto:${PRIVACY_EMAIL}`}>
             {PRIVACY_EMAIL}
@@ -364,8 +364,8 @@ export default function PrivacyPage() {
         </p>
       </GlassCard>
 
-      <div className="mt-12 pt-6 border-t border-borderGlass">
-        <p className="text-caption text-fgSubtle">
+      <div className="mt-12 pt-6 border-t border-line">
+        <p className="text-caption text-fg-subtle">
           This Privacy Policy is provided as a general informational template
           and does not constitute legal advice. You are responsible for ensuring
           compliance with all laws applicable to your specific operations. We

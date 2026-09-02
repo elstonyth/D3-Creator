@@ -16,9 +16,9 @@ export function AuthShell({ children, eyebrow, heading, subheading }: AuthShellP
   return (
     <div className="min-h-screen w-full grid lg:grid-cols-[1.05fr_1fr] bg-canvas text-fg">
       {/* Left: brand panel */}
-      <aside className="relative hidden lg:flex flex-col justify-between overflow-hidden border-r border-borderGlass bg-glass-subtle p-12">
+      <aside className="relative hidden lg:flex flex-col justify-between overflow-hidden border-r border-line bg-surface-subtle p-12">
         <FloatingPaths position={1} />
-        <div className="absolute inset-0 bg-gradient-to-b from-aurora-cta/[0.04] via-transparent to-canvas/80 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-b from-brand/[0.04] via-transparent to-canvas/80 pointer-events-none" />
 
         <Link
           href="/"
@@ -36,16 +36,16 @@ export function AuthShell({ children, eyebrow, heading, subheading }: AuthShellP
             “D3 lets us watch every creator we manage in one place —
             no logins to platforms, no chasing screenshots.”
           </blockquote>
-          <div className="mt-6 flex items-center gap-3 text-label text-fgMuted">
-            <span className="size-8 rounded-full bg-aurora-cta/20 grid place-items-center text-aurora-cta font-semibold">
+          <div className="mt-6 flex items-center gap-3 text-label text-fg-muted">
+            <span className="size-8 rounded-full bg-brand/20 grid place-items-center text-brand font-semibold">
               D
             </span>
             <span>D3 Talent Academy team</span>
           </div>
         </div>
 
-        <div className="relative z-10 flex items-center gap-3 text-caption text-fgSubtle">
-          <span className="size-1.5 rounded-full bg-aurora-cta" />
+        <div className="relative z-10 flex items-center gap-3 text-caption text-fg-subtle">
+          <span className="size-1.5 rounded-full bg-brand" />
           Live analytics · 5 platforms · daily snapshots
         </div>
       </aside>
@@ -55,7 +55,7 @@ export function AuthShell({ children, eyebrow, heading, subheading }: AuthShellP
         <div className="absolute top-6 left-6 lg:left-12">
           <Link
             href="/"
-            className="text-caption text-fgMuted hover:text-fg transition-colors"
+            className="text-caption text-fg-muted hover:text-fg transition-colors"
           >
             ← Home
           </Link>
@@ -74,12 +74,12 @@ export function AuthShell({ children, eyebrow, heading, subheading }: AuthShellP
 
         <div className="mx-auto w-full max-w-[420px] space-y-8">
           <header className="space-y-2">
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-subtle border border-borderGlass text-caption text-fgMuted">
-              <span className="inline-block size-1.5 rounded-full bg-aurora-cta" />
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-subtle border border-line border border-line text-caption text-fg-muted">
+              <span className="inline-block size-1.5 rounded-full bg-brand" />
               {eyebrow}
             </span>
             <h1 className="text-section text-fg tracking-[-0.02em]">{heading}</h1>
-            {subheading && <p className="text-body text-fgMuted">{subheading}</p>}
+            {subheading && <p className="text-body text-fg-muted">{subheading}</p>}
           </header>
 
           {children}

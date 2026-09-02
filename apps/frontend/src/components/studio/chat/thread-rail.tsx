@@ -50,7 +50,7 @@ export function ThreadRail({
         aria-expanded={open}
         aria-controls="studio-thread-list"
         onClick={() => setOpen((wasOpen) => !wasOpen)}
-        className="md:hidden h-16 w-full flex items-center justify-between text-label text-fgMuted hover:text-fg transition-colors duration-150 ease-out"
+        className="md:hidden h-16 w-full flex items-center justify-between text-label text-fg-muted hover:text-fg transition-colors duration-150 ease-out"
       >
         Chats ({threads.length})
         <ChevronDownIcon
@@ -70,7 +70,7 @@ export function ThreadRail({
         {/* Not a <Link>: button.tsx has no `asChild`, so an anchor cannot wear
             this variant. Only the thread rows below need to be links. */}
         <Button
-          variant="outline"
+          variant="secondary"
           size="md"
           className="w-full justify-center shrink-0"
           onClick={() => router.push('/studio/chat')}
@@ -79,7 +79,7 @@ export function ThreadRail({
         </Button>
 
         {threads.length === 0 ? (
-          <p className="text-caption text-fgSubtle px-3 py-2">
+          <p className="text-caption text-fg-subtle px-3 py-2">
             No conversations yet.
           </p>
         ) : (
@@ -98,8 +98,8 @@ export function ThreadRail({
                   // the open row changes colour, never weight.
                   className={`h-10 shrink-0 rounded-lg px-3 flex items-center justify-between gap-2 text-label transition-colors duration-150 ease-out ${
                     isOpen
-                      ? 'text-aurora-cta'
-                      : 'text-fgMuted hover:text-fg hover:bg-white/[0.04]'
+                      ? 'text-brand'
+                      : 'text-fg-muted hover:text-fg hover:bg-white/[0.04]'
                   }`}
                 >
                   <span className="truncate">{thread.title}</span>
@@ -109,7 +109,7 @@ export function ThreadRail({
                   <time
                     dateTime={thread.updated_at}
                     suppressHydrationWarning
-                    className="text-caption text-fgSubtle shrink-0"
+                    className="text-caption text-fg-subtle shrink-0"
                   >
                     {relativeThreadDate(thread.updated_at, now)}
                   </time>

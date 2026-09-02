@@ -275,7 +275,7 @@ export function DashboardShowcase({
       <div className="grid grid-cols-1 gap-8 py-2 sm:grid-cols-12 sm:gap-x-10 sm:gap-y-7">
         <div className="flex flex-col justify-center gap-3 sm:col-span-8 sm:row-span-2">
           <div className="flex items-center gap-3">
-            <span className="text-label text-fgMuted">Total Views</span>
+            <span className="text-label text-fg-muted">Total Views</span>
             {showViewsTrend && <DeltaChip value={viewsDelta} />}
           </div>
 
@@ -298,8 +298,8 @@ export function DashboardShowcase({
                     'h-7 px-2.5 rounded-lg text-caption whitespace-nowrap',
                     'transition-colors duration-150 ease-out',
                     isActive
-                      ? 'bg-glass-subtle text-fg border border-borderGlassStrong'
-                      : 'border border-transparent text-fgMuted hover:text-fg hover:bg-white/[0.04]'
+                      ? 'bg-surface-subtle text-fg border border-line-strong'
+                      : 'border border-transparent text-fg-muted hover:text-fg hover:bg-white/[0.04]'
                   )}
                 >
                   {period.label}
@@ -319,33 +319,33 @@ export function DashboardShowcase({
               />
             )}
           </div>
-          <p className="text-caption text-fgSubtle tabular-nums">
+          <p className="text-caption text-fg-subtle tabular-nums">
             {`${filterLabel(filter)} · ${activeViewCaption}`}
           </p>
         </div>
 
         <div className="flex flex-col gap-2 sm:col-span-4 sm:items-end sm:text-right">
-          <span className="text-label text-fgMuted">Total Followers</span>
+          <span className="text-label text-fg-muted">Total Followers</span>
           <div className="flex items-baseline gap-2.5">
             <div className="text-[clamp(28px,3vw,38px)] leading-none tracking-[-0.025em] font-semibold text-fg tabular-nums">
               {formatShowcase(totalFollowers)}
             </div>
             <DeltaChip value={followersDelta} />
           </div>
-          <p className="text-caption text-fgSubtle tabular-nums">
+          <p className="text-caption text-fg-subtle tabular-nums">
             {`${filterLabel(filter)} · tracked`}
           </p>
         </div>
 
         <div className="flex flex-col gap-2 sm:col-span-4 sm:items-end sm:text-right">
-          <span className="text-label text-fgMuted">Total Engagement</span>
+          <span className="text-label text-fg-muted">Total Engagement</span>
           <div className="flex items-baseline gap-2.5">
             <div className="text-[clamp(28px,3vw,38px)] leading-none tracking-[-0.025em] font-semibold text-fg tabular-nums">
               {formatShowcase(totalEngagement)}
             </div>
             <DeltaChip value={engagementDelta} />
           </div>
-          <p className="text-caption text-fgSubtle">{'likes, comments & shares'}</p>
+          <p className="text-caption text-fg-subtle">{'likes, comments & shares'}</p>
         </div>
       </div>
 
@@ -362,7 +362,7 @@ export function DashboardShowcase({
       </div>
 
       {!isLive && (
-        <p className="text-caption text-fgSubtle text-center pt-2 tabular-nums">
+        <p className="text-caption text-fg-subtle text-center pt-2 tabular-nums">
           Showcase preview · synthetic data. Live numbers replace this the moment the scraper switches on.
         </p>
       )}
@@ -384,7 +384,7 @@ function PlatformTabBar({
     <div
       role="tablist"
       aria-label="Platform filter"
-      className="border border-borderGlass rounded-2xl bg-customColor1 p-1.5 flex items-center gap-1 overflow-x-auto"
+      className="border border-line rounded-2xl bg-surface p-1.5 flex items-center gap-1 overflow-x-auto"
     >
       {TABS.map((tab) => {
         const isActive = tab.value === value;
@@ -400,8 +400,8 @@ function PlatformTabBar({
               'inline-flex items-center gap-2 h-9 px-3.5 rounded-xl text-label whitespace-nowrap',
               'transition-colors duration-150 ease-out',
               isActive
-                ? 'bg-customColor16 text-fg border border-borderGlassStrong'
-                : 'border border-transparent text-fgMuted hover:text-fg hover:bg-white/[0.04]'
+                ? 'bg-surface-subtle text-fg border border-line-strong'
+                : 'border border-transparent text-fg-muted hover:text-fg hover:bg-white/[0.04]'
             )}
           >
             {Icon ? <Icon size={14} /> : null}
@@ -476,7 +476,7 @@ function DeltaChip({ value, period = 'recent' }: { value: number; period?: strin
         <path d="M5 1 L9.33 8.5 L0.67 8.5 Z" fill="currentColor" />
       </svg>
       <span className="text-fg">{pct}</span>
-      <span className="text-fgSubtle">· {period}</span>
+      <span className="text-fg-subtle">· {period}</span>
     </span>
   );
 }
@@ -514,7 +514,7 @@ function TopCreatorsCard({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-4">
         <div className="flex flex-col gap-1">
           <span className="text-label text-fg font-medium">Top Creators</span>
-          <span className="text-body-sm text-fgMuted">
+          <span className="text-body-sm text-fg-muted">
             {filterLabel(filter)} · by {sort === 'followers' ? 'followers' : 'views'}
           </span>
         </div>
@@ -533,8 +533,8 @@ function TopCreatorsCard({
                     'h-7 px-2.5 rounded-lg text-caption whitespace-nowrap',
                     'transition-colors duration-150 ease-out',
                     isActive
-                      ? 'bg-glass-subtle text-fg border border-borderGlassStrong'
-                      : 'border border-transparent text-fgMuted hover:text-fg hover:bg-white/[0.04]'
+                      ? 'bg-surface-subtle text-fg border border-line-strong'
+                      : 'border border-transparent text-fg-muted hover:text-fg hover:bg-white/[0.04]'
                   )}
                 >
                   {value === 'followers' ? 'Followers' : 'Views'}
@@ -544,7 +544,7 @@ function TopCreatorsCard({
           </div>
           <Link
             href="/leaderboard"
-            className="text-caption text-fgMuted hover:text-fg transition-colors whitespace-nowrap"
+            className="text-caption text-fg-muted hover:text-fg transition-colors whitespace-nowrap"
           >
             See all →
           </Link>
@@ -552,14 +552,14 @@ function TopCreatorsCard({
       </div>
 
       {rows.length === 0 ? (
-        <div className="grid place-items-center text-body-sm text-fgMuted py-12">
+        <div className="grid place-items-center text-body-sm text-fg-muted py-12">
           No creators on this platform yet.
         </div>
       ) : (
         <>
           <div
             aria-hidden
-            className={`${GRID} px-2 pb-2 text-micro uppercase tracking-[0.04em] text-fgSubtle border-b border-borderGlass`}
+            className={`${GRID} px-2 pb-2 text-micro uppercase tracking-[0.04em] text-fg-subtle border-b border-line`}
           >
             <span>#</span>
             <span>Creator</span>
@@ -574,7 +574,7 @@ function TopCreatorsCard({
           {hasMore && (
             <Link
               href="/leaderboard"
-              className="mt-3 text-center text-caption text-fgMuted hover:text-fg transition-colors"
+              className="mt-3 text-center text-caption text-fg-muted hover:text-fg transition-colors"
             >
               View the full leaderboard →
             </Link>
@@ -594,13 +594,13 @@ function CreatorRow({ row, rank }: { row: DisplayRow; rank: number }) {
       <span
         className={clsx(
           'font-mono tabular-nums text-body-sm',
-          isWinner ? 'text-brand font-semibold' : 'text-fgSubtle',
+          isWinner ? 'text-brand font-semibold' : 'text-fg-subtle',
         )}
       >
         {String(rank).padStart(2, '0')}
       </span>
       <span className="flex items-center gap-3 min-w-0">
-        <span className="size-8 shrink-0 rounded-full bg-customColor1 border border-borderGlass grid tiny:hidden place-items-center overflow-hidden text-caption text-fgMuted">
+        <span className="size-8 shrink-0 rounded-full bg-surface border border-line grid tiny:hidden place-items-center overflow-hidden text-caption text-fg-muted">
           <ImageWithFallback
             src={row.avatarUrl}
             alt=""
@@ -613,14 +613,14 @@ function CreatorRow({ row, rank }: { row: DisplayRow; rank: number }) {
       <span className="text-right font-mono tabular-nums text-body text-fg">
         <ShowcaseNumber value={row.totalViews} />
       </span>
-      <span className="hidden sm:block text-right sm:pl-6 font-mono tabular-nums text-body-sm text-fgMuted">
+      <span className="hidden sm:block text-right sm:pl-6 font-mono tabular-nums text-body-sm text-fg-muted">
         <ShowcaseNumber value={row.followers} />
       </span>
     </>
   );
   const rowClass = clsx(
     GRID,
-    'px-2 min-h-[52px] rounded-lg transition-colors duration-150 ease-out border-b border-borderGlass last:border-b-0',
+    'px-2 min-h-[52px] rounded-lg transition-colors duration-150 ease-out border-b border-line last:border-b-0',
     isWinner && 'bg-brand/[0.06]',
   );
   return (
@@ -662,7 +662,7 @@ function PlatformBreakdownCard({
     <GlassCard variant="base" padding="md" radius="2xl" className="flex flex-col">
       <div className="flex flex-col gap-1 mb-4">
         <span className="text-label text-fg font-medium">Platform Breakdown</span>
-        <span className="text-body-sm text-fgMuted">Views + followers by platform</span>
+        <span className="text-body-sm text-fg-muted">Views + followers by platform</span>
       </div>
 
       <ul className="flex flex-col gap-2.5">
@@ -679,15 +679,15 @@ function PlatformBreakdownCard({
                 className={clsx(
                   'w-full text-left rounded-xl border px-3 py-2.5 transition-colors duration-150 ease-out',
                   isFocused
-                    ? 'bg-customColor16 border-borderGlassStrong'
-                    : 'bg-transparent border-borderGlass hover:border-borderGlassStrong hover:bg-white/[0.025]',
+                    ? 'bg-surface-subtle border-line-strong'
+                    : 'bg-transparent border-line hover:border-line-strong hover:bg-white/[0.025]',
                   isEmpty && 'opacity-50'
                 )}
                 aria-pressed={isFocused}
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="inline-flex items-center justify-center size-7 rounded-md bg-customColor16 border border-borderGlass text-fg shrink-0">
+                    <span className="inline-flex items-center justify-center size-7 rounded-md bg-surface-subtle border border-line text-fg shrink-0">
                       <Icon size={14} />
                     </span>
                     <span className="text-body-sm text-fg truncate">
@@ -709,8 +709,8 @@ function PlatformBreakdownCard({
                   />
                 </div>
 
-                <div className="flex items-center justify-end mt-1.5 text-caption text-fgMuted font-mono tabular-nums">
-                  <span className="text-fgMuted">
+                <div className="flex items-center justify-end mt-1.5 text-caption text-fg-muted font-mono tabular-nums">
+                  <span className="text-fg-muted">
                     {isEmpty ? 'Not yet tracked' : `${formatShowcase(row.followers)} followers`}
                   </span>
                 </div>

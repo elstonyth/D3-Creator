@@ -43,7 +43,7 @@ export function LockGlyph(): ReactElement {
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden
-      className="h-3.5 w-3.5 text-fgMuted shrink-0"
+      className="h-3.5 w-3.5 text-fg-muted shrink-0"
     >
       <rect x="4" y="11" width="16" height="9" rx="2" />
       <path d="M8 11V7a4 4 0 0 1 8 0v4" />
@@ -207,8 +207,8 @@ export default function NavDropdown({
         className={cn(
           'px-3 py-1.5 rounded-md flex items-center gap-1 transition-colors duration-150 ease-out',
           anyChildActive
-            ? 'text-aurora-cta font-medium'
-            : 'text-fgMuted hover:text-fg hover:bg-white/[0.04]',
+            ? 'text-brand font-medium'
+            : 'text-fg-muted hover:text-fg hover:bg-white/[0.04]',
         )}
       >
         {label}
@@ -226,7 +226,7 @@ export default function NavDropdown({
         aria-label={label}
         className={cn(
           'absolute left-0 top-full mt-2 z-50 min-w-[200px] p-1 rounded-lg',
-          'bg-glass-elevated border border-borderGlass shadow-menu',
+          'bg-surface-elevated border border-line shadow-lg',
           'transition-[opacity,transform] duration-150 ease-out',
           open
             ? 'opacity-100 translate-y-0'
@@ -260,8 +260,8 @@ export default function NavDropdown({
               className={cn(
                 'flex items-center gap-2 h-10 px-3 rounded-md transition-colors duration-150 ease-out',
                 active
-                  ? 'text-aurora-cta font-medium'
-                  : 'text-fgMuted hover:text-fg hover:bg-white/[0.04]',
+                  ? 'text-brand font-medium'
+                  : 'text-fg-muted hover:text-fg hover:bg-white/[0.04]',
               )}
             >
               {item.label}

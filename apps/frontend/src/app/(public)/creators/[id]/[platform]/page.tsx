@@ -106,21 +106,21 @@ export default async function CreatorPlatformPage({
       <header className="max-w-[760px]">
         <Link
           href={`/creators/${encodeURIComponent(id)}`}
-          className="inline-flex items-center gap-1.5 text-caption text-fgMuted hover:text-fg transition-colors mb-6"
+          className="inline-flex items-center gap-1.5 text-caption text-fg-muted hover:text-fg transition-colors mb-6"
         >
           <span>←</span> Back to {creator.displayName}
         </Link>
         <div className="flex items-center gap-3 mb-4">
           <PlatformPill platform={platformKey} />
           {slot?.handle && (
-            <span className="text-caption text-fgSubtle">@{slot.handle}</span>
+            <span className="text-caption text-fg-subtle">@{slot.handle}</span>
           )}
         </div>
         <h1 className="text-display-2 text-fg leading-[1.04]">
           {creator.displayName} on {PLATFORM_LABELS[platformKey]}
         </h1>
         {slot?.nickname && (
-          <p className="mt-2 text-body-sm text-fgMuted">{slot.nickname}</p>
+          <p className="mt-2 text-body-sm text-fg-muted">{slot.nickname}</p>
         )}
       </header>
 
@@ -153,7 +153,7 @@ export default async function CreatorPlatformPage({
         <div className="flex items-center justify-between mb-6">
           <div className="flex flex-col gap-1">
             <h2 className="text-heading text-fg">Recent Posts</h2>
-            <p className="text-caption text-fgMuted">
+            <p className="text-caption text-fg-muted">
               {livePosts.length > 0
                 ? `${livePosts.length} most recent · hover to preview, click to open`
                 : slot
@@ -169,8 +169,8 @@ export default async function CreatorPlatformPage({
             posts={livePosts}
           />
         ) : (
-          <div className="rounded-xl bg-glass-subtle border border-borderGlass h-[280px] flex items-center justify-center">
-            <p className="text-body-sm text-fgMuted">
+          <div className="rounded-xl bg-surface-subtle border border-line h-[280px] flex items-center justify-center">
+            <p className="text-body-sm text-fg-muted">
               No posts yet for this profile.
             </p>
           </div>
@@ -198,9 +198,9 @@ function StatCard({
       className="h-full text-left"
     >
       <div className="flex items-center justify-between mb-6">
-        <span className="text-micro uppercase text-fgSubtle">{label}</span>
+        <span className="text-micro uppercase text-fg-subtle">{label}</span>
         {note && (
-          <span className="text-caption px-2.5 py-1 rounded-full glass-subtle border border-borderGlass text-fgMuted">
+          <span className="text-caption px-2.5 py-1 rounded-full bg-surface-subtle border border-line border border-line text-fg-muted">
             {note}
           </span>
         )}

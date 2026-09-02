@@ -68,7 +68,7 @@ function NoAccountsState() {
             <span
               key={p}
               title={PLATFORM_LABELS[p]}
-              className="flex items-center justify-center size-9 rounded-full glass-base border border-borderGlass text-fgMuted"
+              className="flex items-center justify-center size-9 rounded-full bg-surface border border-line border border-line text-fg-muted"
             >
               <Icon size={16} />
             </span>
@@ -131,12 +131,12 @@ export default async function CreatorMePage({
   return (
     <div className="flex flex-col gap-10 pt-12 pb-24">
       <header className="max-w-[760px]">
-        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-subtle border border-borderGlass text-caption text-fgMuted mb-6">
-          <span className="inline-block size-1.5 rounded-full bg-aurora-cta" />
+        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-subtle border border-line border border-line text-caption text-fg-muted mb-6">
+          <span className="inline-block size-1.5 rounded-full bg-brand" />
           My data
         </span>
         <h1 className="text-display-2 text-fg mb-4">Your creator view.</h1>
-        <p className="text-body-lg text-fgMuted max-w-[600px]">
+        <p className="text-body-lg text-fg-muted max-w-[600px]">
           Signed in as <span className="text-fg">{auth.email}</span>. Live stats
           across the accounts your agency manages for you.
         </p>

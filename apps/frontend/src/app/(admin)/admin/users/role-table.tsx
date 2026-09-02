@@ -49,14 +49,14 @@ export function RoleTable({ rows, selfId }: { rows: Row[]; selfId: string }) {
   return (
     <div className="flex flex-col gap-3">
       {msg && (
-        <p className="text-caption text-aurora-cta" role="status">
+        <p className="text-caption text-brand" role="status">
           {msg}
         </p>
       )}
-      <div className="glass-elevated rounded-2xl overflow-hidden">
+      <div className="bg-surface-elevated border border-line-strong rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[420px] text-label">
-            <thead className="text-caption text-fgMuted border-b border-borderGlass">
+            <thead className="text-caption text-fg-muted border-b border-line">
               <tr>
                 <th className="text-left p-4">Email</th>
                 <th className="text-left p-4">Joined</th>
@@ -65,9 +65,9 @@ export function RoleTable({ rows, selfId }: { rows: Row[]; selfId: string }) {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.user_id} className="border-b border-borderGlass/50">
+                <tr key={r.user_id} className="border-b border-line/50">
                   <td className="p-4 text-fg">{r.email}</td>
-                  <td className="p-4 text-fgMuted">
+                  <td className="p-4 text-fg-muted">
                     {new Date(r.created_at).toLocaleDateString()}
                   </td>
                   <td className="p-4">
@@ -77,7 +77,7 @@ export function RoleTable({ rows, selfId }: { rows: Row[]; selfId: string }) {
                       onChange={(e) =>
                         change(r.user_id, e.target.value, e.target, r.role)
                       }
-                      className="bg-canvas border border-borderGlass rounded-md px-2 py-1 text-fg disabled:opacity-50"
+                      className="bg-canvas border border-line rounded-md px-2 py-1 text-fg disabled:opacity-50"
                     >
                       {ROLES.map((role) => (
                         <option key={role} value={role}>

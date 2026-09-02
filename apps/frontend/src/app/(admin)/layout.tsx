@@ -1,5 +1,5 @@
 import '../global.scss';
-import { geistSans, geistMono } from '../fonts';
+import { fontSans, fontMono } from '../fonts';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -27,7 +27,7 @@ export default async function AdminLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable}`}
+      className={`${fontSans.variable} ${fontMono.variable}`}
     >
       <head>
         <link rel="icon" href="/d3-logo.png?v=3" type="image/png" />
@@ -40,7 +40,7 @@ export default async function AdminLayout({
         >
           Skip to content
         </a>
-        <header className="sticky top-0 z-50 border-b border-borderGlass bg-canvas">
+        <header className="sticky top-0 z-50 border-b border-line bg-canvas">
           <div className="max-w-[1200px] mx-auto px-6 md:px-8 h-14 flex items-center justify-between">
             <Link
               href="/admin"
@@ -60,7 +60,7 @@ export default async function AdminLayout({
               <NavLink href="/admin/profiles">Accounts</NavLink>
               <NavLink href="/admin/classes">Classes</NavLink>
               <NavLink href="/admin/users">Users</NavLink>
-              <span className="ml-3 text-caption text-fgSubtle">
+              <span className="ml-3 text-caption text-fg-subtle">
                 {auth.email}
               </span>
               <SignOutButton />
@@ -70,7 +70,7 @@ export default async function AdminLayout({
             <div className="flex md:hidden items-center gap-1 text-label">
               {/* Email returns from sm up (matches the old sm:inline-block), truncated
                   so it can't overflow; below sm it stays hidden to keep the header tight. */}
-              <span className="hidden sm:block max-w-[160px] truncate text-caption text-fgSubtle">
+              <span className="hidden sm:block max-w-[160px] truncate text-caption text-fg-subtle">
                 {auth.email}
               </span>
               <SignOutButton />

@@ -439,7 +439,7 @@ export default function AnalyzerWorkspace({
       {showPanel ? (
         <section
           aria-label="Analysis progress"
-          className="bg-glass-subtle border border-borderGlass rounded-2xl p-6 min-h-[240px] flex flex-col items-center justify-center gap-4 text-center"
+          className="bg-surface-subtle border border-line rounded-2xl p-6 min-h-[240px] flex flex-col items-center justify-center gap-4 text-center"
         >
           {/* Four unlabelled dots for several minutes never say WHICH video is
               being analysed — and a user who re-picked the wrong file has no
@@ -458,7 +458,7 @@ export default function AnalyzerWorkspace({
                 <li
                   key={id}
                   aria-current={stepIndex === index ? 'step' : undefined}
-                  className="flex items-center gap-3 text-body text-fgMuted"
+                  className="flex items-center gap-3 text-body text-fg-muted"
                 >
                   {/* The dot is the only thing that changes colour. */}
                   <span
@@ -473,13 +473,13 @@ export default function AnalyzerWorkspace({
             })}
           </ol>
           {showCaption && (
-            <p className="text-caption text-fgMuted">
+            <p className="text-caption text-fg-muted">
               {job === null ? 'Uploading video…' : 'Queued'}
             </p>
           )}
           {failed && <ErrorLine>{errorCopy(job?.error?.code)}</ErrorLine>}
           {failed && (
-            <Button variant="outline" size="md" onClick={openPicker}>
+            <Button variant="secondary" size="md" onClick={openPicker}>
               Try again
             </Button>
           )}
@@ -501,10 +501,10 @@ export default function AnalyzerWorkspace({
               onChange={(e) => setLink(e.target.value)}
               placeholder={`Paste a ${LINK_HINT}`}
               aria-label={`Paste a ${LINK_HINT}`}
-              className="flex-1 min-w-0 h-10 px-3 rounded-md bg-glass-base border border-borderGlass text-fg placeholder:text-fgSubtle transition-colors duration-150 ease-out"
+              className="flex-1 min-w-0 h-10 px-3 rounded-md bg-surface border border-line text-fg placeholder:text-fg-subtle transition-colors duration-150 ease-out"
             />
             <Button
-              variant="outline"
+              variant="secondary"
               size="md"
               type="submit"
               disabled={busy || link.trim() === ''}
@@ -512,7 +512,7 @@ export default function AnalyzerWorkspace({
               Analyse link
             </Button>
           </form>
-          <p className="text-caption text-fgSubtle">
+          <p className="text-caption text-fg-subtle">
             Or upload a file — a draft that isn’t posted yet can only be
             uploaded.
           </p>
@@ -549,13 +549,13 @@ export default function AnalyzerWorkspace({
             {/* The zone is not a click target and not in the tab order, so
                 without this line a pointer user has no signal that a 240px
                 dashed box does anything. */}
-            <p className="text-body text-fgMuted">Drop a video here</p>
+            <p className="text-body text-fg-muted">Drop a video here</p>
             <Button variant="primary" size="md" onClick={openPicker}>
               Choose file
             </Button>
             {clientError !== null && <ErrorLine>{clientError}</ErrorLine>}
           </section>
-          <p className="text-caption text-fgMuted">
+          <p className="text-caption text-fg-muted">
             MP4, MOV, WebM or AVI. Up to 5 minutes.
           </p>
         </div>
@@ -569,7 +569,7 @@ export default function AnalyzerWorkspace({
           Past reports
         </h2>
         {historyUnavailable ? (
-          <p className="text-body text-fgMuted">
+          <p className="text-body text-fg-muted">
             Past reports are unavailable right now.
           </p>
         ) : hasHistory ? (
@@ -584,7 +584,7 @@ export default function AnalyzerWorkspace({
                 <Link>, which cannot open a file picker and would put a second
                 yellow primary on the screen. */}
             <Button
-              variant="outline"
+              variant="secondary"
               size="md"
               onClick={openPicker}
               disabled={busy}

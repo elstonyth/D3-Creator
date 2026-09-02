@@ -48,10 +48,10 @@ export const metadata: Metadata = {
  *  empty-state.tsx's yellow, minus `font-medium` (§0.3) and the focus pair (§0.4). */
 const DOWNLOAD_CTA =
   'inline-flex items-center justify-center gap-2 h-10 px-5 rounded-md text-label ' +
-  'bg-aurora-cta text-brand-darker hover:bg-aurora-ctaHover transition-colors duration-150 ease-out';
+  'bg-brand text-fg-on-brand hover:bg-brand-300 transition-colors duration-150 ease-out';
 
 const POSTER_BOX =
-  'w-[160px] aspect-video rounded-xl border border-borderGlass shrink-0';
+  'w-[160px] aspect-video rounded-xl border border-line shrink-0';
 
 function ReportSection({
   id,
@@ -77,7 +77,7 @@ function ReportSection({
  *  replaces. */
 function ChartCard({ children }: { children: ReactNode }): ReactElement {
   return (
-    <div className="bg-glass-subtle border border-borderGlass rounded-2xl p-6">
+    <div className="bg-surface-subtle border border-line rounded-2xl p-6">
       {children}
     </div>
   );
@@ -112,7 +112,7 @@ export default async function AnalyzerReportPage({
             1100px and a click anywhere on that row navigates away. */}
         <Link
           href="/studio/analyzer"
-          className="w-fit text-caption text-fgMuted hover:text-fg transition-colors duration-150 ease-out"
+          className="w-fit text-caption text-fg-muted hover:text-fg transition-colors duration-150 ease-out"
         >
           ← Video Analyzer
         </Link>
@@ -126,7 +126,7 @@ export default async function AnalyzerReportPage({
             className={`${POSTER_BOX} object-cover`}
             fallback={
               <div
-                className={`${POSTER_BOX} bg-glass-base flex items-center justify-center text-caption text-fgSubtle`}
+                className={`${POSTER_BOX} bg-surface flex items-center justify-center text-caption text-fg-subtle`}
               >
                 No preview
               </div>
@@ -134,7 +134,7 @@ export default async function AnalyzerReportPage({
           />
           <div className="flex-1 min-w-0 flex flex-col gap-2">
             <h1 className="text-section text-fg break-words">{job.filename}</h1>
-            <p className="text-body-sm text-fgMuted">
+            <p className="text-body-sm text-fg-muted">
               {/* When duration_seconds is null, the duration AND the separator
                   are dropped — never a dangling · */}
               {job.duration_seconds === null
@@ -147,7 +147,7 @@ export default async function AnalyzerReportPage({
               <p className="text-display-2 text-fg tabular-nums leading-none">
                 {result.overall_score}
               </p>
-              <p className="text-caption text-fgSubtle">
+              <p className="text-caption text-fg-subtle">
                 Overall / {SCORE_MAX}
               </p>
               {job.report_url && (
@@ -168,9 +168,9 @@ export default async function AnalyzerReportPage({
             {/* `report_text` is the written breakdown PRD 1 §1 promises as an
                 output. Before this it existed ONLY inside the downloaded .txt,
                 so the page showed six numbers and no reasoning. */}
-            <div className="bg-glass-subtle border border-borderGlass rounded-2xl p-6 flex flex-col gap-4">
+            <div className="bg-surface-subtle border border-line rounded-2xl p-6 flex flex-col gap-4">
               {splitParagraphs(result.report_text).map((para) => (
-                <p key={para.slice(0, 48)} className="text-body text-fgMuted">
+                <p key={para.slice(0, 48)} className="text-body text-fg-muted">
                   {para}
                 </p>
               ))}
@@ -184,14 +184,14 @@ export default async function AnalyzerReportPage({
                   key={key}
                   colSpan={4}
                   tabletColSpan={3}
-                  className="h-full bg-glass-subtle border border-borderGlass rounded-2xl p-6 flex flex-col gap-2"
+                  className="h-full bg-surface-subtle border border-line rounded-2xl p-6 flex flex-col gap-2"
                 >
                   <h3 className="text-heading text-fg">
                     {SCORE_CARD_LABEL[key]}
                   </h3>
                   <p className="text-section text-fg tabular-nums leading-none">
                     {result.scores[key].score}
-                    <span className="text-body-sm text-fgSubtle">
+                    <span className="text-body-sm text-fg-subtle">
                       {' '}
                       / {SCORE_MAX}
                     </span>
@@ -202,14 +202,14 @@ export default async function AnalyzerReportPage({
                       reasoning behind every score was simply unreadable. The
                       cards are `h-full` in a bento grid and already absorb
                       ragged heights. */}
-                  <p className="text-body text-fgMuted">
+                  <p className="text-body text-fg-muted">
                     {result.scores[key].why}
                   </p>
                   {/* The moment the score is based on. Showing it is what lets
                       a creator argue with the number instead of just seeing it
                       (PRD 1 §11's "users say a score is wrong" mitigation). */}
                   {result.scores[key].evidence !== '' && (
-                    <p className="mt-auto pt-2 border-t border-borderGlass text-caption text-fgSubtle">
+                    <p className="mt-auto pt-2 border-t border-line text-caption text-fg-subtle">
                       {result.scores[key].evidence}
                     </p>
                   )}

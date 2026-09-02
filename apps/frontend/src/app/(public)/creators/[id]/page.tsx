@@ -82,7 +82,7 @@ export default async function CreatorPage({
       {/* Header */}
       <header className="flex items-start justify-between gap-6 flex-wrap">
         <div className="flex items-start gap-5 min-w-0">
-          <div className="size-20 rounded-2xl glass-subtle border border-borderGlass overflow-hidden flex items-center justify-center text-heading text-brand font-semibold shrink-0">
+          <div className="size-20 rounded-2xl bg-surface-subtle border border-line border border-line overflow-hidden flex items-center justify-center text-heading text-brand font-semibold shrink-0">
             <ImageWithFallback
               src={creator.avatarUrl}
               alt={creator.displayName}
@@ -91,14 +91,14 @@ export default async function CreatorPage({
             />
           </div>
           <div className="min-w-0">
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full glass-subtle border border-borderGlass text-caption text-fgMuted mb-3">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-surface-subtle border border-line border border-line text-caption text-fg-muted mb-3">
               Creator profile
             </span>
             <h1 className="text-display-2 text-fg leading-[1.04]">
               {creator.displayName}
             </h1>
             {creator.biography && (
-              <p className="mt-3 text-body-sm text-fgMuted max-w-[640px] whitespace-pre-line break-words">
+              <p className="mt-3 text-body-sm text-fg-muted max-w-[640px] whitespace-pre-line break-words">
                 {creator.biography}
               </p>
             )}
@@ -117,14 +117,14 @@ export default async function CreatorPage({
             className="h-full text-left"
           >
             <div className="flex items-center justify-between mb-6">
-              <span className="text-micro uppercase text-fgSubtle">
+              <span className="text-micro uppercase text-fg-subtle">
                 Total Followers
               </span>
             </div>
             <div className="text-[clamp(40px,5vw,56px)] leading-[1.04] tracking-[-0.03em] font-semibold text-fg tabular-nums">
               {compact.format(creator.totalFollowers)}
             </div>
-            <p className="text-caption text-fgSubtle mt-2 tabular-nums">
+            <p className="text-caption text-fg-subtle mt-2 tabular-nums">
               {exact.format(creator.totalFollowers)} across{' '}
               {creator.platforms.length} platform
               {creator.platforms.length === 1 ? '' : 's'}
@@ -141,10 +141,10 @@ export default async function CreatorPage({
             className="h-full text-left"
           >
             <div className="flex items-center justify-between mb-6">
-              <span className="text-micro uppercase text-fgSubtle">
+              <span className="text-micro uppercase text-fg-subtle">
                 Total Views
               </span>
-              <span className="text-caption px-2.5 py-1 rounded-full glass-subtle border border-borderGlass text-fgMuted">
+              <span className="text-caption px-2.5 py-1 rounded-full bg-surface-subtle border border-line border border-line text-fg-muted">
                 Last 30 posts
               </span>
             </div>
@@ -163,10 +163,10 @@ export default async function CreatorPage({
             className="h-full text-left"
           >
             <div className="flex items-center justify-between mb-6">
-              <span className="text-micro uppercase text-fgSubtle">
+              <span className="text-micro uppercase text-fg-subtle">
                 Total Likes
               </span>
-              <span className="text-caption px-2.5 py-1 rounded-full glass-subtle border border-borderGlass text-fgMuted">
+              <span className="text-caption px-2.5 py-1 rounded-full bg-surface-subtle border border-line border border-line text-fg-muted">
                 Last 30 posts
               </span>
             </div>
@@ -197,15 +197,15 @@ export default async function CreatorPage({
                 href={`/creators/${encodeURIComponent(id)}/${key}`}
                 className={
                   slot
-                    ? 'group flex items-center justify-between p-4 rounded-xl glass-subtle border border-borderGlass hover:border-borderGlassStrong hover:bg-white/[0.04] transition-colors'
-                    : 'flex items-center justify-between p-4 rounded-xl border border-dashed border-borderGlass opacity-50 pointer-events-none'
+                    ? 'group flex items-center justify-between p-4 rounded-xl bg-surface-subtle border border-line border border-line hover:border-line-strong hover:bg-white/[0.04] transition-colors'
+                    : 'flex items-center justify-between p-4 rounded-xl border border-dashed border-line opacity-50 pointer-events-none'
                 }
               >
                 <span className="flex items-center gap-2.5 text-label text-fg">
                   <Icon size={16} className="text-fg shrink-0" />
                   {PLATFORM_LABELS[key]}
                 </span>
-                <span className="text-caption tabular-nums text-fgSubtle group-hover:text-brand transition-colors">
+                <span className="text-caption tabular-nums text-fg-subtle group-hover:text-brand transition-colors">
                   {slot
                     ? hasData
                       ? compact.format(followers!)

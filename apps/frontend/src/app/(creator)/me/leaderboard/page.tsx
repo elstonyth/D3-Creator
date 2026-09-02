@@ -60,12 +60,12 @@ export default async function CreatorMeLeaderboardPage() {
   return (
     <div className="flex flex-col gap-10 pt-12 pb-24">
       <header className="max-w-[760px]">
-        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-subtle border border-borderGlass text-caption text-fgMuted mb-6">
-          <span className="inline-block size-1.5 rounded-full bg-aurora-cta" />
+        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-subtle border border-line border border-line text-caption text-fg-muted mb-6">
+          <span className="inline-block size-1.5 rounded-full bg-brand" />
           My leaderboard
         </span>
         <h1 className="text-display-2 text-fg mb-4">Your top posts.</h1>
-        <p className="text-body-lg text-fgMuted max-w-[600px]">
+        <p className="text-body-lg text-fg-muted max-w-[600px]">
           The 20 highest-viewed posts across your platforms.
         </p>
       </header>
@@ -92,23 +92,23 @@ export default async function CreatorMeLeaderboardPage() {
             return (
               <li
                 key={`${p.profileId}:${p.externalPostId}`}
-                className="glass-elevated rounded-xl p-4 flex items-center gap-4"
+                className="bg-surface-elevated border border-line-strong rounded-xl p-4 flex items-center gap-4"
               >
                 <span
                   className={`text-section w-10 text-right tabular-nums ${
-                    isWinner ? 'text-aurora-cta font-semibold' : 'text-fgSubtle'
+                    isWinner ? 'text-brand font-semibold' : 'text-fg-subtle'
                   }`}
                 >
                   {i + 1}
                 </span>
-                <div className="relative size-14 rounded-md overflow-hidden bg-customColor1 shrink-0">
+                <div className="relative size-14 rounded-md overflow-hidden bg-surface shrink-0">
                   <ImageWithFallback
                     src={thumb}
                     alt={p.captionExcerpt ?? 'Post thumbnail'}
                     loading="lazy"
                     className="absolute inset-0 size-full object-cover"
                     fallback={
-                      <div className="absolute inset-0 flex items-center justify-center text-caption text-fgSubtle">
+                      <div className="absolute inset-0 flex items-center justify-center text-caption text-fg-subtle">
                         —
                       </div>
                     }
@@ -118,11 +118,11 @@ export default async function CreatorMeLeaderboardPage() {
                   <p className="text-body text-fg truncate">
                     {p.captionExcerpt ?? '(no caption)'}
                   </p>
-                  <p className="text-caption text-fgMuted">
+                  <p className="text-caption text-fg-muted">
                     {p.postedAt ? new Date(p.postedAt).toLocaleDateString() : '—'}
                   </p>
                   {p.alsoOn && p.alsoOn.length > 0 && (
-                    <div className="mt-1 flex items-center gap-1 text-fgSubtle">
+                    <div className="mt-1 flex items-center gap-1 text-fg-subtle">
                       <span className="text-caption">also on</span>
                       {p.alsoOn.map((plat) => {
                         const AlsoIcon =
@@ -157,10 +157,10 @@ function PostStat({
 }) {
   return (
     <div className={label === 'views' ? '' : 'hidden sm:block'}>
-      <div className={`text-body tabular-nums ${strong ? 'text-fg' : 'text-fgMuted'}`}>
+      <div className={`text-body tabular-nums ${strong ? 'text-fg' : 'text-fg-muted'}`}>
         {value != null ? Intl.NumberFormat().format(value) : '—'}
       </div>
-      <div className="text-caption text-fgSubtle">{label}</div>
+      <div className="text-caption text-fg-subtle">{label}</div>
     </div>
   );
 }

@@ -47,17 +47,17 @@ import { renderProfileBlock } from '@gitroom/frontend/lib/chat-prompt';
    `global.scss:174` supplies the ring. They live in two components now; that is
    the accepted ceiling until a third form needs them. */
 const fieldBox =
-  'h-10 w-full rounded-md bg-glass-subtle border border-borderGlass px-3 ' +
-  'text-body text-fg placeholder:text-fgSubtle ' +
+  'h-10 w-full rounded-md bg-surface-subtle border border-line px-3 ' +
+  'text-body text-fg placeholder:text-fg-subtle ' +
   'transition-colors duration-150 ease-out ' +
-  'hover:border-borderGlassStrong ' +
+  'hover:border-line-strong ' +
   'disabled:opacity-50 disabled:pointer-events-none';
 const selectBox = `${fieldBox} appearance-none pr-9`;
 const areaBox =
-  'min-h-[88px] w-full rounded-md bg-glass-subtle border border-borderGlass px-3 py-2 ' +
-  'text-body text-fg placeholder:text-fgSubtle resize-y ' +
+  'min-h-[88px] w-full rounded-md bg-surface-subtle border border-line px-3 py-2 ' +
+  'text-body text-fg placeholder:text-fg-subtle resize-y ' +
   'transition-colors duration-150 ease-out ' +
-  'hover:border-borderGlassStrong ' +
+  'hover:border-line-strong ' +
   'disabled:opacity-50 disabled:pointer-events-none';
 
 /** §6's display labels, plus the six Amendment 1 exceptions. Kept against §6 by
@@ -203,7 +203,7 @@ function Section({
     <section className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
         <h2 className="text-heading text-fg">{title}</h2>
-        <p className="text-body-sm text-fgMuted max-w-[62ch]">{blurb}</p>
+        <p className="text-body-sm text-fg-muted max-w-[62ch]">{blurb}</p>
       </div>
       {children}
     </section>
@@ -234,13 +234,13 @@ function Field({
   return (
     <label className="block space-y-1.5">
       <span className="flex items-baseline justify-between gap-3">
-        <span className="text-label text-fgMuted">
+        <span className="text-label text-fg-muted">
           {label}
-          {required ? <span className="text-fgSubtle"> · required</span> : null}
+          {required ? <span className="text-fg-subtle"> · required</span> : null}
         </span>
         {near ? (
           <span
-            className={`text-caption tabular-nums ${full ? 'text-fg' : 'text-fgSubtle'}`}
+            className={`text-caption tabular-nums ${full ? 'text-fg' : 'text-fg-subtle'}`}
           >
             {value?.length}/{max}
           </span>
@@ -294,7 +294,7 @@ function Select({
       {/* pointer-events-none or the glyph swallows the click. */}
       <ChevronDownIcon
         aria-hidden
-        className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-fgMuted pointer-events-none"
+        className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-fg-muted pointer-events-none"
       />
     </div>
   );
@@ -688,7 +688,7 @@ export function ProfileSettingsForm({
       {/* The whole point of the panel: brand-voice memory is otherwise
           invisible. This runs the SAME renderProfileBlock the model receives,
           so a line vanishing here is a line the coach really stops seeing. */}
-      <section className="rounded-2xl border border-borderGlass bg-glass-base overflow-hidden">
+      <section className="rounded-2xl border border-line bg-surface overflow-hidden">
         <button
           type="button"
           onClick={() => setShowPreview((v) => !v)}
@@ -697,24 +697,24 @@ export function ProfileSettingsForm({
         >
           <span className="flex flex-col gap-0.5">
             <span className="text-label text-fg">What the coach reads</span>
-            <span className="text-body-sm text-fgMuted">
+            <span className="text-body-sm text-fg-muted">
               The exact text sent with every script and every video analysis.
             </span>
           </span>
           <span className="flex items-center gap-3 shrink-0">
-            <span className="text-caption text-fgSubtle tabular-nums">
+            <span className="text-caption text-fg-subtle tabular-nums">
               {preview.length}/{BLOCK_CEILING}
             </span>
             <ChevronDownIcon
               aria-hidden
-              className={`h-4 w-4 text-fgMuted transition-transform duration-150 ease-out ${
+              className={`h-4 w-4 text-fg-muted transition-transform duration-150 ease-out ${
                 showPreview ? 'rotate-180' : ''
               }`}
             />
           </span>
         </button>
         {showPreview ? (
-          <pre className="border-t border-borderGlass bg-glass-subtle px-5 py-4 overflow-x-auto text-caption leading-[1.7] text-fgMuted whitespace-pre">
+          <pre className="border-t border-line bg-surface-subtle px-5 py-4 overflow-x-auto text-caption leading-[1.7] text-fg-muted whitespace-pre">
             {preview}
           </pre>
         ) : null}
@@ -722,11 +722,11 @@ export function ProfileSettingsForm({
 
       {/* Sticky so the primary action is reachable from anywhere in a form this
           long, and so unsaved state is never scrolled out of sight. */}
-      <div className="sticky bottom-0 -mx-1 px-1 pb-1 pt-3 bg-canvas/95 backdrop-blur-sm border-t border-borderGlass flex items-center justify-between gap-4">
+      <div className="sticky bottom-0 -mx-1 px-1 pb-1 pt-3 bg-canvas/95 backdrop-blur-sm border-t border-line flex items-center justify-between gap-4">
         <p
           role="status"
           className={`text-body-sm ${
-            message === FAILURE ? 'text-fg' : 'text-fgMuted'
+            message === FAILURE ? 'text-fg' : 'text-fg-muted'
           }`}
         >
           {message !== '' ? message : dirty ? LEAVING : ''}

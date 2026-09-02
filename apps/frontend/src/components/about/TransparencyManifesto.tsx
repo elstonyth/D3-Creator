@@ -15,7 +15,7 @@ export function TransparencyManifesto() {
         >
           That&apos;s why D3 Creator exists.
         </h2>
-        <p className="text-body-lg text-fgMuted max-w-[680px] mx-auto mb-8">
+        <p className="text-body-lg text-fg-muted max-w-[680px] mx-auto mb-8">
           Instead of showing screenshots or edited case studies, we made our
           creator ecosystem public. Followers, views, engagement, growth
           rankings, and live performance are displayed transparently across

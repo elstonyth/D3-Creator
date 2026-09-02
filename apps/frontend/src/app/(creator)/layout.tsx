@@ -1,5 +1,5 @@
 import '../global.scss';
-import { geistSans, geistMono } from '../fonts';
+import { fontSans, fontMono } from '../fonts';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -26,7 +26,7 @@ export default async function CreatorLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable}`}
+      className={`${fontSans.variable} ${fontMono.variable}`}
     >
       <head>
         <link rel="icon" href="/d3-logo.png?v=3" type="image/png" />
@@ -39,7 +39,7 @@ export default async function CreatorLayout({
         >
           Skip to content
         </a>
-        <header className="sticky top-0 z-50 border-b border-borderGlass bg-canvas">
+        <header className="sticky top-0 z-50 border-b border-line bg-canvas">
           <div className="max-w-[1200px] mx-auto px-6 md:px-8 h-14 flex items-center justify-between">
             <Link
               href="/me"
@@ -60,12 +60,12 @@ export default async function CreatorLayout({
               {auth.role === 'admin' && (
                 <Link
                   href="/admin"
-                  className="px-3 py-1.5 rounded-md text-aurora-cta hover:bg-white/[0.04] transition-colors"
+                  className="px-3 py-1.5 rounded-md text-brand hover:bg-white/[0.04] transition-colors"
                 >
                   Admin
                 </Link>
               )}
-              <span className="hidden sm:inline-block ml-3 text-caption text-fgSubtle">
+              <span className="hidden sm:inline-block ml-3 text-caption text-fg-subtle">
                 {auth.email}
               </span>
               <SignOutButton />

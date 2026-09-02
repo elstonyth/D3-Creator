@@ -9,7 +9,7 @@ export function ManifestoOpening() {
         className="w-full pt-16 pb-20 sm:pt-24 sm:pb-28 lg:pt-32 lg:pb-36 max-w-[1100px] mx-auto px-6 md:px-8"
       >
         <Reveal>
-          <p className="text-micro uppercase text-fgSubtle tracking-[0.35em] mb-6">
+          <p className="text-micro uppercase text-fg-subtle tracking-[0.35em] mb-6">
             About D3
           </p>
 
@@ -20,7 +20,7 @@ export function ManifestoOpening() {
             It&apos;s not <span className="text-brand">talent</span>.
           </h1>
 
-          <p className="mt-6 text-body-lg text-fgMuted max-w-[520px] leading-relaxed">
+          <p className="mt-6 text-body-lg text-fg-muted max-w-[520px] leading-relaxed">
             Most people don&apos;t fail at content because they aren&apos;t
             talented. They fail because nobody ever taught them how to turn
             attention into business.

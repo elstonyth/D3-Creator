@@ -106,14 +106,14 @@ export default function MobileNav({
           `invisible` removes it from the tab order and a11y tree while closed. */}
       <div
         className={cn(
-          'absolute left-0 right-0 top-14 z-50 border-b border-borderGlass bg-canvas',
+          'absolute left-0 right-0 top-14 z-50 border-b border-line bg-canvas',
           'transition-[opacity,transform] duration-150 ease-out',
           open
             ? 'opacity-100 translate-y-0'
             : 'invisible pointer-events-none opacity-0 -translate-y-1',
         )}
       >
-        <nav className="max-w-[1200px] mx-auto px-6 py-2 flex flex-col">
+        <nav className="mx-auto max-w-content px-6 py-2 flex flex-col">
           {links.map((item) =>
             'children' in item ? (
               <div
@@ -123,7 +123,7 @@ export default function MobileNav({
                 {/* A plain-string className: twMerge would delete text-caption
                       (PRD 3 §0.5 trap 1) and the label would silently render at
                       the 13px inherited from the panel. */}
-                <p className="text-caption uppercase tracking-[0.04em] text-fgMuted">
+                <p className="text-caption uppercase tracking-[0.04em] text-fg-muted">
                   {item.label}
                 </p>
                 <div className="mt-1 flex flex-col">
@@ -142,8 +142,8 @@ export default function MobileNav({
                         className={cn(
                           'flex items-center gap-2 h-12 pl-4 transition-colors duration-150 ease-out',
                           active
-                            ? 'text-aurora-cta font-medium'
-                            : 'text-fgMuted hover:text-fg',
+                            ? 'text-brand font-medium'
+                            : 'text-fg-muted hover:text-fg',
                         )}
                       >
                         {child.label}
@@ -167,8 +167,8 @@ export default function MobileNav({
                 className={cn(
                   'flex items-center h-12 border-b border-white/[0.06] last:border-b-0 text-label transition-colors',
                   isActive(item)
-                    ? 'text-aurora-cta font-medium'
-                    : 'text-fg hover:text-aurora-cta',
+                    ? 'text-brand font-medium'
+                    : 'text-fg hover:text-brand',
                 )}
               >
                 {item.label}

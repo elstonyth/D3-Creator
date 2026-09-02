@@ -64,8 +64,8 @@ export function ContentThumb({ post, onOpen }: ContentThumbProps) {
       onBlur={handleBlur}
       aria-label={`Open post: ${post.caption.slice(0, 80)}`}
       className={clsx(
-        'group relative block w-full overflow-hidden rounded-xl border border-borderGlass bg-customColor16 text-left',
-        'transition-colors duration-150 ease-out hover:border-borderGlassStrong',
+        'group relative block w-full overflow-hidden rounded-xl border border-line bg-surface-subtle text-left',
+        'transition-colors duration-150 ease-out hover:border-line-strong',
         'focus-visible:outline-2 focus-visible:outline-brand-500 focus-visible:outline-offset-2',
         PLATFORM_ASPECT[post.platform as PlatformKey]
       )}
@@ -85,8 +85,8 @@ export function ContentThumb({ post, onOpen }: ContentThumbProps) {
           style={{ opacity: active && hasVideo ? 0 : 1 }}
         />
       ) : (
-        <div className="absolute inset-0 p-4 flex items-end bg-customColor16">
-          <p className="text-body-sm text-fgMuted line-clamp-6">{post.caption}</p>
+        <div className="absolute inset-0 p-4 flex items-end bg-surface-subtle">
+          <p className="text-body-sm text-fg-muted line-clamp-6">{post.caption}</p>
         </div>
       )}
 
@@ -110,27 +110,27 @@ export function ContentThumb({ post, onOpen }: ContentThumbProps) {
       )}
 
       {/* Platform chip — solid bg, no backdrop-filter per DESIGN.md */}
-      <span className="absolute top-2 left-2 inline-flex items-center justify-center size-6 rounded-md bg-canvas/85 border border-borderGlass text-fg">
+      <span className="absolute top-2 left-2 inline-flex items-center justify-center size-6 rounded-md bg-canvas/85 border border-line text-fg">
         <Icon size={12} />
       </span>
 
       {/* Top-right type/duration chip */}
       {hasVideo && post.durationSec != null ? (
-        <span className="absolute top-2 right-2 px-1.5 h-5 inline-flex items-center rounded bg-canvas/85 border border-borderGlass text-micro font-mono tabular-nums text-fg">
+        <span className="absolute top-2 right-2 px-1.5 h-5 inline-flex items-center rounded bg-canvas/85 border border-line text-micro font-mono tabular-nums text-fg">
           {formatDuration(post.durationSec)}
         </span>
       ) : post.type === 'carousel' && post.mediaCount != null ? (
-        <span className="absolute top-2 right-2 px-1.5 h-5 inline-flex items-center gap-1 rounded bg-canvas/85 border border-borderGlass text-micro font-mono tabular-nums text-fg">
+        <span className="absolute top-2 right-2 px-1.5 h-5 inline-flex items-center gap-1 rounded bg-canvas/85 border border-line text-micro font-mono tabular-nums text-fg">
           <CarouselGlyph /> {post.mediaCount}
         </span>
       ) : null}
 
       {/* Bottom solid scrim — headline metric + shares + relative time */}
-      <div className="absolute bottom-0 inset-x-0 px-3 py-2 bg-canvas/85 border-t border-borderGlass flex items-center justify-between gap-2">
+      <div className="absolute bottom-0 inset-x-0 px-3 py-2 bg-canvas/85 border-t border-line flex items-center justify-between gap-2">
         <span className="text-caption font-mono tabular-nums text-fg">
           {metric.value}
         </span>
-        <div className="flex items-center gap-2 text-micro font-mono tabular-nums text-fgSubtle">
+        <div className="flex items-center gap-2 text-micro font-mono tabular-nums text-fg-subtle">
           {post.metrics.shares > 0 && (
             <span title="shares" aria-label={`${post.metrics.shares} shares`}>
               ↗ {formatCompact(post.metrics.shares)}

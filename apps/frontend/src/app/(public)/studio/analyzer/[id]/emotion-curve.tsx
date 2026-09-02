@@ -32,7 +32,7 @@ export function EmotionCurve({
 
   if (geometry.empty) {
     return (
-      <p className="text-body text-fgMuted">
+      <p className="text-body text-fg-muted">
         No emotion data was returned for this video.
       </p>
     );
@@ -67,7 +67,7 @@ export function EmotionCurve({
             y1={rule.from.y}
             x2={rule.to.x}
             y2={rule.to.y}
-            className="stroke-chartGrid"
+            className="stroke-line"
             strokeWidth="1"
           />
         ))}
@@ -77,7 +77,7 @@ export function EmotionCurve({
           y={ceiling.from.y}
           textAnchor="end"
           dominantBaseline="middle"
-          className="text-micro fill-fgSubtle"
+          className="text-micro fill-fg-subtle"
         >
           {SCORE_MAX}
         </text>
@@ -86,7 +86,7 @@ export function EmotionCurve({
           y={floor.from.y}
           textAnchor="end"
           dominantBaseline="middle"
-          className="text-micro fill-fgSubtle"
+          className="text-micro fill-fg-subtle"
         >
           0
         </text>
@@ -95,7 +95,7 @@ export function EmotionCurve({
           x={floor.from.x}
           y={floor.from.y + X_CAPTION_GAP}
           textAnchor="start"
-          className="text-micro fill-fgSubtle"
+          className="text-micro fill-fg-subtle"
         >
           0:00
         </text>
@@ -103,7 +103,7 @@ export function EmotionCurve({
           x={floor.to.x}
           y={floor.from.y + X_CAPTION_GAP}
           textAnchor="end"
-          className="text-micro fill-fgSubtle"
+          className="text-micro fill-fg-subtle"
         >
           {duration}
         </text>
@@ -111,7 +111,7 @@ export function EmotionCurve({
         {geometry.polyline !== '' && (
           <polyline
             points={geometry.polyline}
-            className="fill-none stroke-chartLine"
+            className="fill-none stroke-fg-muted"
             strokeWidth="2"
           />
         )}
@@ -128,7 +128,7 @@ export function EmotionCurve({
               cx={dot.point.x}
               cy={dot.point.y}
               r="3"
-              className="fill-chartLine motion-safe:group-hover:fill-aurora-cta transition-colors duration-150 ease-out"
+              className="fill-fg-muted motion-safe:group-hover:fill-brand transition-colors duration-150 ease-out"
             >
               <title>{`${formatTimecode(dot.t)} — ${dot.value} / ${SCORE_MAX}`}</title>
             </circle>

@@ -30,7 +30,7 @@ export function ClassPlayer({ video, nav, seriesLabel }: ClassPlayerProps) {
     <div className="max-w-[1100px] mx-auto px-6 md:px-8 py-12 flex flex-col gap-8">
       <Link
         href="/classes"
-        className="w-fit text-caption text-fgMuted hover:text-fg transition-colors"
+        className="w-fit text-caption text-fg-muted hover:text-fg transition-colors"
       >
         ← All classes
       </Link>
@@ -47,21 +47,21 @@ export function ClassPlayer({ video, nav, seriesLabel }: ClassPlayerProps) {
           {(seriesLabel || (hasSeries && nav.position > 0)) && (
             <div className="flex items-center justify-between gap-3">
               {seriesLabel ? (
-                <span className="min-w-0 truncate text-micro uppercase tracking-[0.04em] text-fgSubtle">
+                <span className="min-w-0 truncate text-micro uppercase tracking-[0.04em] text-fg-subtle">
                   {seriesLabel}
                 </span>
               ) : (
                 <span />
               )}
               {hasSeries && nav.position > 0 && (
-                <span className="shrink-0 rounded-full border border-borderGlass glass-subtle px-3 py-1 text-caption text-fgMuted tabular-nums">
+                <span className="shrink-0 rounded-full border border-line bg-surface-subtle border border-line px-3 py-1 text-caption text-fg-muted tabular-nums">
                   Part {nav.position} of {nav.total}
                 </span>
               )}
             </div>
           )}
 
-          <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-borderGlass bg-black">
+          <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-line bg-black">
             {/* Google Drive's /preview player CROPS the video below a minimum
                 width (its controls/layout assume a desktop-sized frame), so on
                 phones the frame is cut off on both sides. Render the iframe at
@@ -86,7 +86,7 @@ export function ClassPlayer({ video, nav, seriesLabel }: ClassPlayerProps) {
           <header className="flex flex-col gap-2">
             <h1 className="text-display-2 text-fg">{video.title}</h1>
             {video.description && (
-              <p className="whitespace-pre-line break-words text-body text-fgMuted">
+              <p className="whitespace-pre-line break-words text-body text-fg-muted">
                 {video.description}
               </p>
             )}
@@ -95,7 +95,7 @@ export function ClassPlayer({ video, nav, seriesLabel }: ClassPlayerProps) {
                 href={driveDownloadUrl(video.driveFileId)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-1 w-fit text-label text-aurora-cta underline underline-offset-4"
+                className="mt-1 w-fit text-label text-brand underline underline-offset-4"
               >
                 Download video
               </a>
@@ -112,12 +112,12 @@ export function ClassPlayer({ video, nav, seriesLabel }: ClassPlayerProps) {
 
         {/* Playlist rail */}
         {hasSeries && (
-          <aside className="flex flex-col gap-3 rounded-2xl border border-borderGlass glass-base p-4 lg:sticky lg:top-20">
+          <aside className="flex flex-col gap-3 rounded-2xl border border-line bg-surface border border-line p-4 lg:sticky lg:top-20">
             <div className="flex items-center justify-between px-1">
               <span className="text-label font-medium text-fg">
                 In this series
               </span>
-              <span className="text-caption text-fgSubtle tabular-nums">
+              <span className="text-caption text-fg-subtle tabular-nums">
                 {nav.total} sessions
               </span>
             </div>
@@ -166,7 +166,7 @@ function PrevNext({
     return (
       <span
         aria-hidden="true"
-        className={`${base} justify-center border-borderGlass/50 text-caption text-fgSubtle/40`}
+        className={`${base} justify-center border-line/50 text-caption text-fg-subtle/40`}
       >
         {dir === 'prev' ? '← Prev' : 'Next →'}
       </span>
@@ -175,15 +175,15 @@ function PrevNext({
   return (
     <Link
       href={`/classes/${item.id}`}
-      className={`${base} border-borderGlass text-fg hover:border-borderGlassStrong hover:bg-white/[0.03] ${
+      className={`${base} border-line text-fg hover:border-line-strong hover:bg-white/[0.03] ${
         dir === 'next' ? 'flex-row-reverse text-right' : ''
       }`}
     >
-      <span className="shrink-0 text-fgMuted">
+      <span className="shrink-0 text-fg-muted">
         {dir === 'prev' ? '←' : '→'}
       </span>
       <span className="flex min-w-0 flex-col">
-        <span className="text-micro uppercase tracking-[0.04em] text-fgSubtle">
+        <span className="text-micro uppercase tracking-[0.04em] text-fg-subtle">
           {dir === 'prev' ? 'Prev' : 'Next'}
         </span>
         <span className="truncate text-body-sm text-fg">{item.title}</span>
@@ -204,13 +204,13 @@ function PlaylistRow({
   const cls = `group flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors ${
     current
       ? 'bg-brand/[0.06] border-brand/25'
-      : 'border-transparent hover:border-borderGlass hover:bg-white/[0.03]'
+      : 'border-transparent hover:border-line hover:bg-white/[0.03]'
   }`;
   const inner = (
     <>
       <span
         className={`w-6 shrink-0 font-mono text-body-sm tabular-nums ${
-          current ? 'font-semibold text-brand' : 'text-fgSubtle'
+          current ? 'font-semibold text-brand' : 'text-fg-subtle'
         }`}
       >
         {String(index).padStart(2, '0')}
@@ -218,14 +218,14 @@ function PlaylistRow({
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-body-sm text-fg">{item.title}</span>
         <span
-          className={`text-micro ${current ? 'text-brand' : 'text-fgSubtle'}`}
+          className={`text-micro ${current ? 'text-brand' : 'text-fg-subtle'}`}
         >
           {current ? 'Now playing' : `Session ${index}`}
         </span>
       </span>
       <PlayGlyph
         className={`shrink-0 ${
-          current ? 'text-brand' : 'text-fgSubtle/40 group-hover:text-fgMuted'
+          current ? 'text-brand' : 'text-fg-subtle/40 group-hover:text-fg-muted'
         }`}
       />
     </>

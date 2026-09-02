@@ -47,7 +47,7 @@ export function StoryTimeline() {
       className="w-full pb-20 sm:pb-28 max-w-[1100px] mx-auto px-6 md:px-8"
     >
       <header className="mb-12 max-w-[760px]">
-        <p className="text-micro uppercase text-fgSubtle tracking-[0.35em] mb-3">
+        <p className="text-micro uppercase text-fg-subtle tracking-[0.35em] mb-3">
           Since 2023
         </p>
         <h2
@@ -57,7 +57,7 @@ export function StoryTimeline() {
           Three years of building creators that actually{' '}
           <span className="text-brand">generate business</span>.
         </h2>
-        <p className="text-body-lg text-fgMuted mt-6">
+        <p className="text-body-lg text-fg-muted mt-6">
           Not influencer vanity. Not motivational decks. A short, real history
           of an operating company that turns short-video attention into leads,
           sales, and long-term brand value.
@@ -68,7 +68,7 @@ export function StoryTimeline() {
         {/* Vertical guide line */}
         <div
           aria-hidden="true"
-          className="absolute left-[7px] sm:left-[11px] top-2 bottom-2 w-px bg-borderGlass"
+          className="absolute left-[7px] sm:left-[11px] top-2 bottom-2 w-px bg-line"
         />
 
         <ol className="space-y-10 sm:space-y-12">
@@ -88,12 +88,12 @@ export function StoryTimeline() {
               {/* Dot on the line */}
               <span
                 aria-hidden="true"
-                className="absolute left-0 top-[10px] flex h-4 w-4 sm:h-6 sm:w-6 items-center justify-center rounded-full bg-canvas ring-1 ring-borderGlass"
+                className="absolute left-0 top-[10px] flex h-4 w-4 sm:h-6 sm:w-6 items-center justify-center rounded-full bg-canvas ring-1 ring-line"
               >
                 <span className="h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full bg-brand-500" />
               </span>
 
-              <p className="font-mono text-caption text-fgSubtle uppercase tracking-[0.2em] mb-2 tabular-nums">
+              <p className="font-mono text-caption text-fg-subtle uppercase tracking-[0.2em] mb-2 tabular-nums">
                 {milestone.year}
               </p>
               <GlassCard
@@ -105,7 +105,7 @@ export function StoryTimeline() {
                 <h3 className="text-subsection text-fg tracking-[-0.015em]">
                   {milestone.title}
                 </h3>
-                <p className="text-body text-fgMuted leading-relaxed">
+                <p className="text-body text-fg-muted leading-relaxed">
                   {milestone.body}
                 </p>
               </GlassCard>

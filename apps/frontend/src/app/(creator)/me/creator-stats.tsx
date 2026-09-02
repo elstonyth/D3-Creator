@@ -13,8 +13,8 @@ import {
 import { BUILDING_HISTORY, formatWindowedValue } from '@gitroom/frontend/lib/format-metric';
 
 function deltaClass(n: number): string {
-  if (n === 0) return 'text-fgSubtle';
-  return n > 0 ? 'text-fg' : 'text-fgMuted';
+  if (n === 0) return 'text-fg-subtle';
+  return n > 0 ? 'text-fg' : 'text-fg-muted';
 }
 function deltaCaret(n: number): string {
   if (n === 0) return '— ';
@@ -25,15 +25,15 @@ export function CreatorStats({ row }: { row: CreatorMetricWindowRow }) {
   return (
     <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
       {/* Followers — absolute count + window delta */}
-      <div className="glass-elevated rounded-2xl p-6 flex flex-col justify-between min-h-[140px]">
-        <div className="text-label text-fgMuted">Followers</div>
+      <div className="bg-surface-elevated border border-line-strong rounded-2xl p-6 flex flex-col justify-between min-h-[140px]">
+        <div className="text-label text-fg-muted">Followers</div>
         <div>
           <div className="text-display-2 text-fg tabular-nums leading-none">
             {formatCompact(row.followers)}
           </div>
           <div
             className={`text-caption mt-1 tabular-nums ${
-              row.insufficient ? 'text-fgSubtle' : deltaClass(row.followersDelta)
+              row.insufficient ? 'text-fg-subtle' : deltaClass(row.followersDelta)
             }`}
           >
             {row.insufficient
@@ -59,11 +59,11 @@ export function CreatorStats({ row }: { row: CreatorMetricWindowRow }) {
 
 function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="glass-subtle border border-borderGlass rounded-2xl p-5 flex flex-col justify-between min-h-[140px]">
-      <div className="text-label text-fgMuted">{label}</div>
+    <div className="bg-surface-subtle border border-line border border-line rounded-2xl p-5 flex flex-col justify-between min-h-[140px]">
+      <div className="text-label text-fg-muted">{label}</div>
       <div>
         <div className="text-section text-fg tabular-nums">{value}</div>
-        {hint && <div className="text-caption text-fgSubtle mt-0.5">{hint}</div>}
+        {hint && <div className="text-caption text-fg-subtle mt-0.5">{hint}</div>}
       </div>
     </div>
   );

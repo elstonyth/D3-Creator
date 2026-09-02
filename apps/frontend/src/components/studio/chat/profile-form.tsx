@@ -27,13 +27,13 @@ import {
 /**
  * Written inline with NO focus classes — `global.scss:174` supplies the ring.
  * `components/ui/input.tsx` is deliberately unused: it ships
- * `focus-visible:outline-none focus-visible:shadow-focusRing` (the double-ring
+ * `focus-visible:outline-none focus-visible:shadow-focus` (the double-ring
  * bug, §0.4) and its `cn()` mixes `text-body` with `text-fg`, which `twMerge`
  * collapses to `text-fg` and drops the 15px size (§0.5 trap 1).
  */
 const fieldBox =
-  'h-10 w-full rounded-md bg-glass-subtle border border-borderGlass px-3 ' +
-  'text-body text-fg placeholder:text-fgSubtle ' +
+  'h-10 w-full rounded-md bg-surface-subtle border border-line px-3 ' +
+  'text-body text-fg placeholder:text-fg-subtle ' +
   'transition-colors duration-150 ease-out ' +
   'disabled:opacity-50 disabled:pointer-events-none';
 const selectBox = `${fieldBox} appearance-none pr-9`;
@@ -60,7 +60,7 @@ function Chevron(): ReactElement {
   return (
     <ChevronDownIcon
       aria-hidden
-      className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-fgMuted pointer-events-none"
+      className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-fg-muted pointer-events-none"
     />
   );
 }
@@ -118,12 +118,12 @@ export function ProfileForm(): ReactElement {
   return (
     <form
       onSubmit={handleSubmit}
-      className="bg-glass-base border border-borderGlass rounded-2xl p-6"
+      className="bg-surface border border-line rounded-2xl p-6"
     >
       <h2 className="text-heading text-fg">
         Tell the coach about your business.
       </h2>
-      <p className="mt-2 mb-4 text-body-sm text-fgMuted">
+      <p className="mt-2 mb-4 text-body-sm text-fg-muted">
         Four questions, and the scripts stop being generic. Everything else is
         edited later in{' '}
         <Link href="/studio/settings" className="text-fg underline">
@@ -134,7 +134,7 @@ export function ProfileForm(): ReactElement {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <label className="block space-y-1.5">
-          <span className="text-label text-fgMuted">What you sell</span>
+          <span className="text-label text-fg-muted">What you sell</span>
           <input
             type="text"
             required
@@ -148,7 +148,7 @@ export function ProfileForm(): ReactElement {
         </label>
 
         <label className="block space-y-1.5">
-          <span className="text-label text-fgMuted">Who buys it</span>
+          <span className="text-label text-fg-muted">Who buys it</span>
           <input
             type="text"
             required
@@ -162,7 +162,7 @@ export function ProfileForm(): ReactElement {
         </label>
 
         <label className="block space-y-1.5">
-          <span className="text-label text-fgMuted">Main platform</span>
+          <span className="text-label text-fg-muted">Main platform</span>
           <div className="relative">
             <select
               required
@@ -186,7 +186,7 @@ export function ProfileForm(): ReactElement {
         </label>
 
         <label className="block space-y-1.5">
-          <span className="text-label text-fgMuted">
+          <span className="text-label text-fg-muted">
             Do you appear on camera?
           </span>
           <div className="relative">
@@ -214,10 +214,10 @@ export function ProfileForm(): ReactElement {
       </div>
 
       <div className="mt-4 flex items-center gap-3">
-        <Button type="submit" variant="outline" size="md" disabled={pending}>
+        <Button type="submit" variant="secondary" size="md" disabled={pending}>
           {pending ? 'Saving…' : 'Save'}
         </Button>
-        <p role="alert" className="text-body-sm text-fgMuted">
+        <p role="alert" className="text-body-sm text-fg-muted">
           {error}
         </p>
       </div>

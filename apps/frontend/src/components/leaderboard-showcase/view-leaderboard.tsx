@@ -42,7 +42,7 @@ export function ViewLeaderboard({
     <GlassCard variant="base" padding="md" radius="2xl" className="flex flex-col">
       <div className="flex flex-col gap-1 mb-5">
         <span className="text-label text-fg font-medium">{title}</span>
-        <span className="text-body-sm text-fgMuted">{subtitle}</span>
+        <span className="text-body-sm text-fg-muted">{subtitle}</span>
       </div>
 
       {rows.length === 0 ? (
@@ -64,8 +64,8 @@ export function ViewLeaderboard({
           </ul>
 
           {totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-between gap-3 border-t border-borderGlass pt-4">
-              <span className="text-caption text-fgSubtle tabular-nums">
+            <div className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-4">
+              <span className="text-caption text-fg-subtle tabular-nums">
                 {`${start + 1}–${start + pageRows.length} of ${rows.length}`}
               </span>
               <div className="flex items-center gap-2">
@@ -78,7 +78,7 @@ export function ViewLeaderboard({
                 >
                   Prev
                 </Button>
-                <span className="text-caption text-fgMuted tabular-nums min-w-[64px] text-center">
+                <span className="text-caption text-fg-muted tabular-nums min-w-[64px] text-center">
                   {`Page ${current + 1} / ${totalPages}`}
                 </span>
                 <Button
@@ -122,7 +122,7 @@ function ContentCard({
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="group block relative aspect-[9/16] rounded-xl overflow-hidden bg-customColor1 border border-borderGlass hover:border-borderGlassStrong transition-colors outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
+        className="group block relative aspect-[9/16] rounded-xl overflow-hidden bg-surface border border-line hover:border-line-strong transition-colors outline-none focus-visible:ring-1 focus-visible:ring-brand-500"
       >
         {row.thumbnailUrl ? (
           <Image
@@ -134,7 +134,7 @@ function ContentCard({
             className="absolute inset-0 size-full object-cover"
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-fgSubtle">
+          <div className="absolute inset-0 flex items-center justify-center text-fg-subtle">
             <Icon size={28} />
           </div>
         )}
@@ -142,7 +142,7 @@ function ContentCard({
         <span
           className={clsx(
             'absolute top-2 left-2 size-7 rounded-full flex items-center justify-center text-caption font-mono tabular-nums',
-            isWinner ? 'bg-brand-500 text-brand-darker font-semibold' : 'bg-black/60 text-fg',
+            isWinner ? 'bg-brand-500 text-fg-on-brand font-semibold' : 'bg-black/60 text-fg',
           )}
         >
           {String(rank).padStart(2, '0')}
@@ -155,12 +155,12 @@ function ContentCard({
           <div className="text-fg font-mono tabular-nums text-heading leading-tight">
             {compactFormatter.format(value)}
           </div>
-          <div className="text-caption text-fgMuted">{unit}</div>
-          <div className="text-caption text-fgSubtle truncate mt-0.5">
+          <div className="text-caption text-fg-muted">{unit}</div>
+          <div className="text-caption text-fg-subtle truncate mt-0.5">
             {row.creatorName ?? row.handle ?? ''}
           </div>
           {row.alsoOn && row.alsoOn.length > 0 && (
-            <div className="flex items-center gap-1 mt-1 text-fgSubtle">
+            <div className="flex items-center gap-1 mt-1 text-fg-subtle">
               <span className="text-micro">also on</span>
               {row.alsoOn.map((p) => {
                 const AlsoIcon = PLATFORM_ICONS[toPlatformKey(p)];

@@ -19,11 +19,11 @@ import { useFormStatus } from 'react-dom';
 import { approveClaim, rejectClaim, deleteProfile } from './actions';
 
 // Yellow-mono: destructive intent reads from icon + label, not a red hue.
-const APPROVE_CLS = 'px-3 py-1.5 rounded-md bg-aurora-cta text-brand-darker text-label disabled:opacity-50 disabled:pointer-events-none';
-const REJECT_CLS = 'px-3 py-1.5 rounded-md text-fg hover:bg-white/[0.06] text-label border border-borderGlass disabled:opacity-50 disabled:pointer-events-none';
-const DELETE_CLS = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-fgMuted hover:bg-white/[0.04] text-label border border-white/10';
-const DELETE_CONFIRM_CLS = 'px-3 py-1.5 rounded-md text-fgMuted hover:bg-white/[0.04] text-label border border-white/10 disabled:opacity-50 disabled:pointer-events-none';
-const CANCEL_CLS = 'px-3 py-1.5 rounded-md text-fgSubtle hover:text-fg text-label';
+const APPROVE_CLS = 'px-3 py-1.5 rounded-md bg-brand text-fg-on-brand text-label disabled:opacity-50 disabled:pointer-events-none';
+const REJECT_CLS = 'px-3 py-1.5 rounded-md text-fg hover:bg-white/[0.06] text-label border border-line disabled:opacity-50 disabled:pointer-events-none';
+const DELETE_CLS = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-fg-muted hover:bg-white/[0.04] text-label border border-white/10';
+const DELETE_CONFIRM_CLS = 'px-3 py-1.5 rounded-md text-fg-muted hover:bg-white/[0.04] text-label border border-white/10 disabled:opacity-50 disabled:pointer-events-none';
+const CANCEL_CLS = 'px-3 py-1.5 rounded-md text-fg-subtle hover:text-fg text-label';
 
 function SubmitButton({
   className,
@@ -81,7 +81,7 @@ export function ClaimActions({
         </form>
       </div>
       {alreadyOwned && (
-        <span className="text-caption text-fgSubtle max-w-[220px] text-right">
+        <span className="text-caption text-fg-subtle max-w-[220px] text-right">
           Already owned — reject, or reassign in the creator&apos;s editor.
         </span>
       )}
@@ -99,7 +99,7 @@ export function DeleteProfileButton({ profileId }: { profileId: string }) {
       {confirming ? (
         <form action={action} className="flex items-center gap-2">
           <input type="hidden" name="profile_id" value={profileId} />
-          <span className="text-caption text-fgMuted">Delete &amp; all stats?</span>
+          <span className="text-caption text-fg-muted">Delete &amp; all stats?</span>
           <SubmitButton className={DELETE_CONFIRM_CLS} pendingLabel="Deleting…">
             Confirm
           </SubmitButton>

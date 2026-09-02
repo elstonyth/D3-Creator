@@ -44,14 +44,14 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         {message ? (
           <div
             role="status"
-            className="rounded-lg border border-borderGlass bg-glass-subtle p-4 space-y-2"
+            className="rounded-lg border border-line bg-surface-subtle p-4 space-y-2"
           >
-            <p className="text-body-sm text-fgMuted">{message}</p>
+            <p className="text-body-sm text-fg-muted">{message}</p>
             {notice === 'reset_expired' ? (
               <p className="text-caption">
                 <Link
                   href="/forgot-password"
-                  className="text-aurora-cta underline underline-offset-4"
+                  className="text-brand underline underline-offset-4"
                 >
                   Send a new reset link
                 </Link>

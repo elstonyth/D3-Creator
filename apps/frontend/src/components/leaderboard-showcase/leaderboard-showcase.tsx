@@ -190,7 +190,7 @@ export function LeaderboardShowcase({
       />
 
       {!isLive && (
-        <p className="text-caption text-fgSubtle text-center pt-2 tabular-nums">
+        <p className="text-caption text-fg-subtle text-center pt-2 tabular-nums">
           Showcase preview · synthetic data. Live numbers replace this the
           moment the scraper switches on.
         </p>
@@ -212,7 +212,7 @@ function PlatformTabBar({ value, onChange }: PlatformTabBarProps) {
     <div
       role="tablist"
       aria-label="Platform filter"
-      className="border border-borderGlass rounded-2xl bg-customColor1 p-1.5 flex items-center gap-1 overflow-x-auto"
+      className="border border-line rounded-2xl bg-surface p-1.5 flex items-center gap-1 overflow-x-auto"
     >
       {TABS.map((tab) => {
         const isActive = tab.value === value;
@@ -228,8 +228,8 @@ function PlatformTabBar({ value, onChange }: PlatformTabBarProps) {
               'inline-flex items-center gap-2 h-9 px-3.5 rounded-xl text-label whitespace-nowrap',
               'transition-colors duration-150 ease-out',
               isActive
-                ? 'bg-customColor16 text-fg border border-borderGlassStrong'
-                : 'border border-transparent text-fgMuted hover:text-fg hover:bg-white/[0.04]',
+                ? 'bg-surface-subtle text-fg border border-line-strong'
+                : 'border border-transparent text-fg-muted hover:text-fg hover:bg-white/[0.04]',
             )}
           >
             {Icon ? <Icon size={14} /> : null}
@@ -253,7 +253,7 @@ function ContentPeriodBar({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <span className="text-caption text-fgSubtle">Posted in</span>
+      <span className="text-caption text-fg-subtle">Posted in</span>
       <div
         role="tablist"
         aria-label="Content time period"
@@ -272,8 +272,8 @@ function ContentPeriodBar({
                 'h-7 px-2.5 rounded-lg text-caption whitespace-nowrap',
                 'transition-colors duration-150 ease-out',
                 isActive
-                  ? 'bg-glass-subtle text-fg border border-borderGlassStrong'
-                  : 'border border-transparent text-fgMuted hover:text-fg hover:bg-white/[0.04]',
+                  ? 'bg-surface-subtle text-fg border border-line-strong'
+                  : 'border border-transparent text-fg-muted hover:text-fg hover:bg-white/[0.04]',
               )}
             >
               {period.label}
@@ -304,11 +304,11 @@ function SummaryStat({
       radius="2xl"
       className="flex flex-col gap-1.5"
     >
-      <span className="text-label text-fgMuted">{label}</span>
+      <span className="text-label text-fg-muted">{label}</span>
       <div className="text-[clamp(22px,2.4vw,30px)] leading-[1.05] tracking-[-0.02em] font-semibold text-fg tabular-nums">
         {value}
       </div>
-      <p className="text-caption text-fgSubtle tabular-nums">{note}</p>
+      <p className="text-caption text-fg-subtle tabular-nums">{note}</p>
     </GlassCard>
   );
 }
@@ -334,7 +334,7 @@ function RankSection({
     >
       <div className="flex flex-col gap-1 mb-4">
         <span className="text-label text-fg font-medium">{title}</span>
-        <span className="text-body-sm text-fgMuted">{subtitle}</span>
+        <span className="text-body-sm text-fg-muted">{subtitle}</span>
       </div>
       {children}
     </GlassCard>
@@ -344,7 +344,7 @@ function RankSection({
 /** Empty-state placeholder shown when a ranking section has no rows. */
 function EmptyRow({ label }: { label: string }) {
   return (
-    <div className="grid place-items-center text-body-sm text-fgMuted py-12">
+    <div className="grid place-items-center text-body-sm text-fg-muted py-12">
       {label}
     </div>
   );
@@ -370,7 +370,7 @@ function CreatorTable({ rows }: { rows: LbRow[] }) {
     <div className="flex flex-col">
       <div
         aria-hidden
-        className={`${GRID} px-2 pb-2 text-micro uppercase tracking-[0.04em] text-fgSubtle border-b border-borderGlass`}
+        className={`${GRID} px-2 pb-2 text-micro uppercase tracking-[0.04em] text-fg-subtle border-b border-line`}
       >
         <span>#</span>
         <span>Creator</span>
@@ -395,13 +395,13 @@ function CreatorRow({ row, rank }: { row: LbRow; rank: number }) {
       <span
         className={clsx(
           'font-mono tabular-nums text-body-sm',
-          isWinner ? 'text-brand font-semibold' : 'text-fgSubtle',
+          isWinner ? 'text-brand font-semibold' : 'text-fg-subtle',
         )}
       >
         {String(rank).padStart(2, '0')}
       </span>
       <span className="flex items-center gap-3 min-w-0">
-        <span className="size-8 shrink-0 rounded-full bg-customColor1 border border-borderGlass grid tiny:hidden place-items-center overflow-hidden text-caption text-fgMuted">
+        <span className="size-8 shrink-0 rounded-full bg-surface border border-line grid tiny:hidden place-items-center overflow-hidden text-caption text-fg-muted">
           <ImageWithFallback
             src={row.avatarUrl}
             alt=""
@@ -416,14 +416,14 @@ function CreatorRow({ row, rank }: { row: LbRow; rank: number }) {
       <span className="text-right font-mono tabular-nums text-body text-fg">
         <ShowcaseNumber value={row.totalViews} exact />
       </span>
-      <span className="hidden sm:block text-right sm:pl-6 font-mono tabular-nums text-body-sm text-fgMuted">
+      <span className="hidden sm:block text-right sm:pl-6 font-mono tabular-nums text-body-sm text-fg-muted">
         <ShowcaseNumber value={row.followers} />
       </span>
     </>
   );
   const rowClass = clsx(
     GRID,
-    'px-2 h-14 rounded-lg transition-colors duration-150 ease-out border-b border-borderGlass last:border-b-0',
+    'px-2 h-14 rounded-lg transition-colors duration-150 ease-out border-b border-line last:border-b-0',
     isWinner && 'bg-brand/[0.06]',
   );
   return (

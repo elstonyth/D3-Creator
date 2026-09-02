@@ -50,9 +50,9 @@ export function SignInForm({ redirectTo }: SignInFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <label className="block space-y-1.5">
-        <span className="text-label text-fgMuted">Email</span>
+        <span className="text-label text-fg-muted">Email</span>
         <div className="relative">
-          <AtSignIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-fgSubtle pointer-events-none" />
+          <AtSignIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-fg-subtle pointer-events-none" />
           <Input
             type="email"
             required
@@ -78,7 +78,7 @@ export function SignInForm({ redirectTo }: SignInFormProps) {
       <p className="text-caption text-right">
         <Link
           href="/forgot-password"
-          className="text-fgMuted hover:text-fg transition-colors duration-150 ease-out"
+          className="text-fg-muted hover:text-fg transition-colors duration-150 ease-out"
         >
           Forgot your password?
         </Link>
@@ -93,11 +93,11 @@ export function SignInForm({ redirectTo }: SignInFormProps) {
       <Button type="submit" size="lg" className="w-full" disabled={pending}>
         {pending ? 'Signing in…' : 'Sign in'}
       </Button>
-      <p className="text-caption text-fgMuted text-center">
+      <p className="text-caption text-fg-muted text-center">
         New here?{' '}
         <Link
           href="/signup"
-          className="text-aurora-cta underline underline-offset-4"
+          className="text-brand underline underline-offset-4"
         >
           Create an account
         </Link>

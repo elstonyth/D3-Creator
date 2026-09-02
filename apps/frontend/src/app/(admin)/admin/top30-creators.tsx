@@ -16,8 +16,8 @@ function toPlatformKey(platform: string | null): PlatformKey | null {
   return platform === 'rednote' ? 'xiaohongshu' : (platform as PlatformKey);
 }
 function deltaClass(n: number): string {
-  if (n === 0) return 'text-fgSubtle';
-  return n > 0 ? 'text-fg' : 'text-fgMuted';
+  if (n === 0) return 'text-fg-subtle';
+  return n > 0 ? 'text-fg' : 'text-fg-muted';
 }
 function deltaCaret(n: number): string {
   if (n === 0) return '— ';
@@ -26,25 +26,25 @@ function deltaCaret(n: number): string {
 
 export function Top30Creators({ rows }: { rows: CreatorMetricWindowRow[] }) {
   return (
-    <section className="glass-base border border-borderGlass rounded-2xl overflow-hidden">
-      <div className="p-5 border-b border-borderGlass">
-        <span className="text-micro uppercase text-fgSubtle tracking-[0.04em]">
+    <section className="bg-surface border border-line border border-line rounded-2xl overflow-hidden">
+      <div className="p-5 border-b border-line">
+        <span className="text-micro uppercase text-fg-subtle tracking-[0.04em]">
           Top Creators
         </span>
-        <div className="text-caption text-fgMuted">
+        <div className="text-caption text-fg-muted">
           Top 30 by follower growth · last 30 days
         </div>
       </div>
 
       {rows.length === 0 ? (
-        <div className="p-6 text-body text-fgMuted">
+        <div className="p-6 text-body text-fg-muted">
           No creators ranked yet — building history…
         </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[460px] text-left">
             <thead>
-              <tr className="text-micro uppercase text-fgSubtle tracking-[0.04em]">
+              <tr className="text-micro uppercase text-fg-subtle tracking-[0.04em]">
                 <th className="font-normal px-4 py-2.5 w-10">#</th>
                 <th className="font-normal px-4 py-2.5">Creator</th>
                 <th className="font-normal px-4 py-2.5">Platform</th>
@@ -70,24 +70,24 @@ function CreatorRow({ row, rank }: { row: CreatorMetricWindowRow; rank: number }
   const initial = name.trim().charAt(0).toUpperCase() || '?';
 
   return (
-    <tr className="border-t border-borderGlass hover:bg-white/[0.02] transition-colors">
-      <td className="px-4 py-2.5 font-mono tabular-nums text-caption text-fgSubtle">
+    <tr className="border-t border-line hover:bg-white/[0.02] transition-colors">
+      <td className="px-4 py-2.5 font-mono tabular-nums text-caption text-fg-subtle">
         {String(rank).padStart(2, '0')}
       </td>
       <td className="px-4 py-2.5">
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className="size-7 rounded-full bg-white/[0.04] border border-borderGlass flex items-center justify-center overflow-hidden shrink-0">
+          <span className="size-7 rounded-full bg-white/[0.04] border border-line flex items-center justify-center overflow-hidden shrink-0">
             {row.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element -- external avatar, dims vary
               <img src={row.avatarUrl} alt="" className="size-full object-cover" />
             ) : (
-              <span className="text-caption text-fgMuted">{initial}</span>
+              <span className="text-caption text-fg-muted">{initial}</span>
             )}
           </span>
           {row.primaryHandle ? (
             <Link
               href={`/creators/${row.primaryHandle}`}
-              className="text-body text-fg truncate hover:text-aurora-cta transition-colors"
+              className="text-body text-fg truncate hover:text-brand transition-colors"
             >
               {name}
             </Link>
@@ -102,7 +102,7 @@ function CreatorRow({ row, rank }: { row: CreatorMetricWindowRow; rank: number }
             {''}
           </PlatformPill>
         ) : (
-          <span className="text-caption text-fgSubtle">—</span>
+          <span className="text-caption text-fg-subtle">—</span>
         )}
       </td>
       <td className="px-4 py-2.5 text-right tabular-nums text-body text-fg">
@@ -110,7 +110,7 @@ function CreatorRow({ row, rank }: { row: CreatorMetricWindowRow; rank: number }
       </td>
       <td className="px-4 py-2.5 text-right tabular-nums text-caption">
         {row.insufficient ? (
-          <span className="text-fgSubtle">{BUILDING_HISTORY}</span>
+          <span className="text-fg-subtle">{BUILDING_HISTORY}</span>
         ) : (
           <span className={deltaClass(row.followersDelta)}>
             {deltaCaret(row.followersDelta)}

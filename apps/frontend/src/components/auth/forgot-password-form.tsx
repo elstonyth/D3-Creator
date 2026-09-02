@@ -57,14 +57,14 @@ export function ForgotPasswordForm(): ReactElement {
   if (sentTo !== null) {
     return (
       <div className="space-y-5" role="status">
-        <div className="flex items-start gap-3 rounded-lg border border-borderGlass bg-glass-subtle p-4">
+        <div className="flex items-start gap-3 rounded-lg border border-line bg-surface-subtle p-4">
           <MailCheckIcon
-            className="size-5 shrink-0 text-aurora-cta mt-0.5"
+            className="size-5 shrink-0 text-brand mt-0.5"
             aria-hidden
           />
           <div className="space-y-1">
             <p className="text-body text-fg">Check your email.</p>
-            <p className="text-body-sm text-fgMuted">
+            <p className="text-body-sm text-fg-muted">
               If <span className="text-fg">{sentTo}</span> has an account, a
               reset link is on its way. The link works once and expires within
               the hour.
@@ -73,10 +73,10 @@ export function ForgotPasswordForm(): ReactElement {
         </div>
         {/* A text link, not a <Link> inside a <Button> — this Button renders a
             real <button>, and nesting an anchor in it is invalid markup. */}
-        <p className="text-caption text-fgMuted text-center">
+        <p className="text-caption text-fg-muted text-center">
           <Link
             href="/login"
-            className="text-aurora-cta underline underline-offset-4"
+            className="text-brand underline underline-offset-4"
           >
             Back to sign in
           </Link>
@@ -88,9 +88,9 @@ export function ForgotPasswordForm(): ReactElement {
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       <label className="block space-y-1.5">
-        <span className="text-label text-fgMuted">Email</span>
+        <span className="text-label text-fg-muted">Email</span>
         <div className="relative">
-          <AtSignIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-fgSubtle pointer-events-none" />
+          <AtSignIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-fg-subtle pointer-events-none" />
           <Input
             type="email"
             required
@@ -114,11 +114,11 @@ export function ForgotPasswordForm(): ReactElement {
       <Button type="submit" size="lg" className="w-full" disabled={pending}>
         {pending ? 'Sending…' : 'Send reset link'}
       </Button>
-      <p className="text-caption text-fgMuted text-center">
+      <p className="text-caption text-fg-muted text-center">
         Remembered it?{' '}
         <Link
           href="/login"
-          className="text-aurora-cta underline underline-offset-4"
+          className="text-brand underline underline-offset-4"
         >
           Sign in
         </Link>

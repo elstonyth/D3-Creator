@@ -30,7 +30,7 @@ export default function StudioError({
         title="Something went wrong"
         description="We couldn't load this report. Try again in a moment."
       >
-        <Button variant="outline" size="md" onClick={reset}>
+        <Button variant="secondary" size="md" onClick={reset}>
           Try again
         </Button>
       </EmptyState>

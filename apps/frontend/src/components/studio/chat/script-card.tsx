@@ -37,7 +37,7 @@ function Field({
 }): ReactElement {
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-label text-fgMuted">{label}</p>
+      <p className="text-label text-fg-muted">{label}</p>
       {typeof children === 'string' ? (
         <p className="text-body text-fg whitespace-pre-wrap break-words">
           {children}
@@ -85,10 +85,10 @@ export function ScriptCard({
       : `${script.length_seconds}s · Based on ${script.lesson_used}`;
 
   return (
-    <article className="bg-glass-base border border-borderGlass rounded-2xl p-6 flex flex-col gap-4">
+    <article className="bg-surface border border-line rounded-2xl p-6 flex flex-col gap-4">
       <div className="flex flex-col gap-2">
         <h3 className="text-heading text-fg">{script.script_type}</h3>
-        <p className="text-caption text-fgSubtle">{caption}</p>
+        <p className="text-caption text-fg-subtle">{caption}</p>
       </div>
 
       <Field label="Hook (0–3s)">{script.hook}</Field>
@@ -100,14 +100,14 @@ export function ScriptCard({
           {script.body.map((beat, index) => (
             <li key={index} className="text-body text-fg">
               {beat.say}
-              <span className="block pl-6 mt-2 text-caption text-fgSubtle">
+              <span className="block pl-6 mt-2 text-caption text-fg-subtle">
                 {beat.seconds}s
               </span>
-              <span className="block pl-6 text-caption text-fgSubtle">
+              <span className="block pl-6 text-caption text-fg-subtle">
                 Show: {beat.show}
               </span>
               {beat.on_screen_text !== '' && (
-                <span className="block pl-6 text-caption text-fgSubtle">
+                <span className="block pl-6 text-caption text-fg-subtle">
                   On screen: {beat.on_screen_text}
                 </span>
               )}
@@ -120,7 +120,7 @@ export function ScriptCard({
 
       {/* The card is already a `flex flex-col gap-4`, so the gap supplies the
           space above the rule — no `mt-4` as well. */}
-      <div className="border-t border-borderGlass pt-4 flex flex-wrap gap-2">
+      <div className="border-t border-line pt-4 flex flex-wrap gap-2">
         <button type="button" className={compactSecondary} onClick={onCopy}>
           {copied ? 'Copied' : 'Copy'}
         </button>

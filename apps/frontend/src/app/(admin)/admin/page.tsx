@@ -52,12 +52,12 @@ export default async function AdminPage() {
   return (
     <div className="flex flex-col gap-10 pt-12 pb-24">
       <header className="max-w-[760px]">
-        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-subtle border border-borderGlass text-caption text-aurora-cta mb-6">
-          <span className="inline-block size-1.5 rounded-full bg-aurora-cta" />
+        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-subtle border border-line border border-line text-caption text-brand mb-6">
+          <span className="inline-block size-1.5 rounded-full bg-brand" />
           Admin
         </span>
         <h1 className="text-display-2 text-fg mb-4">Full agency view.</h1>
-        <p className="text-body-lg text-fgMuted max-w-[600px]">
+        <p className="text-body-lg text-fg-muted max-w-[600px]">
           Top growth across every creator and platform, plus everything you need
           to provision a new creator account.
         </p>
@@ -68,17 +68,17 @@ export default async function AdminPage() {
         {stats.map((s) => (
           <article
             key={s.label}
-            className="glass-elevated rounded-2xl overflow-hidden flex flex-col"
+            className="bg-surface-elevated border border-line-strong rounded-2xl overflow-hidden flex flex-col"
           >
             <div className="p-6">
-              <div className="text-caption text-fgMuted">{s.label}</div>
+              <div className="text-caption text-fg-muted">{s.label}</div>
               <div className="text-display-2 text-fg tabular-nums mt-2">
                 {Intl.NumberFormat().format(s.value)}
               </div>
             </div>
             <Link
               href="/admin/profiles"
-              className="border-t border-borderGlass px-6 py-3 text-caption text-fgMuted hover:text-fg hover:bg-white/[0.04] transition-colors text-right"
+              className="border-t border-line px-6 py-3 text-caption text-fg-muted hover:text-fg hover:bg-white/[0.04] transition-colors text-right"
             >
               View accounts →
             </Link>
@@ -90,12 +90,12 @@ export default async function AdminPage() {
       <section className="flex flex-col gap-4">
         <div>
           <h2 className="text-section text-fg">Provision a creator</h2>
-          <p className="text-caption text-fgMuted mt-1">
+          <p className="text-caption text-fg-muted mt-1">
             Create the login and assign social URLs. The creator can sign in
             immediately — public signup is disabled.
           </p>
         </div>
-        <div className="glass-elevated rounded-2xl p-6">
+        <div className="bg-surface-elevated border border-line-strong rounded-2xl p-6">
           <ProvisionForm />
         </div>
       </section>
@@ -110,8 +110,8 @@ export default async function AdminPage() {
         />
       </section>
 
-      <div className="text-caption text-fgMuted">
-        <Link href="/admin/profiles" className="text-aurora-cta underline underline-offset-4">
+      <div className="text-caption text-fg-muted">
+        <Link href="/admin/profiles" className="text-brand underline underline-offset-4">
           Manage accounts →
         </Link>
       </div>

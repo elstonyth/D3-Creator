@@ -39,7 +39,7 @@ export function ScoreRadar({
           <polygon
             key={points}
             points={points}
-            className="fill-none stroke-chartGrid"
+            className="fill-none stroke-line"
             strokeWidth="1"
           />
         ))}
@@ -50,13 +50,13 @@ export function ScoreRadar({
             y1={spoke.from.y}
             x2={spoke.to.x}
             y2={spoke.to.y}
-            className="stroke-chartGrid"
+            className="stroke-line"
             strokeWidth="1"
           />
         ))}
         <polygon
           points={geometry.polygon}
-          className="fill-chartGrid stroke-chartLine"
+          className="fill-line stroke-fg-muted"
           strokeWidth="2"
         />
         {geometry.vertices.map((vertex) => (
@@ -66,7 +66,7 @@ export function ScoreRadar({
             y={vertex.label.y}
             textAnchor={vertex.anchor}
             dominantBaseline="middle"
-            className="text-micro fill-fgSubtle"
+            className="text-micro fill-fg-subtle"
           >
             {SCORE_AXIS_LABEL[vertex.key]}
           </text>
@@ -85,7 +85,7 @@ export function ScoreRadar({
               cx={vertex.point.x}
               cy={vertex.point.y}
               r="3"
-              className="fill-chartLine motion-safe:group-hover:fill-aurora-cta transition-colors duration-150 ease-out"
+              className="fill-fg-muted motion-safe:group-hover:fill-brand transition-colors duration-150 ease-out"
             >
               <title>{`${SCORE_CARD_LABEL[vertex.key]}: ${scores[vertex.key]} / ${SCORE_MAX}`}</title>
             </circle>

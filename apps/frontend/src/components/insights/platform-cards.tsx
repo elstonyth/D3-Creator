@@ -20,7 +20,7 @@ export function PlatformCards({ cards }: { cards: PlatformCard[] }) {
     <section className="flex flex-col gap-4">
       <div>
         <h2 className="text-heading text-fg">Your platforms</h2>
-        <p className="text-caption text-fgSubtle mt-1">
+        <p className="text-caption text-fg-subtle mt-1">
           Tap a platform to see its posts and views.
         </p>
       </div>
@@ -31,17 +31,17 @@ export function PlatformCards({ cards }: { cards: PlatformCard[] }) {
             <Link
               key={c.platform}
               href={`/creators/${encodeURIComponent(c.handle)}/${c.platform}`}
-              className="group flex items-center justify-between gap-4 p-4 rounded-xl glass-subtle border border-borderGlass hover:border-borderGlassStrong hover:bg-white/[0.04] transition-colors"
+              className="group flex items-center justify-between gap-4 p-4 rounded-xl bg-surface-subtle border border-line border border-line hover:border-line-strong hover:bg-white/[0.04] transition-colors"
             >
               <span className="flex items-center gap-3 min-w-0">
-                <span className="shrink-0 size-9 rounded-full glass-base border border-borderGlass flex items-center justify-center text-fg">
+                <span className="shrink-0 size-9 rounded-full bg-surface border border-line border border-line flex items-center justify-center text-fg">
                   <Icon size={16} />
                 </span>
                 <span className="min-w-0">
                   <span className="block text-label text-fg truncate">
                     @{c.handle}
                   </span>
-                  <span className="block text-caption text-fgSubtle">
+                  <span className="block text-caption text-fg-subtle">
                     {PLATFORM_LABELS[c.platform]}
                   </span>
                 </span>
@@ -51,15 +51,15 @@ export function PlatformCards({ cards }: { cards: PlatformCard[] }) {
                   <span className="block text-label text-fg tabular-nums">
                     {fmt(c.followers)}
                   </span>
-                  <span className="block text-caption text-fgSubtle tabular-nums">
+                  <span className="block text-caption text-fg-subtle tabular-nums">
                     {fmt(c.views)} views
                   </span>
                 </span>
-                <span className="text-micro px-2 py-0.5 rounded-full border glass-base text-fgMuted border-borderGlass">
+                <span className="text-micro px-2 py-0.5 rounded-full border bg-surface border border-line text-fg-muted border-line">
                   Tracked
                 </span>
                 <span
-                  className="text-fgSubtle group-hover:text-fg transition-colors"
+                  className="text-fg-subtle group-hover:text-fg transition-colors"
                   aria-hidden
                 >
                   →

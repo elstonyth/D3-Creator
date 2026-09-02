@@ -16,7 +16,7 @@ export function ClosingMission() {
           radius="3xl"
           className="flex flex-col gap-8 sm:gap-10 sm:p-12 lg:p-16"
         >
-          <p className="text-micro uppercase text-fgSubtle tracking-[0.35em]">
+          <p className="text-micro uppercase text-fg-subtle tracking-[0.35em]">
             Our mission
           </p>
 
@@ -29,7 +29,7 @@ export function ClosingMission() {
             <span className="text-brand">businesses</span>.
           </h2>
 
-          <p className="text-body-lg text-fgMuted max-w-[640px] leading-relaxed">
+          <p className="text-body-lg text-fg-muted max-w-[640px] leading-relaxed">
             Helping Malaysia use content to actually change lives — leads,
             sales, real commercial IP. D3 is both a creator growth ecosystem
             and an operating company built on that thesis.

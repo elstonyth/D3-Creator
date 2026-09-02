@@ -48,8 +48,8 @@ function toPlatformKey(platform: string): PlatformKey {
 
 // Yellow-mono: direction reads from a caret glyph + text intensity, never hue.
 function deltaClass(n: number | null): string {
-  if (n == null || n === 0) return 'text-fgSubtle';
-  return n > 0 ? 'text-fg' : 'text-fgMuted';
+  if (n == null || n === 0) return 'text-fg-subtle';
+  return n > 0 ? 'text-fg' : 'text-fg-muted';
 }
 
 function deltaCaret(n: number | null): string {
@@ -64,24 +64,24 @@ type StatusGlyph = 'check' | 'clock' | 'x';
 const STATUS_META: Record<string, { cls: string; glyph: StatusGlyph }> = {
   ok: { cls: 'bg-brand/10 text-fg border-brand/20', glyph: 'check' },
   pending: {
-    cls: 'bg-white/[0.04] text-fgMuted border-white/10',
+    cls: 'bg-white/[0.04] text-fg-muted border-white/10',
     glyph: 'clock',
   },
   throttled: {
-    cls: 'bg-white/[0.04] text-fgMuted border-white/10',
+    cls: 'bg-white/[0.04] text-fg-muted border-white/10',
     glyph: 'clock',
   },
   handle_changed: {
-    cls: 'bg-white/[0.04] text-fgMuted border-white/10',
+    cls: 'bg-white/[0.04] text-fg-muted border-white/10',
     glyph: 'clock',
   },
   private: {
-    cls: 'bg-white/[0.04] text-fgMuted border-white/10',
+    cls: 'bg-white/[0.04] text-fg-muted border-white/10',
     glyph: 'clock',
   },
-  failed: { cls: 'bg-white/[0.04] text-fgSubtle border-white/10', glyph: 'x' },
+  failed: { cls: 'bg-white/[0.04] text-fg-subtle border-white/10', glyph: 'x' },
   not_found: {
-    cls: 'bg-white/[0.04] text-fgSubtle border-white/10',
+    cls: 'bg-white/[0.04] text-fg-subtle border-white/10',
     glyph: 'x',
   },
 };
@@ -174,12 +174,12 @@ export default async function AdminProfilesPage({
   return (
     <div className="flex flex-col gap-10 pt-12 pb-24">
       <header className="max-w-[760px]">
-        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-subtle border border-borderGlass text-caption text-aurora-cta mb-6">
-          <span className="inline-block size-1.5 rounded-full bg-aurora-cta" />
+        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-subtle border border-line border border-line text-caption text-brand mb-6">
+          <span className="inline-block size-1.5 rounded-full bg-brand" />
           Admin · Accounts
         </span>
         <h1 className="text-display-2 text-fg mb-4">Accounts.</h1>
-        <p className="text-body-lg text-fgMuted max-w-[600px]">
+        <p className="text-body-lg text-fg-muted max-w-[600px]">
           One card per creator account — their platforms, reach, and growth at a
           glance. Expand to manage individual profiles. Each profile is a single
           canonical scrape target; multiple users can claim the same one with no
@@ -201,24 +201,24 @@ export default async function AdminProfilesPage({
           <h2 className="text-section text-fg">
             Pending claims ({pendingClaims.length})
           </h2>
-          <p className="text-caption text-fgMuted">
+          <p className="text-caption text-fg-muted">
             A user claimed a profile whose handle didn&apos;t auto-match.
             Approve to make them its owner, or reject.
           </p>
-          <ul className="divide-y divide-borderGlass border border-borderGlass rounded-2xl overflow-hidden">
+          <ul className="divide-y divide-line border border-line rounded-2xl overflow-hidden">
             {pendingClaims.map((c) => (
               <li
                 key={`${c.userId}-${c.profileId}`}
-                className="flex items-center justify-between gap-4 p-4 bg-glass-base"
+                className="flex items-center justify-between gap-4 p-4 bg-surface"
               >
                 <div className="min-w-0">
-                  <div className="text-label text-fgMuted">
+                  <div className="text-label text-fg-muted">
                     {c.platform} · {c.creatorName}
                   </div>
                   <div className="text-body text-fg truncate">
                     {c.handle ?? c.profileUrl}
                   </div>
-                  <div className="text-caption text-fgSubtle">
+                  <div className="text-caption text-fg-subtle">
                     User: {c.userId}
                   </div>
                 </div>
@@ -254,7 +254,7 @@ export default async function AdminProfilesPage({
                 className={`text-caption px-2.5 py-1 rounded-full border transition-colors ${
                   !platform
                     ? 'bg-brand/10 text-fg border-brand/20'
-                    : 'bg-white/[0.04] text-fgMuted border-white/10 hover:text-fg'
+                    : 'bg-white/[0.04] text-fg-muted border-white/10 hover:text-fg'
                 }`}
               >
                 All
@@ -267,7 +267,7 @@ export default async function AdminProfilesPage({
                   className={`text-caption px-2.5 py-1 rounded-full border transition-colors ${
                     platform === p
                       ? 'bg-brand/10 text-fg border-brand/20'
-                      : 'bg-white/[0.04] text-fgMuted border-white/10 hover:text-fg'
+                      : 'bg-white/[0.04] text-fg-muted border-white/10 hover:text-fg'
                   }`}
                 >
                   {p}
@@ -278,11 +278,11 @@ export default async function AdminProfilesPage({
         </div>
 
         {groups.length === 0 ? (
-          <div className="glass-subtle border border-borderGlass rounded-2xl p-6 text-body text-fgMuted">
+          <div className="bg-surface-subtle border border-line border border-line rounded-2xl p-6 text-body text-fg-muted">
             No creators yet.
           </div>
         ) : filteredGroups.length === 0 ? (
-          <div className="glass-subtle border border-borderGlass rounded-2xl p-6 text-body text-fgMuted">
+          <div className="bg-surface-subtle border border-line border border-line rounded-2xl p-6 text-body text-fg-muted">
             No accounts match your filters.
           </div>
         ) : (
@@ -294,10 +294,10 @@ export default async function AdminProfilesPage({
         )}
       </section>
 
-      <div className="text-caption text-fgMuted">
+      <div className="text-caption text-fg-muted">
         <Link
           href="/admin"
-          className="text-aurora-cta underline underline-offset-4"
+          className="text-brand underline underline-offset-4"
         >
           ← Back to admin
         </Link>
@@ -308,8 +308,8 @@ export default async function AdminProfilesPage({
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <article className="glass-subtle border border-borderGlass rounded-2xl p-5">
-      <div className="text-label text-fgMuted">{label}</div>
+    <article className="bg-surface-subtle border border-line border border-line rounded-2xl p-5">
+      <div className="text-label text-fg-muted">{label}</div>
       <div className="text-section text-fg tabular-nums mt-2">{value}</div>
     </article>
   );
@@ -318,10 +318,10 @@ function StatCard({ label, value }: { label: string; value: string }) {
 function CreatorCard({ group }: { group: AdminCreatorGroup }) {
   const initial = group.displayName.trim().charAt(0).toUpperCase() || '?';
   return (
-    <article className="glass-elevated rounded-2xl overflow-hidden">
+    <article className="bg-surface-elevated border border-line-strong rounded-2xl overflow-hidden">
       {/* Account header */}
-      <div className="p-5 flex flex-wrap items-center gap-4 border-b border-borderGlass">
-        <div className="size-11 rounded-full bg-customColor1 border border-borderGlass flex items-center justify-center overflow-hidden shrink-0">
+      <div className="p-5 flex flex-wrap items-center gap-4 border-b border-line">
+        <div className="size-11 rounded-full bg-surface border border-line flex items-center justify-center overflow-hidden shrink-0">
           {group.avatarUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- external avatar, dims vary
             <img
@@ -330,7 +330,7 @@ function CreatorCard({ group }: { group: AdminCreatorGroup }) {
               className="size-full object-cover"
             />
           ) : (
-            <span className="text-heading text-fgMuted">{initial}</span>
+            <span className="text-heading text-fg-muted">{initial}</span>
           )}
         </div>
         <div className="min-w-0 flex-1">
@@ -338,13 +338,13 @@ function CreatorCard({ group }: { group: AdminCreatorGroup }) {
             <h3 className="text-heading text-fg truncate">
               <Link
                 href={`/admin/creators/${group.creatorId}`}
-                className="hover:text-aurora-cta underline-offset-4 hover:underline focus-visible:underline"
+                className="hover:text-brand underline-offset-4 hover:underline focus-visible:underline"
               >
                 {group.displayName}
               </Link>
             </h3>
             {group.clientName && (
-              <span className="text-caption text-fgSubtle px-2 py-0.5 rounded-full border border-borderGlass">
+              <span className="text-caption text-fg-subtle px-2 py-0.5 rounded-full border border-line">
                 {group.clientName}
               </span>
             )}
@@ -361,7 +361,7 @@ function CreatorCard({ group }: { group: AdminCreatorGroup }) {
                 {''}
               </PlatformPill>
             ))}
-            <span className="text-caption text-fgSubtle ml-1">
+            <span className="text-caption text-fg-subtle ml-1">
               {group.profileCount} profile{group.profileCount === 1 ? '' : 's'}
             </span>
             {group.staleProfileCount > 0 && (
@@ -389,11 +389,11 @@ function CreatorCard({ group }: { group: AdminCreatorGroup }) {
 
       {/* Profiles under this account */}
       {group.profiles.length === 0 ? (
-        <div className="p-4 text-caption text-fgSubtle">
+        <div className="p-4 text-caption text-fg-subtle">
           No profiles on this account yet.
         </div>
       ) : (
-        <ul className="divide-y divide-borderGlass">
+        <ul className="divide-y divide-line">
           {group.profiles.map((p) => (
             <ProfileRowItem key={p.id} p={p} />
           ))}
@@ -405,7 +405,7 @@ function CreatorCard({ group }: { group: AdminCreatorGroup }) {
 
 function ProfileRowItem({ p }: { p: AdminProfileRow }) {
   return (
-    <li className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 p-4 bg-glass-base">
+    <li className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 p-4 bg-surface">
       <div className="flex items-center gap-3 min-w-0">
         <PlatformPill platform={toPlatformKey(p.platform)} iconSize={13} />
         <div className="min-w-0">
@@ -420,7 +420,7 @@ function ProfileRowItem({ p }: { p: AdminProfileRow }) {
             href={p.profileUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-caption text-fgSubtle hover:text-aurora-cta underline-offset-4 hover:underline truncate block"
+            className="text-caption text-fg-subtle hover:text-brand underline-offset-4 hover:underline truncate block"
           >
             {p.profileUrl}
           </a>
@@ -434,7 +434,7 @@ function ProfileRowItem({ p }: { p: AdminProfileRow }) {
             {formatDelta(p.followersDelta)} · followers
           </div>
         </div>
-        <div className="hidden sm:block text-caption text-fgSubtle">
+        <div className="hidden sm:block text-caption text-fg-subtle">
           {p.ownerCount} owner · {p.trackerCount} tracker
           {p.pendingCount > 0 && (
             <div className="inline-flex items-center mt-0.5 px-1.5 rounded-full bg-brand/10 text-fg border border-brand/20">
@@ -457,7 +457,7 @@ function Agg(props: {
   return (
     <div>
       <div className="text-body text-fg">{props.value}</div>
-      <div className={`text-caption ${props.subClass ?? 'text-fgSubtle'}`}>
+      <div className={`text-caption ${props.subClass ?? 'text-fg-subtle'}`}>
         {props.sub ?? props.label}
       </div>
     </div>
@@ -466,7 +466,7 @@ function Agg(props: {
 
 function StatusPill({ status }: { status: string }) {
   const meta = STATUS_META[status] ?? {
-    cls: 'bg-white/[0.04] text-fgMuted border-white/10',
+    cls: 'bg-white/[0.04] text-fg-muted border-white/10',
     glyph: 'clock' as StatusGlyph,
   };
   return (
@@ -487,7 +487,7 @@ function StatusPill({ status }: { status: string }) {
  *
  * Yellow-mono per DESIGN.md §2 — intensity, never a foreign hue. Note the
  * direction: STALE is the BRIGHTER of the two (`text-fg`, 100%) and fresh is
- * dimmer (`text-fgSubtle`, 40%). Intensity tracks "needs attention", not
+ * dimmer (`text-fg-subtle`, 40%). Intensity tracks "needs attention", not
  * "severity of state" — rendering the rotting profile fainter than the healthy
  * one would bury exactly what this component exists to surface.
  */
@@ -505,7 +505,7 @@ function DataAgePill({
   if (hours === undefined) return null;
   return (
     <span
-      className={`text-caption tabular-nums ${stale ? 'text-fg' : 'text-fgSubtle'}`}
+      className={`text-caption tabular-nums ${stale ? 'text-fg' : 'text-fg-subtle'}`}
       title={
         hours === null
           ? `No successful capture in the last ${SNAPSHOT_WINDOW_DAYS} days`

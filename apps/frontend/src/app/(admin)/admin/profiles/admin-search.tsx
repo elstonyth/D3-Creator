@@ -45,7 +45,7 @@ export function AdminSearchForm({
       />
       <button
         type="submit"
-        className="px-4 rounded-md bg-aurora-cta text-brand-darker font-medium text-label hover:bg-aurora-ctaHover transition-colors"
+        className="px-4 rounded-md bg-brand text-fg-on-brand font-medium text-label hover:bg-brand-300 transition-colors"
       >
         Search
       </button>

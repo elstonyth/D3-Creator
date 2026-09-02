@@ -29,7 +29,7 @@ export default async function AdminClassesPage() {
     <div className="flex flex-col gap-8 pt-12 pb-24">
       <header className="max-w-[680px]">
         <h1 className="text-display-2 text-fg mb-3">Online classes.</h1>
-        <p className="text-body-lg text-fgMuted">
+        <p className="text-body-lg text-fg-muted">
           Add classes by pasting a Google Drive link. Drive files must be shared
           "anyone with the link can view" to play.
         </p>

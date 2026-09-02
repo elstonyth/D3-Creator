@@ -85,7 +85,7 @@ export function ContentLightbox({ post, onClose }: ContentLightboxProps) {
       <div
         // Stop propagation so clicking inside doesn't close
         onClick={(e) => e.stopPropagation()}
-        className="bg-glass-elevated border border-borderGlassStrong rounded-2xl overflow-hidden grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_320px]"
+        className="bg-surface-elevated border border-line-strong rounded-2xl overflow-hidden grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_320px]"
       >
         {/* Media pane */}
         <div className="relative bg-canvas-deep flex items-center justify-center min-h-[320px]">
@@ -131,8 +131,8 @@ export function ContentLightbox({ post, onClose }: ContentLightboxProps) {
         {/* Info pane */}
         <div className="flex flex-col gap-5 p-6 md:max-h-[80vh] md:overflow-y-auto">
           <div className="flex items-center justify-between">
-            <span className="inline-flex items-center gap-2 text-caption text-fgMuted">
-              <span className="inline-flex items-center justify-center size-7 rounded-md bg-customColor16 border border-borderGlass text-fg">
+            <span className="inline-flex items-center gap-2 text-caption text-fg-muted">
+              <span className="inline-flex items-center justify-center size-7 rounded-md bg-surface-subtle border border-line text-fg">
                 <Icon size={14} />
               </span>
               {PLATFORM_LABELS[post.platform as PlatformKey]}
@@ -141,7 +141,7 @@ export function ContentLightbox({ post, onClose }: ContentLightboxProps) {
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="size-8 inline-flex items-center justify-center rounded-md border border-borderGlass text-fgMuted hover:text-fg hover:border-borderGlassStrong transition-colors duration-150 ease-out"
+              className="size-8 inline-flex items-center justify-center rounded-md border border-line text-fg-muted hover:text-fg hover:border-line-strong transition-colors duration-150 ease-out"
             >
               ×
             </button>
@@ -159,7 +159,7 @@ export function ContentLightbox({ post, onClose }: ContentLightboxProps) {
               {post.hashtags.map((tag) => (
                 <span
                   key={tag}
-                  className="text-micro font-mono text-fgMuted px-2 h-6 inline-flex items-center rounded border border-borderGlass bg-customColor16"
+                  className="text-micro font-mono text-fg-muted px-2 h-6 inline-flex items-center rounded border border-line bg-surface-subtle"
                 >
                   #{tag}
                 </span>
@@ -167,7 +167,7 @@ export function ContentLightbox({ post, onClose }: ContentLightboxProps) {
             </div>
           ) : null}
 
-          <dl className="grid grid-cols-2 gap-y-3 pt-1 border-t border-borderGlass mt-1">
+          <dl className="grid grid-cols-2 gap-y-3 pt-1 border-t border-line mt-1">
             <Stat
               label={post.metrics.views != null ? 'Views' : 'Likes'}
               value={formatCompact(post.metrics.views ?? post.metrics.likes)}
@@ -185,7 +185,7 @@ export function ContentLightbox({ post, onClose }: ContentLightboxProps) {
           </dl>
 
           {hasVideo && post.durationSec != null ? (
-            <div className="text-caption text-fgSubtle font-mono tabular-nums">
+            <div className="text-caption text-fg-subtle font-mono tabular-nums">
               Duration · {formatDuration(post.durationSec)}
             </div>
           ) : null}
@@ -194,7 +194,7 @@ export function ContentLightbox({ post, onClose }: ContentLightboxProps) {
             href={post.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-auto inline-flex items-center justify-center h-10 px-4 rounded-lg bg-customColor16 border border-borderGlass text-label text-fg hover:text-fg hover:border-borderGlassStrong transition-colors duration-150 ease-out"
+            className="mt-auto inline-flex items-center justify-center h-10 px-4 rounded-lg bg-surface-subtle border border-line text-label text-fg hover:text-fg hover:border-line-strong transition-colors duration-150 ease-out"
           >
             View on {PLATFORM_LABELS[post.platform as PlatformKey]} →
           </a>
@@ -212,7 +212,7 @@ interface StatProps {
 function Stat({ label, value }: StatProps) {
   return (
     <div className="flex flex-col gap-1">
-      <dt className="text-micro uppercase tracking-[0.04em] text-fgSubtle">
+      <dt className="text-micro uppercase tracking-[0.04em] text-fg-subtle">
         {label}
       </dt>
       <dd className="text-body-sm font-mono tabular-nums text-fg">{value}</dd>

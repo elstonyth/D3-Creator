@@ -42,7 +42,7 @@ export function PasswordField({
 
   return (
     <label className="block space-y-1.5">
-      <span className="text-label text-fgMuted">{label}</span>
+      <span className="text-label text-fg-muted">{label}</span>
       <div className="relative">
         <Input
           type={shown ? 'text' : 'password'}
@@ -63,7 +63,7 @@ export function PasswordField({
           disabled={disabled}
           aria-label={shown ? 'Hide password' : 'Show password'}
           aria-pressed={shown}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-fgSubtle hover:text-fg transition-colors duration-150 ease-out disabled:opacity-50"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-fg transition-colors duration-150 ease-out disabled:opacity-50"
         >
           {shown ? (
             <EyeOffIcon className="size-4" aria-hidden />
@@ -73,7 +73,7 @@ export function PasswordField({
         </button>
       </div>
       {hint ? (
-        <span id={hintId} className="block text-caption text-fgSubtle">
+        <span id={hintId} className="block text-caption text-fg-subtle">
           {hint}
         </span>
       ) : null}

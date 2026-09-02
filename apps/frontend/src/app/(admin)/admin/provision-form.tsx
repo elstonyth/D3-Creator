@@ -34,7 +34,7 @@ function CheckGlyph() {
 }
 function XGlyph() {
   return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="text-fgMuted shrink-0">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="text-fg-muted shrink-0">
       <path d="M18 6L6 18M6 6l12 12" />
     </svg>
   );
@@ -84,23 +84,23 @@ export function ProvisionForm() {
       {/* Credentials */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <label className="block space-y-1.5">
-          <span className="text-label text-fgMuted">Display name</span>
+          <span className="text-label text-fg-muted">Display name</span>
           <Input name="display_name" type="text" required maxLength={80} placeholder="Creator name" />
         </label>
         <label className="block space-y-1.5">
-          <span className="text-label text-fgMuted">Email</span>
+          <span className="text-label text-fg-muted">Email</span>
           <Input name="email" type="email" required maxLength={254} placeholder="creator@example.com" />
         </label>
         <label className="block space-y-1.5">
-          <span className="text-label text-fgMuted">Password</span>
+          <span className="text-label text-fg-muted">Password</span>
           <Input name="password" type="password" required minLength={8} maxLength={72} placeholder="8 to 72 characters" />
         </label>
       </div>
 
       {/* Social URLs */}
-      <div className="flex flex-col gap-2 border-t border-borderGlass pt-4">
-        <span className="text-label text-fgMuted">Social profile URLs</span>
-        <span className="text-caption text-fgSubtle">
+      <div className="flex flex-col gap-2 border-t border-line pt-4">
+        <span className="text-label text-fg-muted">Social profile URLs</span>
+        <span className="text-caption text-fg-subtle">
           Instagram, TikTok, Facebook, or Douyin — the platform is detected
           automatically from the URL.
         </span>
@@ -117,7 +117,7 @@ export function ProvisionForm() {
             <button
               type="button"
               onClick={() => removeRow(row.id)}
-              className="shrink-0 size-9 inline-flex items-center justify-center rounded-md text-fgMuted hover:bg-white/[0.04] border border-white/10"
+              className="shrink-0 size-9 inline-flex items-center justify-center rounded-md text-fg-muted hover:bg-white/[0.04] border border-white/10"
               aria-label="Remove URL"
             >
               <XGlyph />
@@ -127,7 +127,7 @@ export function ProvisionForm() {
         <button
           type="button"
           onClick={addRow}
-          className="self-start text-label text-fgMuted hover:text-fg px-2 py-1"
+          className="self-start text-label text-fg-muted hover:text-fg px-2 py-1"
         >
           + Add URL
         </button>
@@ -156,7 +156,7 @@ export function ProvisionForm() {
       {/* Success: credentials echo + per-URL results */}
       {result?.ok && (
         <div className="flex flex-col gap-4">
-          <p className="text-caption text-fgMuted">{result.message}</p>
+          <p className="text-caption text-fg-muted">{result.message}</p>
           {result.credentials && (
             <CredentialsPanel email={result.credentials.email} password={result.credentials.password} />
           )}
@@ -165,11 +165,11 @@ export function ProvisionForm() {
               {result.urlResults.map((r) => (
                 <li key={r.url} className="flex items-center gap-2 text-caption min-w-0">
                   {r.status === 'failed' ? <XGlyph /> : <CheckGlyph />}
-                  <span className="text-fgMuted truncate">
+                  <span className="text-fg-muted truncate">
                     {r.platform ? `${r.platform} · ` : ''}
                     {r.url}
                   </span>
-                  {r.detail && <span className="text-fgSubtle shrink-0">— {r.detail}</span>}
+                  {r.detail && <span className="text-fg-subtle shrink-0">— {r.detail}</span>}
                 </li>
               ))}
             </ul>
@@ -193,16 +193,16 @@ function CredentialsPanel({ email, password }: { email: string; password: string
     }
   }
   return (
-    <div className="glass-elevated rounded-xl border border-borderGlass p-4 flex flex-col gap-2">
+    <div className="bg-surface-elevated border border-line-strong rounded-xl border border-line p-4 flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-label text-fgMuted">Login credentials</span>
-        <button type="button" onClick={copy} className="text-label text-aurora-cta hover:underline">
+        <span className="text-label text-fg-muted">Login credentials</span>
+        <button type="button" onClick={copy} className="text-label text-brand hover:underline">
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
       <div className="font-mono text-body-sm text-fg break-all">{email}</div>
       <div className="font-mono text-body-sm text-fg break-all">{password}</div>
-      <span className="text-caption text-fgSubtle">
+      <span className="text-caption text-fg-subtle">
         Shown once — copy and share securely now.
       </span>
     </div>

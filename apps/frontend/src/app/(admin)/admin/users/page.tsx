@@ -40,7 +40,7 @@ export default async function AdminUsersPage() {
     <div className="flex flex-col gap-8 pt-12 pb-24">
       <header className="max-w-[680px]">
         <h1 className="text-display-2 text-fg mb-3">Users &amp; roles.</h1>
-        <p className="text-body-lg text-fgMuted">
+        <p className="text-body-lg text-fg-muted">
           Assign each account a role. Members watch classes; creators get the
           /me dashboard; &ldquo;none&rdquo; revokes access. Public listing still
           requires the provision-creator flow.

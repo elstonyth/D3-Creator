@@ -64,19 +64,19 @@ export function TranscriptPlayer({
           controls
           preload="metadata"
           onTimeUpdate={onTimeUpdate}
-          className="w-full lg:w-[360px] shrink-0 aspect-video rounded-xl border border-borderGlass bg-glass-base"
+          className="w-full lg:w-[360px] shrink-0 aspect-video rounded-xl border border-line bg-surface"
         />
       )}
 
       {segments.length === 0 ? (
-        <p className="text-body text-fgMuted">(no speech detected)</p>
+        <p className="text-body text-fg-muted">(no speech detected)</p>
       ) : (
         <ol className="flex-1 min-w-0">
           {segments.map((segment, index) => {
             const active = index === activeIndex;
             const body = (
               <>
-                <span className="w-12 shrink-0 text-caption tabular-nums text-fgSubtle">
+                <span className="w-12 shrink-0 text-caption tabular-nums text-fg-subtle">
                   {formatTimecode(segment.start)}
                 </span>
                 {/* No colour class — the colour is the row's, so the active
@@ -88,7 +88,7 @@ export function TranscriptPlayer({
               <li key={`${segment.start}-${index}`}>
                 {videoSrc === null ? (
                   // Never a button that looks clickable and does nothing.
-                  <div className={cn(ROW, 'text-fgMuted')}>{body}</div>
+                  <div className={cn(ROW, 'text-fg-muted')}>{body}</div>
                 ) : (
                   <button
                     type="button"
@@ -99,7 +99,7 @@ export function TranscriptPlayer({
                       // Not yellow — this screen's yellow is Download.
                       active
                         ? 'bg-white/[0.04] text-fg'
-                        : 'text-fgMuted hover:bg-white/[0.02]',
+                        : 'text-fg-muted hover:bg-white/[0.02]',
                     )}
                   >
                     {body}

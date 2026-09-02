@@ -45,7 +45,7 @@ export default async function StudioSettingsPage(): Promise<ReactElement> {
     <div className="max-w-[880px] mx-auto py-12 flex flex-col gap-10">
       <header className="max-w-[62ch] flex flex-col gap-3">
         <h1 className="text-display-2 text-fg">Your business.</h1>
-        <p className="text-body-lg text-fgMuted">
+        <p className="text-body-lg text-fg-muted">
           Everything the coach knows about what you sell and how you sound. It
           shapes every script and every video analysis.
         </p>
@@ -63,12 +63,12 @@ export default async function StudioSettingsPage(): Promise<ReactElement> {
       ) : (
         <>
           <ProfileSettingsForm profile={profile} />
-          <p className="text-body-sm text-fgSubtle">
+          <p className="text-body-sm text-fg-subtle">
             Changes apply to your next script or analysis. Nothing already
             generated is rewritten.{' '}
             <Link
               href="/studio/analyzer"
-              className="text-fgMuted hover:text-fg transition-colors duration-150 ease-out"
+              className="text-fg-muted hover:text-fg transition-colors duration-150 ease-out"
             >
               Analyze a video
             </Link>{' '}

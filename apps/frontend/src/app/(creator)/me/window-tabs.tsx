@@ -24,7 +24,7 @@ export function WindowTabs({ current }: { current: MetricWindow }) {
             className={`text-caption px-3 py-1.5 rounded-full border transition-colors ${
               active
                 ? 'bg-brand/10 text-fg border-brand/20'
-                : 'bg-white/[0.04] text-fgMuted border-white/10 hover:text-fg'
+                : 'bg-white/[0.04] text-fg-muted border-white/10 hover:text-fg'
             }`}
           >
             {WINDOW_LABEL[w]}

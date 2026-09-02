@@ -24,9 +24,9 @@ import {
   type PasswordResetResult,
 } from './actions';
 
-const SECTION = 'glass-subtle border border-borderGlass rounded-2xl p-6 flex flex-col gap-4';
+const SECTION = 'bg-surface-subtle border border-line border border-line rounded-2xl p-6 flex flex-col gap-4';
 const ERR = 'text-caption text-red-400';
-const OK = 'text-caption text-fgMuted';
+const OK = 'text-caption text-fg-muted';
 
 function Save({ label = 'Save' }: { label?: string }) {
   const { pending } = useFormStatus();
@@ -73,7 +73,7 @@ function UrlsSection({ creatorId, profiles }: { creatorId: string; profiles: Adm
     <section className={SECTION}>
       <h2 className="text-heading text-fg">Social URLs</h2>
       {profiles.length === 0 ? (
-        <p className="text-body text-fgMuted">No profiles yet — add one below.</p>
+        <p className="text-body text-fg-muted">No profiles yet — add one below.</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {profiles.map((p) => (
@@ -97,7 +97,7 @@ function ProfileUrlRow({ creatorId, profile }: { creatorId: string; profile: Adm
   return (
     <li className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
-        <span className="text-caption text-fgSubtle w-16 shrink-0">{profile.platform}</span>
+        <span className="text-caption text-fg-subtle w-16 shrink-0">{profile.platform}</span>
         <form ref={editFormRef} action={editAction} className="flex items-center gap-2 flex-1">
           <input type="hidden" name="creator_id" value={creatorId} />
           <input type="hidden" name="profile_id" value={profile.id} />
@@ -108,9 +108,9 @@ function ProfileUrlRow({ creatorId, profile }: { creatorId: string; profile: Adm
           <form action={removeAction} className="flex items-center gap-2">
             <input type="hidden" name="creator_id" value={creatorId} />
             <input type="hidden" name="profile_id" value={profile.id} />
-            <span className="text-caption text-fgMuted">Remove?</span>
+            <span className="text-caption text-fg-muted">Remove?</span>
             <Save label="Confirm" />
-            <button type="button" onClick={() => setConfirming(false)} className="text-caption text-fgSubtle hover:text-fg">
+            <button type="button" onClick={() => setConfirming(false)} className="text-caption text-fg-subtle hover:text-fg">
               Cancel
             </button>
           </form>
@@ -118,7 +118,7 @@ function ProfileUrlRow({ creatorId, profile }: { creatorId: string; profile: Adm
           <button
             type="button"
             onClick={() => setConfirming(true)}
-            className="text-caption text-fgMuted hover:text-fg border border-white/10 rounded-md px-2 py-1"
+            className="text-caption text-fg-muted hover:text-fg border border-white/10 rounded-md px-2 py-1"
           >
             Remove
           </button>
@@ -137,8 +137,8 @@ function AddUrlRow({ creatorId }: { creatorId: string }) {
     if (state?.ok) formRef.current?.reset();
   }, [state]);
   return (
-    <div className="flex flex-col gap-1.5 border-t border-borderGlass pt-4">
-      <span className="text-label text-fgMuted">Add a URL</span>
+    <div className="flex flex-col gap-1.5 border-t border-line pt-4">
+      <span className="text-label text-fg-muted">Add a URL</span>
       <form ref={formRef} action={action} className="flex items-center gap-2">
         <input type="hidden" name="creator_id" value={creatorId} />
         <Input name="url" type="url" required placeholder="https://www.instagram.com/handle" className="flex-1" />
@@ -190,7 +190,7 @@ function AddLoginRow({
   }, [state]);
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-body text-fgMuted">No login linked — create one to give this creator portal access.</p>
+      <p className="text-body text-fg-muted">No login linked — create one to give this creator portal access.</p>
       <form ref={formRef} action={action} className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <input type="hidden" name="creator_id" value={creatorId} />
         <Input name="email" type="email" required placeholder="creator@email.com" className="flex-1" />
@@ -240,16 +240,16 @@ function CredentialsPanel({ email, password }: { email: string; password: string
     }
   }
   return (
-    <div className="glass-elevated rounded-xl border border-borderGlass p-4 flex flex-col gap-2">
+    <div className="bg-surface-elevated border border-line-strong rounded-xl border border-line p-4 flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-label text-fgMuted">New credentials</span>
-        <button type="button" onClick={copy} className="text-label text-aurora-cta hover:underline">
+        <span className="text-label text-fg-muted">New credentials</span>
+        <button type="button" onClick={copy} className="text-label text-brand hover:underline">
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
       <div className="font-mono text-body-sm text-fg break-all">{email}</div>
       <div className="font-mono text-body-sm text-fg break-all">{password}</div>
-      <span className="text-caption text-fgSubtle">Shown once — copy and share securely now.</span>
+      <span className="text-caption text-fg-subtle">Shown once — copy and share securely now.</span>
     </div>
   );
 }
@@ -260,15 +260,15 @@ function DangerSection({ creatorId, displayName }: { creatorId: string; displayN
   return (
     <section className={SECTION}>
       <h2 className="text-heading text-fg">Danger zone</h2>
-      <p className="text-body text-fgMuted">
+      <p className="text-body text-fg-muted">
         Deletes <span className="text-fg">{displayName}</span>, all its profiles and stats, and its login. Cannot be undone.
       </p>
       {confirming ? (
         <form action={action} className="flex items-center gap-2">
           <input type="hidden" name="creator_id" value={creatorId} />
-          <span className="text-caption text-fgMuted">Delete this creator and login?</span>
+          <span className="text-caption text-fg-muted">Delete this creator and login?</span>
           <Save label="Delete creator" />
-          <button type="button" onClick={() => setConfirming(false)} className="text-caption text-fgSubtle hover:text-fg">
+          <button type="button" onClick={() => setConfirming(false)} className="text-caption text-fg-subtle hover:text-fg">
             Cancel
           </button>
         </form>
@@ -276,7 +276,7 @@ function DangerSection({ creatorId, displayName }: { creatorId: string; displayN
         <button
           type="button"
           onClick={() => setConfirming(true)}
-          className="self-start text-label text-fgMuted hover:text-fg border border-white/10 rounded-md px-3 py-1.5"
+          className="self-start text-label text-fg-muted hover:text-fg border border-white/10 rounded-md px-3 py-1.5"
         >
           Delete creator
         </button>

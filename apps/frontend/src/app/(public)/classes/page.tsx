@@ -24,7 +24,7 @@ export default async function ClassesPage() {
     <div className="max-w-[1100px] mx-auto px-6 md:px-8 py-12 flex flex-col gap-8">
       <header className="max-w-[680px]">
         <h1 className="text-display-2 text-fg mb-3">Online classes.</h1>
-        <p className="text-body-lg text-fgMuted">
+        <p className="text-body-lg text-fg-muted">
           Watch our class library.{' '}
           {auth && auth.role !== 'none'
             ? 'You have member access.'
@@ -35,7 +35,7 @@ export default async function ClassesPage() {
       {!auth && (
         <Link
           href="/login?redirectTo=/classes"
-          className="glass-subtle border border-borderGlass rounded-xl px-5 py-4 text-label text-aurora-cta hover:bg-white/[0.04] transition-colors"
+          className="bg-surface-subtle border border-line border border-line rounded-xl px-5 py-4 text-label text-brand hover:bg-white/[0.04] transition-colors"
         >
           Log in to unlock member classes →
         </Link>
@@ -46,23 +46,23 @@ export default async function ClassesPage() {
           <Link
             key={v.id}
             href={`/classes/${v.id}`}
-            className="glass-elevated rounded-2xl p-5 flex flex-col gap-2 hover:bg-white/[0.04] transition-colors"
+            className="bg-surface-elevated border border-line-strong rounded-2xl p-5 flex flex-col gap-2 hover:bg-white/[0.04] transition-colors"
           >
             <div className="flex items-center justify-between">
-              <span className="text-caption text-fgSubtle uppercase tracking-wide">
+              <span className="text-caption text-fg-subtle uppercase tracking-wide">
                 {v.visibility === 'members' ? 'Members' : 'Public'}
               </span>
             </div>
             <h2 className="text-heading text-fg">{v.title}</h2>
             {v.description && (
-              <p className="text-caption text-fgMuted line-clamp-2">
+              <p className="text-caption text-fg-muted line-clamp-2">
                 {v.description}
               </p>
             )}
           </Link>
         ))}
         {(videos ?? []).length === 0 && (
-          <p className="text-body text-fgMuted">No classes published yet.</p>
+          <p className="text-body text-fg-muted">No classes published yet.</p>
         )}
       </section>
     </div>

@@ -76,21 +76,21 @@ export function ResetPasswordForm(): ReactElement {
   }
 
   if (session === 'checking') {
-    return <p className="text-body-sm text-fgMuted">Checking your link…</p>;
+    return <p className="text-body-sm text-fg-muted">Checking your link…</p>;
   }
 
   if (session === 'missing') {
     return (
       <div className="space-y-4">
         <p className="text-body text-fg">That link has expired.</p>
-        <p className="text-body-sm text-fgMuted">
+        <p className="text-body-sm text-fg-muted">
           Reset links work once and time out within the hour. Ask for a new one
           and it will land in your inbox straight away.
         </p>
-        <p className="text-caption text-fgMuted">
+        <p className="text-caption text-fg-muted">
           <Link
             href="/forgot-password"
-            className="text-aurora-cta underline underline-offset-4"
+            className="text-brand underline underline-offset-4"
           >
             Send a new link
           </Link>
