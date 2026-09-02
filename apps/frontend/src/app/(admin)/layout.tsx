@@ -58,7 +58,7 @@ export default async function AdminLayout({
               className="flex shrink-0 items-center gap-2.5 rounded-md transition-opacity duration-150 ease-out hover:opacity-80 focus-visible:outline-none focus-visible:shadow-focus"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/d3-logo.png" alt="D3 Creator" width={26} height={26} />
+              <img src="/d3-logo.png" alt="D3 Creator" width={28} height={28} />
               <span className="text-heading text-fg">Console</span>
             </Link>
 

@@ -63,8 +63,8 @@ export default async function CreatorLayout({
               <img
                 src="/d3-logo.png"
                 alt=""
-                width={26}
-                height={26}
+                width={28}
+                height={28}
                 suppressHydrationWarning
               />
               <span className="text-heading tracking-[-0.02em] text-fg">

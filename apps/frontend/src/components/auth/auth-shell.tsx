@@ -31,8 +31,8 @@ export function AuthShell({ children, heading, subheading }: AuthShellProps) {
             <img
               src="/d3-logo.png"
               alt=""
-              width={26}
-              height={26}
+              width={28}
+              height={28}
               aria-hidden
               suppressHydrationWarning
             />
