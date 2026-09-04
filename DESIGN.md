@@ -1,520 +1,222 @@
-# Design System: D3 Yellow — Linear-Flat
+# DESIGN.md
 
-> **Style:** Linear-flat · **Mood:** Premium, minimal, intentional · **Default theme:** Dark (near-black) · **Brand:** Yellow `#F2E600` on near-black `#0A0A0A`
+D3 Creator's visual contract. Read before writing UI.
 
-## 1. Visual Theme & Atmosphere
+## 0. How to read this file
 
-D3 Creator is a creator-growth showcase across 5 platforms. The interface is **calm, confident, and editorial** — inspired by Linear.app: near-black canvas, flat surfaces, hairline borders, and a single high-energy yellow used like a flashlight beam. Every pixel has a job. No glow, no aurora, no decorative noise.
+`apps/frontend/tailwind.config.cjs` and `apps/frontend/src/app/colors.scss` own
+the values. This file owns the **rules** — what to reach for, what to avoid, and
+why — plus the few values worth stating in prose because a reader needs them
+before their first commit.
 
-The brand color `#F2E600` comes directly from the D3 logo. It is **scarce by design** — reserved for the logo, primary CTAs, focus rings, key data points, and the active state of navigation. Everything else lives in a precise grayscale tonal scale on near-black.
+Every number below is quoted from those two files. If they disagree with this
+file, **the config is right and this file is the bug**. The previous version of
+this document drifted far enough that it described token names (`--text-3xl`,
+`--space-8`), hex values, easing curves and a set of social platforms that have
+never existed in this repo. Do not restate a value here you have not just read.
 
-Typography is **Inter** — neutral, modern, legible. Body type is `15-16px` at `line-height: 1.6` for editorial calm. Headings are large and confident with tight tracking (`-0.025em` to `-0.035em`). Zero gradient text. Zero text-shadow. Letterforms carry the design.
+## 1. Two vocabularies
 
-Surfaces are **flat**: solid fills, 1px borders, square-cornered or `8-12px` radius. Depth comes from **hairline borders and subtle dark shadows** — never from glow or color bleed. Motion is **brief and purposeful**: 150-200ms ease-out on opacity, transform, and color only. Nothing loops, nothing pulses.
+Six routes are **frozen** — they must render byte-identically to `main`:
 
-**Key Characteristics:**
-- Near-black canvas (`#0A0A0D`) with flat **neutral** surfaces — zero yellow undertone in chrome
-- Single brand yellow `#F2E600` used **scarcely** — yellow ledger below
-- Inter typography, body `15-16px / 1.6`, headings tight-tracked, **headlines white not yellow**
-- Hairline 1px borders (`rgba(255,255,255,0.08)` default)
-- Radii: `6px` (inputs/badges), `8px` (buttons), `12px` (cards)
-- Shadows: dark only — `rgba(0,0,0,0.4)` for elevation
-- Motion: 150-200ms ease-out, opacity + transform + color only
-- 4/8px spacing grid; max content width `1100-1280px`
-- Dark default; light mode optional (not priority)
+`/` · `/about` · `/dashboard` · `/leaderboard` · `/privacy` · `/terms`
 
-### Yellow Ledger — Where Yellow IS Allowed (and ONLY here)
+Frozen includes shared chrome: header, footer, font. Everything else — the
+signed-in surfaces under `/studio`, `/classes`, `/creators`, `/admin` — was
+rebuilt and uses a cleaner set of names.
 
-| Surface | Use |
-|---------|-----|
-| Logo | The D3 chain-link icon (image asset) |
-| Primary CTA | One per screen — solid `#F2E600` bg + near-black text |
-| CTA hover | Lighter `#FDE047` |
-| Focus ring | `outline: 2px solid #F2E600` on keyboard focus |
-| Active nav | Indicator stripe / dot |
-| Active data point | Highlighted row / focused table cell |
+Both vocabularies resolve to **the same CSS variables**. The rebuilt names are
+additive aliases in `tailwind.config.cjs`, not a second palette, so the two
+cannot drift apart:
 
-**Everywhere else: neutral.** Chip/badge bg → white at 6-8% opacity. Section divider → white at 8% opacity. Status dot → white at 78%. Hero headline → solid white (`#F5F5F5`).
+| Rebuilt name    | Legacy name            | Resolves to      |
+| --------------- | ---------------------- | ---------------- |
+| `bg-surface`    | `bg-glass-base`        | `--glass-base`   |
+| `border-line`   | `border-borderGlass`   | `--border-glass` |
+| `text-fg-muted` | `text-customColor18`\* | `--fg-muted`     |
+| `bg-canvas`     | `bg-canvas`            | `--canvas`       |
 
----
+\* `--color-custom*` is deprecated. Do not add new uses; existing ones stay
+until the route they live on is rebuilt.
 
-## 2. Color Palette & Roles
+**Write new UI in the rebuilt vocabulary.** Touch a frozen route only to fix a
+bug, and prove you did not change its rendering:
 
-### Brand Yellow — Tonal Scale (sourced from logo `#F2E600`)
+```bash
+git diff --stat main -- 'apps/frontend/src/app/(public)/page.tsx' 'apps/frontend/src/app/(public)/about' 'apps/frontend/src/app/(public)/dashboard' 'apps/frontend/src/app/(public)/leaderboard' 'apps/frontend/src/app/(public)/privacy' 'apps/frontend/src/app/(public)/terms' 'apps/frontend/src/app/(public)/layout.tsx' apps/frontend/src/app/colors.scss apps/frontend/src/app/fonts.ts
+```
 
-| Token | Hex | Role |
-|-------|-----|------|
-| `--brand-50` | `#FFFEF0` | Faintest tint, hover-on-white surfaces (light mode) |
-| `--brand-100` | `#FFFBC4` | Subtle yellow background wash, badge fill |
-| `--brand-200` | `#FFF587` | Inactive yellow indicator |
-| `--brand-300` | `#FFEE4A` | Hover state for primary CTA |
-| `--brand-400` | `#F8EA10` | Bright yellow accent (rare use) |
-| `--brand-500` | `#F2E600` | **Primary brand — logo, CTA, focus ring** |
-| `--brand-600` | `#D4C900` | CTA pressed state, focused border |
-| `--brand-700` | `#A89F00` | Dark yellow on light surfaces (text on white) |
-| `--brand-800` | `#7C7500` | Deep accent, used in data viz only |
-| `--brand-900` | `#3E3A00` | Yellow on near-black emphasis backgrounds |
+Empty output means the frozen surface is intact. Any row is a regression.
 
-### Surface — Dark (default) · **Neutral, zero yellow undertone**
+## 2. Color
 
-| Token | Hex / Value | Role |
-|-------|-------------|------|
-| `--canvas` | `#0A0A0D` | Page background |
-| `--canvas-deep` | `#050507` | Deepest layer, behind canvas |
-| `--glass-subtle` | `#0F0F12` | Inset well, code block, subtle container |
-| `--glass-base` | `#16161A` | Card / panel base |
-| `--glass-elevated` | `#1A1A1F` | Elevated card, dropdown, modal |
-| `--scrim` | `rgba(0,0,0,0.72)` | Modal backdrop |
+### The yellow rule
 
-> Surfaces moved from yellow-undertone (`#0E0D00`/`#1A1900`) to true neutral cool-black after the scarce-yellow rebalance. Chrome reads gray-neutral; yellow only appears where the Yellow Ledger §1 allows.
+`#F2E600` is the only saturated colour on the page. It marks **one** thing per
+view — the primary action, or the row the user is on. Never a background for
+text at body size, never a border on a resting element, never decoration.
 
-### Border
+A screen with two yellow things has one too many. This is the rule the design
+lives or dies by; everything else is grayscale discipline.
 
-| Token | Value | Role |
-|-------|-------|------|
-| `--border-subtle` | `rgba(255,255,255,0.06)` | Faintest divider |
-| `--border-default` | `rgba(255,255,255,0.08)` | Card / panel border |
-| `--border-strong` | `rgba(255,255,255,0.14)` | Hovered card, emphasized input |
-| `--border-brand` | `#F2E600` | Focused input, active tab |
+Yellow-on-dark passes contrast. **Dark-on-yellow needs `text-brand-darker`**
+(`#0E0D00`), which is what `Button` variant `primary` does.
+
+### Brand ramp
+
+`brand.DEFAULT` = `brand.500` = `#F2E600`.
+
+The ramp is Tailwind's `yellow` scale with 500 swapped for the brand hue. So
+**600–800 are amber-brown** (`#CA8A04`, `#A16207`, `#854D0E`), not darker shades
+of `#F2E600`. They read as a different colour, and are used only as near-black
+backings (`brand-900` `#4D3800`, `brand-950` `#1A1900`).
+
+Consequence: to darken the brand, do not walk up the ramp. Use `brand-dark`
+(`#9C9400`) or `brand-darker` (`#0E0D00`).
+
+### Surfaces
+
+Five steps, all near-black. Depth comes from these plus a 1px border — not from
+shadow.
+
+| Token              | Value     | Use                         |
+| ------------------ | --------- | --------------------------- |
+| `--canvas-deep`    | `#050507` | Behind the canvas           |
+| `--canvas`         | `#0A0A0D` | Page background             |
+| `--glass-subtle`   | `#0F0F12` | Inset wells, table stripes  |
+| `--glass-base`     | `#16161A` | Cards, panels               |
+| `--glass-elevated` | `#1A1A1F` | Popovers, dropdowns, modals |
+
+Borders: `--border-glass` `rgba(255,255,255,0.08)` at rest,
+`--border-glass-strong` `rgba(255,255,255,0.16)` on hover and focus-within.
+Modal scrim: `--scrim` `rgba(0,0,0,0.72)`.
 
 ### Text
 
-| Token | Value | Role |
-|-------|-------|------|
-| `--fg` | `#FFFFFF` | Headings, primary body, **all hero headlines (NOT yellow)** |
-| `--fg-muted` | `rgba(255,255,255,0.62)` | Secondary body, captions |
-| `--fg-subtle` | `rgba(255,255,255,0.40)` | Disabled, meta, timestamps, placeholders |
-| `--text-on-brand` | `#0A0A0D` | Text on yellow CTAs (near-black) |
-| `--text-inverse` | `#0A0A0D` | Text on white surfaces (light mode) |
+`--fg` `#FFFFFF` · `--fg-muted` `rgba(255,255,255,0.62)` · `--fg-subtle`
+`rgba(255,255,255,0.55)`
 
-> **Headlines stay white.** Yellow text is forbidden except inside the Yellow Ledger §1 surfaces. ShinyText component renders solid white in this system.
+Three levels, no more. Labels and captions take `fg-muted`; `fg-subtle` is for
+text that is present but not meant to be read — timestamps, row counts.
 
-### Semantic — Yellow-mono (strict brand)
+### `aurora.*` is misnamed
 
-User mandate: **zero foreign colors anywhere**. Status states communicate through **icon + label + intensity of yellow**, not chromatic variance.
+`aurora.cyan`, `aurora.violet` and `aurora.pink` are **white at 0.78, 0.85 and
+0.62 alpha**. There is no cyan, violet or pink anywhere in this product. The
+names are residue from an earlier direction.
 
-| Token | Hex | Role |
-|-------|-----|------|
-| `--success` | `#F2E600` (brand-500) | Success — paired with checkmark icon |
-| `--warning` | `#FDE047` (brand-300) | Warning — paired with caution icon |
-| `--danger` | `#4D3800` (brand-900) | Error / destructive — paired with X icon + clear label |
-| `--info` | `#FACC15` (brand-400) | Info — paired with info icon |
+`aurora.cta` (`#F2E600`) and `aurora.ctaHover` (`#FDE047`) are real, and are
+what `Button` variant `primary` uses.
 
-> All status comes from icon + label. Color tones stay inside the yellow scale. No red, green, blue, or any foreign hue — anywhere. WCAG safety covered by icon + text, not chromatic differentiation.
+Do not reach for `aurora.*` in new code — use `text-fg` / `text-fg-muted` for
+the whites and `brand` for the yellow. Renaming is a separate change; the
+existing uses are correct, just badly labelled.
 
----
+## 3. Type
 
-## 3. Typography
+Geist and Geist Mono, loaded in `apps/frontend/src/app/fonts.ts`.
 
-### Font Stack
+The scale is named by role, not size. Use the role.
 
-```css
---font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
---font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+| Class             | Size                       | Weight | Tracking   |
+| ----------------- | -------------------------- | ------ | ---------- |
+| `text-display-1`  | `clamp(48px, 6vw, 88px)`   | 700    | `-0.035em` |
+| `text-display-2`  | `clamp(36px, 4vw, 56px)`   | 700    | `-0.03em`  |
+| `text-section`    | 32px                       | 600    | `-0.025em` |
+| `text-subsection` | 22px                       | 600    | `-0.015em` |
+| `text-heading`    | 18px                       | 600    | `-0.01em`  |
+| `text-metric-lg`  | `clamp(30px, 3.4vw, 44px)` | 600    | `-0.03em`  |
+| `text-metric`     | 24px                       | 600    | `-0.02em`  |
+| `text-body-lg`    | 17px / 1.6                 | —      | —          |
+| `text-body`       | 15px / 1.6                 | —      | —          |
+| `text-body-sm`    | 14px / 1.55                | —      | —          |
+| `text-label`      | 13px                       | 500    | —          |
+| `text-caption`    | 12px                       | 500    | —          |
+| `text-micro`      | 11px                       | 500    | `0.03em`   |
+
+Weight and tracking ship **inside** the class. Do not add `font-bold` or
+`tracking-tight` on top — you will fight the token.
+
+Numbers in columns take `.tnum` (`global.scss`) so digits stop reflowing as
+values change.
+
+Body copy caps at `max-w-prose` (760px).
+
+## 4. Radius, elevation, focus
+
+Radius: `sm` 4 · default/`md` 6 · `lg` 8 · `xl` 10 · `2xl` 12 · `3xl` 16 ·
+`4xl` 24 · `full`.
+
+Nothing currently uses `4xl` — 16px is the effective ceiling, and a 24px corner
+will look foreign next to everything else. Pills (`full`) are for badges and
+avatars only, never buttons.
+
+Elevation is **border + surface step**, not shadow. `shadow-glass` / `glassSm` /
+`glassLg` exist but earn their keep only on things that float above the page:
+dropdown, popover, modal. A card does not float.
+
+Focus is a hard requirement, not a preference:
+
+```
+shadow-focusRing   0 0 0 2px rgba(242, 230, 0, 0.40)
+shadow-focus       0 0 0 2px rgba(242, 230, 0, 0.45)
 ```
 
-Inter is loaded with `font-display: swap`. Variable-weight axis used (`100-900`).
-
-### Scale
-
-| Token | Size | Line | Tracking | Use |
-|-------|------|------|----------|-----|
-| `--text-xs` | `12px` | `1.5` | `0` | Meta, labels, badges |
-| `--text-sm` | `14px` | `1.55` | `-0.005em` | Secondary body, captions |
-| `--text-base` | `15px` | `1.6` | `-0.01em` | **Body default** |
-| `--text-md` | `16px` | `1.6` | `-0.01em` | Long-form reading |
-| `--text-lg` | `18px` | `1.5` | `-0.015em` | Lead paragraphs |
-| `--text-xl` | `22px` | `1.4` | `-0.02em` | Section subheads |
-| `--text-2xl` | `28px` | `1.3` | `-0.025em` | Card titles, h3 |
-| `--text-3xl` | `36px` | `1.2` | `-0.03em` | Page headings, h2 |
-| `--text-4xl` | `48px` | `1.1` | `-0.032em` | Section heroes, h1 |
-| `--text-5xl` | `64px` | `1.05` | `-0.035em` | Landing hero |
-| `--text-6xl` | `80px` | `1.0` | `-0.035em` | Marquee only |
-
-### Weight
-
-- Body: `400`
-- Medium emphasis: `500`
-- Headings: `600` (not 700 — avoid heavy)
-- Display hero: `700` (rare)
-
-### Rules
-
-- **No gradient text.** Solid color only.
-- **No text-shadow.** Ever.
-- **No uppercase tracking-wide titles.** (Linear-flat is sentence-case, tight-tracked.)
-- Headings use `--text-primary` (`#F5F5F5`), never yellow.
-- Yellow text reserved for inline brand mentions and active nav state.
-- Line-length: max `68ch` for long-form, `52ch` for marketing prose.
-
----
-
-## 4. Component Stylings
-
-### Buttons
-
-**Primary (yellow)**
-```css
-background: #F2E600;
-color: #0A0A0A;
-border: 1px solid #F2E600;
-border-radius: 8px;
-padding: 10px 16px;
-font-weight: 500;
-font-size: 14px;
-transition: background 150ms ease-out, transform 150ms ease-out;
-
-/* hover */
-background: #FFEE4A;
-
-/* active */
-background: #D4C900;
-transform: translateY(1px);
-
-/* focus */
-outline: 2px solid #F2E600;
-outline-offset: 2px;
-```
-
-**Secondary (ghost)**
-```css
-background: transparent;
-color: #F5F5F5;
-border: 1px solid rgba(255,255,255,0.14);
-border-radius: 8px;
-padding: 10px 16px;
-
-/* hover */
-background: rgba(255,255,255,0.04);
-border-color: rgba(255,255,255,0.20);
-```
-
-**Tertiary (text)**
-```css
-background: transparent;
-color: #A3A3A3;
-border: none;
-padding: 8px 12px;
-
-/* hover */
-color: #F5F5F5;
-```
-
-**Sizes:** `sm` (32px h, 12px font), `md` (40px h, 14px font), `lg` (48px h, 16px font).
-
-### Cards
-
-```css
-background: #111111;
-border: 1px solid rgba(255,255,255,0.08);
-border-radius: 12px;
-padding: 24px;
-transition: border-color 150ms ease-out, background 150ms ease-out;
-
-/* hover (interactive cards only) */
-border-color: rgba(255,255,255,0.14);
-background: #161616;
-```
+Every interactive element carries `focus-visible:shadow-focusRing`. Never
+`outline-none` without replacing the ring in the same rule.
 
-No shadow on default cards. Elevated cards (modals, popovers) get `box-shadow: 0 8px 24px rgba(0,0,0,0.4)`.
+## 5. Motion
 
-### Navbar
+Default duration is **180ms**. `ease-spring` and `ease-liquid` are both
+`cubic-bezier(0, 0, 0.2, 1)` — one curve under two names.
 
-```css
-height: 56px;
-background: rgba(10,10,10,0.85);
-border-bottom: 1px solid rgba(255,255,255,0.06);
-backdrop-filter: blur(8px);  /* only place blur is allowed */
-padding: 0 24px;
-```
+- Animate `opacity`, `transform`, and colour. Nothing else.
+- No parallax, no scroll-jacking, no particles, no animated gradients, and no
+  entrance animation on content the user came to read.
+- Hover changes colour, not size. No transform on hover for anything in a list.
+- `global.scss` already honours `prefers-reduced-motion` globally. Do not
+  re-implement it per component, and do not defeat it with inline styles.
 
-- Logo left, nav center, profile right.
-- Active link: `color: #F2E600`, no underline, no pill.
-- Inactive link: `color: #A3A3A3` → hover `#F5F5F5`.
+## 6. Layout
 
-### Inputs
+`max-w-content` is 1200px, `max-w-prose` is 760px. Page gutters are
+`px-6 md:px-8`. The public header is `h-14`, `sticky top-0 z-50`, solid
+`bg-canvas` with a bottom border — **no backdrop blur**.
 
-```css
-background: #0A0A0A;
-border: 1px solid rgba(255,255,255,0.08);
-border-radius: 8px;
-padding: 10px 12px;
-color: #F5F5F5;
-font-size: 14px;
-transition: border-color 150ms ease-out;
+Spacing uses Tailwind's default 4px scale. There are no `--space-*` custom
+properties in this repo; a reference to one is a bug.
 
-/* focus */
-border-color: #F2E600;
-outline: none;
-box-shadow: 0 0 0 3px rgba(242,230,0,0.15);  /* only colored shadow allowed */
+## 7. Platforms
 
-/* placeholder */
-color: #525252;
-```
+Five, defined in `apps/frontend/src/components/ui/platform-icons.tsx`:
 
-### Badges
+`instagram` · `tiktok` · `facebook` · `douyin` · `xiaohongshu`
 
-```css
-display: inline-flex;
-align-items: center;
-padding: 2px 8px;
-border-radius: 6px;
-font-size: 12px;
-font-weight: 500;
-height: 22px;
-```
+Icons come from that file. Never inline an SVG or pull a brand mark from a CDN,
+and never colour a platform icon with its brand colour — they render in
+`fg-muted` so no platform outranks another in a list.
 
-Variants: `default` (`#161616` bg, `#A3A3A3` text), `brand` (`rgba(242,230,0,0.12)` bg, `#F2E600` text), `success` / `warning` / `danger` / `info` (use semantic tokens).
+## 8. Known inconsistencies
 
-### Tables
+Recorded so the next reader does not mistake them for intent:
 
-- Row height `48px`, cell padding `12px 16px`.
-- Header row: `#A3A3A3` text, `12px` uppercase tracking `0.04em` (only place caps are allowed).
-- Row border-bottom: `1px solid rgba(255,255,255,0.06)`.
-- Hover row: `background: rgba(255,255,255,0.02)`.
+1. `aurora.cyan/violet/pink` are white (§2).
+2. `brand-600`–`brand-800` are amber-brown, not brand-hue shades (§2).
+3. `--glass-modal` and `--glass-elevated` are both `#1A1A1F` — a duplicate.
+4. `.light` is defined in `colors.scss` but no theme toggle ships; the product
+   is dark-only today.
+5. `4xl` radius (24px) is defined and unused.
 
----
+None are urgent. Fix them in a change that already touches the area, not as a
+sweep.
 
-## 5. Layout Principles
+## 9. The one check
 
-### Spacing Grid
-
-**4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 / 96 / 128px** — every value used must come from this scale.
-
-```css
---space-1: 4px;
---space-2: 8px;
---space-3: 12px;
---space-4: 16px;
---space-6: 24px;
---space-8: 32px;
---space-12: 48px;
---space-16: 64px;
---space-24: 96px;
---space-32: 128px;
-```
-
-### Containers
-
-- **Marketing pages:** `max-width: 1100px`, centered, `padding: 0 24px`.
-- **App pages:** `max-width: 1280px`, centered, `padding: 0 32px`.
-- **Reading content:** `max-width: 720px`, centered.
-
-### Page Rhythm
-
-1. **Hero** — `padding: 96px 0` top/bottom, single column, max-width `720px` for headline.
-2. **Features** — `padding: 64px 0`, grid of 2-4 cards.
-3. **CTA** — `padding: 96px 0`, centered headline + single primary button.
-4. **Footer** — `padding: 48px 0`, hairline top border.
-
-### Grid
-
-- 12-column grid, `gap: 24px`.
-- Mobile: single column, `gap: 16px`.
-
----
-
-## 6. Depth & Elevation
-
-Depth is **structural, not visual**. No glow. No colored shadows. No outer-glow halos.
-
-### Elevation Tiers
-
-| Tier | Treatment |
-|------|-----------|
-| **0** (canvas) | `#0A0A0A`, no border |
-| **1** (card) | `#111111`, `1px solid rgba(255,255,255,0.08)` |
-| **2** (raised card) | `#161616`, `1px solid rgba(255,255,255,0.08)` |
-| **3** (popover) | `#1C1C1C`, `1px solid rgba(255,255,255,0.10)`, `box-shadow: 0 4px 16px rgba(0,0,0,0.4)` |
-| **4** (modal) | `#1C1C1C`, `1px solid rgba(255,255,255,0.12)`, `box-shadow: 0 16px 48px rgba(0,0,0,0.6)` |
-
-Only colored shadow permitted: focus ring `box-shadow: 0 0 0 3px rgba(242,230,0,0.15)` on inputs.
-
----
-
-## 7. Motion Rules
-
-### Durations
-
-| Token | Value | Use |
-|-------|-------|-----|
-| `--duration-fast` | `100ms` | Color, opacity micro-states |
-| `--duration-base` | `150ms` | **Default — buttons, links, cards** |
-| `--duration-slow` | `200ms` | Modals, drawers, page transitions |
-
-### Easings
-
-```css
---ease-out: cubic-bezier(0.16, 1, 0.3, 1);  /* standard */
---ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);  /* symmetric only */
-```
-
-### Allowed Properties
-
-- `opacity`
-- `transform` (translate, scale)
-- `color`, `background-color`, `border-color`
-
-### Forbidden
-
-- `width`, `height`, `padding`, `margin`, `top`, `left`, `font-size`
-- Infinite animations on decorative elements
-- Spring physics (use ease-out curves only)
-- Parallax, scroll-jacking, fireworks, confetti
-
-### Reduced Motion
-
-```css
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-```
-
----
-
-## 8. Anti-Slop Rules
-
-**Forbidden — zero tolerance:**
-
-- ❌ Purple / cyan / pink / red / green colors outside the semantic table
-- ❌ Gradient text (`background-clip: text`)
-- ❌ Glow / colored box-shadows (except `#F2E600` focus ring at 15% alpha)
-- ❌ Aurora / radial / mesh gradients
-- ❌ Rainbow / multi-color borders
-- ❌ Scroll-triggered fireworks, confetti, particle systems
-- ❌ Backdrop-filter blur (except navbar)
-- ❌ Infinite decorative animations (pulse, bounce, shimmer)
-- ❌ Text-shadow on any element
-- ❌ Drop-shadow on icons
-- ❌ Hardcoded hex values outside the token tables in this file
-- ❌ Border-radius above `16px`
-- ❌ Heavy font weights (`800` / `900`) outside special display cases
-
-**Permitted single-axis gradients only:**
-
-- Background fade `#0A0A0A` → `#111111` for sectioning (vertical only)
-- Yellow-to-yellow tonal gradient `#F2E600` → `#D4C900` on hero CTA (vertical, subtle)
-
----
-
-## 9. Social Platform Icons
-
-### Source
-
-- Real platform SVGs only — sourced from [simpleicons.org](https://simpleicons.org).
-- **No emoji.** No Lucide / Feather generic substitutes for branded platforms.
-- **No colored dots / circles** as placeholders.
-
-### Style
-
-- Fill: `#FFFFFF` on dark surfaces, `#0A0A0A` on light surfaces.
-- Size: `16px` (badges), `20px` (nav), `24px` (cards), `32px` (heroes).
-- Always within a flat circular or square container — never raw on canvas.
-- Container background: `#161616` with `1px solid rgba(255,255,255,0.08)`.
-
-### Supported Platforms (5)
-
-| Platform | Source | Container |
-|----------|--------|-----------|
-| YouTube | simpleicons.org/youtube | flat circle |
-| Instagram | simpleicons.org/instagram | flat circle |
-| TikTok | simpleicons.org/tiktok | flat circle |
-| Twitter / X | simpleicons.org/x | flat circle |
-| LinkedIn | simpleicons.org/linkedin | flat circle |
-
-Containers stay neutral — **never** tint container with platform brand color.
-
----
-
-## Anti-Slop Checklist (QA reference)
-
-- [ ] Zero hardcoded hex values outside token tables
-- [ ] Zero colored box-shadows (focus ring at 15% alpha is the only exception)
-- [ ] Zero gradient text (no `background-clip: text`)
-- [ ] Zero aurora / mesh / radial gradients
-- [ ] Zero infinite decorative animations
-- [ ] Single-axis linear gradients only (vertical fade for sectioning)
-- [ ] All transitions `150-200ms ease-out` on opacity/transform/color only
-- [ ] Social icons real SVG from simpleicons.org, white `#FFFFFF`, no colored dots
-- [ ] Brand color sourced from logo (`#F2E600`)
-- [ ] Inter font, body `15-16px / 1.6`, headings tight-tracked
-- [ ] All spacing values from 4/8px scale
-- [ ] Max content widths respected (`1100px` marketing, `1280px` app)
-- [ ] Hairline 1px borders for elevation (no glow)
-- [ ] Yellow used scarcely — CTA, focus, logo, active state only
-- [ ] `prefers-reduced-motion` honored everywhere
-- [ ] No backdrop-filter outside navbar
-- [ ] No purple / cyan / pink outside semantic status
-
----
-
-**Owner:** Brand Agent · **Source of truth:** this file · **Conflicts:** this file wins.
-
----
-
-## 10. Two Vocabularies (2026-09 rebuild)
-
-The signed-in surfaces were rebuilt in September 2026; the public showcase was
-deliberately left alone. That leaves two naming schemes in the codebase, and the
-split is intentional rather than drift.
-
-**Frozen — must keep rendering byte-identically.** `/`, `/about`, `/dashboard`,
-`/leaderboard`, `/privacy`, `/terms`, the shared header and footer in
-`app/(public)/layout.tsx`, `app/fonts.ts` (Geist), `colors.scss`, and everything
-those pages import: `ui/glass-card`, `ui/aurora-button`, `ui/shiny-text`,
-`ui/reveal`, `components/about/*`, `components/dashboard-showcase/*`,
-`components/leaderboard-showcase/*`, `components/reactbits/*` (the dotted
-surface and the logo particle field). Do not restyle these without the owner
-asking. Anything you change in `tailwind.config.cjs`, `global.scss` or
-`ui/button.tsx` must be **additive**, because those three are shared.
-
-**Rebuilt.** The auth flow (`app/(auth)/*`, `components/auth/*`), `/me/*`,
-`/admin/*`, `/studio/*`, `/classes/*`, `/creators/*`, and the segment
-`error`/`not-found` pages. These use the primitives in `components/ui/`:
-
-| Primitive | Exports |
-|-----------|---------|
-| `ui/button` | `Button`, `ButtonLink`, `Spinner` — `ButtonLink` because an `<a>` inside a `<button>` is invalid markup |
-| `ui/card` | `Card`, `CardHeader`, `CardTitle`, `CardDescription` |
-| `ui/section` | `Container`, `Section`, `SectionHeader` |
-| `ui/input` | `Input`, `Textarea`, `Select`, `Field` |
-| `ui/alert` | `Alert` — icon + word, never colour alone |
-| `ui/stat` | `Stat`, `StatRow` |
-| `ui/table` | `TableWrap`, `Table`, `Th`, `Td`, `Tr`, `Rank` |
-| `ui/badge`, `ui/skeleton` | `Badge`, `LiveBadge`, `Skeleton` |
-
-### Token aliases
-
-The rebuild's token names are **aliases onto the same CSS variables** the public
-pages use — they resolve to identical values, so the two vocabularies cannot
-drift apart:
-
-| Rebuild name | Older name | Resolves to |
-|--------------|-----------|-------------|
-| `bg-surface` / `-subtle` / `-elevated` | `bg-glass-base` / `-subtle` / `-elevated` | `--glass-*` |
-| `border-line` / `-strong` | `border-borderGlass` / `-borderGlassStrong` | `--border-glass*` |
-| `text-fg-muted` / `-subtle` | `text-fgMuted` / `text-fgSubtle` | `--fg-muted` / `--fg-subtle` |
-| `text-fg-on-brand` | `text-brand-darker` | `#0E0D00` |
-| `shadow-focus` | `shadow-focusRing` | brand-yellow ring |
-
-Rebuild-only additions: `text-metric`, `text-metric-lg`, `max-w-content`,
-`max-w-prose`, `animate-pulseDot`, and the `.tnum` utility (tabular lining
-figures) in `global.scss`. `.tnum` is opt-in by class, so it changes nothing
-that does not ask for it — put it on any element that renders a count.
-
-### Checking a change
+Before opening a PR that touches UI:
 
 ```bash
-cd apps/frontend && npx tsc --noEmit   # pnpm lint and pnpm test do NOT type-check
+cd apps/frontend && npx tsc --noEmit
 ```
 
-Then confirm the frozen surface is untouched:
-
-```bash
-git diff --stat main -- "apps/frontend/src/app/(public)/page.tsx" "apps/frontend/src/app/(public)/about" "apps/frontend/src/app/(public)/dashboard" "apps/frontend/src/app/(public)/leaderboard" "apps/frontend/src/app/(public)/privacy" "apps/frontend/src/app/(public)/terms" "apps/frontend/src/app/(public)/layout.tsx" "apps/frontend/src/components/about" "apps/frontend/src/components/dashboard-showcase" "apps/frontend/src/components/leaderboard-showcase" "apps/frontend/src/app/colors.scss" "apps/frontend/src/app/fonts.ts"
-```
-
-Empty output is the pass condition.
+`pnpm lint` and `pnpm test` do **not** type-check. `strictNullChecks` is on, so
+CI can fail red while both of those are green.
