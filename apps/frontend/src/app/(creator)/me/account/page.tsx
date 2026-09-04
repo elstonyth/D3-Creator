@@ -1,10 +1,13 @@
 import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { getSupabaseRoute } from '@gitroom/frontend/lib/supabase-route';
 import { resolveCreatorProfiles } from '@gitroom/frontend/lib/creator-metrics';
 import { SignOutButton } from '@gitroom/frontend/components/auth/signout-button';
+import { Container, Section } from '@gitroom/frontend/components/ui/section';
+import { ButtonLink } from '@gitroom/frontend/components/ui/button';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -40,57 +43,78 @@ export default async function AccountPage() {
   const tracked = profiles.length;
 
   return (
-    <div className="flex flex-col gap-10 pt-12 pb-24 max-w-[640px]">
-      <header>
-        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-subtle border border-borderGlass text-caption text-fgMuted mb-6">
-          <span className="inline-block size-1.5 rounded-full bg-aurora-cta" />
-          Account
-        </span>
-        <h1 className="text-display-2 text-fg mb-4">Your account.</h1>
-        <p className="text-body-lg text-fgMuted">
-          Manage how your creator appears and your sign-in.
-        </p>
-      </header>
-
-      {/* Profile */}
-      <section className="glass-subtle border border-borderGlass rounded-2xl p-6 flex flex-col gap-4">
-        <div>
-          <h2 className="text-heading text-fg">Profile</h2>
-          <p className="text-body text-fgMuted mt-1">
-            The name shown for your creator across D3.
+    <Container className="pb-16">
+      {/* One Section for the whole page so the rhythm matches /me: a bare div
+          between two Sections contributes no spacing of its own. */}
+      <Section space="sm" className="flex flex-col gap-10 sm:gap-12">
+        <header className="max-w-prose">
+          <h1 className="text-display-2 text-fg">Your account.</h1>
+          <p className="mt-4 text-body-lg text-fg-muted">
+            Your agency owns the creator record and the accounts attached to it.
+            This page shows what we hold, and lets you sign out.
           </p>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <div className="text-body text-fg">
-            {displayName || 'Not set yet'}
-          </div>
-          <span className="text-caption text-fgSubtle">
-            Managed by your agency — contact them to change it.
-          </span>
-        </div>
-      </section>
+        </header>
 
-      {/* Identity */}
-      <section className="glass-subtle border border-borderGlass rounded-2xl p-6 flex flex-col gap-3">
-        <h2 className="text-heading text-fg">Identity</h2>
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <div className="text-caption text-fgSubtle">Signed in as</div>
-            <div className="text-body text-fg truncate">{auth.email}</div>
-          </div>
-          <SignOutButton />
-        </div>
-      </section>
+        <div>
+          {/* One panel of hairline-separated rows, not three floating cards —
+            these are three facts about one account, not three features. */}
+          <dl className="max-w-prose divide-y divide-line-subtle overflow-hidden rounded-2xl border border-line bg-surface">
+            <Row
+              term="Creator name"
+              note="Shown wherever your work appears on D3. Your agency can change it."
+            >
+              <span className={displayName ? 'text-fg' : 'text-fg-subtle'}>
+                {displayName || 'Not set yet'}
+              </span>
+            </Row>
 
-      {/* Tracked profiles summary — read-only, agency-managed */}
-      <section className="glass-subtle border border-borderGlass rounded-2xl p-6 flex flex-col gap-1">
-        <h2 className="text-heading text-fg">Tracked profiles</h2>
-        <p className="text-body text-fgMuted">
-          {tracked === 0
-            ? 'No accounts yet — your agency adds them for you.'
-            : `${tracked} account${tracked === 1 ? '' : 's'} managed by your agency.`}
-        </p>
-      </section>
+            <Row
+              term="Signed in as"
+              note="Used for sign-in and account recovery."
+            >
+              <span className="block truncate text-fg">{auth.email}</span>
+            </Row>
+
+            <Row
+              term="Tracked accounts"
+              note="Every profile feeding the numbers on your dashboard."
+            >
+              <span className="tnum text-fg">
+                {tracked === 0
+                  ? 'None yet'
+                  : `${tracked} account${tracked === 1 ? '' : 's'}`}
+              </span>
+            </Row>
+          </dl>
+
+          <div className="mt-6 flex max-w-prose flex-wrap items-center gap-3">
+            <ButtonLink href="/me" variant="secondary">
+              Back to your numbers
+            </ButtonLink>
+            <SignOutButton />
+          </div>
+        </div>
+      </Section>
+    </Container>
+  );
+}
+
+function Row({
+  term,
+  note,
+  children,
+}: {
+  term: string;
+  note: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1 px-5 py-4 sm:flex-row sm:items-baseline sm:gap-6 sm:py-5">
+      <dt className="text-label text-fg-muted sm:w-44 sm:shrink-0">{term}</dt>
+      <dd className="min-w-0 flex-1 text-body">
+        {children}
+        <span className="mt-1 block text-caption text-fg-subtle">{note}</span>
+      </dd>
     </div>
   );
 }

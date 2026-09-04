@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { AtSignIcon } from 'lucide-react';
 import { PasswordField } from '@gitroom/frontend/components/auth/password-field';
+import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { Button } from '@gitroom/frontend/components/ui/button';
-import { Input } from '@gitroom/frontend/components/ui/input';
+import { Field, Input } from '@gitroom/frontend/components/ui/input';
 import { signInErrorMessage } from '@gitroom/frontend/lib/auth-errors';
 import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
 import { safeRedirect } from '@gitroom/frontend/lib/redirects';
@@ -17,6 +17,7 @@ interface SignInFormProps {
 
 export function SignInForm({ redirectTo }: SignInFormProps) {
   const router = useRouter();
+  const emailId = useId();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -48,56 +49,50 @@ export function SignInForm({ redirectTo }: SignInFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <label className="block space-y-1.5">
-        <span className="text-label text-fgMuted">Email</span>
-        <div className="relative">
-          <AtSignIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-fgSubtle pointer-events-none" />
-          <Input
-            type="email"
-            required
-            maxLength={254}
-            autoComplete="email"
-            placeholder="you@agency.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-      </label>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <Field label="Email" htmlFor={emailId}>
+        <Input
+          id={emailId}
+          type="email"
+          required
+          maxLength={254}
+          autoComplete="email"
+          autoFocus
+          placeholder="you@agency.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={pending}
+        />
+      </Field>
 
       <PasswordField
         label="Password"
         value={password}
         onChange={setPassword}
         autoComplete="current-password"
-        placeholder="••••••••"
+        placeholder="Your password"
         disabled={pending}
+        aside={
+          <Link
+            href="/forgot-password"
+            className="rounded text-caption text-fg-muted transition-colors duration-150 ease-out hover:text-fg focus-visible:outline-none focus-visible:shadow-focus"
+          >
+            Forgot password?
+          </Link>
+        }
       />
 
-      <p className="text-caption text-right">
-        <Link
-          href="/forgot-password"
-          className="text-fgMuted hover:text-fg transition-colors duration-150 ease-out"
-        >
-          Forgot your password?
-        </Link>
-      </p>
+      {error ? <Alert tone="danger">{error}</Alert> : null}
 
-      {error && (
-        <p className="text-caption text-danger-fg" role="alert">
-          {error}
-        </p>
-      )}
-
-      <Button type="submit" size="lg" className="w-full" disabled={pending}>
-        {pending ? 'Signing in…' : 'Sign in'}
+      <Button type="submit" size="lg" className="w-full" loading={pending}>
+        Sign in
       </Button>
-      <p className="text-caption text-fgMuted text-center">
+
+      <p className="text-center text-caption text-fg-muted">
         New here?{' '}
         <Link
           href="/signup"
-          className="text-aurora-cta underline underline-offset-4"
+          className="rounded text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
         >
           Create an account
         </Link>

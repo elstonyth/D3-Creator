@@ -9,16 +9,17 @@
  * without credentials.
  */
 
-import { AtSignIcon, MailCheckIcon } from 'lucide-react';
 import Link from 'next/link';
-import { useState, type FormEvent, type ReactElement } from 'react';
+import { useId, useState, type FormEvent, type ReactElement } from 'react';
 
+import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { Button } from '@gitroom/frontend/components/ui/button';
-import { Input } from '@gitroom/frontend/components/ui/input';
+import { Field, Input } from '@gitroom/frontend/components/ui/input';
 import { resetErrorMessage } from '@gitroom/frontend/lib/auth-errors';
 import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
 
 export function ForgotPasswordForm(): ReactElement {
+  const emailId = useId();
   const [email, setEmail] = useState('');
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -56,27 +57,17 @@ export function ForgotPasswordForm(): ReactElement {
 
   if (sentTo !== null) {
     return (
-      <div className="space-y-5" role="status">
-        <div className="flex items-start gap-3 rounded-lg border border-borderGlass bg-glass-subtle p-4">
-          <MailCheckIcon
-            className="size-5 shrink-0 text-aurora-cta mt-0.5"
-            aria-hidden
-          />
-          <div className="space-y-1">
-            <p className="text-body text-fg">Check your email.</p>
-            <p className="text-body-sm text-fgMuted">
-              If <span className="text-fg">{sentTo}</span> has an account, a
-              reset link is on its way. The link works once and expires within
-              the hour.
-            </p>
-          </div>
-        </div>
-        {/* A text link, not a <Link> inside a <Button> — this Button renders a
-            real <button>, and nesting an anchor in it is invalid markup. */}
-        <p className="text-caption text-fgMuted text-center">
+      <div className="space-y-5">
+        <Alert tone="success" title="Check your email.">
+          If <span className="break-words text-fg">{sentTo}</span> has an account, a reset
+          link is on its way. The link works once and expires within the hour.
+        </Alert>
+        {/* A text link, not a <Link> inside a <Button> — nesting an anchor in a
+            real <button> is invalid markup. */}
+        <p className="text-center text-caption text-fg-muted">
           <Link
             href="/login"
-            className="text-aurora-cta underline underline-offset-4"
+            className="rounded text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
           >
             Back to sign in
           </Link>
@@ -86,39 +77,38 @@ export function ForgotPasswordForm(): ReactElement {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
-      <label className="block space-y-1.5">
-        <span className="text-label text-fgMuted">Email</span>
-        <div className="relative">
-          <AtSignIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-fgSubtle pointer-events-none" />
-          <Input
-            type="email"
-            required
-            maxLength={254}
-            autoComplete="email"
-            placeholder="you@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={pending}
-            className="pl-9"
-          />
-        </div>
-      </label>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <Field
+        label="Email"
+        htmlFor={emailId}
+        hint="The address you signed up with."
+      >
+        <Input
+          id={emailId}
+          type="email"
+          required
+          maxLength={254}
+          autoComplete="email"
+          autoFocus
+          placeholder="you@email.com"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={pending}
+          aria-describedby={`${emailId}-hint`}
+        />
+      </Field>
 
-      {error && (
-        <p className="text-caption text-danger-fg" role="alert">
-          {error}
-        </p>
-      )}
+      {error ? <Alert tone="danger">{error}</Alert> : null}
 
-      <Button type="submit" size="lg" className="w-full" disabled={pending}>
-        {pending ? 'Sending…' : 'Send reset link'}
+      <Button type="submit" size="lg" className="w-full" loading={pending}>
+        Send reset link
       </Button>
-      <p className="text-caption text-fgMuted text-center">
+
+      <p className="text-center text-caption text-fg-muted">
         Remembered it?{' '}
         <Link
           href="/login"
-          className="text-aurora-cta underline underline-offset-4"
+          className="rounded text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
         >
           Sign in
         </Link>

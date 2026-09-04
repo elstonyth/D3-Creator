@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getSupabaseAdmin } from '@d3/database';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
+import { Container, Section } from '@gitroom/frontend/components/ui/section';
 import { ClassManager } from './class-manager';
 
 export const dynamic = 'force-dynamic';
@@ -26,15 +27,20 @@ export default async function AdminClassesPage() {
   if (error) throw error;
 
   return (
-    <div className="flex flex-col gap-8 pt-12 pb-24">
-      <header className="max-w-[680px]">
-        <h1 className="text-display-2 text-fg mb-3">Online classes.</h1>
-        <p className="text-body-lg text-fgMuted">
-          Add classes by pasting a Google Drive link. Drive files must be shared
-          "anyone with the link can view" to play.
-        </p>
-      </header>
-      <ClassManager videos={videos ?? []} />
-    </div>
+    <Container>
+      <Section space="sm" className="space-y-8">
+        <header className="max-w-prose">
+          <p className="text-micro uppercase text-fg-subtle">Classes</p>
+          <h1 className="mt-3 text-display-2 text-fg">Video library</h1>
+          <p className="mt-3 text-body-lg text-fg-muted">
+            Each class is a Google Drive file embedded in the members area.
+            Drive sharing must be set to{' '}
+            <span className="text-fg">anyone with the link can view</span> — a
+            private file renders as a black player, not an error.
+          </p>
+        </header>
+        <ClassManager videos={videos ?? []} />
+      </Section>
+    </Container>
   );
 }

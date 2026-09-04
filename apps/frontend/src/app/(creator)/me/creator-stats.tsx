@@ -1,70 +1,78 @@
 /**
  * CreatorStats — the 3-KPI body of /me for the selected time window.
- * Followers (absolute + window delta), Views gained in window, Engagement for
- * the window. Engagement is private to /me. Yellow-mono delta; insufficient
- * history → "Building history…".
+ *
+ * Followers (absolute + window delta), views gained in the window, engagement
+ * for the window. Engagement is private to /me. Every cell states the window it
+ * covers, because "which window is this number?" is the single biggest source
+ * of confusion on this product. Insufficient history → "Building history…".
  */
-import type { CreatorMetricWindowRow } from '@gitroom/frontend/lib/metrics-windowed';
+import type {
+  CreatorMetricWindowRow,
+  MetricWindow,
+} from '@gitroom/frontend/lib/metrics-windowed';
 import {
   formatCompact,
   formatDelta,
   formatPercent,
 } from '@gitroom/frontend/lib/creator-metrics';
-import { BUILDING_HISTORY, formatWindowedValue } from '@gitroom/frontend/lib/format-metric';
+import {
+  BUILDING_HISTORY,
+  formatWindowedValue,
+} from '@gitroom/frontend/lib/format-metric';
+import { Stat, StatRow } from '@gitroom/frontend/components/ui/stat';
 
-function deltaClass(n: number): string {
-  if (n === 0) return 'text-fgSubtle';
-  return n > 0 ? 'text-fg' : 'text-fgMuted';
-}
-function deltaCaret(n: number): string {
-  if (n === 0) return '— ';
-  return n > 0 ? '▲ ' : '▼ ';
+/** Spelled-out window, for captions. WINDOW_LABEL's "30D" is for the tabs. */
+export const WINDOW_SCOPE: Record<MetricWindow, string> = {
+  '7d': 'last 7 days',
+  '30d': 'last 30 days',
+  '90d': 'last 90 days',
+  lifetime: 'all time',
+};
+
+function deltaLine(delta: number, scope: string): string {
+  if (delta === 0) return `No change · ${scope}`;
+  const caret = delta > 0 ? '▲' : '▼';
+  return `${caret} ${formatDelta(delta)} · ${scope}`;
 }
 
-export function CreatorStats({ row }: { row: CreatorMetricWindowRow }) {
+export function CreatorStats({
+  row,
+  metricWindow,
+}: {
+  row: CreatorMetricWindowRow;
+  /** Named `metricWindow`, never `window` — a prop called `window` shadows
+      globalThis.window for this whole scope. */
+  metricWindow: MetricWindow;
+}) {
+  const scope = WINDOW_SCOPE[metricWindow];
+
   return (
-    <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      {/* Followers — absolute count + window delta */}
-      <div className="glass-elevated rounded-2xl p-6 flex flex-col justify-between min-h-[140px]">
-        <div className="text-label text-fgMuted">Followers</div>
-        <div>
-          <div className="text-display-2 text-fg tabular-nums leading-none">
-            {formatCompact(row.followers)}
-          </div>
-          <div
-            className={`text-caption mt-1 tabular-nums ${
-              row.insufficient ? 'text-fgSubtle' : deltaClass(row.followersDelta)
-            }`}
-          >
-            {row.insufficient
-              ? BUILDING_HISTORY
-              : `${deltaCaret(row.followersDelta)}${formatDelta(row.followersDelta)} this window`}
-          </div>
-        </div>
-      </div>
-
-      <Kpi
-        label="Views"
+    // Three stats into a 2-up grid leaves an empty fourth cell, and StatRow's
+    // hairline `gap-px` backdrop shows through it as a lighter quarter-panel.
+    // Go straight from one column to three.
+    <StatRow className="sm:grid-cols-3">
+      <Stat
+        label="Followers"
+        size="lg"
+        value={formatCompact(row.followers)}
+        meta={
+          row.insufficient
+            ? BUILDING_HISTORY
+            : deltaLine(row.followersDelta, scope)
+        }
+      />
+      <Stat
+        label="Views gained"
+        size="lg"
         value={formatWindowedValue(false, row.viewsGained, formatCompact)}
-        hint="gained this window"
+        meta={`Across every tracked account · ${scope}`}
       />
-      <Kpi
+      <Stat
         label="Engagement"
+        size="lg"
         value={formatWindowedValue(false, row.engagement, formatPercent)}
-        hint="likes ÷ views"
+        meta={`Likes ÷ views · ${scope}`}
       />
-    </section>
-  );
-}
-
-function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <div className="glass-subtle border border-borderGlass rounded-2xl p-5 flex flex-col justify-between min-h-[140px]">
-      <div className="text-label text-fgMuted">{label}</div>
-      <div>
-        <div className="text-section text-fg tabular-nums">{value}</div>
-        {hint && <div className="text-caption text-fgSubtle mt-0.5">{hint}</div>}
-      </div>
-    </div>
+    </StatRow>
   );
 }

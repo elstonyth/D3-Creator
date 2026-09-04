@@ -7,7 +7,7 @@
  * Edits the caller's ACTIVE `user_profile` row through `PATCH
  * /api/studio/profile`. It builds no request handler.
  *
- * TWO THINGS HERE ARE LOAD-BEARING:
+ * FOUR THINGS HERE ARE LOAD-BEARING:
  *
  * 1. Every field is initialised from the stored row, and re-synced when the
  *    server sends a different one. `parseProfileUpdate` is a full replace, so a
@@ -16,17 +16,29 @@
  * 2. `is_active` is never in the body. The parser rejects it as an unknown key,
  *    and the route selects its target row by `is_active` rather than by an id —
  *    editing a business must not switch to it.
+ * 3. There is EXACTLY ONE `role="status"` on this form — the save state in the
+ *    action bar. `components/ui/alert.tsx` also renders `role="status"` on its
+ *    non-danger tones, which is why no `Alert` appears anywhere in this file:
+ *    a second one would make the save state ambiguous to a screen reader and
+ *    to `profile-settings-form.test.tsx`, which reads it by role.
+ * 4. There is EXACTLY ONE control per editable column, which the same test
+ *    counts off the column list. Do not add a stray input.
  *
  * DESIGN.md governs the surface: near-black, hairline borders, Inter, and ONE
- * yellow per screen. That yellow is Save — this page's primary action — so
- * nothing else here may use it.
+ * yellow per screen. That yellow is Save changes — this page's primary action —
+ * so nothing else here may use it.
  */
 
-import { ChevronDownIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, type FormEvent, type ReactElement } from 'react';
 
 import { Button } from '@gitroom/frontend/components/ui/button';
+import {
+  Field,
+  Input,
+  Select as SelectControl,
+  Textarea,
+} from '@gitroom/frontend/components/ui/input';
 import {
   BUSINESS_TYPES,
   CONTENT_LANGUAGES,
@@ -42,23 +54,6 @@ import {
   type BusinessProfile,
 } from '@gitroom/frontend/lib/business-profile';
 import { renderProfileBlock } from '@gitroom/frontend/lib/chat-prompt';
-
-/* §7.4's two strings, copied verbatim, with NO focus classes —
-   `global.scss:174` supplies the ring. They live in two components now; that is
-   the accepted ceiling until a third form needs them. */
-const fieldBox =
-  'h-10 w-full rounded-md bg-glass-subtle border border-borderGlass px-3 ' +
-  'text-body text-fg placeholder:text-fgSubtle ' +
-  'transition-colors duration-150 ease-out ' +
-  'hover:border-borderGlassStrong ' +
-  'disabled:opacity-50 disabled:pointer-events-none';
-const selectBox = `${fieldBox} appearance-none pr-9`;
-const areaBox =
-  'min-h-[88px] w-full rounded-md bg-glass-subtle border border-borderGlass px-3 py-2 ' +
-  'text-body text-fg placeholder:text-fgSubtle resize-y ' +
-  'transition-colors duration-150 ease-out ' +
-  'hover:border-borderGlassStrong ' +
-  'disabled:opacity-50 disabled:pointer-events-none';
 
 /** §6's display labels, plus the six Amendment 1 exceptions. Kept against §6 by
  *  hand — the drift test covers stored VALUES only. */
@@ -188,9 +183,10 @@ function toPreviewProfile(
 
 /**
  * Section headings are sentence-case and tight-tracked — DESIGN.md §3 forbids
- * uppercase tracking-wide titles in this system.
+ * uppercase tracking-wide titles in this system. The hairline is the divider;
+ * three bordered panels would read as three unrelated forms.
  */
-function Section({
+function Group({
   title,
   blurb,
   children,
@@ -200,10 +196,10 @@ function Section({
   children: ReactElement;
 }): ReactElement {
   return (
-    <section className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1">
-        <h2 className="text-heading text-fg">{title}</h2>
-        <p className="text-body-sm text-fgMuted max-w-[62ch]">{blurb}</p>
+    <section className="flex flex-col gap-5 border-t border-line-subtle pt-8 first:border-t-0 first:pt-0">
+      <div className="flex flex-col gap-1.5">
+        <h2 className="text-subsection text-fg">{title}</h2>
+        <p className="max-w-prose text-body-sm text-fg-muted">{blurb}</p>
       </div>
       {children}
     </section>
@@ -211,47 +207,32 @@ function Section({
 }
 
 /**
- * One labelled control. The counter appears only in the last 20% of the cap:
- * a number that sits there permanently is noise, and the reason a counter
- * exists at all is that `maxLength` otherwise stops the keystroke in silence.
+ * The character counter, rendered into `Field`'s `aside` slot. It appears only
+ * in the last 20% of the cap: a number that sits there permanently is noise,
+ * and the reason a counter exists at all is that `maxLength` otherwise stops
+ * the keystroke in silence.
  */
-function Field({
-  label,
-  required = false,
+function Counter({
   value,
   max,
-  children,
 }: {
-  label: string;
-  required?: boolean;
-  value?: string;
-  max?: number;
-  children: ReactElement;
-}): ReactElement {
-  const near =
-    max !== undefined && value !== undefined && value.length > max * 0.8;
-  const full = max !== undefined && value !== undefined && value.length >= max;
+  value: string;
+  max: number;
+}): ReactElement | null {
+  if (value.length <= max * 0.8) return null;
   return (
-    <label className="block space-y-1.5">
-      <span className="flex items-baseline justify-between gap-3">
-        <span className="text-label text-fgMuted">
-          {label}
-          {required ? <span className="text-fgSubtle"> · required</span> : null}
-        </span>
-        {near ? (
-          <span
-            className={`text-caption tabular-nums ${full ? 'text-fg' : 'text-fgSubtle'}`}
-          >
-            {value?.length}/{max}
-          </span>
-        ) : null}
-      </span>
-      {children}
-    </label>
+    <span
+      className={`tnum text-caption ${
+        value.length >= max ? 'text-fg' : 'text-fg-subtle'
+      }`}
+    >
+      {value.length}/{max}
+    </span>
   );
 }
 
-function Select({
+function Choice({
+  id,
   value,
   onChange,
   disabled,
@@ -260,6 +241,7 @@ function Select({
   labels,
   placeholder = 'Choose one',
 }: {
+  id: string;
   value: string;
   onChange: (next: string) => void;
   disabled: boolean;
@@ -272,31 +254,24 @@ function Select({
   placeholder?: string;
 }): ReactElement {
   return (
-    <div className="relative">
-      <select
-        required={required}
-        disabled={disabled}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={selectBox}
-      >
-        {/* On an optional field `''` is a legal submission meaning "not set",
-            unlike §7.4's two required selects where it blocks the submit. */}
-        <option value="" disabled={required}>
-          {placeholder}
+    <SelectControl
+      id={id}
+      required={required}
+      disabled={disabled}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    >
+      {/* On an optional field `''` is a legal submission meaning "not set",
+          unlike §7.4's two required selects where it blocks the submit. */}
+      <option value="" disabled={required}>
+        {placeholder}
+      </option>
+      {options.map((slug) => (
+        <option key={slug} value={slug}>
+          {labels[slug] ?? slug}
         </option>
-        {options.map((slug) => (
-          <option key={slug} value={slug}>
-            {labels[slug] ?? slug}
-          </option>
-        ))}
-      </select>
-      {/* pointer-events-none or the glyph swallows the click. */}
-      <ChevronDownIcon
-        aria-hidden
-        className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-fgMuted pointer-events-none"
-      />
-    </div>
+      ))}
+    </SelectControl>
   );
 }
 
@@ -394,53 +369,64 @@ export function ProfileSettingsForm({
 
   const isOther = form.business_type === 'other';
   const preview = renderProfileBlock(toPreviewProfile(profile, form));
-  const grid = 'grid grid-cols-1 md:grid-cols-2 gap-4';
+  const grid = 'grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5';
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-10">
-      <Section
+    <form onSubmit={handleSubmit} className="flex flex-col gap-8">
+      <Group
         title="The business"
         blurb="Who you are and what you sell. The coach writes every script against this, so vague answers get vague scripts."
       >
         <div className={grid}>
           <Field
             label="What you sell"
-            required
-            value={form.what_you_sell}
-            max={PROFILE_LIMITS.what_you_sell}
+            htmlFor="settings-what-you-sell"
+            aside={
+              <Counter
+                value={form.what_you_sell}
+                max={PROFILE_LIMITS.what_you_sell}
+              />
+            }
           >
-            <input
-              type="text"
+            <Input
+              id="settings-what-you-sell"
               required
               maxLength={PROFILE_LIMITS.what_you_sell}
               disabled={pending}
               placeholder="e.g. second-hand phones"
               value={form.what_you_sell}
               onChange={(e) => set('what_you_sell', e.target.value)}
-              className={fieldBox}
             />
           </Field>
 
           <Field
             label="Who buys it"
-            required
-            value={form.who_buys_it}
-            max={PROFILE_LIMITS.who_buys_it}
+            htmlFor="settings-who-buys-it"
+            aside={
+              <Counter
+                value={form.who_buys_it}
+                max={PROFILE_LIMITS.who_buys_it}
+              />
+            }
           >
-            <input
-              type="text"
+            <Input
+              id="settings-who-buys-it"
               required
               maxLength={PROFILE_LIMITS.who_buys_it}
               disabled={pending}
               placeholder="e.g. students and young workers"
               value={form.who_buys_it}
               onChange={(e) => set('who_buys_it', e.target.value)}
-              className={fieldBox}
             />
           </Field>
 
-          <Field label="Business type">
-            <Select
+          <Field
+            label="Business type"
+            htmlFor="settings-business-type"
+            optional
+          >
+            <Choice
+              id="settings-business-type"
               required={false}
               disabled={pending}
               value={form.business_type}
@@ -463,25 +449,29 @@ export function ProfileSettingsForm({
           {isOther ? (
             <Field
               label="Which trade, exactly?"
-              required
-              value={form.business_type_other}
-              max={PROFILE_LIMITS.business_type_other}
+              htmlFor="settings-business-type-other"
+              aside={
+                <Counter
+                  value={form.business_type_other}
+                  max={PROFILE_LIMITS.business_type_other}
+                />
+              }
             >
-              <input
-                type="text"
+              <Input
+                id="settings-business-type-other"
                 required
                 maxLength={PROFILE_LIMITS.business_type_other}
                 disabled={pending}
                 placeholder="e.g. phone repair and trade-in"
                 value={form.business_type_other}
                 onChange={(e) => set('business_type_other', e.target.value)}
-                className={fieldBox}
               />
             </Field>
           ) : null}
 
-          <Field label="Your role">
-            <Select
+          <Field label="Your role" htmlFor="settings-creator-role" optional>
+            <Choice
+              id="settings-creator-role"
               required={false}
               disabled={pending}
               value={form.creator_role}
@@ -491,8 +481,9 @@ export function ProfileSettingsForm({
             />
           </Field>
 
-          <Field label="Audience size">
-            <Select
+          <Field label="Audience size" htmlFor="settings-reach" optional>
+            <Choice
+              id="settings-reach"
               required={false}
               disabled={pending}
               value={form.reach}
@@ -504,45 +495,53 @@ export function ProfileSettingsForm({
 
           <Field
             label="Business name"
-            value={form.business_name}
-            max={PROFILE_LIMITS.business_name}
+            htmlFor="settings-business-name"
+            optional
+            aside={
+              <Counter
+                value={form.business_name}
+                max={PROFILE_LIMITS.business_name}
+              />
+            }
           >
-            <input
-              type="text"
+            <Input
+              id="settings-business-name"
               maxLength={PROFILE_LIMITS.business_name}
               disabled={pending}
               placeholder="e.g. Ah Meng Mobile"
               value={form.business_name}
               onChange={(e) => set('business_name', e.target.value)}
-              className={fieldBox}
             />
           </Field>
 
           <Field
             label="Where you are"
-            value={form.location}
-            max={PROFILE_LIMITS.location}
+            htmlFor="settings-location"
+            optional
+            aside={
+              <Counter value={form.location} max={PROFILE_LIMITS.location} />
+            }
           >
-            <input
-              type="text"
+            <Input
+              id="settings-location"
               maxLength={PROFILE_LIMITS.location}
               disabled={pending}
               placeholder="e.g. Kuala Lumpur"
               value={form.location}
               onChange={(e) => set('location', e.target.value)}
-              className={fieldBox}
             />
           </Field>
         </div>
-      </Section>
+      </Group>
 
-      <Section
+      <Group
         title="How you make videos"
         blurb="Length, language, and whether a script can put you on camera at all. Reply language is the odd one out — it changes how the coach talks to you, not what the script says."
       >
         <div className={grid}>
-          <Field label="Main platform" required>
-            <Select
+          <Field label="Main platform" htmlFor="settings-main-platform">
+            <Choice
+              id="settings-main-platform"
               required
               disabled={pending}
               value={form.main_platform}
@@ -552,8 +551,13 @@ export function ProfileSettingsForm({
             />
           </Field>
 
-          <Field label="Do you appear on camera?" required>
-            <Select
+          <Field
+            label="Do you appear on camera?"
+            htmlFor="settings-on-camera"
+            hint="No means no script will ever put you in frame."
+          >
+            <Choice
+              id="settings-on-camera"
               required
               disabled={pending}
               value={form.on_camera}
@@ -563,8 +567,9 @@ export function ProfileSettingsForm({
             />
           </Field>
 
-          <Field label="Content language" required>
-            <Select
+          <Field label="Content language" htmlFor="settings-content-language">
+            <Choice
+              id="settings-content-language"
               required
               disabled={pending}
               value={form.content_language}
@@ -578,8 +583,14 @@ export function ProfileSettingsForm({
               Content language", which is what every profile did before this
               control existed. The blank option has to SAY that — "Choose one"
               would read as an unfinished field. */}
-          <Field label="Reply language">
-            <Select
+          <Field
+            label="Reply language"
+            htmlFor="settings-reply-language"
+            optional
+            hint="How the coach talks to you, and the language your reports come back in."
+          >
+            <Choice
+              id="settings-reply-language"
               required={false}
               disabled={pending}
               value={form.reply_language}
@@ -590,8 +601,13 @@ export function ProfileSettingsForm({
             />
           </Field>
 
-          <Field label="Typical video length">
-            <Select
+          <Field
+            label="Typical video length"
+            htmlFor="settings-typical-video-seconds"
+            optional
+          >
+            <Choice
+              id="settings-typical-video-seconds"
               required={false}
               disabled={pending}
               value={form.typical_video_seconds}
@@ -601,94 +617,123 @@ export function ProfileSettingsForm({
             />
           </Field>
         </div>
-      </Section>
+      </Group>
 
-      <Section
+      <Group
         title="Voice and limits"
         blurb="What the coach remembers about how you sound. It is read, never guessed at — anything you leave blank is simply not sent."
       >
-        <div className="flex flex-col gap-4">
-          <div className={grid}>
-            <Field label="Tone">
-              <Select
-                required={false}
-                disabled={pending}
-                value={form.tone}
-                onChange={(next) => set('tone', next)}
-                options={TONES}
-                labels={LABELS.tone}
-              />
-            </Field>
-          </div>
+        <div className={grid}>
+          <Field label="Tone" htmlFor="settings-tone" optional>
+            <Choice
+              id="settings-tone"
+              required={false}
+              disabled={pending}
+              value={form.tone}
+              onChange={(next) => set('tone', next)}
+              options={TONES}
+              labels={LABELS.tone}
+            />
+          </Field>
 
-          <div className={grid}>
-            <Field
-              label="Content pillars"
-              value={form.content_pillars}
-              max={PROFILE_LIMITS.content_pillars}
-            >
-              <textarea
-                maxLength={PROFILE_LIMITS.content_pillars}
-                disabled={pending}
-                placeholder="The ideas you keep coming back to"
+          {/* The grid is two columns; this keeps Tone alone on its own row so
+              the four textareas below start level. */}
+          <div className="hidden md:block" />
+
+          <Field
+            label="Content pillars"
+            htmlFor="settings-content-pillars"
+            optional
+            aside={
+              <Counter
                 value={form.content_pillars}
-                onChange={(e) => set('content_pillars', e.target.value)}
-                className={areaBox}
+                max={PROFILE_LIMITS.content_pillars}
               />
-            </Field>
+            }
+          >
+            <Textarea
+              id="settings-content-pillars"
+              rows={3}
+              maxLength={PROFILE_LIMITS.content_pillars}
+              disabled={pending}
+              placeholder="The ideas you keep coming back to"
+              value={form.content_pillars}
+              onChange={(e) => set('content_pillars', e.target.value)}
+            />
+          </Field>
 
-            <Field
-              label="Voice notes"
-              value={form.voice_notes}
-              max={PROFILE_LIMITS.voice_notes}
-            >
-              <textarea
-                maxLength={PROFILE_LIMITS.voice_notes}
-                disabled={pending}
-                placeholder="Vocabulary, pacing, humour, phrases worth keeping"
+          <Field
+            label="Voice notes"
+            htmlFor="settings-voice-notes"
+            optional
+            aside={
+              <Counter
                 value={form.voice_notes}
-                onChange={(e) => set('voice_notes', e.target.value)}
-                className={areaBox}
+                max={PROFILE_LIMITS.voice_notes}
               />
-            </Field>
+            }
+          >
+            <Textarea
+              id="settings-voice-notes"
+              rows={3}
+              maxLength={PROFILE_LIMITS.voice_notes}
+              disabled={pending}
+              placeholder="Vocabulary, pacing, humour, phrases worth keeping"
+              value={form.voice_notes}
+              onChange={(e) => set('voice_notes', e.target.value)}
+            />
+          </Field>
 
-            <Field
-              label="What you have already tried"
-              value={form.already_tried}
-              max={PROFILE_LIMITS.already_tried}
-            >
-              <textarea
-                maxLength={PROFILE_LIMITS.already_tried}
-                disabled={pending}
-                placeholder="e.g. posted 10 videos, no views"
+          <Field
+            label="What you have already tried"
+            htmlFor="settings-already-tried"
+            optional
+            aside={
+              <Counter
                 value={form.already_tried}
-                onChange={(e) => set('already_tried', e.target.value)}
-                className={areaBox}
+                max={PROFILE_LIMITS.already_tried}
               />
-            </Field>
+            }
+          >
+            <Textarea
+              id="settings-already-tried"
+              rows={3}
+              maxLength={PROFILE_LIMITS.already_tried}
+              disabled={pending}
+              placeholder="e.g. posted 10 videos, no views"
+              value={form.already_tried}
+              onChange={(e) => set('already_tried', e.target.value)}
+            />
+          </Field>
 
-            <Field
-              label="Things to avoid"
-              value={form.things_to_avoid}
-              max={PROFILE_LIMITS.things_to_avoid}
-            >
-              <textarea
-                maxLength={PROFILE_LIMITS.things_to_avoid}
-                disabled={pending}
-                placeholder="e.g. no price talk, no discount claims"
+          <Field
+            label="Things to avoid"
+            htmlFor="settings-things-to-avoid"
+            optional
+            aside={
+              <Counter
                 value={form.things_to_avoid}
-                onChange={(e) => set('things_to_avoid', e.target.value)}
-                className={areaBox}
+                max={PROFILE_LIMITS.things_to_avoid}
               />
-            </Field>
-          </div>
+            }
+          >
+            <Textarea
+              id="settings-things-to-avoid"
+              rows={3}
+              maxLength={PROFILE_LIMITS.things_to_avoid}
+              disabled={pending}
+              placeholder="e.g. no price talk, no discount claims"
+              value={form.things_to_avoid}
+              onChange={(e) => set('things_to_avoid', e.target.value)}
+            />
+          </Field>
         </div>
-      </Section>
+      </Group>
 
       {/* The whole point of the panel: brand-voice memory is otherwise
           invisible. This runs the SAME renderProfileBlock the model receives,
           so a line vanishing here is a line the coach really stops seeing. */}
-      <section className="rounded-2xl border border-borderGlass bg-glass-base overflow-hidden">
+      <section className="rounded-2xl border border-line bg-surface overflow-hidden">
         <button
           type="button"
           onClick={() => setShowPreview((v) => !v)}
@@ -697,42 +742,71 @@ export function ProfileSettingsForm({
         >
           <span className="flex flex-col gap-0.5">
             <span className="text-label text-fg">What the coach reads</span>
-            <span className="text-body-sm text-fgMuted">
+            <span className="text-body-sm text-fg-muted">
               The exact text sent with every script and every video analysis.
             </span>
           </span>
           <span className="flex items-center gap-3 shrink-0">
-            <span className="text-caption text-fgSubtle tabular-nums">
+            <span className="tnum text-caption text-fg-subtle">
               {preview.length}/{BLOCK_CEILING}
             </span>
-            <ChevronDownIcon
+            <svg
               aria-hidden
-              className={`h-4 w-4 text-fgMuted transition-transform duration-150 ease-out ${
+              viewBox="0 0 12 12"
+              className={`h-3 w-3 text-fg-muted transition-transform duration-150 ease-out ${
                 showPreview ? 'rotate-180' : ''
               }`}
-            />
+            >
+              <path
+                d="M2.5 4.5 6 8l3.5-3.5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
           </span>
         </button>
         {showPreview ? (
-          <pre className="border-t border-borderGlass bg-glass-subtle px-5 py-4 overflow-x-auto text-caption leading-[1.7] text-fgMuted whitespace-pre">
+          <pre className="border-t border-line bg-surface-subtle px-5 py-4 overflow-x-auto text-caption leading-[1.7] text-fg-muted whitespace-pre">
             {preview}
           </pre>
         ) : null}
       </section>
 
       {/* Sticky so the primary action is reachable from anywhere in a form this
-          long, and so unsaved state is never scrolled out of sight. */}
-      <div className="sticky bottom-0 -mx-1 px-1 pb-1 pt-3 bg-canvas/95 backdrop-blur-sm border-t border-borderGlass flex items-center justify-between gap-4">
+          long, and so unsaved state is never scrolled out of sight. A solid
+          fill, not a blur: DESIGN.md §8 allows backdrop-filter on the navbar
+          and nowhere else. */}
+      <div className="sticky bottom-0 -mx-1 flex items-center justify-between gap-4 border-t border-line bg-canvas px-1 pb-2 pt-3">
+        {/* THE form's only role="status". See the header comment. */}
         <p
           role="status"
           className={`text-body-sm ${
-            message === FAILURE ? 'text-fg' : 'text-fgMuted'
+            message === FAILURE ? 'text-fg' : 'text-fg-muted'
           }`}
         >
-          {message !== '' ? message : dirty ? LEAVING : ''}
+          {/* `pending` wins: `handleSubmit` clears `message` before the fetch
+              and `dirty` is still true until the refreshed row lands, so
+              without this the line reads "You have unsaved changes." for the
+              whole of a save — and the button's label is behind a spinner. */}
+          {pending
+            ? 'Saving…'
+            : message !== ''
+              ? message
+              : dirty
+                ? LEAVING
+                : ''}
         </p>
-        <Button type="submit" variant="primary" size="md" disabled={pending}>
-          {pending ? 'Saving…' : 'Save changes'}
+        <Button
+          type="submit"
+          variant="primary"
+          size="md"
+          loading={pending}
+          disabled={pending}
+        >
+          Save changes
         </Button>
       </div>
     </form>

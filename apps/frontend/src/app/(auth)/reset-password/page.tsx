@@ -16,9 +16,8 @@ export const metadata: Metadata = {
 export default function ResetPasswordPage() {
   return (
     <AuthShell
-      eyebrow="Password reset"
-      heading="Set a new password."
-      subheading="Pick something you can remember. You'll go straight to the Studio afterwards."
+      heading="Set a new password"
+      subheading="The last step of the reset you started by email."
     >
       <ResetPasswordForm />
     </AuthShell>

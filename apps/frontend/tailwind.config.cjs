@@ -41,6 +41,28 @@ module.exports = {
         // and aurora.cyan carries the right value under a meaningless name.
         chartLine: 'rgba(255, 255, 255, 0.78)',
         chartGrid: 'rgba(255, 255, 255, 0.08)',
+        // ---- Rebuild-era aliases (2026-09) -----------------------------
+        // The signed-in surfaces (auth, /me, /admin, /studio, /classes,
+        // /creators) were rebuilt against a token vocabulary that names what a
+        // thing IS. They are ALIASES onto the same CSS variables the older
+        // public pages use, deliberately: /, /about, /dashboard, /leaderboard,
+        // /privacy and /terms must keep rendering byte-identically, so nothing
+        // above this block may change.
+        surface: {
+          DEFAULT: 'var(--glass-base)',
+          subtle: 'var(--glass-subtle)',
+          elevated: 'var(--glass-elevated)',
+        },
+        line: {
+          DEFAULT: 'var(--border-glass)',
+          subtle: 'rgba(255, 255, 255, 0.06)',
+          strong: 'var(--border-glass-strong)',
+        },
+        'canvas-deep': 'var(--canvas-deep)',
+        'danger-fg': '#FEF08A',
+        'fg-muted': 'var(--fg-muted)',
+        'fg-subtle': 'var(--fg-subtle)',
+        'fg-on-brand': '#0E0D00',
         canvas: 'var(--canvas)',
         canvasDeep: 'var(--canvas-deep)',
         glass: {
@@ -52,7 +74,12 @@ module.exports = {
         borderGlass: 'var(--border-glass)',
         borderGlassStrong: 'var(--border-glass-strong)',
         scrim: 'var(--scrim)',
-        fg: 'var(--fg)',
+        fg: {
+          DEFAULT: 'var(--fg)',
+          muted: 'var(--fg-muted)',
+          subtle: 'var(--fg-subtle)',
+          'on-brand': '#0E0D00',
+        },
         fgMuted: 'var(--fg-muted)',
         fgSubtle: 'var(--fg-subtle)',
         success: 'var(--color-success)',
@@ -186,6 +213,10 @@ module.exports = {
         youtubeBgAction: 'var(--youtube-action-color)',
         youtubeSvg: 'var(--youtube-svg-border)',
       },
+      maxWidth: {
+        content: '1200px',
+        prose: '760px',
+      },
       gridTemplateColumns: {
         13: 'repeat(13, minmax(0, 1fr));',
         bento: 'repeat(12, minmax(0, 1fr))',
@@ -264,6 +295,16 @@ module.exports = {
           '18px',
           { lineHeight: '1.4', letterSpacing: '-0.01em', fontWeight: '600' },
         ],
+        // Metric readouts for the rebuilt signed-in surfaces. Paired with the
+        // `.tnum` utility so columns of counts do not reflow as digits change.
+        'metric-lg': [
+          'clamp(30px, 3.4vw, 44px)',
+          { lineHeight: '1.05', letterSpacing: '-0.03em', fontWeight: '600' },
+        ],
+        metric: [
+          '24px',
+          { lineHeight: '1.1', letterSpacing: '-0.02em', fontWeight: '600' },
+        ],
         'body-lg': ['17px', { lineHeight: '1.6' }],
         body: ['15px', { lineHeight: '1.6' }],
         'body-sm': ['14px', { lineHeight: '1.55' }],
@@ -323,6 +364,7 @@ module.exports = {
         brandGlow:
           '0 1px 2px rgba(0, 0, 0, 0.40), 0 4px 12px rgba(0, 0, 0, 0.30)',
         focusRing: '0 0 0 2px rgba(242, 230, 0, 0.40)',
+        focus: '0 0 0 2px rgba(242, 230, 0, 0.45)',
         focusRingCyan: '0 0 0 2px rgba(242, 230, 0, 0.40)',
         // Legacy
         yellow: '0 1px 2px rgba(0, 0, 0, 0.40), 0 4px 12px rgba(0, 0, 0, 0.30)',
@@ -344,6 +386,8 @@ module.exports = {
         // indicator), not decoration — §8's ban targets decorative loops. The
         // global prefers-reduced-motion rule caps it to one iteration.
         thinkingDot: 'thinkingDot 1.2s ease-in-out infinite',
+        // Same loading-state loop under the rebuild's name.
+        pulseDot: 'thinkingDot 1.2s ease-in-out infinite',
         // Legacy preserved — capped to ≤200ms ease-out single-fire
         fade: 'fadeOut 0.18s ease-out',
         normalFadeIn: 'normalFadeIn 0.18s ease-out',

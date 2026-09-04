@@ -14,7 +14,9 @@ import Link from 'next/link';
 import { useEffect, useState, type FormEvent, type ReactElement } from 'react';
 
 import { PasswordField } from '@gitroom/frontend/components/auth/password-field';
-import { Button } from '@gitroom/frontend/components/ui/button';
+import { Alert } from '@gitroom/frontend/components/ui/alert';
+import { Button, ButtonLink } from '@gitroom/frontend/components/ui/button';
+import { Skeleton } from '@gitroom/frontend/components/ui/skeleton';
 import { resetErrorMessage } from '@gitroom/frontend/lib/auth-errors';
 import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
 
@@ -76,23 +78,38 @@ export function ResetPasswordForm(): ReactElement {
   }
 
   if (session === 'checking') {
-    return <p className="text-body-sm text-fgMuted">Checking your link…</p>;
+    // Shaped like the form it is about to become, so nothing jumps when the
+    // session check lands.
+    return (
+      <div className="space-y-4" aria-busy="true">
+        <p className="sr-only" role="status">
+          Checking your link.
+        </p>
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-11 w-full" />
+      </div>
+    );
   }
 
   if (session === 'missing') {
     return (
-      <div className="space-y-4">
-        <p className="text-body text-fg">That link has expired.</p>
-        <p className="text-body-sm text-fgMuted">
+      <div className="space-y-5">
+        <Alert tone="warning" title="That link has expired.">
           Reset links work once and time out within the hour. Ask for a new one
           and it will land in your inbox straight away.
-        </p>
-        <p className="text-caption text-fgMuted">
+        </Alert>
+        <ButtonLink href="/forgot-password" size="lg" className="w-full">
+          Send a new link
+        </ButtonLink>
+        <p className="text-center text-caption text-fg-muted">
           <Link
-            href="/forgot-password"
-            className="text-aurora-cta underline underline-offset-4"
+            href="/login"
+            className="rounded text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
           >
-            Send a new link
+            Back to sign in
           </Link>
         </p>
       </div>
@@ -100,7 +117,7 @@ export function ResetPasswordForm(): ReactElement {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <PasswordField
         label="New password"
         value={password}
@@ -119,16 +136,13 @@ export function ResetPasswordForm(): ReactElement {
         placeholder="Type it again"
         minLength={8}
         disabled={pending}
+        hint="Both fields have to match."
       />
 
-      {error && (
-        <p className="text-caption text-danger-fg" role="alert">
-          {error}
-        </p>
-      )}
+      {error ? <Alert tone="danger">{error}</Alert> : null}
 
-      <Button type="submit" size="lg" className="w-full" disabled={pending}>
-        {pending ? 'Saving…' : 'Set new password'}
+      <Button type="submit" size="lg" className="w-full" loading={pending}>
+        Set new password
       </Button>
     </form>
   );

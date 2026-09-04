@@ -1,9 +1,14 @@
 // apps/frontend/src/components/insights/platform-cards.tsx
+//
+// One row per tracked account: who it is, what it is worth, where it goes.
+// A list of hairline-separated rows rather than a grid of boxed cards — these
+// are the same kind of thing repeated, not four unrelated panels.
 import Link from 'next/link';
 import {
   PLATFORM_ICONS,
   PLATFORM_LABELS,
 } from '@gitroom/frontend/components/ui/platform-icons';
+import { Badge } from '@gitroom/frontend/components/ui/badge';
 import type { PlatformCard } from '@gitroom/frontend/lib/creator-platform-breakdown';
 
 const compact = new Intl.NumberFormat('en-US', {
@@ -14,61 +19,81 @@ function fmt(n: number | null): string {
   return n == null ? '—' : compact.format(n);
 }
 
-export function PlatformCards({ cards }: { cards: PlatformCard[] }) {
+export function PlatformCards({
+  cards,
+  scope,
+}: {
+  cards: PlatformCard[];
+  /** Window the view counts cover, e.g. "last 30 days". */
+  scope?: string;
+}) {
   if (cards.length === 0) return null;
   return (
-    <section className="flex flex-col gap-4">
-      <div>
-        <h2 className="text-heading text-fg">Your platforms</h2>
-        <p className="text-caption text-fgSubtle mt-1">
-          Tap a platform to see its posts and views.
+    <section className="flex flex-col gap-5">
+      <div className="max-w-prose">
+        <h2 className="text-subsection text-fg">Your accounts</h2>
+        <p className="mt-2 text-body text-fg-muted">
+          {cards.length === 1
+            ? 'The one account your agency tracks for you. Open it for its full post history.'
+            : `The ${cards.length} accounts your agency tracks for you. Open one for its full post history.`}
         </p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+
+      <ul className="divide-y divide-line-subtle overflow-hidden rounded-2xl border border-line bg-surface">
         {cards.map((c) => {
           const Icon = PLATFORM_ICONS[c.platform];
           return (
-            <Link
-              key={c.platform}
-              href={`/creators/${encodeURIComponent(c.handle)}/${c.platform}`}
-              className="group flex items-center justify-between gap-4 p-4 rounded-xl glass-subtle border border-borderGlass hover:border-borderGlassStrong hover:bg-white/[0.04] transition-colors"
-            >
-              <span className="flex items-center gap-3 min-w-0">
-                <span className="shrink-0 size-9 rounded-full glass-base border border-borderGlass flex items-center justify-center text-fg">
+            <li key={c.platform}>
+              <Link
+                href={`/creators/${encodeURIComponent(c.handle)}/${c.platform}`}
+                className="group flex min-h-[64px] items-center gap-4 px-4 py-3.5 transition-colors duration-150 ease-out hover:bg-white/[0.025] sm:px-5"
+              >
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-line bg-surface-subtle text-fg">
                   <Icon size={16} />
                 </span>
-                <span className="min-w-0">
-                  <span className="block text-label text-fg truncate">
+
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-label text-fg">
                     @{c.handle}
                   </span>
-                  <span className="block text-caption text-fgSubtle">
+                  <span className="block text-caption text-fg-subtle">
                     {PLATFORM_LABELS[c.platform]}
                   </span>
                 </span>
-              </span>
-              <span className="flex items-center gap-3 shrink-0">
-                <span className="text-right">
-                  <span className="block text-label text-fg tabular-nums">
+
+                <span className="hidden shrink-0 sm:block">
+                  <Badge tone="muted">Tracked</Badge>
+                </span>
+
+                <span className="shrink-0 text-right">
+                  <span className="tnum block text-label text-fg">
                     {fmt(c.followers)}
                   </span>
-                  <span className="block text-caption text-fgSubtle tabular-nums">
-                    {fmt(c.views)} views
+                  <span className="block text-caption text-fg-subtle">
+                    followers
                   </span>
                 </span>
-                <span className="text-micro px-2 py-0.5 rounded-full border glass-base text-fgMuted border-borderGlass">
-                  Tracked
+
+                <span className="hidden shrink-0 text-right sm:block">
+                  <span className="tnum block text-label text-fg">
+                    {fmt(c.views)}
+                  </span>
+                  <span className="block text-caption text-fg-subtle">
+                    {scope ? `views · ${scope}` : 'views'}
+                  </span>
                 </span>
+
                 <span
-                  className="text-fgSubtle group-hover:text-fg transition-colors"
                   aria-hidden
+                  className="shrink-0 text-fg-subtle transition-colors duration-150 ease-out group-hover:text-fg"
                 >
                   →
                 </span>
-              </span>
-            </Link>
+              </Link>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </section>
   );
 }

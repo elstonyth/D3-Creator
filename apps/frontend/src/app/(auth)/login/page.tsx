@@ -3,6 +3,7 @@ import Link from 'next/link';
 
 import { AuthShell } from '@gitroom/frontend/components/auth/auth-shell';
 import { SignInForm } from '@gitroom/frontend/components/auth/sign-in-form';
+import { Alert } from '@gitroom/frontend/components/ui/alert';
 
 export const metadata: Metadata = {
   title: 'Sign in — D3 Creator',
@@ -36,28 +37,24 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
 
   return (
     <AuthShell
-      eyebrow="Sign in"
-      heading="Welcome back."
-      subheading="Use your D3 account — admins and creators sign in here."
+      heading="Sign in to D3 Creator"
+      subheading="One account for the Studio, the class library and your own numbers."
     >
-      <div className="space-y-4">
+      <div className="space-y-5">
         {message ? (
-          <div
-            role="status"
-            className="rounded-lg border border-borderGlass bg-glass-subtle p-4 space-y-2"
-          >
-            <p className="text-body-sm text-fgMuted">{message}</p>
+          <Alert tone="info">
+            <p>{message}</p>
             {notice === 'reset_expired' ? (
-              <p className="text-caption">
+              <p>
                 <Link
                   href="/forgot-password"
-                  className="text-aurora-cta underline underline-offset-4"
+                  className="rounded text-fg underline underline-offset-4 focus-visible:outline-none focus-visible:shadow-focus"
                 >
                   Send a new reset link
                 </Link>
               </p>
             ) : null}
-          </div>
+          </Alert>
         ) : null}
 
         <SignInForm redirectTo={redirectTo} />

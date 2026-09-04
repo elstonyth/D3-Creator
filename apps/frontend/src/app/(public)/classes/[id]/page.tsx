@@ -11,7 +11,9 @@ import {
 import { ClassPlayer } from '@gitroom/frontend/components/classes/class-player';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: 'Class — D3 Creator' };
+// The public layout appends " — D3 Creator" via metadata.title.template; the
+// class title itself would need a second fetch, so the static label stays.
+export const metadata: Metadata = { title: 'Class' };
 
 interface Props {
   params: Promise<{ id: string }>;
