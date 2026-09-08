@@ -30,6 +30,7 @@ const config: Config = {
     // `paths`) but not for jest, and it is not linked into this app's
     // node_modules. Tests that `jest.mock()` it still need the specifier to
     // RESOLVE before the factory can replace it.
+    '^@d3/analyzer$': '<rootDir>/../analyzer/src/contract.ts',
     '^@d3/database$': '<rootDir>/../../libraries/database/src/index.ts',
   },
 };

@@ -59,12 +59,12 @@ export default async function AdminUsersPage() {
           <div className="flex gap-3">
             <dt className="w-16 shrink-0 text-fg">Creator</dt>
             <dd className="text-fg-muted">
-              The /me dashboard for their own profiles.
+              Member access, plus the /me dashboard for their own profiles.
             </dd>
           </div>
           <div className="flex gap-3">
             <dt className="w-16 shrink-0 text-fg">Member</dt>
-            <dd className="text-fg-muted">Online classes only.</dd>
+            <dd className="text-fg-muted">Online classes and Studio tools.</dd>
           </div>
           <div className="flex gap-3">
             <dt className="w-16 shrink-0 text-fg">None</dt>

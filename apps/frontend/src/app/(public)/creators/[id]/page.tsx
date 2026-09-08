@@ -106,7 +106,7 @@ export default async function CreatorPage({
     <Container>
       <Section space="md">
         <Link
-          href="/creators"
+          href="/leaderboard"
           className="-ml-2 mb-6 inline-flex h-10 items-center gap-1.5 rounded-lg px-2 text-caption text-fg-muted transition-colors duration-150 ease-out hover:text-fg focus-visible:outline-none focus-visible:shadow-focus"
         >
           <span aria-hidden="true">&larr;</span> All creators
@@ -211,7 +211,7 @@ export default async function CreatorPage({
           <EmptyState
             title="No platforms tracked yet"
             description="This creator is on the roster but has no profile connected, so there is nothing to scrape yet."
-            action={{ href: '/creators', label: 'Browse other creators' }}
+            action={{ href: '/leaderboard', label: 'Browse other creators' }}
           />
         ) : (
           <ul className="divide-y divide-line-subtle overflow-hidden rounded-2xl border border-line bg-surface">

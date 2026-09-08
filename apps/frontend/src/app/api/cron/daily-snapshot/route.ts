@@ -4,7 +4,7 @@
  *
  * Schedule lives in vercel.json ("0 * * * *"). Each tick processes the
  * PROFILES_PER_RUN least-recently-scraped profiles; setProfileStatus stamps
- * last_scraped_at on every attempt, so a scraped profile sorts to the back
+ * last_scraped_at after ordinary attempts, so a scraped profile sorts to the back
  * and the next tick advances to the next batch. Profiles already attempted
  * today (UTC) are skipped, so hourly ticks drain the roster (~81 profiles)
  * within a day and then no-op for the rest of the day — one scrape per profile
@@ -174,18 +174,19 @@ export async function GET(request: Request): Promise<Response> {
   // 250s cap, so it must start while the full wall-clock window remains — an
   // FB profile reached mid-batch would only ever see a partial window and be
   // deferred every tick.
-  const profiles = orderFacebookFirst(due.slice(0, PROFILES_PER_RUN));
-  const skipped = Math.max(0, totalEligible - profiles.length);
-
-  if (totalEligible > PROFILES_PER_RUN) {
-    console.warn('[daily-snapshot] capacity reached', {
-      total: totalEligible,
-      processed: PROFILES_PER_RUN,
-      skipped,
-    });
-  }
+  // Keep the rest of the roster available to replace outage/floor skips.
+  // An outage leaves timestamps unchanged, so slicing away the tail would
+  // let the same five affected profiles starve every healthy platform forever.
+  // Only reorder the original oldest-five window: moving ALL Facebook rows
+  // first would steal priority from older profiles on the other platforms.
+  const profiles = [
+    ...orderFacebookFirst(due.slice(0, PROFILES_PER_RUN)),
+    ...due.slice(PROFILES_PER_RUN),
+  ];
 
   const results: ProfileResult[] = [];
+  let attempted = 0;
+  let deferred = 0;
 
   /**
    * Platforms whose CREDENTIAL is dead for this run, not whose profiles are.
@@ -197,7 +198,18 @@ export async function GET(request: Request): Promise<Response> {
    */
   const platformOutages = new Map<string, string>();
 
-  for (const profile of profiles) {
+  for (let index = 0; index < profiles.length; index++) {
+    // Only an actual scraper call consumes capacity. Skips still appear in
+    // results for observability, but must not crowd out healthy replacements.
+    if (attempted >= PROFILES_PER_RUN) {
+      console.warn('[daily-snapshot] capacity reached', {
+        total: totalEligible,
+        processed: attempted,
+        skipped: profiles.length - index,
+      });
+      break;
+    }
+    const profile = profiles[index];
     // Upstream credential already refused us this run: skip WITHOUT stamping,
     // exactly like the budget-floor case above. The profile is not broken, so
     // its scrape_status must not say it is — and leaving the status alone keeps
@@ -226,8 +238,9 @@ export async function GET(request: Request): Promise<Response> {
       (Date.now() - startedAt.getTime()) -
       WRAPUP_RESERVE_MS;
     if (scrapeBudgetMs < MIN_SCRAPE_BUDGET_MS) {
+      deferred += profiles.length - index;
       console.warn('[daily-snapshot] budget low, deferring remainder', {
-        deferred: profiles.length - results.length,
+        deferred,
         budget_ms: Math.max(0, scrapeBudgetMs),
       });
       break;
@@ -238,6 +251,7 @@ export async function GET(request: Request): Promise<Response> {
     // let cheaper platforms later in the batch use the remaining budget.
     const platformFloorMs = minScrapeBudgetMsFor(profile.platform);
     if (scrapeBudgetMs < platformFloorMs) {
+      deferred++;
       console.warn('[daily-snapshot] budget below platform floor, deferring', {
         profile_id: profile.id,
         platform: profile.platform,
@@ -251,6 +265,7 @@ export async function GET(request: Request): Promise<Response> {
       scrapeBudgetMs,
     );
 
+    attempted++;
     try {
       const { profile: snap, posts } = await withTimeout(
         runScraper(profile.platform, profile.profile_url),
@@ -386,9 +401,11 @@ export async function GET(request: Request): Promise<Response> {
     finished_at: finishedAt.toISOString(),
     elapsed_ms: finishedAt.getTime() - startedAt.getTime(),
     total_eligible: totalEligible,
-    processed: results.length,
-    deferred: profiles.length - results.length,
-    skipped,
+    // Processed counts real attempts; skipped includes known outages and
+    // candidates beyond the call cap. Deferred means insufficient time.
+    processed: attempted,
+    deferred,
+    skipped: totalEligible - attempted - deferred,
     capacity_per_run: PROFILES_PER_RUN,
     // Present and non-empty means an upstream credential is rejecting us and
     // that platform collected nothing this tick. Surfaced at the top level so
