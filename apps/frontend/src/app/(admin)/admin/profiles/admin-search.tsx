@@ -9,9 +9,10 @@
  * matching the platform chips. The active platform filter is carried through.
  */
 
-import { useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@gitroom/frontend/components/ui/input';
+import { Button } from '@gitroom/frontend/components/ui/button';
 
 export function AdminSearchForm({
   defaultQuery,
@@ -21,34 +22,59 @@ export function AdminSearchForm({
   platform: string;
 }) {
   const router = useRouter();
+  const id = useId();
   const [q, setQ] = useState(defaultQuery);
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  function push(next: string) {
     const params = new URLSearchParams();
-    const trimmed = q.trim().slice(0, 80);
+    const trimmed = next.trim().slice(0, 80);
     if (trimmed) params.set('q', trimmed);
     if (platform) params.set('platform', platform);
     const qs = params.toString();
-    router.push(qs ? `/admin/profiles?${qs}` : '/admin/profiles', { scroll: false });
+    router.push(qs ? `/admin/profiles?${qs}` : '/admin/profiles', {
+      scroll: false,
+    });
+  }
+
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    push(q);
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2">
+    <form
+      onSubmit={handleSubmit}
+      role="search"
+      className="flex flex-wrap items-center gap-2"
+    >
+      <label htmlFor={id} className="sr-only">
+        Search accounts by creator name or handle
+      </label>
       <Input
+        id={id}
         name="q"
+        type="search"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         maxLength={80}
-        placeholder="Search by creator name or handle…"
-        className="max-w-[360px]"
+        placeholder="Creator name or handle"
+        className="w-full sm:max-w-[340px]"
       />
-      <button
-        type="submit"
-        className="px-4 rounded-md bg-aurora-cta text-brand-darker font-medium text-label hover:bg-aurora-ctaHover transition-colors"
-      >
+      <Button type="submit" variant="secondary">
         Search
-      </button>
+      </Button>
+      {defaultQuery && (
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => {
+            setQ('');
+            push('');
+          }}
+        >
+          Clear
+        </Button>
+      )}
     </form>
   );
 }

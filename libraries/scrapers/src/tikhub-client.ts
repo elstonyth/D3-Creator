@@ -160,6 +160,11 @@ async function tikhubGetOnce<T>(opts: TikhubGetOptions): Promise<T> {
   }
   clearTimeout(timer);
 
+  // Auth and billing are account-level: every profile routed through TikHub
+  // fails identically until an operator fixes the credential, so these are
+  // scoped 'platform' and the caller alerts once instead of per profile.
+  // TikHub serves Instagram, TikTok, Douyin and RedNote, so a 402 here is a
+  // four-platform outage — this is the 22-day credit exhaustion of 2026-07.
   if (res.status === 401 || res.status === 403) {
     // Don't leak token state — caller logs platform + URL only.
     throw new ScrapeError(
@@ -167,6 +172,8 @@ async function tikhubGetOnce<T>(opts: TikhubGetOptions): Promise<T> {
       `TikHub auth rejected (${res.status}) — check TIKHUB_API_KEY`,
       opts.platform,
       opts.profileUrl,
+      false,
+      'platform',
     );
   }
   if (res.status === 402) {
@@ -177,6 +184,8 @@ async function tikhubGetOnce<T>(opts: TikhubGetOptions): Promise<T> {
       `TikHub returned 402 — out of credits or endpoint not in plan tier (path=${opts.path})`,
       opts.platform,
       opts.profileUrl,
+      false,
+      'platform',
     );
   }
   if (res.status === 429) {

@@ -6,8 +6,8 @@
  *
  * The player's presence depends on the video source ALONE, never on the
  * transcript. The two conditions are independent: an empty transcript with a
- * working video shows the player and the "(no speech detected)" line; a full
- * transcript with no video shows plain rows and no player.
+ * working video shows the player and the "no speech" line; a full transcript
+ * with no video shows plain rows and no player.
  */
 
 import { useRef, useState, type ReactElement } from 'react';
@@ -18,10 +18,10 @@ import {
 } from '@gitroom/frontend/lib/analyzer-contract';
 import { cn } from '@gitroom/frontend/lib/utils';
 
-/** The full Row recipe. Plain rows keep it minus the hover and active states,
+/** The full row recipe. Plain rows keep it minus the hover and active states,
  *  so the list does not reflow when the player is absent. */
 const ROW =
-  'w-full text-left flex gap-4 rounded-md px-4 py-3 min-h-[48px] transition-colors duration-150 ease-out';
+  'w-full text-left flex gap-4 px-4 py-3 min-h-[48px] transition-colors duration-150 ease-out';
 
 export function TranscriptPlayer({
   videoSrc,
@@ -56,27 +56,39 @@ export function TranscriptPlayer({
   }
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4">
+    <div className="flex flex-col lg:flex-row gap-5">
       {videoSrc !== null && (
-        <video
-          ref={videoRef}
-          src={videoSrc}
-          controls
-          preload="metadata"
-          onTimeUpdate={onTimeUpdate}
-          className="w-full lg:w-[360px] shrink-0 aspect-video rounded-xl border border-borderGlass bg-glass-base"
-        />
+        // Sticky at lg so the player stays in view while a long transcript
+        // scrolls past it. `top-20` clears the 56px sticky header.
+        <div className="lg:w-[360px] shrink-0 lg:sticky lg:top-20 lg:self-start">
+          <video
+            ref={videoRef}
+            src={videoSrc}
+            controls
+            preload="metadata"
+            onTimeUpdate={onTimeUpdate}
+            className="w-full aspect-video rounded-xl border border-line bg-surface"
+          />
+        </div>
       )}
 
       {segments.length === 0 ? (
-        <p className="text-body text-fgMuted">(no speech detected)</p>
+        <div className="flex-1 min-w-0 rounded-2xl border border-line bg-surface-subtle px-5 py-6">
+          <p className="text-body text-fg-muted">
+            No speech was detected in this video.
+          </p>
+          <p className="mt-1 text-caption text-fg-subtle">
+            The scores above are based on what the analyst could see, not on a
+            transcript.
+          </p>
+        </div>
       ) : (
-        <ol className="flex-1 min-w-0">
+        <ol className="flex-1 min-w-0 divide-y divide-line-subtle overflow-hidden rounded-2xl border border-line bg-surface-subtle">
           {segments.map((segment, index) => {
             const active = index === activeIndex;
             const body = (
               <>
-                <span className="w-12 shrink-0 text-caption tabular-nums text-fgSubtle">
+                <span className="tnum w-12 shrink-0 text-caption text-fg-subtle leading-6">
                   {formatTimecode(segment.start)}
                 </span>
                 {/* No colour class — the colour is the row's, so the active
@@ -88,7 +100,7 @@ export function TranscriptPlayer({
               <li key={`${segment.start}-${index}`}>
                 {videoSrc === null ? (
                   // Never a button that looks clickable and does nothing.
-                  <div className={cn(ROW, 'text-fgMuted')}>{body}</div>
+                  <div className={cn(ROW, 'text-fg-muted')}>{body}</div>
                 ) : (
                   <button
                     type="button"
@@ -96,10 +108,10 @@ export function TranscriptPlayer({
                     aria-current={active ? 'true' : undefined}
                     className={cn(
                       ROW,
-                      // Not yellow — this screen's yellow is Download.
+                      // Not yellow — this screen's yellow is Download report.
                       active
-                        ? 'bg-white/[0.04] text-fg'
-                        : 'text-fgMuted hover:bg-white/[0.02]',
+                        ? 'bg-white/[0.05] text-fg'
+                        : 'text-fg-muted hover:bg-white/[0.025] hover:text-fg',
                     )}
                   >
                     {body}

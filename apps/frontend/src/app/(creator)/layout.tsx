@@ -7,12 +7,17 @@ import { Analytics } from '@vercel/analytics/next';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { SignOutButton } from '@gitroom/frontend/components/auth/signout-button';
 import NavLink from '@gitroom/frontend/components/ui/nav-link';
+import MobileNav from '@gitroom/frontend/components/ui/mobile-nav';
 
 // Cookie-bound. Never prerender — Supabase env required at construction.
 export const dynamic = 'force-dynamic';
 
 // Creator-scoped layout. There is NO middleware — THIS check enforces auth for
 // /me/* pages; child server components re-read the cached auth context.
+//
+// The chrome deliberately mirrors the public SiteHeader — same 56px bar, same
+// hairline, same grid, same NavLink active treatment — without importing it,
+// because the nav items differ (signed-in creator routes, not the public site).
 export default async function CreatorLayout({
   children,
 }: {
@@ -22,6 +27,13 @@ export default async function CreatorLayout({
   if (!auth) redirect('/login');
   if (auth.role !== 'creator' && auth.role !== 'admin') redirect('/classes');
 
+  const nav = [
+    { href: '/me', label: 'Dashboard', exact: true },
+    { href: '/me/leaderboard', label: 'Leaderboard' },
+    { href: '/me/account', label: 'Account' },
+    ...(auth.role === 'admin' ? [{ href: '/admin', label: 'Admin' }] : []),
+  ];
+
   return (
     <html
       lang="en"
@@ -30,52 +42,68 @@ export default async function CreatorLayout({
     >
       <head>
         <link rel="icon" href="/d3-logo.png?v=3" type="image/png" />
+        <link rel="apple-touch-icon" href="/d3-logo.png?v=3" />
         <meta name="darkreader-lock" />
       </head>
-      <body className="dark bg-canvas text-fg font-sans antialiased min-h-screen flex flex-col">
+      <body className="dark flex min-h-screen flex-col bg-canvas font-sans text-fg antialiased">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-black focus:shadow-lg"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-md focus:bg-brand focus:px-4 focus:py-2 focus:text-label focus:text-fg-on-brand"
         >
           Skip to content
         </a>
-        <header className="sticky top-0 z-50 border-b border-borderGlass bg-canvas">
-          <div className="max-w-[1200px] mx-auto px-6 md:px-8 h-14 flex items-center justify-between">
+
+        <header className="sticky top-0 z-50 border-b border-line-subtle bg-canvas">
+          <div className="mx-auto grid h-14 max-w-content grid-cols-[1fr_auto] items-center px-6 md:grid-cols-[1fr_auto_1fr] md:px-8">
             <Link
               href="/me"
-              className="flex items-center gap-2 select-none hover:opacity-90 transition-opacity"
+              className="flex select-none items-center gap-2 justify-self-start transition-opacity duration-150 hover:opacity-90"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/d3-logo.png" alt="D3" width={28} height={28} />
-              <span className="text-heading font-semibold tracking-[-0.02em] text-fg">
+              <img
+                src="/d3-logo.png"
+                alt=""
+                width={28}
+                height={28}
+                suppressHydrationWarning
+              />
+              <span className="text-heading tracking-[-0.02em] text-fg">
                 D3 Creator
               </span>
             </Link>
-            <nav className="flex items-center gap-1 text-label">
-              <NavLink href="/me" exact>
-                Dashboard
-              </NavLink>
-              <NavLink href="/me/leaderboard">Leaderboard</NavLink>
-              <NavLink href="/me/account">Account</NavLink>
-              {auth.role === 'admin' && (
-                <Link
-                  href="/admin"
-                  className="px-3 py-1.5 rounded-md text-aurora-cta hover:bg-white/[0.04] transition-colors"
-                >
-                  Admin
-                </Link>
-              )}
-              <span className="hidden sm:inline-block ml-3 text-caption text-fgSubtle">
+
+            <nav
+              aria-label="Creator"
+              className="hidden items-center gap-0.5 text-label md:flex"
+            >
+              {nav.map((item) => (
+                <NavLink key={item.href} href={item.href} exact={item.exact}>
+                  {item.label}
+                </NavLink>
+              ))}
+            </nav>
+
+            <div className="hidden items-center gap-2 justify-self-end text-label md:flex">
+              <span className="max-w-[20ch] truncate text-caption text-fg-subtle">
                 {auth.email}
               </span>
               <SignOutButton />
-            </nav>
+            </div>
+
+            <div className="flex items-center gap-1 justify-self-end md:hidden">
+              <SignOutButton />
+              <MobileNav links={nav} />
+            </div>
           </div>
         </header>
 
-        <main id="main" tabIndex={-1} className="relative z-10 flex-1 w-full">
-          <div className="max-w-[1200px] mx-auto px-6 md:px-8">{children}</div>
+        {/* No gutter here on purpose: each page owns its own <Container>, so a
+            band can run full-bleed instead of every page being one 1200px
+            column. Matches the public layout. */}
+        <main id="main" tabIndex={-1} className="w-full flex-1 overflow-x-clip">
+          {children}
         </main>
+
         <Analytics />
       </body>
     </html>

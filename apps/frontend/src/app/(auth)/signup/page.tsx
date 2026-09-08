@@ -7,8 +7,7 @@ export const metadata: Metadata = { title: 'Sign up — D3 Creator' };
 export default function SignUpPage() {
   return (
     <AuthShell
-      eyebrow="Sign up"
-      heading="Start writing better videos."
+      heading="Create your account"
       subheading="A free account opens the Studio — score any video, get scripts built around your business — plus every member class."
     >
       <SignUpForm />

@@ -1,7 +1,7 @@
 {
   "name": "d3-creator",
   "version": "0.1.0",
-  "description": "Login-free social analytics — D3 Creator",
+  "description": "Login-free social analytics \u00e2\u20ac\u201d D3 Creator",
   "main": "index.js",
   "license": "AGPL-3.0",
   "keywords": [],
@@ -26,28 +26,27 @@
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.2",
     "@upstash/ratelimit": "^2.0.8",
-    "@upstash/redis": "^1.38.0",
+    "@upstash/redis": "^1.38.3",
     "clsx": "^2.1.0",
     "dotenv-cli": "^8.0.0",
-    "framer-motion": "^12.40.0",
+    "framer-motion": "^13.1.1",
     "gsap": "^3.13.0",
     "lucide-react": "^1.16.0",
     "next": "16.2.11",
-    "postprocessing": "^6.36.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "react-use-cookie": "^1.6.1",
-    "sass": "^1.89.2",
+    "sass": "^1.103.1",
     "tailwind-merge": "^3.6.0",
-    "tailwindcss": "3.4.17",
+    "tailwindcss": "3.4.19",
     "three": "^0.167.1"
   },
   "devDependencies": {
     "@testing-library/react": "16.3.0",
     "@types/jest": "29.5.12",
-    "@types/node": "^22.12.0",
-    "@types/react": "19.1.8",
-    "@types/react-dom": "19.1.6",
+    "@types/node": "^22.20.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
     "autoprefixer": "^10.4.17",
     "babel-jest": "29.7.0",
     "eslint": "9.39.4",
@@ -55,7 +54,7 @@
     "jest": "29.7.0",
     "jest-environment-jsdom": "29.7.0",
     "jest-environment-node": "^29.4.1",
-    "jest-junit": "^16.0.0",
+    "jest-junit": "^17.0.0",
     "postcss": "8.5.23",
     "prettier": "^2.6.2",
     "sharp": "^0.33.4",
@@ -63,7 +62,7 @@
     "ts-jest": "^29.1.0",
     "ts-node": "10.9.2",
     "tsx": "^4.22.3",
-    "typescript": "5.5.4"
+    "typescript": "5.9.3"
   },
   "volta": {
     "node": "22.12.0"
@@ -75,10 +74,10 @@
   "pnpm": {
     "overrides": {
       "next": "16.2.11",
-      "react": "19.2.4",
-      "react-dom": "19.2.4",
-      "@types/react": "19.1.8",
-      "@types/react-dom": "19.1.6",
+      "react": "19.2.8",
+      "react-dom": "19.2.8",
+      "@types/react": "19.2.18",
+      "@types/react-dom": "19.2.7",
       "postcss": "8.5.23"
     }
   }

@@ -13,7 +13,6 @@
  */
 
 import { useRouter } from 'next/navigation';
-import { X } from 'lucide-react';
 import {
   useCallback,
   useEffect,
@@ -23,8 +22,10 @@ import {
   type ReactNode,
 } from 'react';
 
+import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { Button } from '@gitroom/frontend/components/ui/button';
 import { EmptyState } from '@gitroom/frontend/components/ui/empty-state';
+import { Input } from '@gitroom/frontend/components/ui/input';
 import {
   ALLOWED_EXTENSIONS,
   FILE_ACCEPT,
@@ -120,15 +121,6 @@ function probeDurationSeconds(file: File): Promise<number | null> {
 function extensionOf(filename: string): string {
   const dot = filename.lastIndexOf('.');
   return dot === -1 ? '' : filename.slice(dot).toLowerCase();
-}
-
-function ErrorLine({ children }: { children: ReactNode }): ReactElement {
-  return (
-    <p role="alert" className="flex items-center gap-1.5 text-caption text-fg">
-      <X aria-hidden className="h-3.5 w-3.5 shrink-0" />
-      {children}
-    </p>
-  );
 }
 
 export default function AnalyzerWorkspace({
@@ -439,83 +431,121 @@ export default function AnalyzerWorkspace({
       {showPanel ? (
         <section
           aria-label="Analysis progress"
-          className="bg-glass-subtle border border-borderGlass rounded-2xl p-6 min-h-[240px] flex flex-col items-center justify-center gap-4 text-center"
+          className="rounded-2xl border border-line bg-surface-subtle p-6 sm:p-8"
         >
-          {/* Four unlabelled dots for several minutes never say WHICH video is
-              being analysed — and a user who re-picked the wrong file has no
-              way to tell. The job's own filename wins once it exists, because
-              the link path only learns its name from the worker. */}
-          {panelName !== null && (
-            <p className="max-w-full truncate text-label text-fg">
-              {panelName}
-            </p>
-          )}
-          <ol className="flex flex-col gap-3 text-left">
-            {STEP_ORDER.map((id, index) => {
-              const lit =
-                status === 'done' || (stepIndex >= 0 && index <= stepIndex);
-              return (
-                <li
-                  key={id}
-                  aria-current={stepIndex === index ? 'step' : undefined}
-                  className="flex items-center gap-3 text-body text-fgMuted"
-                >
-                  {/* The dot is the only thing that changes colour. */}
-                  <span
+          <div className="mx-auto flex max-w-[420px] flex-col gap-6">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-heading text-fg">
+                {failed ? 'Analysis stopped' : 'Analysing your video'}
+              </h2>
+              {/* Four unlabelled dots for several minutes never say WHICH video
+                  is being analysed — and a user who re-picked the wrong file has
+                  no way to tell. The job's own filename wins once it exists,
+                  because the link path only learns its name from the worker. */}
+              {panelName !== null && (
+                <p className="truncate text-caption text-fg-subtle">
+                  {panelName}
+                </p>
+              )}
+            </div>
+
+            <ol className="flex flex-col gap-3">
+              {STEP_ORDER.map((id, index) => {
+                const done =
+                  status === 'done' || (stepIndex >= 0 && index < stepIndex);
+                const current = !failed && stepIndex === index;
+                return (
+                  <li
+                    key={id}
+                    aria-current={current ? 'step' : undefined}
                     className={cn(
-                      'h-2 w-2 rounded-full shrink-0 transition-colors duration-150 ease-out',
-                      lit ? 'bg-white/[0.78]' : 'bg-white/[0.24]',
+                      'flex items-center gap-3 text-body transition-colors duration-150 ease-out',
+                      current || done ? 'text-fg' : 'text-fg-subtle',
                     )}
-                  />
-                  {STEP_LABEL[id]}
-                </li>
-              );
-            })}
-          </ol>
-          {showCaption && (
-            <p className="text-caption text-fgMuted">
-              {job === null ? 'Uploading video…' : 'Queued'}
-            </p>
-          )}
-          {failed && <ErrorLine>{errorCopy(job?.error?.code)}</ErrorLine>}
-          {failed && (
-            <Button variant="outline" size="md" onClick={openPicker}>
-              Try again
-            </Button>
-          )}
+                  >
+                    {/* The dot is the only thing that changes. The pulse marks
+                        the ONE step in flight — a loading state, which is the
+                        single loop DESIGN.md §8 permits. */}
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'h-2 w-2 shrink-0 rounded-full transition-colors duration-150 ease-out',
+                        done
+                          ? 'bg-white/[0.78]'
+                          : current
+                            ? 'bg-white/[0.78] animate-pulseDot'
+                            : 'bg-white/[0.24]',
+                      )}
+                    />
+                    {STEP_LABEL[id]}
+                  </li>
+                );
+              })}
+            </ol>
+
+            {showCaption && (
+              <p className="text-caption text-fg-subtle">
+                {job === null
+                  ? 'Uploading video — keep this tab open.'
+                  : 'Queued. Most videos finish in two to four minutes.'}
+              </p>
+            )}
+
+            {failed && (
+              <div className="flex flex-col gap-3">
+                <Alert tone="danger" title="This analysis failed">
+                  {errorCopy(job?.error?.code)}
+                </Alert>
+                <Button
+                  variant="secondary"
+                  size="md"
+                  className="self-start"
+                  onClick={openPicker}
+                >
+                  Choose another file
+                </Button>
+              </div>
+            )}
+          </div>
         </section>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-5">
           <form
             aria-label="Analyse a video link"
-            className="flex flex-col sm:flex-row gap-2"
+            className="flex flex-col gap-2 sm:flex-row"
             onSubmit={(e) => {
               e.preventDefault();
               void startLink(link);
             }}
           >
-            <input
+            <Input
               type="url"
               inputMode="url"
               value={link}
               onChange={(e) => setLink(e.target.value)}
               placeholder={`Paste a ${LINK_HINT}`}
               aria-label={`Paste a ${LINK_HINT}`}
-              className="flex-1 min-w-0 h-10 px-3 rounded-md bg-glass-base border border-borderGlass text-fg placeholder:text-fgSubtle transition-colors duration-150 ease-out"
+              className="flex-1 min-w-0"
             />
             <Button
-              variant="outline"
+              variant="secondary"
               size="md"
               type="submit"
+              className="h-10 shrink-0"
               disabled={busy || link.trim() === ''}
             >
               Analyse link
             </Button>
           </form>
-          <p className="text-caption text-fgSubtle">
-            Or upload a file — a draft that isn’t posted yet can only be
-            uploaded.
-          </p>
+
+          <div className="flex items-center gap-4" aria-hidden>
+            <span className="h-px flex-1 bg-line" />
+            <span className="text-caption text-fg-subtle">
+              or upload the file
+            </span>
+            <span className="h-px flex-1 bg-line" />
+          </div>
+
           <section
             aria-label="Upload a video"
             onDragEnter={(e) => {
@@ -538,25 +568,34 @@ export default function AnalyzerWorkspace({
               if (file) void startUpload(file);
             }}
             className={cn(
-              'border border-dashed rounded-2xl min-h-[240px]',
-              'flex flex-col items-center justify-center gap-4 px-6 text-center',
+              'min-h-[240px] rounded-2xl border border-dashed',
+              'flex flex-col items-center justify-center gap-4 px-6 py-10 text-center',
               'transition-colors duration-150 ease-out',
-              dragActive
-                ? 'border-white/[0.24] bg-white/[0.02]'
-                : 'border-white/[0.12]',
+              dragActive ? 'border-line-strong bg-white/[0.02]' : 'border-line',
             )}
           >
             {/* The zone is not a click target and not in the tab order, so
                 without this line a pointer user has no signal that a 240px
                 dashed box does anything. */}
-            <p className="text-body text-fgMuted">Drop a video here</p>
+            <div className="flex flex-col gap-1">
+              <p className="text-body text-fg">Drop a video here</p>
+              <p className="text-caption text-fg-subtle">
+                MP4, MOV, WebM or AVI · up to 5 minutes · up to 2 GB
+              </p>
+            </div>
             <Button variant="primary" size="md" onClick={openPicker}>
               Choose file
             </Button>
-            {clientError !== null && <ErrorLine>{clientError}</ErrorLine>}
+            {clientError !== null && (
+              <Alert tone="danger" className="w-full max-w-[420px] text-left">
+                {clientError}
+              </Alert>
+            )}
           </section>
-          <p className="text-caption text-fgMuted">
-            MP4, MOV, WebM or AVI. Up to 5 minutes.
+
+          <p className="text-caption text-fg-subtle">
+            A draft that is not posted anywhere yet can only be uploaded — there
+            is no link to paste.
           </p>
         </div>
       )}
@@ -565,26 +604,32 @@ export default function AnalyzerWorkspace({
         aria-labelledby="analyzer-history"
         className="flex flex-col gap-4"
       >
-        <h2 id="analyzer-history" className="text-subsection text-fg">
-          Past reports
-        </h2>
-        {historyUnavailable ? (
-          <p className="text-body text-fgMuted">
-            Past reports are unavailable right now.
+        <div className="flex flex-col gap-1">
+          <h2 id="analyzer-history" className="text-subsection text-fg">
+            Past reports
+          </h2>
+          <p className="text-caption text-fg-subtle">
+            Every video you have run through the analyzer, newest first.
           </p>
+        </div>
+        {historyUnavailable ? (
+          <Alert tone="warning" title="Past reports are unavailable right now">
+            This is a problem reading your history, not with your reports —
+            nothing has been lost. Uploading a new video still works.
+          </Alert>
         ) : hasHistory ? (
           children
         ) : (
           <EmptyState
             size="sm"
             title="No reports yet"
-            description="Analyse a video and it will show up here."
+            description="Analyse your first video and it will show up here with its score."
           >
             {/* Through `children`, not `action`: `action` renders a yellow
                 <Link>, which cannot open a file picker and would put a second
                 yellow primary on the screen. */}
             <Button
-              variant="outline"
+              variant="secondary"
               size="md"
               onClick={openPicker}
               disabled={busy}

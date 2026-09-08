@@ -199,6 +199,16 @@ it('a save that touches nothing sends every stored column back unchanged, and no
   }
 });
 
+it('saves a new two-answer profile without requiring the removed selections', async () => {
+  const fetchMock = mockFetch();
+  renderForm({ main_platform: null, on_camera: null });
+  expect(screen.queryByLabelText(/Main platform/)).toBeNull();
+  expect(screen.queryByLabelText(/Do you appear on camera/)).toBeNull();
+  await save();
+  expect(patchBody(fetchMock)).toEqual({ ...EDITABLE, main_platform: null, on_camera: null });
+  expect(status()).toBe('Saved.');
+});
+
 it('a changed field marks the form dirty and the new value reaches the body', async () => {
   const fetchMock = mockFetch();
   renderForm();
@@ -310,7 +320,7 @@ it('the preview shows what is typed, not what is stored', () => {
   expect(panel()).not.toContain(EDITABLE.voice_notes!);
 });
 
-it('renders exactly one control per editable column', () => {
+it('renders controls for editable fields while preserving the two legacy preferences', () => {
   renderForm();
 
   // The fourth thread, and the one nothing else here can see. A column can be
@@ -326,7 +336,7 @@ it('renders exactly one control per editable column', () => {
   // `business_type` is 'other' in the fixture, which is what keeps the
   // conditional `business_type_other` input mounted and the count at parity.
   expect(document.querySelectorAll('input, textarea, select')).toHaveLength(
-    Object.keys(EDITABLE).length,
+    Object.keys(EDITABLE).length - 2,
   );
 });
 

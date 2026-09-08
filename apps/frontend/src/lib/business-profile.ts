@@ -120,8 +120,8 @@ export interface BusinessProfile {
   user_id: string;
   what_you_sell: string;
   who_buys_it: string;
-  main_platform: string;
-  on_camera: string;
+  main_platform: string | null;
+  on_camera: string | null;
   content_language: string;
   business_type: string | null;
   business_type_other: string | null;
@@ -227,8 +227,8 @@ function optionalNumber(
 export interface InlineProfileInput {
   what_you_sell: string;
   who_buys_it: string;
-  main_platform: MainPlatform;
-  on_camera: OnCamera;
+  main_platform: MainPlatform | null;
+  on_camera: OnCamera | null;
 }
 
 export type InlineProfileParse =
@@ -243,7 +243,8 @@ const INLINE_KEYS = [
 ];
 
 /**
- * Trims, checks the two caps and the two vocabularies, rejects unknown keys.
+ * Requires the two business answers. Legacy platform/camera answers remain
+ * valid when supplied; omitted preferences stay null rather than being guessed.
  * Returns no per-field detail: the UI shows one sentence for any failure.
  *
  * Takes no `mode` parameter and has no `'update'` branch — the update path is
@@ -258,14 +259,14 @@ export function parseInlineProfile(body: unknown): InlineProfileParse {
     PROFILE_LIMITS.what_you_sell,
   );
   const who_buys_it = requiredText(row.who_buys_it, PROFILE_LIMITS.who_buys_it);
-  const main_platform = requiredSlug(row.main_platform, MAIN_PLATFORMS);
-  const on_camera = requiredSlug(row.on_camera, ON_CAMERA);
+  const main_platform = optionalSlug(row.main_platform, MAIN_PLATFORMS);
+  const on_camera = optionalSlug(row.on_camera, ON_CAMERA);
 
   if (
     what_you_sell === null ||
     who_buys_it === null ||
-    main_platform === null ||
-    on_camera === null
+    !main_platform.ok ||
+    !on_camera.ok
   ) {
     return { ok: false };
   }
@@ -275,8 +276,8 @@ export function parseInlineProfile(body: unknown): InlineProfileParse {
     value: {
       what_you_sell,
       who_buys_it,
-      main_platform: main_platform as MainPlatform,
-      on_camera: on_camera as OnCamera,
+      main_platform: main_platform.value as MainPlatform | null,
+      on_camera: on_camera.value as OnCamera | null,
     },
   };
 }
@@ -294,8 +295,8 @@ export function parseInlineProfile(body: unknown): InlineProfileParse {
 export interface ProfileUpdateInput {
   what_you_sell: string;
   who_buys_it: string;
-  main_platform: MainPlatform;
-  on_camera: OnCamera;
+  main_platform: MainPlatform | null;
+  on_camera: OnCamera | null;
   content_language: ContentLanguage;
   business_type: BusinessType | null;
   business_type_other: string | null;
@@ -338,13 +339,13 @@ const UPDATE_KEYS = [
 ];
 
 /**
- * Full replace of the editable column set. The five `not null` columns are
+ * Full replace of the editable column set. The three `not null` columns are
  * required; an absent or blank nullable key means an explicit `null`.
  *
  * Trims, checks every cap and vocabulary, rejects unknown keys. Returns no
  * per-field detail: the UI shows one sentence for any failure.
  *
- * Callers must send every editable key — the Settings form renders them all, so
+ * Callers must send every editable key, including preserved legacy preferences, so
  * a partial body is a crafted request, and a full replace of a partial body
  * would silently clear whatever it omitted.
  */
@@ -362,8 +363,8 @@ export function parseProfileUpdate(body: unknown): ProfileUpdateParse {
     PROFILE_LIMITS.what_you_sell,
   );
   const who_buys_it = requiredText(row.who_buys_it, PROFILE_LIMITS.who_buys_it);
-  const main_platform = requiredSlug(row.main_platform, MAIN_PLATFORMS);
-  const on_camera = requiredSlug(row.on_camera, ON_CAMERA);
+  const main_platform = optionalSlug(row.main_platform, MAIN_PLATFORMS);
+  const on_camera = optionalSlug(row.on_camera, ON_CAMERA);
   const content_language = requiredSlug(
     row.content_language,
     CONTENT_LANGUAGES,
@@ -372,8 +373,8 @@ export function parseProfileUpdate(body: unknown): ProfileUpdateParse {
   if (
     what_you_sell === null ||
     who_buys_it === null ||
-    main_platform === null ||
-    on_camera === null ||
+    !main_platform.ok ||
+    !on_camera.ok ||
     content_language === null
   ) {
     return { ok: false };
@@ -440,8 +441,8 @@ export function parseProfileUpdate(body: unknown): ProfileUpdateParse {
     value: {
       what_you_sell,
       who_buys_it,
-      main_platform: main_platform as MainPlatform,
-      on_camera: on_camera as OnCamera,
+      main_platform: main_platform.value as MainPlatform | null,
+      on_camera: on_camera.value as OnCamera | null,
       content_language: content_language as ContentLanguage,
       business_type: business_type.value as BusinessType | null,
       business_type_other: business_type_other.value,
