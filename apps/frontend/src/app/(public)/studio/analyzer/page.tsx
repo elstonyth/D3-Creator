@@ -13,7 +13,16 @@ import { redirect } from 'next/navigation';
 import type { ReactElement } from 'react';
 
 import { StudioLocked } from '@gitroom/frontend/components/studio/studio-locked';
+import { Badge } from '@gitroom/frontend/components/ui/badge';
 import { ImageWithFallback } from '@gitroom/frontend/components/ui/image-with-fallback';
+import { Container, Section } from '@gitroom/frontend/components/ui/section';
+import {
+  Table,
+  TableWrap,
+  Td,
+  Th,
+  Tr,
+} from '@gitroom/frontend/components/ui/table';
 import {
   formatJobDate,
   type AnalyzerJobSummary,
@@ -33,9 +42,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false }, // overrides the (public) layout's index: true
 };
 
-const HEADER_CELL =
-  'px-4 text-caption uppercase tracking-[0.04em] text-fgMuted text-left';
-
 /**
  * What a row with no score says instead of a bare em dash.
  *
@@ -54,104 +60,93 @@ const ROW_STATUS_LABEL: Partial<Record<JobStatus, string>> = {
   failed: 'Failed',
 };
 
+const THUMB = 'h-9 w-16 min-w-16 rounded-md object-cover';
+
 function HistoryTable({ rows }: { rows: AnalyzerJobSummary[] }): ReactElement {
   return (
-    <div className="glass-elevated rounded-2xl overflow-hidden">
-      <div className="overflow-x-auto">
-        {/* text-label on the table so every cell inherits its size and no cell
-            puts a size token in its own className (§0.5 trap 1). */}
-        {/* 700, not §6.4's 560: five columns at their real widths — 88px
-            thumbnail + 280px name cap + date + result + Open — clip into each
-            other at 560, and the Result column's status words made it worse.
-            Amendment 1 proposed this; applied in the production-readiness
-            pass. */}
-        <table className="w-full min-w-[700px] text-label">
-          <thead>
-            <tr className="h-10 border-b border-white/[0.06]">
-              {/* The column MUST reserve its width: auto table-layout gives an
-                  image column no intrinsic size, so `w-14` on the <img> lost
-                  and thumbnails rendered 1.45px wide. 56px tile + px-4 both
-                  sides = 88. */}
-              <th scope="col" className={`${HEADER_CELL} w-[88px]`}>
-                <span className="sr-only">Thumbnail</span>
-              </th>
-              <th scope="col" className={HEADER_CELL}>
-                Name
-              </th>
-              <th scope="col" className={HEADER_CELL}>
-                Date
-              </th>
-              {/* "Result", not "Score": the cell below now carries a status
-                  word for every row that has no number yet. */}
-              <th scope="col" className={HEADER_CELL}>
-                Result
-              </th>
-              <th
-                scope="col"
-                className="px-4 text-caption uppercase tracking-[0.04em] text-fgMuted text-right"
-              >
-                <span className="sr-only">Open report</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr
-                key={row.id}
-                className="h-12 border-b border-white/[0.06] last:border-b-0 hover:bg-white/[0.02] transition-colors duration-150 ease-out"
-              >
-                <td className="px-4">
-                  {/* src is already the same-origin path (§5.9.3) — never built
-                      by hand. A null src, a 404 and a blocked load all reach
-                      the same fallback tile. */}
-                  <ImageWithFallback
-                    src={row.thumbnail_url}
-                    alt=""
-                    className="h-8 w-14 min-w-14 rounded-md object-cover"
-                    fallback={
-                      <div className="h-8 w-14 min-w-14 rounded-md bg-glass-base border border-borderGlass" />
-                    }
-                  />
-                </td>
-                <td className="px-4">
-                  {/* `truncate` does nothing on a bare <td> — the span and its
-                      max-w are load-bearing. */}
-                  <span className="block max-w-[280px] truncate text-fg">
-                    {row.filename}
-                  </span>
-                </td>
-                <td className="px-4 text-fgMuted whitespace-nowrap">
-                  {formatJobDate(row.created_at)}
-                </td>
-                <td className="px-4 whitespace-nowrap tabular-nums">
-                  {row.overall_score === null ? (
-                    <span className="text-fgSubtle">
-                      {ROW_STATUS_LABEL[row.status] ?? '—'}
-                    </span>
+    <TableWrap>
+      {/* 700, not §6.4's 560: five columns at their real widths — 96px
+          thumbnail + 280px name cap + date + result + Open — clip into each
+          other at 560, and the Result column's status words made it worse.
+          TableWrap is the overflow-x box, so a narrow screen scrolls the
+          table and never the page. */}
+      <Table className="min-w-[700px]">
+        <thead>
+          <tr>
+            {/* The column MUST reserve its width: auto table-layout gives an
+                image column no intrinsic size, so `w-16` on the <img> lost and
+                thumbnails rendered ~1.5px wide. 64px tile + px-4 both sides. */}
+            <Th className="w-[96px]">
+              <span className="sr-only">Thumbnail</span>
+            </Th>
+            <Th>Video</Th>
+            <Th>Analysed</Th>
+            {/* "Result", not "Score": the cell below carries a status word for
+                every row that has no number yet. */}
+            <Th numeric>Result</Th>
+            <Th numeric>
+              <span className="sr-only">Open report</span>
+            </Th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <Tr key={row.id}>
+              <Td>
+                {/* src is already the same-origin path (§5.9.3) — never built
+                    by hand. A null src, a 404 and a blocked load all reach the
+                    same fallback tile. */}
+                <ImageWithFallback
+                  src={row.thumbnail_url}
+                  alt=""
+                  className={THUMB}
+                  fallback={
+                    <div
+                      className={`${THUMB} bg-surface-subtle border border-line`}
+                    />
+                  }
+                />
+              </Td>
+              <Td>
+                {/* `truncate` does nothing on a bare <td> — the span and its
+                    max-w are load-bearing. */}
+                <span className="block max-w-[280px] truncate">
+                  {row.filename}
+                </span>
+              </Td>
+              <Td className="tnum whitespace-nowrap text-fg-muted">
+                {formatJobDate(row.created_at)}
+              </Td>
+              <Td numeric className="whitespace-nowrap">
+                {row.overall_score === null ? (
+                  ROW_STATUS_LABEL[row.status] === undefined ? (
+                    <span className="text-fg-subtle">—</span>
                   ) : (
-                    <>
-                      <span className="text-fg">
-                        {row.overall_score.toFixed(1)}
-                      </span>
-                      <span className="text-fgSubtle">/10</span>
-                    </>
-                  )}
-                </td>
-                <td className="px-4 text-right">
-                  <Link
-                    href={`/studio/analyzer/${row.id}`}
-                    className="text-fgMuted hover:text-fg transition-colors duration-150 ease-out"
-                  >
-                    Open
-                    <span className="sr-only"> {row.filename} report</span>
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+                    // Neutral, never brand: yellow on this screen belongs to
+                    // "Choose file" alone.
+                    <Badge tone="muted">{ROW_STATUS_LABEL[row.status]}</Badge>
+                  )
+                ) : (
+                  <>
+                    <span>{row.overall_score.toFixed(1)}</span>
+                    <span className="text-fg-subtle">/10</span>
+                  </>
+                )}
+              </Td>
+              <Td numeric>
+                <Link
+                  href={`/studio/analyzer/${row.id}`}
+                  className="text-fg-muted hover:text-fg transition-colors duration-150 ease-out"
+                >
+                  Open
+                  <span className="sr-only"> {row.filename} report</span>
+                </Link>
+              </Td>
+            </Tr>
+          ))}
+        </tbody>
+      </Table>
+    </TableWrap>
   );
 }
 
@@ -218,37 +213,41 @@ export default async function VideoAnalyzerPage(): Promise<ReactElement> {
     rows.find((r) => r.status === 'queued' || r.status === 'running') ?? null;
 
   return (
-    <div className="max-w-[1100px] mx-auto py-12 flex flex-col gap-12">
-      <header className="max-w-[680px]">
-        <h1 className="text-display-2 text-fg mb-3">Video Analyzer.</h1>
-        <p className="text-body-lg text-fgMuted">
-          Upload a short video and get a scored breakdown of why it works.
-        </p>
-        {/* Amendment 1's open item: the profile silently steered every
-            analysis and nothing on this page said so. One caption, only when
-            a profile is actually in play — a user without one sees nothing. */}
-        {businessProfile !== null && (
-          <p className="mt-2 text-caption text-fgSubtle">
-            Scored against your business profile — edit it in{' '}
-            <Link
-              href="/studio/settings"
-              className="underline underline-offset-4 hover:text-fg transition-colors duration-150 ease-out"
-            >
-              Settings
-            </Link>
-            .
+    <Section space="md">
+      <Container className="flex flex-col gap-10">
+        <header className="max-w-prose flex flex-col gap-3">
+          <h1 className="text-display-2 text-fg">Video Analyzer.</h1>
+          <p className="text-body-lg text-fg-muted">
+            Upload a short video, or paste a link to one you have posted. You
+            get six scores out of ten, the reasoning behind each, and a
+            transcript you can jump around in.
           </p>
-        )}
-      </header>
-      <AnalyzerWorkspace
-        initialJob={initialJob}
-        businessProfile={businessProfile}
-        reportLanguage={reportLanguage}
-        hasHistory={rows.length > 0}
-        historyUnavailable={historyUnavailable}
-      >
-        <HistoryTable rows={rows} />
-      </AnalyzerWorkspace>
-    </div>
+          {/* Amendment 1's open item: the profile silently steered every
+              analysis and nothing on this page said so. One caption, only when
+              a profile is actually in play — a user without one sees nothing. */}
+          {businessProfile !== null && (
+            <p className="text-caption text-fg-subtle">
+              Scored against your business profile — edit it in{' '}
+              <Link
+                href="/studio/settings"
+                className="underline underline-offset-4 hover:text-fg transition-colors duration-150 ease-out"
+              >
+                Settings
+              </Link>
+              .
+            </p>
+          )}
+        </header>
+        <AnalyzerWorkspace
+          initialJob={initialJob}
+          businessProfile={businessProfile}
+          reportLanguage={reportLanguage}
+          hasHistory={rows.length > 0}
+          historyUnavailable={historyUnavailable}
+        >
+          <HistoryTable rows={rows} />
+        </AnalyzerWorkspace>
+      </Container>
+    </Section>
   );
 }

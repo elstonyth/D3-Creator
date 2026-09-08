@@ -33,6 +33,16 @@ body::before {
   content: none;
 }
 
+// Lining tabular figures. Opt-in via class, so it changes nothing that does
+// not ask for it — used by the rebuilt signed-in surfaces, where columns of
+// counts would otherwise reflow as digits change width.
+.tnum {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings:
+    'tnum' 1,
+    'lnum' 1;
+}
+
 // Modern type hierarchy — mixed case, weight 600, negative tracking
 h1,
 h2,
