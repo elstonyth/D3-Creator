@@ -13,7 +13,9 @@ export {
   ApifyThrottledError,
   ProfilePrivateError,
   ProfileNotFoundError,
+  isPlatformOutage,
   type ScrapeStatusCode,
+  type ScrapeErrorScope,
 } from './errors';
 export type {
   Platform,

@@ -26,7 +26,9 @@ import { timingSafeEqual } from 'node:crypto';
 
 import { NextResponse } from 'next/server';
 
-import { runScraper, ScrapeError } from '@d3/scrapers';
+import * as Sentry from '@sentry/nextjs';
+
+import { runScraper, ScrapeError, isPlatformOutage } from '@d3/scrapers';
 import {
   listScrapeableProfiles,
   persistMediaForPosts,
@@ -81,7 +83,13 @@ interface ProfileResult {
     | 'private'
     | 'not_found'
     | 'throttled'
-    | 'handle_changed';
+    | 'handle_changed'
+    // The two below are RUN outcomes, not profile states: neither is ever
+    // written to profile.scrape_status. They exist so the cron's JSON response
+    // distinguishes "we could not reach the platform" from "this profile is
+    // broken" — the confusion that hid the Facebook outage.
+    | 'platform_outage'
+    | 'skipped_platform_outage';
   posts_written?: number;
   error?: string;
 }
@@ -179,7 +187,34 @@ export async function GET(request: Request): Promise<Response> {
 
   const results: ProfileResult[] = [];
 
+  /**
+   * Platforms whose CREDENTIAL is dead for this run, not whose profiles are.
+   *
+   * Once an upstream answers 401/402 for one profile it will answer the same
+   * for every other profile on that platform, so there is nothing to learn
+   * from the remaining attempts — and on Bright Data each one is billable.
+   * Recorded on first sight, then used to skip the rest of that platform.
+   */
+  const platformOutages = new Map<string, string>();
+
   for (const profile of profiles) {
+    // Upstream credential already refused us this run: skip WITHOUT stamping,
+    // exactly like the budget-floor case above. The profile is not broken, so
+    // its scrape_status must not say it is — and leaving the status alone keeps
+    // it due (isDueForScrape treats 'ok' and 'failed' alike), while
+    // /admin/profiles still flags it because staleness is measured on data age,
+    // not on the status field.
+    const outage = platformOutages.get(profile.platform);
+    if (outage) {
+      results.push({
+        profile_id: profile.id,
+        platform: profile.platform,
+        handle: profile.handle,
+        status: 'skipped_platform_outage',
+        error: outage,
+      });
+      continue;
+    }
     // Cap each scrape by the smaller of its platform's cap and the function's
     // remaining wall-clock (reserving WRAPUP_RESERVE_MS for the upsert + status
     // write). A single hung upstream then can't burn the whole 300s window and
@@ -275,10 +310,54 @@ export async function GET(request: Request): Promise<Response> {
     } catch (err) {
       const status = err instanceof ScrapeError ? err.status : 'failed';
       const message = err instanceof Error ? err.message : String(err);
+
+      // The upstream credential is dead, not this profile. Raise ONE alert for
+      // the platform and stop attempting it for the rest of the run.
+      //
+      // This is the gap that let Facebook go dark for twelve days from
+      // 2026-08-22: the Bright Data token stopped authenticating, all 32
+      // Facebook profiles were stamped `failed` daily, and the only trace was a
+      // console.error per profile in Vercel logs that nobody reads. A log line
+      // is not an alert.
+      if (isPlatformOutage(err)) {
+        platformOutages.set(profile.platform, message);
+        console.error(
+          '[daily-snapshot] PLATFORM OUTAGE — credential rejected',
+          {
+            platform: profile.platform,
+            error: message,
+          },
+        );
+        Sentry.captureException(err, {
+          level: 'fatal',
+          // Same fingerprint for every profile and every tick, so a multi-day
+          // outage stays one grouped Sentry issue rather than N new ones an
+          // hour — which would be its own kind of invisible.
+          fingerprint: ['scraper-platform-outage', profile.platform],
+          tags: {
+            platform: profile.platform,
+            scraper_scope: 'platform',
+            alert: 'scraper_credential',
+          },
+          extra: {
+            remedy:
+              profile.platform === 'facebook'
+                ? 'Check the Bright Data account balance and API token, then update BRIGHTDATA_API_KEY in Vercel (Production) and redeploy.'
+                : 'Check the TikHub account balance and API token, then update TIKHUB_API_KEY in Vercel (Production) and redeploy.',
+          },
+        });
+        results.push({
+          profile_id: profile.id,
+          platform: profile.platform,
+          handle: profile.handle,
+          status: 'platform_outage',
+          error: message,
+        });
+        continue;
+      }
+
       // Surface the failure in Vercel logs. Without this the per-profile error
-      // is only visible in the JSON response, so a whole-platform outage (e.g.
-      // BrightData "Customer is not active" taking down every Facebook scrape)
-      // stays invisible until someone reads a cron response by hand.
+      // is only visible in the JSON response.
       console.error('[daily-snapshot] scrape failed', {
         profile_id: profile.id,
         platform: profile.platform,
@@ -311,6 +390,10 @@ export async function GET(request: Request): Promise<Response> {
     deferred: profiles.length - results.length,
     skipped,
     capacity_per_run: PROFILES_PER_RUN,
+    // Present and non-empty means an upstream credential is rejecting us and
+    // that platform collected nothing this tick. Surfaced at the top level so
+    // it is readable without scanning `results`.
+    platform_outages: Object.fromEntries(platformOutages),
     by_status: results.reduce<Record<string, number>>((acc, r) => {
       acc[r.status] = (acc[r.status] ?? 0) + 1;
       return acc;
