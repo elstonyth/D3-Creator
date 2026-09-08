@@ -145,6 +145,21 @@ const VALID_INLINE = {
 };
 
 describe('parseInlineProfile', () => {
+  it('accepts the two business answers without inventing platform or camera preferences', () => {
+    expect(parseInlineProfile({
+      what_you_sell: '  电脑  ',
+      who_buys_it: '玩游戏的人',
+    })).toEqual({
+      ok: true,
+      value: {
+        what_you_sell: '电脑',
+        who_buys_it: '玩游戏的人',
+        main_platform: null,
+        on_camera: null,
+      },
+    });
+  });
+
   it('accepts the four fields and stores the trimmed values', () => {
     const result = parseInlineProfile({
       ...VALID_INLINE,
@@ -215,6 +230,11 @@ const VALID_UPDATE: ProfileUpdateInput = {
 };
 
 describe('parseProfileUpdate', () => {
+  it('can save settings for a profile created without platform or camera preferences', () => {
+    const input = { ...VALID_UPDATE, main_platform: null, on_camera: null };
+    expect(parseProfileUpdate(input)).toEqual({ ok: true, value: input });
+  });
+
   it('accepts the full editable set', () => {
     expect(parseProfileUpdate({ ...VALID_UPDATE })).toEqual({
       ok: true,

@@ -117,24 +117,20 @@ function label(map: Record<string, string>, slug: string | null): string {
   return map[value] ?? value;
 }
 
-/** Completeness is judged on FOUR fields and only these four — exactly the four
- *  the §9 guardrail asks for and the four the inline form collects. Adding
- *  `creator_role` or `reach` here would mark every existing profile incomplete
- *  and re-ask the guardrail questions forever. */
+/** The two business answers are enough to personalise the coach. Optional
+ *  video preferences must not keep the setup form open after a successful save. */
 export function isProfileComplete(profile: BusinessProfile | null): boolean {
   if (profile === null) return false;
   return (
     clean(profile.what_you_sell) !== '' &&
-    clean(profile.who_buys_it) !== '' &&
-    clean(profile.main_platform) !== '' &&
-    clean(profile.on_camera) !== ''
+    clean(profile.who_buys_it) !== ''
   );
 }
 
 /**
  * The §10A.6 profile block, as one `user` message.
  *
- * The five `not null` columns always render. `Business type:` and `Tone:`
+ * The three `not null` columns always render. `Business type:` and `Tone:`
  * always render too, from the literal defaults above. Every remaining line is
  * omitted ENTIRELY when its column is null or blank — never emitted with an
  * empty value.
@@ -178,10 +174,8 @@ export function renderProfileBlock(profile: BusinessProfile | null): string {
   // lines only make sense read together, and their absence is what tells the
   // persona to fall back to the content language.
   push('Reply language', label(REPLY_LANGUAGE_LABELS, profile.reply_language));
-  lines.push(`Main platform: ${label(PLATFORM_LABELS, profile.main_platform)}`);
-  lines.push(
-    `Appears on camera: ${label(ON_CAMERA_LABELS, profile.on_camera)}`,
-  );
+  push('Main platform', label(PLATFORM_LABELS, profile.main_platform));
+  push('Appears on camera', label(ON_CAMERA_LABELS, profile.on_camera));
 
   const toneSlug = clean(profile.tone);
   lines.push(

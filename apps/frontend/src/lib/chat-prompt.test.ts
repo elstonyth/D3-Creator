@@ -190,13 +190,21 @@ describe('renderProfileBlock', () => {
     expect(ON_CAMERA_NO_LINE).toBe('Appears on camera: No');
   });
 
-  it('replaces the whole block when any of the four is missing', () => {
+  it('keeps business context when platform and camera preferences are absent', () => {
+    const profile = { ...MINIMAL, main_platform: null, on_camera: null };
+    expect(isProfileComplete(profile)).toBe(true);
+    const block = renderProfileBlock(profile);
+    expect(block).toContain('What they sell: Second-hand iPhones and accessories');
+    expect(block).toContain('Who buys it: Students and young workers, 18-30');
+    expect(block).not.toContain('Main platform:');
+    expect(block).not.toContain('Appears on camera:');
+  });
+
+  it('replaces the whole block when either business answer is missing', () => {
     expect(renderProfileBlock(null)).toBe(NO_PROFILE_ON_FILE);
     for (const key of [
       'what_you_sell',
       'who_buys_it',
-      'main_platform',
-      'on_camera',
     ] as const) {
       expect(renderProfileBlock({ ...FULL, [key]: '   ' })).toBe(
         NO_PROFILE_ON_FILE,

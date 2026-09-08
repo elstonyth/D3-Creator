@@ -12,17 +12,12 @@
  * body, the validation, the rate limit and every status code.
  */
 
-import { ChevronDownIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useState, type FormEvent, type ReactElement } from 'react';
 
 import { Button } from '@gitroom/frontend/components/ui/button';
-import {
-  MAIN_PLATFORMS,
-  ON_CAMERA,
-  parseInlineProfile,
-} from '@gitroom/frontend/lib/business-profile';
+import { parseInlineProfile } from '@gitroom/frontend/lib/business-profile';
 
 /**
  * Written inline with NO focus classes — `global.scss:174` supplies the ring.
@@ -36,41 +31,12 @@ const fieldBox =
   'text-body text-fg placeholder:text-fgSubtle ' +
   'transition-colors duration-150 ease-out ' +
   'disabled:opacity-50 disabled:pointer-events-none';
-const selectBox = `${fieldBox} appearance-none pr-9`;
-
-/** §6 "Every field"'s Label column, typed in by hand as §7.4 instructs. */
-const PLATFORM_LABELS: Record<string, string> = {
-  tiktok: 'TikTok',
-  reels: 'Instagram Reels',
-  douyin: 'Douyin',
-  rednote: 'RedNote',
-  facebook: 'Facebook',
-};
-const ON_CAMERA_LABELS: Record<string, string> = {
-  yes: 'Yes',
-  no: 'No',
-  sometimes: 'Sometimes',
-};
-
 const FAILURE = 'Could not save that. Try again.';
-
-/** `pointer-events-none` is required — without it the glyph swallows the click
- *  most users aim at the select (the repo pairs them at sign-up-form.tsx:56). */
-function Chevron(): ReactElement {
-  return (
-    <ChevronDownIcon
-      aria-hidden
-      className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-fgMuted pointer-events-none"
-    />
-  );
-}
 
 export function ProfileForm(): ReactElement {
   const router = useRouter();
   const [whatYouSell, setWhatYouSell] = useState('');
   const [whoBuysIt, setWhoBuysIt] = useState('');
-  const [mainPlatform, setMainPlatform] = useState('');
-  const [onCamera, setOnCamera] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
 
@@ -85,8 +51,6 @@ export function ProfileForm(): ReactElement {
     const parsed = parseInlineProfile({
       what_you_sell: whatYouSell,
       who_buys_it: whoBuysIt,
-      main_platform: mainPlatform,
-      on_camera: onCamera,
     });
     if (!parsed.ok) {
       setError(FAILURE); // no fetch, and no `Saving…`
@@ -124,7 +88,7 @@ export function ProfileForm(): ReactElement {
         Tell the coach about your business.
       </h2>
       <p className="mt-2 mb-4 text-body-sm text-fgMuted">
-        Four questions, and the scripts stop being generic. Everything else is
+        Two questions, and the scripts stop being generic. Everything else is
         edited later in{' '}
         <Link href="/studio/settings" className="text-fg underline">
           Settings
@@ -161,56 +125,6 @@ export function ProfileForm(): ReactElement {
           />
         </label>
 
-        <label className="block space-y-1.5">
-          <span className="text-label text-fgMuted">Main platform</span>
-          <div className="relative">
-            <select
-              required
-              disabled={pending}
-              value={mainPlatform}
-              onChange={(e) => setMainPlatform(e.target.value)}
-              className={selectBox}
-            >
-              {/* A pre-selected first option is an answer the user never gave. */}
-              <option value="" disabled>
-                Choose one
-              </option>
-              {MAIN_PLATFORMS.map((slug) => (
-                <option key={slug} value={slug}>
-                  {PLATFORM_LABELS[slug]}
-                </option>
-              ))}
-            </select>
-            <Chevron />
-          </div>
-        </label>
-
-        <label className="block space-y-1.5">
-          <span className="text-label text-fgMuted">
-            Do you appear on camera?
-          </span>
-          <div className="relative">
-            {/* Never defaults to Yes: that hands a talking-head script to
-                someone who never appears on camera (§9's hard guardrail). */}
-            <select
-              required
-              disabled={pending}
-              value={onCamera}
-              onChange={(e) => setOnCamera(e.target.value)}
-              className={selectBox}
-            >
-              <option value="" disabled>
-                Choose one
-              </option>
-              {ON_CAMERA.map((slug) => (
-                <option key={slug} value={slug}>
-                  {ON_CAMERA_LABELS[slug]}
-                </option>
-              ))}
-            </select>
-            <Chevron />
-          </div>
-        </label>
       </div>
 
       <div className="mt-4 flex items-center gap-3">

@@ -31,8 +31,6 @@ import {
   BUSINESS_TYPES,
   CONTENT_LANGUAGES,
   CREATOR_ROLES,
-  MAIN_PLATFORMS,
-  ON_CAMERA,
   PROFILE_LIMITS,
   REACH_BUCKETS,
   REPLY_LANGUAGES,
@@ -63,14 +61,6 @@ const areaBox =
 /** §6's display labels, plus the six Amendment 1 exceptions. Kept against §6 by
  *  hand — the drift test covers stored VALUES only. */
 const LABELS: Record<string, Record<string, string>> = {
-  main_platform: {
-    tiktok: 'TikTok',
-    reels: 'Instagram Reels',
-    douyin: 'Douyin',
-    rednote: 'RedNote',
-    facebook: 'Facebook',
-  },
-  on_camera: { yes: 'Yes', no: 'No', sometimes: 'Sometimes' },
   content_language: {
     chinese: 'Chinese',
     english: 'English',
@@ -538,31 +528,9 @@ export function ProfileSettingsForm({
 
       <Section
         title="How you make videos"
-        blurb="Length, language, and whether a script can put you on camera at all. Reply language is the odd one out — it changes how the coach talks to you, not what the script says."
+        blurb="Length and language for your scripts. Reply language is the odd one out — it changes how the coach talks to you, not what the script says."
       >
         <div className={grid}>
-          <Field label="Main platform" required>
-            <Select
-              required
-              disabled={pending}
-              value={form.main_platform}
-              onChange={(next) => set('main_platform', next)}
-              options={MAIN_PLATFORMS}
-              labels={LABELS.main_platform}
-            />
-          </Field>
-
-          <Field label="Do you appear on camera?" required>
-            <Select
-              required
-              disabled={pending}
-              value={form.on_camera}
-              onChange={(next) => set('on_camera', next)}
-              options={ON_CAMERA}
-              labels={LABELS.on_camera}
-            />
-          </Field>
-
           <Field label="Content language" required>
             <Select
               required
