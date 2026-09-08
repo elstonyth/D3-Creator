@@ -11,6 +11,7 @@
  * with the uniqueness invariant). The per-creator editor does allow it.
  */
 
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
@@ -51,9 +52,10 @@ import { AdminSearchForm } from './admin-search';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export const metadata: Metadata = {
-  title: 'Admin · Accounts — D3 Creator',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: t('Admin · Accounts — D3 Creator') };
+}
 
 function toPlatformKey(platform: string): PlatformKey {
   return platform === 'rednote' ? 'xiaohongshu' : (platform as PlatformKey);
@@ -205,17 +207,18 @@ function StatusGlyphIcon({ glyph }: { glyph: StatusGlyph }) {
   );
 }
 
-function StatusPill({ status }: { status: string }) {
+async function StatusPill({ status }: { status: string }) {
+  const { t } = await getI18n();
   const meta = statusMeta(status);
   return (
     <span
-      title={meta.note}
+      title={t(meta.note)}
       className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5 text-caption ${
         STATUS_TONE[meta.tone]
       }`}
     >
       <StatusGlyphIcon glyph={meta.glyph} />
-      {meta.label}
+      {t(meta.label)}
     </span>
   );
 }
@@ -234,6 +237,7 @@ export default async function AdminProfilesPage({
 }: {
   searchParams: Promise<{ q?: string; platform?: string }>;
 }) {
+  const { t, locale } = await getI18n();
   const auth = await getAuthContext();
   if (!auth) redirect('/login');
   if (auth.role !== 'admin') redirect('/me');
@@ -251,7 +255,7 @@ export default async function AdminProfilesPage({
   const query = normalizedQuery.toLowerCase();
   const platform = FILTER_PLATFORMS.has(rawPlatform) ? rawPlatform : '';
   const platforms = Array.from(
-    new Set(groups.flatMap((g) => g.platforms))
+    new Set(groups.flatMap((g) => g.platforms)),
   ).sort();
   const filteredGroups = groups.filter((g) => {
     const matchesPlatform = !platform || g.platforms.includes(platform);
@@ -261,7 +265,7 @@ export default async function AdminProfilesPage({
       g.profiles.some(
         (p) =>
           (p.handle ?? '').toLowerCase().includes(query) ||
-          (p.displayName ?? '').toLowerCase().includes(query)
+          (p.displayName ?? '').toLowerCase().includes(query),
       );
     return matchesPlatform && matchesQuery;
   });
@@ -279,39 +283,39 @@ export default async function AdminProfilesPage({
     <Container>
       <Section space="sm" className="space-y-10">
         <header className="max-w-prose">
-          <p className="text-micro uppercase text-fg-subtle">Accounts</p>
-          <h1 className="mt-3 text-display-2 text-fg">Scrape health</h1>
+          <p className="text-micro uppercase text-fg-subtle">{t('Accounts')}</p>
+          <h1 className="mt-3 text-display-2 text-fg">{t('Scrape health')}</h1>
           <p className="mt-3 text-body-lg text-fg-muted">
-            One card per creator, their platform profiles underneath. A profile
-            is a single canonical scrape target — several users can claim the
-            same one without duplicating the job.
+            {t(
+              'One card per creator, their platform profiles underneath. A profile is a single canonical scrape target — several users can claim the same one without duplicating the job.',
+            )}
           </p>
         </header>
 
         <StatRow className="lg:grid-cols-4">
           <Stat
-            label="Creators"
-            value={formatCompact(totals.creators)}
+            label={t('Creators')}
+            value={formatCompact(totals.creators, locale)}
             meta={
               staleAccounts > 0
-                ? `${staleAccounts} with stale data`
-                : 'All data fresh'
+                ? t('{count} with stale data', { count: staleAccounts })
+                : t('All data fresh')
             }
           />
           <Stat
-            label="Profiles"
-            value={formatCompact(totals.profiles)}
-            meta="Scrape targets"
+            label={t('Profiles')}
+            value={formatCompact(totals.profiles, locale)}
+            meta={t('Scrape targets')}
           />
           <Stat
-            label="Total reach"
-            value={formatCompact(totals.reach)}
-            meta="Followers, latest snapshot"
+            label={t('Total reach')}
+            value={formatCompact(totals.reach, locale)}
+            meta={t('Followers, latest snapshot')}
           />
           <Stat
-            label="Total views"
-            value={formatCompact(totals.views)}
-            meta="All tracked posts"
+            label={t('Total views')}
+            value={formatCompact(totals.views, locale)}
+            meta={t('All tracked posts')}
           />
         </StatRow>
 
@@ -319,13 +323,12 @@ export default async function AdminProfilesPage({
           <section aria-labelledby="claims-heading" className="space-y-4">
             <div className="max-w-prose">
               <h2 id="claims-heading" className="text-section text-fg">
-                Pending claims{' '}
-                <span className="tnum">({pendingClaims.length})</span>
+                {t('Pending claims ({count})', { count: pendingClaims.length })}
               </h2>
               <p className="mt-2 text-body text-fg-muted">
-                A user claimed a profile whose handle did not auto-match.
-                Approving makes them its owner; rejecting leaves the profile
-                unclaimed.
+                {t(
+                  'A user claimed a profile whose handle did not auto-match. Approving makes them its owner; rejecting leaves the profile unclaimed.',
+                )}
               </p>
             </div>
             <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
@@ -339,10 +342,10 @@ export default async function AdminProfilesPage({
                       {c.handle ?? c.profileUrl}
                     </p>
                     <p className="mt-1 text-caption text-fg-muted">
-                      {c.platform} · {c.creatorName}
+                      {t(c.platform)} · {c.creatorName}
                     </p>
                     <p className="mt-0.5 truncate font-mono text-caption text-fg-subtle">
-                      User {c.userId}
+                      {t('User {id}', { id: c.userId })}
                     </p>
                   </div>
                   <ClaimActions
@@ -360,19 +363,23 @@ export default async function AdminProfilesPage({
         <section aria-labelledby="accounts-heading" className="space-y-5">
           <div className="max-w-prose">
             <h2 id="accounts-heading" className="text-section text-fg">
-              All accounts
+              {t('All accounts')}
             </h2>
             <p className="mt-2 text-body text-fg-muted">
-              Showing{' '}
-              <span className="tnum text-fg">{filteredGroups.length}</span>
-              {filtered ? (
-                <>
-                  {' '}
-                  of <span className="tnum">{groups.length}</span>
-                </>
-              ) : null}{' '}
-              {groups.length === 1 ? 'account' : 'accounts'}. Data age is the
-              time since the last successful capture, not the last attempt.
+              {filtered
+                ? t('Showing {count} of {total} accounts.', {
+                    count: filteredGroups.length,
+                    total: groups.length,
+                  })
+                : t(
+                    groups.length === 1
+                      ? 'Showing {count} account.'
+                      : 'Showing {count} accounts.',
+                    { count: filteredGroups.length },
+                  )}{' '}
+              {t(
+                'Data age is the time since the last successful capture, not the last attempt.',
+              )}
             </p>
           </div>
 
@@ -384,9 +391,11 @@ export default async function AdminProfilesPage({
             />
             {platforms.length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-caption text-fg-subtle">Platform</span>
+                <span className="text-caption text-fg-subtle">
+                  {t('Platform')}
+                </span>
                 <FilterChip href={chipHref('')} active={!platform}>
-                  All
+                  {t('All')}
                 </FilterChip>
                 {platforms.map((p) => (
                   <FilterChip
@@ -394,7 +403,7 @@ export default async function AdminProfilesPage({
                     href={chipHref(p)}
                     active={platform === p}
                   >
-                    {PLATFORM_LABELS[toPlatformKey(p)] ?? p}
+                    {t(PLATFORM_LABELS[toPlatformKey(p)] ?? p)}
                   </FilterChip>
                 ))}
               </div>
@@ -403,22 +412,26 @@ export default async function AdminProfilesPage({
 
           {groups.length === 0 ? (
             <EmptyState
-              title="No creators yet"
-              description="Provision the first creator from the overview — it creates the login and attaches their social URLs in one step."
-              action={{ href: '/admin', label: 'Provision a creator' }}
+              title={t('No creators yet')}
+              description={t(
+                'Provision the first creator from the overview — it creates the login and attaches their social URLs in one step.',
+              )}
+              action={{ href: '/admin', label: t('Provision a creator') }}
             />
           ) : filteredGroups.length === 0 ? (
             <EmptyState
               size="sm"
-              title="Nothing matches those filters"
+              title={t('Nothing matches those filters')}
               description={
                 normalizedQuery
-                  ? `No account name or handle contains “${normalizedQuery}”.`
-                  : 'No account runs that platform.'
+                  ? t('No account name or handle contains “{query}”.', {
+                      query: normalizedQuery,
+                    })
+                  : t('No account runs that platform.')
               }
               // Neutral, not the yellow CTA: the pending-claims queue above
               // may already own the one primary action on this screen.
-              secondary={{ href: '/admin/profiles', label: 'Clear filters' }}
+              secondary={{ href: '/admin/profiles', label: t('Clear filters') }}
             />
           ) : (
             <div className="space-y-5">
@@ -458,7 +471,8 @@ function FilterChip({
   );
 }
 
-function CreatorCard({ group }: { group: AdminCreatorGroup }) {
+async function CreatorCard({ group }: { group: AdminCreatorGroup }) {
+  const { t, locale } = await getI18n();
   const initial = group.displayName.trim().charAt(0).toUpperCase() || '?';
   return (
     <article className="overflow-hidden rounded-2xl border border-line bg-surface">
@@ -496,15 +510,17 @@ function CreatorCard({ group }: { group: AdminCreatorGroup }) {
             )}
           </div>
           <p className="mt-1.5 text-caption text-fg-subtle">
-            <span className="tnum">{group.profileCount}</span>{' '}
-            {group.profileCount === 1 ? 'profile' : 'profiles'}
+            {t(
+              group.profileCount === 1 ? '{count} profile' : '{count} profiles',
+              { count: group.profileCount },
+            )}
             {group.staleProfileCount > 0 && (
               // Brighter than the metadata around it: this is the one thing on
               // a card header that means "open me". Intensity, not hue.
               <>
                 {' · '}
                 <span className="tnum text-fg">
-                  {group.staleProfileCount} stale
+                  {t('{count} stale', { count: group.staleProfileCount })}
                 </span>
               </>
             )}
@@ -513,34 +529,36 @@ function CreatorCard({ group }: { group: AdminCreatorGroup }) {
 
         <dl className="flex w-full shrink-0 justify-between gap-4 sm:w-auto sm:justify-end sm:gap-6">
           <Agg
-            label="Reach"
-            value={formatCompact(group.totalReach)}
-            sub={`${deltaCaret(group.reachDelta)}${formatDelta(
-              group.reachDelta
-            )} today`}
+            label={t('Reach')}
+            value={formatCompact(group.totalReach, locale)}
+            sub={t('{delta} today', {
+              delta:
+                deltaCaret(group.reachDelta) +
+                formatDelta(group.reachDelta, locale),
+            })}
             subClass={deltaClass(group.reachDelta)}
           />
           <Agg
-            label="Views"
-            value={formatCompact(group.totalViews)}
-            sub="all posts"
+            label={t('Views')}
+            value={formatCompact(group.totalViews, locale)}
+            sub={t('all posts')}
           />
           <Agg
-            label="Engagement"
-            value={formatPercent(group.engagement)}
-            sub="tracked posts"
+            label={t('Engagement')}
+            value={formatPercent(group.engagement, locale)}
+            sub={t('tracked posts')}
           />
         </dl>
       </div>
 
       {group.profiles.length === 0 ? (
         <p className="p-5 text-body-sm text-fg-muted">
-          No platform profiles on this account yet.{' '}
+          {t('No platform profiles on this account yet.')}{' '}
           <Link
             href={`/admin/creators/${group.creatorId}`}
             className="text-fg underline underline-offset-4 focus-visible:outline-none focus-visible:shadow-focus"
           >
-            Add a URL
+            {t('Add a URL')}
           </Link>
           .
         </p>
@@ -548,20 +566,20 @@ function CreatorCard({ group }: { group: AdminCreatorGroup }) {
         <TableWrap className="rounded-none border-0 bg-transparent">
           <Table className="min-w-[860px]">
             <caption className="sr-only">
-              Platform profiles for {group.displayName}
+              {t('Platform profiles for {name}', { name: group.displayName })}
             </caption>
             <thead>
               <tr>
-                <Th className="w-24">Platform</Th>
-                <Th>Profile</Th>
-                <Th className="w-40">Status</Th>
-                <Th className="w-28">Data age</Th>
+                <Th className="w-24">{t('Platform')}</Th>
+                <Th>{t('Profile')}</Th>
+                <Th className="w-40">{t('Status')}</Th>
+                <Th className="w-28">{t('Data age')}</Th>
                 <Th numeric className="w-32">
-                  Followers
+                  {t('Followers')}
                 </Th>
-                <Th className="w-32">Claims</Th>
+                <Th className="w-32">{t('Claims')}</Th>
                 <Th className="w-32 text-right">
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{t('Actions')}</span>
                 </Th>
               </tr>
             </thead>
@@ -577,7 +595,8 @@ function CreatorCard({ group }: { group: AdminCreatorGroup }) {
   );
 }
 
-function ProfileRow({ p }: { p: AdminProfileRow }) {
+async function ProfileRow({ p }: { p: AdminProfileRow }) {
+  const { t, locale } = await getI18n();
   const meta = statusMeta(p.scrapeStatus);
   const key = toPlatformKey(p.platform);
   const name = p.displayName ?? p.handle ?? p.profileUrl;
@@ -588,7 +607,7 @@ function ProfileRow({ p }: { p: AdminProfileRow }) {
         <PlatformPill platform={key} iconSize={12} className="!px-2 !py-1">
           {/* Icon-only for density; the glyph is aria-hidden, so the platform
               name has to come from here or the cell is silent to a reader. */}
-          <span className="sr-only">{PLATFORM_LABELS[key]}</span>
+          <span className="sr-only">{t(PLATFORM_LABELS[key])}</span>
         </PlatformPill>
       </Td>
       <Td>
@@ -608,7 +627,7 @@ function ProfileRow({ p }: { p: AdminProfileRow }) {
         <StatusPill status={p.scrapeStatus} />
         {p.scrapeStatus !== 'ok' && (
           <p className="mt-1 max-w-[220px] text-caption text-fg-subtle">
-            {meta.note}
+            {t(meta.note)}
           </p>
         )}
       </Td>
@@ -620,30 +639,33 @@ function ProfileRow({ p }: { p: AdminProfileRow }) {
         />
       </Td>
       <Td numeric>
-        <span className="text-fg">{formatCompact(p.followers)}</span>
+        <span className="text-fg">{formatCompact(p.followers, locale)}</span>
         <span
           className={`mt-0.5 block text-caption ${deltaClass(
-            p.followersDelta
+            p.followersDelta,
           )}`}
         >
           {deltaCaret(p.followersDelta)}
-          {formatDelta(p.followersDelta)} today
+          {t('{delta} today', { delta: formatDelta(p.followersDelta, locale) })}
         </span>
       </Td>
       <Td>
         <p className="tnum text-caption text-fg-muted">
-          {p.ownerCount} owner · {p.trackerCount} tracker
+          {t('{owners} owner · {trackers} tracker', {
+            owners: p.ownerCount,
+            trackers: p.trackerCount,
+          })}
         </p>
         {p.pendingCount > 0 && (
           <p className="tnum mt-1 inline-flex rounded-full border border-brand/25 bg-brand/10 px-2 py-0.5 text-caption text-fg">
-            {p.pendingCount} pending
+            {t('{count} pending', { count: p.pendingCount })}
           </p>
         )}
       </Td>
       <Td className="text-right">
         <DeleteProfileButton
           profileId={p.id}
-          target={`${PLATFORM_LABELS[key]} · ${p.handle ?? name}`}
+          target={`${t(PLATFORM_LABELS[key])} · ${p.handle ?? name}`}
         />
       </Td>
     </Tr>
@@ -684,7 +706,7 @@ function Agg({
  * state" — rendering the rotting profile fainter than the healthy one would
  * bury exactly what this exists to surface.
  */
-function DataAge({
+async function DataAge({
   hours,
   stale,
   broken,
@@ -693,28 +715,35 @@ function DataAge({
   stale?: boolean;
   broken?: boolean;
 }) {
+  const { t, locale } = await getI18n();
   // `undefined` means the builder never evaluated staleness (getAdminCreatorDetail
   // fetches no snapshots) — distinct from `null`, which means "evaluated, and
   // found no capture in the window", the worst case. Render nothing rather than
   // an age we did not measure. `null` still renders, and renders as 'no data'.
   if (hours === undefined)
-    return <span className="text-caption text-fg-subtle">Not measured</span>;
+    return (
+      <span className="text-caption text-fg-subtle">{t('Not measured')}</span>
+    );
 
-  const age = formatDataAge(hours);
+  const age = formatDataAge(hours, locale);
   return (
     <div>
       <p
         className={`tnum text-body-sm ${stale ? 'text-fg' : 'text-fg-subtle'}`}
         title={
           hours === null
-            ? `No successful capture in the last ${SNAPSHOT_WINDOW_DAYS} days`
-            : `Last successful capture ${age} ago`
+            ? t('No successful capture in the last {days} days', {
+                days: SNAPSHOT_WINDOW_DAYS,
+              })
+            : t('Last successful capture {age} ago', { age })
         }
       >
-        {hours === null ? 'No data' : age}
+        {hours === null ? t('No data') : age}
       </p>
       {broken && hours !== null && (
-        <p className="text-caption text-fg-subtle">failing {age}</p>
+        <p className="text-caption text-fg-subtle">
+          {t('failing {age}', { age })}
+        </p>
       )}
     </div>
   );

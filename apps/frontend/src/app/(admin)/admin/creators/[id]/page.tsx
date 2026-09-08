@@ -1,3 +1,4 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
@@ -12,15 +13,17 @@ import { CreatorEditor } from './creator-editor';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export const metadata: Metadata = {
-  title: 'Admin · Edit creator — D3 Creator',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: t('Admin · Edit creator — D3 Creator') };
+}
 
 export default async function AdminCreatorEditorPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const { t } = await getI18n();
   const auth = await getAuthContext();
   if (!auth) redirect('/login');
   if (auth.role !== 'admin') redirect('/me');
@@ -52,12 +55,13 @@ export default async function AdminCreatorEditorPage({
             >
               <path d="M15 18l-6-6 6-6" />
             </svg>
-            All accounts
+            {t('All accounts')}
           </Link>
           <h1 className="mt-4 text-display-2 text-fg">{detail.displayName}</h1>
           <p className="mt-3 text-body-lg text-fg-muted">
-            Rename the account, repoint or remove its social URLs, and manage
-            the login. Every change here takes effect on the next scrape run.
+            {t(
+              'Rename the account, repoint or remove its social URLs, and manage the login. Every change here takes effect on the next scrape run.',
+            )}
           </p>
         </header>
         <CreatorEditor detail={detail} />

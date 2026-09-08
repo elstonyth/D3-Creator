@@ -1,3 +1,4 @@
+import { localeTag, type Locale } from '@gitroom/frontend/lib/i18n';
 /**
  * Creator profile resolution + shared metric formatters.
  *
@@ -26,18 +27,20 @@ export interface ResolvedProfile {
  */
 export async function resolveCreatorProfiles(
   sb: SupabaseClient,
-  args: { userId: string; creatorId: string | null },
+  args: { userId: string; creatorId: string | null }
 ): Promise<{ profiles: ResolvedProfile[]; source: 'claims' | 'creator_id' }> {
   const claimsRes = await sb
     .from('profile_claim')
     .select(
-      'profile:profile_id(id, platform, handle, display_name, profile_url, scrape_status)',
+      'profile:profile_id(id, platform, handle, display_name, profile_url, scrape_status)'
     )
     .eq('user_id', args.userId)
     .in('claim_kind', ['owner', 'tracker'])
     .not('confirmed_at', 'is', null);
 
-  const claimed = ((claimsRes.data ?? []) as unknown as { profile: ResolvedProfile | null }[])
+  const claimed = (
+    (claimsRes.data ?? []) as unknown as { profile: ResolvedProfile | null }[]
+  )
     .map((c) => c.profile)
     .filter((p): p is ResolvedProfile => p != null);
 
@@ -48,7 +51,10 @@ export async function resolveCreatorProfiles(
       .from('profile')
       .select('id, platform, handle, display_name, profile_url, scrape_status')
       .eq('creator_id', args.creatorId);
-    return { profiles: (data ?? []) as ResolvedProfile[], source: 'creator_id' };
+    return {
+      profiles: (data ?? []) as ResolvedProfile[],
+      source: 'creator_id',
+    };
   }
 
   return { profiles: [], source: 'claims' };
@@ -56,26 +62,33 @@ export async function resolveCreatorProfiles(
 
 // --- Formatters -------------------------------------------------------------
 
-const compactFmt = new Intl.NumberFormat('en-US', {
-  notation: 'compact',
-  compactDisplay: 'short',
-  maximumFractionDigits: 1,
-});
-
-export function formatCompact(n: number | null): string {
+export function formatCompact(n: number | null, locale: Locale = 'en'): string {
   if (n == null) return '—';
-  return compactFmt.format(n);
+  return new Intl.NumberFormat(localeTag(locale), {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(n);
 }
 
 /** Signed compact delta, e.g. "+1.2K" / "-340" / "0". */
-export function formatDelta(n: number | null): string {
+export function formatDelta(n: number | null, locale: Locale = 'en'): string {
   if (n == null) return '—';
   const sign = n > 0 ? '+' : '';
-  return `${sign}${compactFmt.format(n)}`;
+  return `${sign}${new Intl.NumberFormat(localeTag(locale), {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(n)}`;
 }
 
 /** Fraction → percent string, e.g. 0.0423 → "4.2%". */
-export function formatPercent(fraction: number | null): string {
+export function formatPercent(
+  fraction: number | null,
+  locale: Locale = 'en'
+): string {
   if (fraction == null) return '—';
-  return `${(fraction * 100).toFixed(1)}%`;
+  return new Intl.NumberFormat(localeTag(locale), {
+    style: 'percent',
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(fraction);
 }

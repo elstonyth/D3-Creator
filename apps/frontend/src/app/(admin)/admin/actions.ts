@@ -15,6 +15,8 @@
  * failure — the login is the valuable artifact; failures are reported per-URL.
  */
 
+import { localizeAdminError } from './localize-error';
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import { revalidatePath } from 'next/cache';
 import {
   getSupabaseAdmin,
@@ -56,23 +58,36 @@ export async function createCreator(
   _prev: ProvisionResult | null,
   formData: FormData,
 ): Promise<ProvisionResult> {
+  const { t, locale } = await getI18n();
   try {
     await requireAdmin();
 
     const emailRes = validateEmail(String(formData.get('email') ?? ''));
-    if (!emailRes.ok) return { ok: false, message: emailRes.error };
+    if (!emailRes.ok)
+      return {
+        ok: false,
+        message: localizeAdminError(emailRes.error, locale, t),
+      };
     const email = emailRes.value;
 
     const passwordRes = validatePassword(
       String(formData.get('password') ?? ''),
     );
-    if (!passwordRes.ok) return { ok: false, message: passwordRes.error };
+    if (!passwordRes.ok)
+      return {
+        ok: false,
+        message: localizeAdminError(passwordRes.error, locale, t),
+      };
     const password = passwordRes.value;
 
     const nameRes = validateDisplayName(
       String(formData.get('display_name') ?? ''),
     );
-    if (!nameRes.ok) return { ok: false, message: nameRes.error };
+    if (!nameRes.ok)
+      return {
+        ok: false,
+        message: localizeAdminError(nameRes.error, locale, t),
+      };
     const displayName = nameRes.value;
 
     // Validate the URL list BEFORE creating any auth user — an over-cap
@@ -83,7 +98,9 @@ export async function createCreator(
     if (urls.length > MAX_PROVISION_URLS) {
       return {
         ok: false,
-        message: `Too many URLs — provide at most ${MAX_PROVISION_URLS}.`,
+        message: t('Too many URLs — provide at most {value1}.', {
+          value1: MAX_PROVISION_URLS,
+        }),
       };
     }
 
@@ -99,7 +116,11 @@ export async function createCreator(
     if (created.error || !created.data.user) {
       return {
         ok: false,
-        message: created.error?.message ?? 'Could not create the login.',
+        message: localizeAdminError(
+          created.error?.message ?? 'Could not create the login.',
+          locale,
+          t,
+        ),
       };
     }
     const userId = created.data.user.id;
@@ -124,8 +145,13 @@ export async function createCreator(
       return {
         ok: false,
         message: cleanup.error
-          ? `Role assignment failed (${roleSet.error.message}); the partial login may remain — check /admin/users.`
-          : `Could not assign the creator role (${roleSet.error.message}). Please retry.`,
+          ? t(
+              'Role assignment failed ({value1}); the partial login may remain — check /admin/users.',
+              { value1: localizeAdminError(roleSet.error.message, locale, t) },
+            )
+          : t('Could not assign the creator role ({value1}). Please retry.', {
+              value1: localizeAdminError(roleSet.error.message, locale, t),
+            }),
       };
     }
 
@@ -137,7 +163,10 @@ export async function createCreator(
     if (creatorRes.ok !== true) {
       return {
         ok: false,
-        message: `Login created, but linking the creator failed: ${creatorRes.error}. Add profiles via /admin/profiles or retry.`,
+        message: t(
+          'Login created, but linking the creator failed: {value1}. Add profiles via /admin/profiles or retry.',
+          { value1: localizeAdminError(creatorRes.error, locale, t) },
+        ),
         credentials: { email, password },
       };
     }
@@ -152,7 +181,7 @@ export async function createCreator(
         urlResults.push({
           url,
           status: 'failed',
-          detail: 'Unrecognized platform URL.',
+          detail: t('Unrecognized platform URL.'),
         });
         continue;
       }
@@ -166,7 +195,7 @@ export async function createCreator(
           url,
           platform,
           status: 'failed',
-          detail: profileRes.error,
+          detail: localizeAdminError(profileRes.error, locale, t),
         });
         continue;
       }
@@ -181,7 +210,7 @@ export async function createCreator(
           url,
           platform,
           status: 'failed',
-          detail: claimRes.error,
+          detail: localizeAdminError(claimRes.error, locale, t),
         });
         continue;
       }
@@ -197,10 +226,18 @@ export async function createCreator(
     const failures = urlResults.filter((r) => r.status === 'failed').length;
     const message =
       failures === 0
-        ? `Created ${displayName}.`
-        : `Created ${displayName} — ${failures} URL${failures === 1 ? '' : 's'} need attention.`;
+        ? t('Created {name}.', { name: displayName })
+        : t(
+            failures === 1
+              ? 'Created {name} — {count} URL need attention.'
+              : 'Created {name} — {count} URLs need attention.',
+            { name: displayName, count: failures },
+          );
     return { ok: true, message, credentials: { email, password }, urlResults };
   } catch (error: unknown) {
-    return { ok: false, message: getErrorMessage(error) };
+    return {
+      ok: false,
+      message: localizeAdminError(getErrorMessage(error), locale, t),
+    };
   }
 }

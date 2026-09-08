@@ -1,3 +1,4 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 /**
  * Loading state for /studio/analyzer and /studio/analyzer/[id].
  *
@@ -15,13 +16,14 @@ import type { ReactElement } from 'react';
 import { Container, Section } from '@gitroom/frontend/components/ui/section';
 import { Skeleton } from '@gitroom/frontend/components/ui/skeleton';
 
-export default function AnalyzerLoading(): ReactElement {
+export default async function AnalyzerLoading(): Promise<ReactElement> {
+  const { t } = await getI18n();
   return (
     <Section space="md">
       {/* The only thing announced: the blocks below are aria-hidden, so without
           this a screen reader is told nothing at all during the wait. */}
       <p role="status" className="sr-only">
-        Loading.
+        {t('Loading.')}{' '}
       </p>
       <Container className="flex flex-col gap-10">
         <div className="flex max-w-prose flex-col gap-3">

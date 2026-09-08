@@ -4,6 +4,7 @@
  * text intensity — yellow-mono, never a foreign hue (DESIGN.md §2). Rows
  * without a full window show "Building history…" instead of a fake zero.
  */
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import Link from 'next/link';
 
 import type { CreatorMetricWindowRow } from '@gitroom/frontend/lib/metrics-windowed';
@@ -39,7 +40,12 @@ function deltaCaret(n: number): string {
   return n > 0 ? '▲\u00a0' : '▼\u00a0';
 }
 
-export function Top30Creators({ rows }: { rows: CreatorMetricWindowRow[] }) {
+export async function Top30Creators({
+  rows,
+}: {
+  rows: CreatorMetricWindowRow[];
+}) {
+  const { t } = await getI18n();
   return (
     <section
       aria-labelledby="top-creators-heading"
@@ -47,17 +53,18 @@ export function Top30Creators({ rows }: { rows: CreatorMetricWindowRow[] }) {
     >
       <div className="border-b border-line px-5 py-4">
         <h3 id="top-creators-heading" className="text-heading text-fg">
-          Top creators
+          {t('Top creators')}
         </h3>
         <p className="mt-1 text-caption text-fg-subtle">
-          Follower growth · last 30 days
+          {t('Follower growth · last 30 days')}
         </p>
       </div>
 
       {rows.length === 0 ? (
         <p className="px-5 py-8 text-body text-fg-muted">
-          No creator has a full 30 days of history yet. Ranking appears once the
-          daily snapshots span the window.
+          {t(
+            'No creator has a full 30 days of history yet. Ranking appears once the daily snapshots span the window.',
+          )}
         </p>
       ) : (
         <TableWrap className="rounded-none border-0 bg-transparent">
@@ -65,10 +72,10 @@ export function Top30Creators({ rows }: { rows: CreatorMetricWindowRow[] }) {
             <thead>
               <tr>
                 <Th className="w-12">#</Th>
-                <Th>Creator</Th>
-                <Th className="w-20">Platform</Th>
-                <Th numeric>Followers</Th>
-                <Th numeric>Δ 30d</Th>
+                <Th>{t('Creator')}</Th>
+                <Th className="w-20">{t('Platform')}</Th>
+                <Th numeric>{t('Followers')}</Th>
+                <Th numeric>{t('Δ 30d')}</Th>
               </tr>
             </thead>
             <tbody>
@@ -83,15 +90,16 @@ export function Top30Creators({ rows }: { rows: CreatorMetricWindowRow[] }) {
   );
 }
 
-function CreatorRow({
+async function CreatorRow({
   row,
   rank,
 }: {
   row: CreatorMetricWindowRow;
   rank: number;
 }) {
+  const { t, locale } = await getI18n();
   const pk = toPlatformKey(row.primaryPlatform);
-  const name = row.displayName ?? 'Unnamed creator';
+  const name = row.displayName ?? t('Unnamed creator');
   const initial = name.trim().charAt(0).toUpperCase() || '?';
 
   return (
@@ -132,20 +140,20 @@ function CreatorRow({
           <PlatformPill platform={pk} iconSize={12} className="!px-2 !py-1">
             {/* Icon-only for density; the glyph is aria-hidden, so the name
                 has to come from here or the cell is silent to a screen reader. */}
-            <span className="sr-only">{PLATFORM_LABELS[pk]}</span>
+            <span className="sr-only">{t(PLATFORM_LABELS[pk])}</span>
           </PlatformPill>
         ) : (
-          <span className="text-caption text-fg-subtle">Not set</span>
+          <span className="text-caption text-fg-subtle">{t('Not set')}</span>
         )}
       </Td>
-      <Td numeric>{formatCompact(row.followers)}</Td>
+      <Td numeric>{formatCompact(row.followers, locale)}</Td>
       <Td numeric className="text-caption">
         {row.insufficient ? (
-          <span className="text-fg-subtle">{BUILDING_HISTORY}</span>
+          <span className="text-fg-subtle">{t(BUILDING_HISTORY)}</span>
         ) : (
           <span className={deltaClass(row.followersDelta)}>
             {deltaCaret(row.followersDelta)}
-            {formatDelta(row.followersDelta)}
+            {formatDelta(row.followersDelta, locale)}
           </span>
         )}
       </Td>

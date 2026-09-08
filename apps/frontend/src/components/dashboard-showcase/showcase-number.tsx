@@ -1,8 +1,8 @@
-import {
-  compactFormatter,
-  exactFormatter,
-  formatShowcase,
-} from './showcase-data';
+'use client';
+import { localeTag } from '@gitroom/frontend/lib/i18n';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
+
+import { formatShowcase } from './showcase-data';
 
 /**
  * Responsive showcase number for the Top Creators tables.
@@ -28,11 +28,19 @@ export function ShowcaseNumber({
   value: number;
   exact?: boolean;
 }) {
+  const { locale } = useI18n();
   return (
     <>
-      <span className="sm:hidden">{compactFormatter.format(value)}</span>
+      <span className="sm:hidden">
+        {new Intl.NumberFormat(localeTag(locale), {
+          notation: 'compact',
+          maximumFractionDigits: 1,
+        }).format(value)}
+      </span>
       <span className="hidden sm:inline">
-        {exact ? exactFormatter.format(value) : formatShowcase(value)}
+        {exact
+          ? new Intl.NumberFormat(localeTag(locale)).format(value)
+          : formatShowcase(value, locale)}
       </span>
     </>
   );

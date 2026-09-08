@@ -1,4 +1,5 @@
 'use client';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 
 import { useState } from 'react';
 import clsx from 'clsx';
@@ -32,23 +33,34 @@ interface ContentThumbProps {
  * metric bar was rendering white text straight onto the photo.
  */
 export function ContentThumb({ post, onOpen }: ContentThumbProps) {
+  const { locale, t } = useI18n();
   const [failed, setFailed] = useState(false);
 
   const Icon = PLATFORM_ICONS[post.platform];
-  const metric = formatPrimaryMetric(post);
-  const date = formatPostDate(post.publishedAt);
+  const metric = formatPrimaryMetric(post, locale);
+  const date = formatPostDate(post.publishedAt, locale);
   const showImage = post.thumbnailUrl != null && !failed;
 
   return (
     <button
       type="button"
       onClick={() => onOpen(post)}
-      aria-label={`Open ${PLATFORM_LABELS[post.platform]} post${date ? ` from ${date}` : ''} — ${metric.value} ${metric.label}`}
+      aria-label={t(
+        date
+          ? 'Open {platform} post from {date} — {value} {metric}'
+          : 'Open {platform} post — {value} {metric}',
+        {
+          platform: t(PLATFORM_LABELS[post.platform]),
+          date,
+          value: metric.value,
+          metric: metric.label,
+        }
+      )}
       className={clsx(
         'group relative block w-full overflow-hidden rounded-xl border border-line bg-surface-subtle text-left',
         'transition-colors duration-150 ease-out hover:border-line-strong',
         'focus-visible:outline-none focus-visible:shadow-focus',
-        PLATFORM_ASPECT[post.platform],
+        PLATFORM_ASPECT[post.platform]
       )}
     >
       {showImage ? (
@@ -67,7 +79,7 @@ export function ContentThumb({ post, onOpen }: ContentThumbProps) {
       ) : (
         <div className="absolute inset-0 flex items-end p-4 pb-16">
           <p className="line-clamp-5 text-body-sm text-fg-muted">
-            {post.caption || 'No caption'}
+            {post.caption || t('No caption')}
           </p>
         </div>
       )}
@@ -114,7 +126,13 @@ export function ContentThumb({ post, onOpen }: ContentThumbProps) {
 
 function CarouselGlyph() {
   return (
-    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <svg
+      width="10"
+      height="10"
+      viewBox="0 0 16 16"
+      fill="none"
+      aria-hidden="true"
+    >
       <rect
         x="3"
         y="3"

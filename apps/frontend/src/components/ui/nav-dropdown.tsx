@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useEffect, useId, useRef, useState, type ReactElement } from 'react';
 
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { cn } from '@gitroom/frontend/lib/utils';
 
 export type StudioViewer = 'member' | 'signed-out' | 'no-access';
@@ -63,7 +64,7 @@ function ChevronGlyph({ open }: { open: boolean }): ReactElement {
       aria-hidden
       className={cn(
         'h-3 w-3 shrink-0 transition-transform duration-150 ease-out',
-        open && 'rotate-180',
+        open && 'rotate-180'
       )}
     >
       <path d="M6 9l6 6 6-6" />
@@ -81,6 +82,7 @@ export default function NavDropdown({
   items,
   viewer,
 }: NavDropdownProps): ReactElement {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const panelId = useId();
@@ -102,7 +104,7 @@ export default function NavDropdown({
 
   const locked = viewer !== 'member';
   const anyChildActive = items.some((item) =>
-    isActiveHref(pathname, item.href),
+    isActiveHref(pathname, item.href)
   );
 
   // Reused from mobile-nav.tsx: a mousedown listener mounted only while open.
@@ -122,8 +124,8 @@ export default function NavDropdown({
     pendingFocus.current = null;
     const list = Array.from(
       panelRef.current?.querySelectorAll<HTMLAnchorElement>(
-        'a[role="menuitem"]',
-      ) ?? [],
+        'a[role="menuitem"]'
+      ) ?? []
     );
     (want === 'first' ? list[0] : list[list.length - 1])?.focus();
   }, [open]);
@@ -131,8 +133,8 @@ export default function NavDropdown({
   function itemList(): HTMLAnchorElement[] {
     return Array.from(
       panelRef.current?.querySelectorAll<HTMLAnchorElement>(
-        'a[role="menuitem"]',
-      ) ?? [],
+        'a[role="menuitem"]'
+      ) ?? []
     );
   }
 
@@ -208,7 +210,7 @@ export default function NavDropdown({
           'px-3 py-1.5 rounded-md flex items-center gap-1 transition-colors duration-150 ease-out',
           anyChildActive
             ? 'text-aurora-cta font-medium'
-            : 'text-fgMuted hover:text-fg hover:bg-white/[0.04]',
+            : 'text-fgMuted hover:text-fg hover:bg-white/[0.04]'
         )}
       >
         {label}
@@ -230,7 +232,7 @@ export default function NavDropdown({
           'transition-[opacity,transform] duration-150 ease-out',
           open
             ? 'opacity-100 translate-y-0'
-            : 'invisible pointer-events-none opacity-0 translate-y-1',
+            : 'invisible pointer-events-none opacity-0 translate-y-1'
         )}
       >
         {items.map((item) => {
@@ -261,14 +263,14 @@ export default function NavDropdown({
                 'flex items-center gap-2 h-10 px-3 rounded-md transition-colors duration-150 ease-out',
                 active
                   ? 'text-aurora-cta font-medium'
-                  : 'text-fgMuted hover:text-fg hover:bg-white/[0.04]',
+                  : 'text-fgMuted hover:text-fg hover:bg-white/[0.04]'
               )}
             >
               {item.label}
               {locked && (
                 <>
                   <LockGlyph />
-                  <span className="sr-only"> (members only)</span>
+                  <span className="sr-only"> {t('(members only)')}</span>
                 </>
               )}
             </Link>

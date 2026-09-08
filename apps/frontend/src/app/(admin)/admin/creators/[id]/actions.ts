@@ -6,6 +6,8 @@
  * revalidatePath. Ownership/URL logic reuses @d3/database helpers.
  */
 
+import { localizeAdminError } from '../../localize-error';
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { randomBytes } from 'node:crypto';
@@ -52,15 +54,20 @@ export async function renameCreator(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
+  const { t, locale } = await getI18n();
   try {
     await requireAdmin();
     const creatorId = String(formData.get('creator_id') ?? '');
     if (!isUuid(creatorId))
-      return { ok: false, message: 'Invalid creator id.' };
+      return { ok: false, message: t('Invalid creator id.') };
     const nameRes = validateDisplayName(
       String(formData.get('display_name') ?? ''),
     );
-    if (!nameRes.ok) return { ok: false, message: nameRes.error };
+    if (!nameRes.ok)
+      return {
+        ok: false,
+        message: localizeAdminError(nameRes.error, locale, t),
+      };
 
     const admin = getSupabaseAdmin();
     const { error } = await admin
@@ -69,12 +76,15 @@ export async function renameCreator(
       .eq('id', creatorId);
     if (error) {
       console.error('[admin/renameCreator]', error);
-      return { ok: false, message: 'Could not rename the creator.' };
+      return { ok: false, message: t('Could not rename the creator.') };
     }
     revalidateCreator(creatorId);
-    return { ok: true, message: 'Renamed.' };
+    return { ok: true, message: t('Renamed.') };
   } catch (error: unknown) {
-    return { ok: false, message: getErrorMessage(error) };
+    return {
+      ok: false,
+      message: localizeAdminError(getErrorMessage(error), locale, t),
+    };
   }
 }
 
@@ -82,15 +92,17 @@ export async function addCreatorUrl(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
+  const { t, locale } = await getI18n();
   try {
     await requireAdmin();
     const creatorId = String(formData.get('creator_id') ?? '');
     if (!isUuid(creatorId))
-      return { ok: false, message: 'Invalid creator id.' };
+      return { ok: false, message: t('Invalid creator id.') };
 
     const resolved = await resolveShortLink(String(formData.get('url') ?? ''));
     const platform = detectPlatform(resolved);
-    if (!platform) return { ok: false, message: 'Unrecognized platform URL.' };
+    if (!platform)
+      return { ok: false, message: t('Unrecognized platform URL.') };
 
     const admin = getSupabaseAdmin();
     const profileRes = await findOrCreateProfile({
@@ -98,7 +110,11 @@ export async function addCreatorUrl(
       profile_url: resolved,
       fallback_creator_id: creatorId,
     });
-    if (profileRes.ok !== true) return { ok: false, message: profileRes.error };
+    if (profileRes.ok !== true)
+      return {
+        ok: false,
+        message: localizeAdminError(profileRes.error, locale, t),
+      };
 
     // The URL already existed under a DIFFERENT creator — don't steal it.
     if (
@@ -107,7 +123,7 @@ export async function addCreatorUrl(
     ) {
       return {
         ok: false,
-        message: 'That profile is already tracked under another creator.',
+        message: t('That profile is already tracked under another creator.'),
       };
     }
 
@@ -123,7 +139,7 @@ export async function addCreatorUrl(
       console.error('[admin/addCreatorUrl] creator_link lookup', link.error);
       return {
         ok: false,
-        message: 'Could not verify the creator login — try again.',
+        message: t('Could not verify the creator login — try again.'),
       };
     }
     if (link.data?.user_id) {
@@ -136,7 +152,9 @@ export async function addCreatorUrl(
       if (claimRes.ok !== true) {
         return {
           ok: false,
-          message: `Profile saved, but the owner claim failed: ${claimRes.error}`,
+          message: t('Profile saved, but the owner claim failed: {value1}', {
+            value1: localizeAdminError(claimRes.error, locale, t),
+          }),
         };
       }
     }
@@ -144,11 +162,14 @@ export async function addCreatorUrl(
     return {
       ok: true,
       message: profileRes.value.created
-        ? `Added ${platform} profile.`
-        : `Linked existing ${platform} profile.`,
+        ? t('Added {value1} profile.', { value1: t(platform) })
+        : t('Linked existing {value1} profile.', { value1: t(platform) }),
     };
   } catch (error: unknown) {
-    return { ok: false, message: getErrorMessage(error) };
+    return {
+      ok: false,
+      message: localizeAdminError(getErrorMessage(error), locale, t),
+    };
   }
 }
 
@@ -156,12 +177,13 @@ export async function editCreatorUrl(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
+  const { t, locale } = await getI18n();
   try {
     await requireAdmin();
     const creatorId = String(formData.get('creator_id') ?? '');
     const profileId = String(formData.get('profile_id') ?? '');
     if (!isUuid(creatorId) || !isUuid(profileId))
-      return { ok: false, message: 'Invalid id.' };
+      return { ok: false, message: t('Invalid id.') };
 
     const admin = getSupabaseAdmin();
     const existing = await admin
@@ -171,23 +193,25 @@ export async function editCreatorUrl(
       .maybeSingle();
     if (existing.error) {
       console.error('[admin/editCreatorUrl] profile fetch', existing.error);
-      return { ok: false, message: 'Could not look up the profile.' };
+      return { ok: false, message: t('Could not look up the profile.') };
     }
     if (!existing.data || existing.data.creator_id !== creatorId) {
-      return { ok: false, message: 'Profile not found for this creator.' };
+      return { ok: false, message: t('Profile not found for this creator.') };
     }
 
     const resolved = await resolveShortLink(String(formData.get('url') ?? ''));
     const platform = detectPlatform(resolved);
-    if (!platform) return { ok: false, message: 'Unrecognized platform URL.' };
+    if (!platform)
+      return { ok: false, message: t('Unrecognized platform URL.') };
     if (platform !== existing.data.platform) {
       return {
         ok: false,
-        message: `Different platform — remove this URL and add the new one.`,
+        message: t('Different platform — remove this URL and add the new one.'),
       };
     }
     const v = validateProfileUrl(platform, resolved);
-    if (v.ok !== true) return { ok: false, message: v.error };
+    if (v.ok !== true)
+      return { ok: false, message: localizeAdminError(v.error, locale, t) };
 
     const { error } = await admin
       .from('profile')
@@ -203,14 +227,17 @@ export async function editCreatorUrl(
         ok: false,
         message:
           error.code === '23505'
-            ? 'That profile already exists.'
-            : 'Could not update the URL.',
+            ? t('That profile already exists.')
+            : t('Could not update the URL.'),
       };
     }
     revalidateCreator(creatorId);
-    return { ok: true, message: 'URL updated.' };
+    return { ok: true, message: t('URL updated.') };
   } catch (error: unknown) {
-    return { ok: false, message: getErrorMessage(error) };
+    return {
+      ok: false,
+      message: localizeAdminError(getErrorMessage(error), locale, t),
+    };
   }
 }
 
@@ -218,12 +245,13 @@ export async function removeCreatorUrl(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
+  const { t, locale } = await getI18n();
   try {
     await requireAdmin();
     const creatorId = String(formData.get('creator_id') ?? '');
     const profileId = String(formData.get('profile_id') ?? '');
     if (!isUuid(creatorId) || !isUuid(profileId))
-      return { ok: false, message: 'Invalid id.' };
+      return { ok: false, message: t('Invalid id.') };
 
     const admin = getSupabaseAdmin();
     const prof = await admin
@@ -232,17 +260,20 @@ export async function removeCreatorUrl(
       .eq('id', profileId)
       .maybeSingle();
     if (prof.error || !prof.data || prof.data.creator_id !== creatorId) {
-      return { ok: false, message: 'Profile not found for this creator.' };
+      return { ok: false, message: t('Profile not found for this creator.') };
     }
     const { error } = await admin.from('profile').delete().eq('id', profileId);
     if (error) {
       console.error('[admin/removeCreatorUrl]', error);
-      return { ok: false, message: 'Could not remove the URL.' };
+      return { ok: false, message: t('Could not remove the URL.') };
     }
     revalidateCreator(creatorId);
-    return { ok: true, message: 'URL removed.' };
+    return { ok: true, message: t('URL removed.') };
   } catch (error: unknown) {
-    return { ok: false, message: getErrorMessage(error) };
+    return {
+      ok: false,
+      message: localizeAdminError(getErrorMessage(error), locale, t),
+    };
   }
 }
 
@@ -264,20 +295,26 @@ export async function addCreatorLogin(
   _prev: PasswordResetResult | null,
   formData: FormData,
 ): Promise<PasswordResetResult> {
+  const { t, locale } = await getI18n();
   try {
     await requireAdmin();
     const creatorId = String(formData.get('creator_id') ?? '');
     if (!isUuid(creatorId))
-      return { ok: false, message: 'Invalid creator id.' };
+      return { ok: false, message: t('Invalid creator id.') };
 
     const emailRes = validateEmail(String(formData.get('email') ?? ''));
-    if (!emailRes.ok) return { ok: false, message: emailRes.error };
+    if (!emailRes.ok)
+      return {
+        ok: false,
+        message: localizeAdminError(emailRes.error, locale, t),
+      };
     const email = emailRes.value;
 
     const typed = String(formData.get('password') ?? '');
     const password = typed.length ? typed : generatePassword();
     const pwRes = validatePassword(password);
-    if (!pwRes.ok) return { ok: false, message: pwRes.error };
+    if (!pwRes.ok)
+      return { ok: false, message: localizeAdminError(pwRes.error, locale, t) };
 
     const admin = getSupabaseAdmin();
 
@@ -288,7 +325,7 @@ export async function addCreatorLogin(
       .eq('id', creatorId)
       .maybeSingle();
     if (creatorRes.error || !creatorRes.data) {
-      return { ok: false, message: 'Creator not found.' };
+      return { ok: false, message: t('Creator not found.') };
     }
 
     // This action is for credential-less creators only. Refuse if a login is
@@ -308,14 +345,15 @@ export async function addCreatorLogin(
       );
       return {
         ok: false,
-        message: 'Could not verify existing logins — try again.',
+        message: t('Could not verify existing logins — try again.'),
       };
     }
     if (existingLogin.data?.user_id) {
       return {
         ok: false,
-        message:
+        message: t(
           'This creator already has a login — use Reset password instead.',
+        ),
       };
     }
 
@@ -332,7 +370,11 @@ export async function addCreatorLogin(
     if (created.error || !created.data.user) {
       return {
         ok: false,
-        message: created.error?.message ?? 'Could not create the login.',
+        message: localizeAdminError(
+          created.error?.message ?? 'Could not create the login.',
+          locale,
+          t,
+        ),
       };
     }
     const userId = created.data.user.id;
@@ -357,8 +399,13 @@ export async function addCreatorLogin(
       return {
         ok: false,
         message: cleanup.error
-          ? `Role assignment failed (${roleSet.error.message}); the partial login may remain — check /admin/users.`
-          : `Could not assign the creator role (${roleSet.error.message}). Please retry.`,
+          ? t(
+              'Role assignment failed ({value1}); the partial login may remain — check /admin/users.',
+              { value1: localizeAdminError(roleSet.error.message, locale, t) },
+            )
+          : t('Could not assign the creator role ({value1}). Please retry.', {
+              value1: localizeAdminError(roleSet.error.message, locale, t),
+            }),
       };
     }
 
@@ -376,7 +423,10 @@ export async function addCreatorLogin(
       );
       return {
         ok: false,
-        message: `Login created, but linking it to the creator failed: ${linked.error.message}. Retry to heal.`,
+        message: t(
+          'Login created, but linking it to the creator failed: {value1}. Retry to heal.',
+          { value1: localizeAdminError(linked.error.message, locale, t) },
+        ),
         credentials: { email, password: pwRes.value },
       };
     }
@@ -414,17 +464,23 @@ export async function addCreatorLogin(
     if (claimFailure) {
       return {
         ok: false,
-        message: `Login created and works, but an owner claim failed (${claimFailure}) — the creator may show fewer owned profiles.`,
+        message: t(
+          'Login created and works, but an owner claim failed ({value1}) — the creator may show fewer owned profiles.',
+          { value1: localizeAdminError(claimFailure, locale, t) },
+        ),
         credentials: { email, password: pwRes.value },
       };
     }
     return {
       ok: true,
-      message: 'Login created.',
+      message: t('Login created.'),
       credentials: { email, password: pwRes.value },
     };
   } catch (error: unknown) {
-    return { ok: false, message: getErrorMessage(error) };
+    return {
+      ok: false,
+      message: localizeAdminError(getErrorMessage(error), locale, t),
+    };
   }
 }
 
@@ -432,12 +488,13 @@ export async function resetCreatorPassword(
   _prev: PasswordResetResult | null,
   formData: FormData,
 ): Promise<PasswordResetResult> {
+  const { t, locale } = await getI18n();
   try {
     await requireAdmin();
     const creatorId = String(formData.get('creator_id') ?? '');
     const userId = String(formData.get('user_id') ?? '');
     if (!isUuid(creatorId) || !isUuid(userId))
-      return { ok: false, message: 'Invalid id.' };
+      return { ok: false, message: t('Invalid id.') };
 
     const admin = getSupabaseAdmin();
     const link = await admin
@@ -449,30 +506,34 @@ export async function resetCreatorPassword(
     if (link.error || !link.data) {
       return {
         ok: false,
-        message: 'That login is not linked to this creator.',
+        message: t('That login is not linked to this creator.'),
       };
     }
 
     const typed = String(formData.get('password') ?? '');
     const password = typed.length ? typed : generatePassword();
     const pwRes = validatePassword(password);
-    if (!pwRes.ok) return { ok: false, message: pwRes.error };
+    if (!pwRes.ok)
+      return { ok: false, message: localizeAdminError(pwRes.error, locale, t) };
 
     const upd = await admin.auth.admin.updateUserById(userId, {
       password: pwRes.value,
     });
     if (upd.error || !upd.data.user) {
       console.error('[admin/resetCreatorPassword]', upd.error);
-      return { ok: false, message: 'Could not reset the password.' };
+      return { ok: false, message: t('Could not reset the password.') };
     }
     revalidateCreator(creatorId);
     return {
       ok: true,
-      message: 'Password reset.',
+      message: t('Password reset.'),
       credentials: { email: upd.data.user.email ?? '', password: pwRes.value },
     };
   } catch (error: unknown) {
-    return { ok: false, message: getErrorMessage(error) };
+    return {
+      ok: false,
+      message: localizeAdminError(getErrorMessage(error), locale, t),
+    };
   }
 }
 
@@ -480,12 +541,13 @@ export async function deleteCreator(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
+  const { t, locale } = await getI18n();
   const creatorId = String(formData.get('creator_id') ?? '');
   let done = false;
   try {
     await requireAdmin();
     if (!isUuid(creatorId))
-      return { ok: false, message: 'Invalid creator id.' };
+      return { ok: false, message: t('Invalid creator id.') };
 
     const admin = getSupabaseAdmin();
     // Delete linked logins first (cascades user_role + creator_link), then the
@@ -496,7 +558,7 @@ export async function deleteCreator(
       .eq('creator_id', creatorId);
     if (links.error) {
       console.error('[admin/deleteCreator] creator_link lookup', links.error);
-      return { ok: false, message: 'Could not delete the creator.' };
+      return { ok: false, message: t('Could not delete the creator.') };
     }
     for (const l of (links.data ?? []) as { user_id: string }[]) {
       const { error: delErr } = await admin.auth.admin.deleteUser(l.user_id);
@@ -506,15 +568,18 @@ export async function deleteCreator(
     const del = await admin.from('creator').delete().eq('id', creatorId);
     if (del.error) {
       console.error('[admin/deleteCreator]', del.error);
-      return { ok: false, message: 'Could not delete the creator.' };
+      return { ok: false, message: t('Could not delete the creator.') };
     }
     revalidatePath('/admin/profiles');
     revalidatePath('/admin');
     done = true;
   } catch (error: unknown) {
-    return { ok: false, message: getErrorMessage(error) };
+    return {
+      ok: false,
+      message: localizeAdminError(getErrorMessage(error), locale, t),
+    };
   }
   // redirect() throws NEXT_REDIRECT — keep it OUTSIDE the try so it isn't caught.
   if (done) redirect('/admin/profiles');
-  return { ok: true, message: 'Deleted.' };
+  return { ok: true, message: t('Deleted.') };
 }

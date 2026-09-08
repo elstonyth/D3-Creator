@@ -1,3 +1,4 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import { Metadata } from 'next';
 import { ManifestoOpening } from '@gitroom/frontend/components/about/ManifestoOpening';
 import { StoryTimeline } from '@gitroom/frontend/components/about/StoryTimeline';
@@ -7,13 +8,18 @@ import { ClosingMission } from '@gitroom/frontend/components/about/ClosingMissio
 
 export const revalidate = 3600;
 
-export const metadata: Metadata = {
-  title:
-    'About D3 — A creator growth ecosystem and commercial IP operating company.',
-  description:
-    'Since 2021, D3 has been building creators, founders, and commercial IPs across Malaysia. Not vanity. Not motivation. Real execution: content, audience, platform, positioning, monetization.',
-  alternates: { canonical: '/about' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+    title: t(
+      'About D3 — A creator growth ecosystem and commercial IP operating company.'
+    ),
+    description: t(
+      'Since 2021, D3 has been building creators, founders, and commercial IPs across Malaysia. Not vanity. Not motivation. Real execution: content, audience, platform, positioning, monetization.'
+    ),
+    alternates: { canonical: '/about' },
+  };
+}
 
 export default function AboutPage() {
   return (

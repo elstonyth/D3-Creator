@@ -1,5 +1,8 @@
 'use client';
 
+import { localeTag } from '@gitroom/frontend/lib/i18n';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
+
 /**
  * The Script Coach island — PRD 3 §7.2, §7.5, §7.6, §7.7.
  *
@@ -87,8 +90,9 @@ function FailureBlock({
   copy: string;
   onRetry?: () => void;
 }): ReactElement {
+  const { t } = useI18n();
   return (
-    <Alert tone="danger" title="That message did not send">
+    <Alert tone="danger" title={t('That message did not send')}>
       <p>{copy}</p>
       {onRetry !== undefined && (
         <button
@@ -96,7 +100,7 @@ function FailureBlock({
           className={`${compactSecondary} min-h-10 sm:min-h-8 mt-2`}
           onClick={onRetry}
         >
-          Try again
+          {t('Try again')}
         </button>
       )}
     </Alert>
@@ -109,6 +113,7 @@ export function ChatWorkspace({
   showProfileForm,
   coachReady,
 }: ChatWorkspaceProps): ReactElement {
+  const { locale, t } = useI18n();
   const router = useRouter();
 
   const [localTurns, setLocalTurns] = useState<ChatTurn[]>([]);
@@ -156,7 +161,7 @@ export function ChatWorkspace({
     const el = scrollRef.current;
     if (el === null) return;
     const instant = window.matchMedia(
-      '(prefers-reduced-motion: reduce)',
+      '(prefers-reduced-motion: reduce)'
     ).matches;
     el.scrollTo({
       top: el.scrollHeight,
@@ -273,7 +278,7 @@ export function ChatWorkspace({
         window.history.replaceState(
           null,
           '',
-          `/studio/chat?thread=${newThreadId}`,
+          `/studio/chat?thread=${newThreadId}`
         );
       }
       setLive('The coach replied.');
@@ -289,7 +294,7 @@ export function ChatWorkspace({
       setFailure(
         name === 'TimeoutError' || name === 'AbortError'
           ? TIMEOUT_COPY
-          : GENERIC_SEND_FAILURE_COPY,
+          : GENERIC_SEND_FAILURE_COPY
       );
       setLive('');
     } finally {
@@ -345,10 +350,11 @@ export function ChatWorkspace({
               not chrome, and a pinned title costs a phone 60px of message list
               on every turn. */}
           <header className="flex flex-col gap-2">
-            <h1 className="text-section text-fg">Script coach.</h1>
+            <h1 className="text-section text-fg">{t('Script coach.')}</h1>
             <p className="text-body-lg text-fg-muted">
-              Ideas, hooks and full scripts, built on the D3 method and on what
-              you have told it about your business.
+              {t(
+                'Ideas, hooks and full scripts, built on the D3 method and on what you have told it about your business.'
+              )}
             </p>
           </header>
 
@@ -356,7 +362,7 @@ export function ChatWorkspace({
               the reply lands never announces it. It carries a NOTIFICATION,
               never the reply text. */}
           <p aria-live="polite" className="sr-only">
-            {live}
+            {t(live)}
           </p>
 
           {showProfileForm && <ProfileForm />}
@@ -370,7 +376,7 @@ export function ChatWorkspace({
                 id="chat-starters"
                 className="text-micro uppercase text-fg-subtle"
               >
-                Start with
+                {t('Start with')}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {STARTERS.map((starter) => (
@@ -378,10 +384,12 @@ export function ChatWorkspace({
                     key={starter.copy}
                     type="button"
                     disabled={sendBlocked}
-                    onClick={() => onStarter(starter.copy, starter.fillsOnly)}
+                    onClick={() =>
+                      onStarter(t(starter.copy), starter.fillsOnly)
+                    }
                     className="min-h-[52px] text-left bg-surface-subtle border border-line rounded-2xl px-4 py-3 text-body text-fg-muted hover:text-fg hover:border-line-strong hover:bg-white/[0.03] transition-colors duration-150 ease-out disabled:opacity-45 disabled:pointer-events-none"
                   >
-                    {starter.copy}
+                    {t(starter.copy)}
                   </button>
                 ))}
               </div>
@@ -410,7 +418,9 @@ export function ChatWorkspace({
                   >
                     {/* Without a bubble there is no other speaker cue, which is
                         why the label is required. */}
-                    <p className="text-caption text-fg-subtle">Script coach</p>
+                    <p className="text-caption text-fg-subtle">
+                      {t('Script coach')}
+                    </p>
                     <p className="text-body text-fg whitespace-pre-wrap break-words">
                       {turn.content}
                     </p>
@@ -425,11 +435,11 @@ export function ChatWorkspace({
                       ) : (
                         // Never a thrown error that blanks the whole thread.
                         <p className="text-body-sm text-fg-muted">
-                          This script could not be displayed.
+                          {t('This script could not be displayed.')}
                         </p>
                       ))}
                   </div>
-                ),
+                )
               )}
             </div>
           )}
@@ -443,7 +453,7 @@ export function ChatWorkspace({
               wait in words. */}
           {pending && (
             <div className="animate-riseIn flex flex-col gap-2">
-              <p className="text-caption text-fg-subtle">Script coach</p>
+              <p className="text-caption text-fg-subtle">{t('Script coach')}</p>
               <div aria-hidden className="flex items-center gap-1.5 h-6">
                 {[0, 1, 2].map((dot) => (
                   <span
@@ -455,7 +465,7 @@ export function ChatWorkspace({
               </div>
               {slowReply && (
                 <p className="animate-riseIn text-body-sm text-fg-subtle">
-                  Still working — full scripts can take up to a minute.
+                  {t('Still working — full scripts can take up to a minute.')}
                 </p>
               )}
             </div>
@@ -463,7 +473,7 @@ export function ChatWorkspace({
 
           {failure !== null && !coachDown && (
             <FailureBlock
-              copy={failure}
+              copy={t(failure)}
               onRetry={() => void send(lastSentRef.current, false)}
             />
           )}
@@ -480,11 +490,12 @@ export function ChatWorkspace({
         // nothing they typed was lost, so this reads as a notice, not a fault.
         <div className="shrink-0 border-t border-line py-4">
           <div className="max-w-[720px] mx-auto">
-            <Alert tone="info" title="The coach is offline">
-              <p>{COACH_NOT_READY_COPY}</p>
+            <Alert tone="info" title={t('The coach is offline')}>
+              <p>{t(COACH_NOT_READY_COPY)}</p>
               <p className="mt-1 text-fg-subtle">
-                Nothing is wrong with your account, and your past conversations
-                are still here. The Video Analyzer is unaffected.
+                {t(
+                  'Nothing is wrong with your account, and your past conversations are still here. The Video Analyzer is unaffected.'
+                )}
               </p>
             </Alert>
           </div>
@@ -498,7 +509,7 @@ export function ChatWorkspace({
           <div className="max-w-[720px] mx-auto flex flex-col gap-1.5">
             <div className="flex items-end gap-3">
               <label htmlFor="script-coach-composer" className="sr-only">
-                Message the script coach
+                {t('Message the script coach')}
               </label>
               <textarea
                 id="script-coach-composer"
@@ -506,13 +517,16 @@ export function ChatWorkspace({
                 rows={1}
                 maxLength={MESSAGE_MAX_CHARS}
                 value={draft}
-                placeholder="Ask for ideas, a hook, or a full script"
+                placeholder={t('Ask for ideas, a hook, or a full script')}
                 onChange={(event) => {
                   setDraft(event.target.value);
                   // Set directly and never transitioned.
                   const el = event.target;
                   el.style.height = 'auto';
-                  el.style.height = `${Math.min(el.scrollHeight, TEXTAREA_MAX_PX)}px`;
+                  el.style.height = `${Math.min(
+                    el.scrollHeight,
+                    TEXTAREA_MAX_PX
+                  )}px`;
                 }}
                 onKeyDown={onKeyDown}
                 onCompositionStart={() => {
@@ -532,7 +546,7 @@ export function ChatWorkspace({
                 size="md"
                 disabled={pending || draft.trim() === ''}
               >
-                Send
+                {t('Send')}
               </Button>
             </div>
 
@@ -542,7 +556,7 @@ export function ChatWorkspace({
               {/* Desktop only: "Shift + Enter" means nothing on a soft
                   keyboard, and Enter is the only key a phone shows. */}
               <p className="hidden md:block text-caption text-fg-subtle">
-                Enter to send · Shift + Enter for a new line
+                {t('Enter to send · Shift + Enter for a new line')}
               </p>
               {/* Same rule as the Settings form: the count appears in the last
                   20% of the cap, because `maxLength` otherwise stops the
@@ -555,7 +569,8 @@ export function ChatWorkspace({
                       : 'text-fg-subtle'
                   }`}
                 >
-                  {draft.length}/{MESSAGE_MAX_CHARS}
+                  {draft.length.toLocaleString(localeTag(locale))}/
+                  {MESSAGE_MAX_CHARS.toLocaleString(localeTag(locale))}
                 </span>
               ) : null}
             </div>

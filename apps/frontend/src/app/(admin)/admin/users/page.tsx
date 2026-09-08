@@ -1,3 +1,4 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getSupabaseAdmin } from '@d3/database';
@@ -7,9 +8,13 @@ import { RoleTable } from './role-table';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-export const metadata: Metadata = { title: 'Users — D3 Admin' };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: t('Users — D3 Admin') };
+}
 
 export default async function AdminUsersPage() {
+  const { t } = await getI18n();
   const auth = await getAuthContext();
   if (!auth) redirect('/login');
   if (auth.role !== 'admin') redirect('/me');
@@ -34,42 +39,47 @@ export default async function AdminUsersPage() {
     user_id: r.user_id as string,
     role: r.role as string,
     created_at: r.created_at as string,
-    email: emailById.get(r.user_id as string) ?? '(unknown)',
+    email: emailById.get(r.user_id as string) ?? t('(unknown)'),
   }));
 
   return (
     <Container>
       <Section space="sm" className="space-y-8">
         <header className="max-w-prose">
-          <p className="text-micro uppercase text-fg-subtle">Users</p>
-          <h1 className="mt-3 text-display-2 text-fg">Roles</h1>
+          <p className="text-micro uppercase text-fg-subtle">{t('Users')}</p>
+          <h1 className="mt-3 text-display-2 text-fg">{t('Roles')}</h1>
           <p className="mt-3 text-body-lg text-fg-muted">
-            A role decides what a signed-in account can reach. Changing one
-            takes effect on their next request — it does not sign them out.
+            {t(
+              'A role decides what a signed-in account can reach. Changing one takes effect on their next request — it does not sign them out.',
+            )}
           </p>
         </header>
 
         <dl className="grid grid-cols-1 gap-x-8 gap-y-3 text-body-sm sm:grid-cols-2">
           <div className="flex gap-3">
-            <dt className="w-16 shrink-0 text-fg">Admin</dt>
+            <dt className="w-16 shrink-0 text-fg">{t('Admin')}</dt>
             <dd className="text-fg-muted">
-              This console, and everything below.
+              {t('This console, and everything below.')}
             </dd>
           </div>
           <div className="flex gap-3">
-            <dt className="w-16 shrink-0 text-fg">Creator</dt>
+            <dt className="w-16 shrink-0 text-fg">{t('Creator')}</dt>
             <dd className="text-fg-muted">
-              Member access, plus the /me dashboard for their own profiles.
+              {t(
+                'Member access, plus the /me dashboard for their own profiles.',
+              )}
             </dd>
           </div>
           <div className="flex gap-3">
-            <dt className="w-16 shrink-0 text-fg">Member</dt>
-            <dd className="text-fg-muted">Online classes and Studio tools.</dd>
+            <dt className="w-16 shrink-0 text-fg">{t('Member')}</dt>
+            <dd className="text-fg-muted">
+              {t('Online classes and Studio tools.')}
+            </dd>
           </div>
           <div className="flex gap-3">
-            <dt className="w-16 shrink-0 text-fg">None</dt>
+            <dt className="w-16 shrink-0 text-fg">{t('None')}</dt>
             <dd className="text-fg-muted">
-              Signed in, but every gated page is closed.
+              {t('Signed in, but every gated page is closed.')}
             </dd>
           </div>
         </dl>
@@ -77,8 +87,9 @@ export default async function AdminUsersPage() {
         <RoleTable rows={rows} selfId={auth.userId} />
 
         <p className="max-w-prose text-caption text-fg-subtle">
-          A role never puts someone on the public leaderboard — that still runs
-          through the provision-creator flow on the overview.
+          {t(
+            'A role never puts someone on the public leaderboard — that still runs through the provision-creator flow on the overview.',
+          )}
         </p>
       </Section>
     </Container>

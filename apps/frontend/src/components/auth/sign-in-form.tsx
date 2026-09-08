@@ -1,4 +1,5 @@
 'use client';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 
 import { useId, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
@@ -16,6 +17,7 @@ interface SignInFormProps {
 }
 
 export function SignInForm({ redirectTo }: SignInFormProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const emailId = useId();
   const [email, setEmail] = useState('');
@@ -50,7 +52,7 @@ export function SignInForm({ redirectTo }: SignInFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <Field label="Email" htmlFor={emailId}>
+      <Field label={t('Email')} htmlFor={emailId}>
         <Input
           id={emailId}
           type="email"
@@ -66,35 +68,35 @@ export function SignInForm({ redirectTo }: SignInFormProps) {
       </Field>
 
       <PasswordField
-        label="Password"
+        label={t('Password')}
         value={password}
         onChange={setPassword}
         autoComplete="current-password"
-        placeholder="Your password"
+        placeholder={t('Your password')}
         disabled={pending}
         aside={
           <Link
             href="/forgot-password"
             className="rounded text-caption text-fg-muted transition-colors duration-150 ease-out hover:text-fg focus-visible:outline-none focus-visible:shadow-focus"
           >
-            Forgot password?
+            {t('Forgot password?')}
           </Link>
         }
       />
 
-      {error ? <Alert tone="danger">{error}</Alert> : null}
+      {error ? <Alert tone="danger">{t(error)}</Alert> : null}
 
       <Button type="submit" size="lg" className="w-full" loading={pending}>
-        Sign in
+        {t('Sign in')}
       </Button>
 
       <p className="text-center text-caption text-fg-muted">
-        New here?{' '}
+        {t('New here?')}{' '}
         <Link
           href="/signup"
           className="rounded text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
         >
-          Create an account
+          {t('Create an account')}
         </Link>
       </p>
     </form>

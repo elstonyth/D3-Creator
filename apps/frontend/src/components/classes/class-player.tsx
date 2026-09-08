@@ -1,3 +1,4 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import Link from 'next/link';
 import { drivePreviewUrl, driveDownloadUrl } from '@gitroom/frontend/lib/drive';
 import type { SeriesNav } from '@gitroom/frontend/lib/class-series';
@@ -30,7 +31,12 @@ export interface ClassPlayerProps {
  * row for the class being watched. Download, prev/next and the back link are
  * deliberately neutral.
  */
-export function ClassPlayer({ video, nav, seriesLabel }: ClassPlayerProps) {
+export async function ClassPlayer({
+  video,
+  nav,
+  seriesLabel,
+}: ClassPlayerProps) {
+  const { t } = await getI18n();
   const hasSeries = nav.total > 1;
 
   return (
@@ -41,7 +47,7 @@ export function ClassPlayer({ video, nav, seriesLabel }: ClassPlayerProps) {
           className="-ml-2 inline-flex min-h-[40px] items-center gap-2 rounded-lg px-2 text-label text-fg-muted transition-colors duration-150 ease-out hover:bg-white/[0.04] hover:text-fg"
         >
           <ArrowGlyph className="h-4 w-4 rotate-180" />
-          All classes
+          {t('All classes')}{' '}
         </Link>
 
         <div
@@ -64,7 +70,10 @@ export function ClassPlayer({ video, nav, seriesLabel }: ClassPlayerProps) {
                 )}
                 {hasSeries && nav.position > 0 && (
                   <Badge tone="muted" className="tnum shrink-0">
-                    Part {nav.position} of {nav.total}
+                    {t('Part {part} of {count}', {
+                      part: nav.position,
+                      count: nav.total,
+                    })}
                   </Badge>
                 )}
               </div>
@@ -109,15 +118,18 @@ export function ClassPlayer({ video, nav, seriesLabel }: ClassPlayerProps) {
                   className="mt-1 w-fit max-sm:h-10 max-sm:px-4"
                 >
                   <DownloadGlyph className="h-4 w-4" />
-                  Download video
-                  <span className="sr-only"> (opens Google Drive in a new tab)</span>
+                  {t('Download video')}{' '}
+                  <span className="sr-only">
+                    {' '}
+                    {t('(opens Google Drive in a new tab)')}
+                  </span>
                 </ButtonLink>
               )}
             </header>
 
             {hasSeries && (nav.prev || nav.next) && (
               <nav
-                aria-label="Session navigation"
+                aria-label={t('Session navigation')}
                 className="grid grid-cols-1 gap-3 border-t border-line-subtle pt-6 sm:grid-cols-2"
               >
                 <PrevNext dir="prev" item={nav.prev} />
@@ -134,10 +146,10 @@ export function ClassPlayer({ video, nav, seriesLabel }: ClassPlayerProps) {
             >
               <div className="flex items-center justify-between gap-3 px-1">
                 <h2 id="series-playlist-heading" className="text-label text-fg">
-                  In this series
+                  {t('In this series')}{' '}
                 </h2>
                 <span className="tnum shrink-0 text-caption text-fg-subtle">
-                  {nav.total} sessions
+                  {t('{count} sessions', { count: nav.total })}{' '}
                 </span>
               </div>
               <ol className="flex flex-col gap-1 lg:max-h-[calc(100vh-11rem)] lg:overflow-y-auto">
@@ -205,13 +217,14 @@ function DownloadGlyph({ className }: { className?: string }) {
   );
 }
 
-function PrevNext({
+async function PrevNext({
   dir,
   item,
 }: {
   dir: 'prev' | 'next';
   item: PlaylistItem | null;
 }) {
+  const { t } = await getI18n();
   const base =
     'min-w-0 min-h-[56px] rounded-xl border px-4 py-2.5 flex items-center gap-3 transition-colors duration-150 ease-out';
   // The missing end of the series keeps its slot on the two-column desktop
@@ -225,7 +238,7 @@ function PrevNext({
           dir === 'next' ? 'justify-end' : ''
         }`}
       >
-        {dir === 'prev' ? 'Start of the series' : 'End of the series'}
+        {dir === 'prev' ? t('Start of the series') : t('End of the series')}
       </span>
     );
   }
@@ -243,7 +256,7 @@ function PrevNext({
       />
       <span className="flex min-w-0 flex-col">
         <span className="text-micro uppercase text-fg-subtle">
-          {dir === 'prev' ? 'Previous session' : 'Next session'}
+          {dir === 'prev' ? t('Previous session') : t('Next session')}
         </span>
         <span className="truncate text-body-sm text-fg">{item.title}</span>
       </span>
@@ -251,7 +264,7 @@ function PrevNext({
   );
 }
 
-function PlaylistRow({
+async function PlaylistRow({
   item,
   index,
   current,
@@ -260,6 +273,7 @@ function PlaylistRow({
   index: number;
   current: boolean;
 }) {
+  const { t } = await getI18n();
   const cls = `group flex items-center gap-3 rounded-xl border px-3 py-2.5 min-h-[52px] transition-colors duration-150 ease-out ${
     current
       ? 'border-brand/25 bg-brand/[0.06]'
@@ -281,7 +295,7 @@ function PlaylistRow({
             current ? 'text-brand' : 'text-fg-subtle'
           }`}
         >
-          {current ? 'Now playing' : `Session ${index}`}
+          {current ? t('Now playing') : t('Session {index}', { index })}
         </span>
       </span>
       <PlayGlyph

@@ -1,4 +1,5 @@
 'use client';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 
 /**
  * Route-level error boundary for the public site. Without it a failed render
@@ -20,6 +21,7 @@ export default function PublicError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const { t } = useI18n();
   useEffect(() => console.error('[public] route error', error), [error]);
 
   return (
@@ -27,27 +29,27 @@ export default function PublicError({
       <Container>
         <div className="max-w-prose">
           <p className="text-micro uppercase text-fg-subtle">
-            Something went wrong
+            {t('Something went wrong')}{' '}
           </p>
           <h1 className="mt-4 text-display-2 text-fg">
-            We couldn’t load those numbers
+            {t('We couldn’t load those numbers')}{' '}
           </h1>
           <p className="mt-4 text-body-lg text-fg-muted">
-            The page failed on our side, not yours. Nothing was lost — the
-            figures are read fresh on every request, so trying again usually
-            works.
+            {t(
+              'The page failed on our side, not yours. Nothing was lost — the figures are read fresh on every request, so trying again usually works.'
+            )}{' '}
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button size="lg" onClick={reset}>
-              Try again
+              {t('Try again')}{' '}
             </Button>
             <ButtonLink href="/" variant="secondary" size="lg">
-              Back to home
+              {t('Back to home')}{' '}
             </ButtonLink>
           </div>
           {error.digest ? (
             <p className="mt-8 text-caption text-fg-subtle">
-              Reference <span className="tnum">{error.digest}</span>
+              {t('Reference')} <span className="tnum">{error.digest}</span>
             </p>
           ) : null}
         </div>

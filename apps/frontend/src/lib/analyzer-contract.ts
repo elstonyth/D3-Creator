@@ -1,3 +1,4 @@
+import type { Locale } from './i18n';
 /**
  * The analyzer's page-facing vocabulary — PRD 3 §5.9.4.
  *
@@ -150,11 +151,13 @@ const JOB_DATE = new Intl.DateTimeFormat('en-GB', {
 });
 
 /** "17 Aug 2026, 10:30". An unparseable or missing date returns '—'. */
-export function formatJobDate(iso: string | null | undefined): string {
+export function formatJobDate(iso: string | null | undefined, locale: Locale = 'en'): string {
   if (typeof iso !== 'string' || iso === '') return '—';
   const when = new Date(iso);
   if (Number.isNaN(when.getTime())) return '—';
-  return JOB_DATE.format(when);
+  return locale === 'zh'
+    ? new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).format(when)
+    : JOB_DATE.format(when);
 }
 
 /**

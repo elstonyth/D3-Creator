@@ -1,4 +1,5 @@
 'use client';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 
 import { useEffect, useRef, type MouseEvent } from 'react';
 import { PLATFORM_ICONS, PLATFORM_LABELS } from '../ui/platform-icons';
@@ -69,7 +70,7 @@ export function ContentLightbox({ post, onClose }: ContentLightboxProps) {
     () => () => {
       document.body.style.overflow = '';
     },
-    [],
+    []
   );
 
   const closeOnBackdrop = (e: MouseEvent<HTMLDialogElement>) => {
@@ -95,14 +96,19 @@ function LightboxBody({
   post: ContentPost;
   onClose: () => void;
 }) {
+  const { locale, t } = useI18n();
   const Icon = PLATFORM_ICONS[post.platform];
-  const label = PLATFORM_LABELS[post.platform];
-  const published = formatPostDateLong(post.publishedAt);
+  const label = t(PLATFORM_LABELS[post.platform]);
+  const published = formatPostDateLong(post.publishedAt, locale);
   const meta = [
-    published ? `Published ${published}` : null,
-    post.durationSec != null ? `${formatDuration(post.durationSec)} long` : null,
+    published ? t('Published {date}', { date: published }) : null,
+    post.durationSec != null
+      ? t('{duration} long', { duration: formatDuration(post.durationSec) })
+      : null,
     post.type === 'carousel' && post.mediaCount != null
-      ? `${post.mediaCount} image${post.mediaCount === 1 ? '' : 's'}`
+      ? t(post.mediaCount === 1 ? '{count} image' : '{count} images', {
+          count: post.mediaCount,
+        })
       : null,
   ]
     .filter(Boolean)
@@ -115,7 +121,9 @@ function LightboxBody({
     <div className="grid max-h-[88vh] grid-cols-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-2xl border border-line-strong bg-surface-elevated shadow-lg md:grid-cols-[minmax(0,1fr)_340px] md:grid-rows-1">
       <div className="flex min-h-0 items-center justify-center bg-canvas-deep">
         <div
-          className={`relative max-h-[48vh] w-full md:max-h-[88vh] ${PLATFORM_ASPECT[post.platform]}`}
+          className={`relative max-h-[48vh] w-full md:max-h-[88vh] ${
+            PLATFORM_ASPECT[post.platform]
+          }`}
         >
           {post.thumbnailUrl ? (
             // eslint-disable-next-line @next/next/no-img-element -- proxied external media, dimensions vary by platform
@@ -128,7 +136,7 @@ function LightboxBody({
             />
           ) : (
             <p className="absolute inset-0 flex items-center justify-center p-8 text-body text-fg-muted">
-              No image stored for this post.
+              {t('No image stored for this post.')}{' '}
             </p>
           )}
         </div>
@@ -144,7 +152,9 @@ function LightboxBody({
               <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-md border border-line bg-surface-subtle text-fg">
                 <Icon size={14} />
               </span>
-              <span className="truncate">{label} post</span>
+              <span className="truncate">
+                {t('{platform} post', { platform: label })}
+              </span>
             </h2>
             {meta ? (
               <p className="mt-1.5 text-caption text-fg-subtle">{meta}</p>
@@ -154,7 +164,7 @@ function LightboxBody({
             type="button"
             onClick={onClose}
             autoFocus
-            aria-label="Close post"
+            aria-label={t('Close post')}
             className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-line text-fg-muted transition-colors duration-150 ease-out hover:border-line-strong hover:text-fg focus-visible:outline-none focus-visible:shadow-focus"
           >
             <svg
@@ -176,7 +186,7 @@ function LightboxBody({
             {post.caption}
           </p>
         ) : (
-          <p className="text-body-sm text-fg-subtle">No caption.</p>
+          <p className="text-body-sm text-fg-subtle">{t('No caption.')}</p>
         )}
 
         {post.hashtags.length > 0 ? (
@@ -194,18 +204,18 @@ function LightboxBody({
 
         <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line">
           {post.metrics.views != null ? (
-            <Metric label="Views" value={post.metrics.views} />
+            <Metric label={t('Views')} value={post.metrics.views} />
           ) : null}
-          <Metric label="Likes" value={post.metrics.likes} />
-          <Metric label="Comments" value={post.metrics.comments} />
-          <Metric label="Shares" value={post.metrics.shares} />
+          <Metric label={t('Likes')} value={post.metrics.likes} />
+          <Metric label={t('Comments')} value={post.metrics.comments} />
+          <Metric label={t('Shares')} value={post.metrics.shares} />
           {post.metrics.saves != null ? (
-            <Metric label="Saves" value={post.metrics.saves} />
+            <Metric label={t('Saves')} value={post.metrics.saves} />
           ) : null}
         </dl>
 
         <p className="text-caption text-fg-subtle">
-          Counts as of the most recent daily capture, not live.
+          {t('Counts as of the most recent daily capture, not live.')}{' '}
         </p>
 
         <a
@@ -214,7 +224,7 @@ function LightboxBody({
           rel="noopener noreferrer"
           className="mt-auto inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand px-5 text-label font-medium text-fg-on-brand transition-colors duration-150 ease-out hover:bg-brand-300 focus-visible:outline-none focus-visible:shadow-focus"
         >
-          View on {label}
+          {t('View on {platform}', { platform: label })}
           <svg
             viewBox="0 0 16 16"
             aria-hidden="true"
@@ -234,10 +244,13 @@ function LightboxBody({
 }
 
 function Metric({ label, value }: { label: string; value: number }) {
+  const { locale } = useI18n();
   return (
     <div className="bg-surface px-3 py-2.5">
       <dt className="text-micro uppercase text-fg-subtle">{label}</dt>
-      <dd className="tnum mt-1 text-body-sm text-fg">{formatExact(value)}</dd>
+      <dd className="tnum mt-1 text-body-sm text-fg">
+        {formatExact(value, locale)}
+      </dd>
     </div>
   );
 }

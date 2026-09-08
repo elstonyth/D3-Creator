@@ -1,3 +1,4 @@
+import { getLocale } from '@gitroom/frontend/lib/i18n-server';
 /**
  * POST /api/chat — one chat turn with the Script Coach.
  *
@@ -284,6 +285,7 @@ export async function POST(request: Request): Promise<Response> {
     profile,
     history,
     question: parsed.message,
+    interfaceLocale: await getLocale(),
     cacheControl: usesCacheControl(model),
   });
 

@@ -1,4 +1,5 @@
 'use client';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 
 /**
  * The player / transcript pair — PRD 3 §6.5 item 5. The report page's one
@@ -30,6 +31,7 @@ export function TranscriptPlayer({
   videoSrc: string | null;
   segments: TranscriptSegment[];
 }): ReactElement {
+  const { t } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [activeIndex, setActiveIndex] = useState(-1);
 
@@ -75,11 +77,12 @@ export function TranscriptPlayer({
       {segments.length === 0 ? (
         <div className="flex-1 min-w-0 rounded-2xl border border-line bg-surface-subtle px-5 py-6">
           <p className="text-body text-fg-muted">
-            No speech was detected in this video.
+            {t('No speech was detected in this video.')}{' '}
           </p>
           <p className="mt-1 text-caption text-fg-subtle">
-            The scores above are based on what the analyst could see, not on a
-            transcript.
+            {t(
+              'The scores above are based on what the analyst could see, not on a transcript.'
+            )}{' '}
           </p>
         </div>
       ) : (
@@ -111,7 +114,7 @@ export function TranscriptPlayer({
                       // Not yellow — this screen's yellow is Download report.
                       active
                         ? 'bg-white/[0.05] text-fg'
-                        : 'text-fg-muted hover:bg-white/[0.025] hover:text-fg',
+                        : 'text-fg-muted hover:bg-white/[0.025] hover:text-fg'
                     )}
                   >
                     {body}

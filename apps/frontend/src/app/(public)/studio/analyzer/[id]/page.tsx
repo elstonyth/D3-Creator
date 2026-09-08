@@ -1,3 +1,4 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 /**
  * /studio/analyzer/[id] — the report. PRD 3 §6.5.
  *
@@ -40,10 +41,13 @@ import { ScoreRadar } from './score-radar';
 import { TranscriptPlayer } from './transcript-player';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = {
-  title: 'Report — D3 Creator',
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+    title: t('Report — D3 Creator'),
+    robots: { index: false, follow: false },
+  };
+}
 
 const POSTER_BOX =
   'w-full sm:w-[168px] aspect-video rounded-xl border border-line shrink-0';
@@ -78,6 +82,7 @@ export default async function AnalyzerReportPage({
 }: {
   params: Promise<{ id: string }>;
 }): Promise<ReactElement> {
+  const { locale, t } = await getI18n();
   const { id } = await params;
   if (!isUuid(id)) notFound();
 
@@ -105,7 +110,7 @@ export default async function AnalyzerReportPage({
             href="/studio/analyzer"
             className="w-fit text-caption text-fg-muted hover:text-fg transition-colors duration-150 ease-out"
           >
-            ← Video Analyzer
+            {t('← Video Analyzer')}{' '}
           </Link>
           {/* sm:items-center is not optional: the default `stretch` grows the
               poster to the height of the right slot and top-anchors the h1. */}
@@ -119,7 +124,7 @@ export default async function AnalyzerReportPage({
                 <div
                   className={`${POSTER_BOX} bg-surface flex items-center justify-center text-caption text-fg-subtle`}
                 >
-                  No preview
+                  {t('No preview')}{' '}
                 </div>
               }
             />
@@ -131,14 +136,19 @@ export default async function AnalyzerReportPage({
                 {/* When duration_seconds is null, the duration AND the separator
                     are dropped — never a dangling · */}
                 {job.duration_seconds === null
-                  ? formatJobDate(job.created_at)
-                  : `${formatJobDate(job.created_at)} · ${formatTimecode(job.duration_seconds)}`}
+                  ? formatJobDate(job.created_at, locale)
+                  : `${formatJobDate(
+                      job.created_at,
+                      locale
+                    )} · ${formatTimecode(job.duration_seconds)}`}
               </p>
             </div>
             {result !== null && (
               <div className="flex items-end sm:flex-col sm:items-end gap-4 sm:gap-3 shrink-0 border-t sm:border-t-0 sm:border-l border-line-subtle pt-5 sm:pt-0 sm:pl-6">
                 <div className="flex flex-col gap-1">
-                  <p className="text-micro uppercase text-fg-subtle">Overall</p>
+                  <p className="text-micro uppercase text-fg-subtle">
+                    {t('Overall')}
+                  </p>
                   <p className="tnum text-metric-lg text-fg leading-none">
                     {result.overall_score}
                     <span className="text-body-sm font-normal text-fg-subtle">
@@ -156,7 +166,7 @@ export default async function AnalyzerReportPage({
                     download
                     className={`${primaryCta} ml-auto sm:ml-0`}
                   >
-                    Download report
+                    {t('Download report')}{' '}
                   </a>
                 )}
               </div>
@@ -170,8 +180,8 @@ export default async function AnalyzerReportPage({
           <>
             <ReportSection
               id="analyzer-breakdown"
-              heading="What the analyst saw"
-              scope="The written breakdown behind the six scores below."
+              heading={t('What the analyst saw')}
+              scope={t('The written breakdown behind the six scores below.')}
             >
               {/* `report_text` is the written breakdown PRD 1 §1 promises as an
                   output. Before this it existed ONLY inside the downloaded .txt,
@@ -192,8 +202,11 @@ export default async function AnalyzerReportPage({
 
             <ReportSection
               id="analyzer-scores"
-              heading="Scores"
-              scope={`Six dimensions, each out of ${SCORE_MAX}, for this video only.`}
+              heading={t('Scores')}
+              scope={t(
+                'Six dimensions, each out of {max}, for this video only.',
+                { max: SCORE_MAX }
+              )}
             >
               {/* A plain grid. `h-full` on the card plus `items-stretch` from
                   the grid default keeps a row level when one `why` runs long. */}
@@ -207,7 +220,7 @@ export default async function AnalyzerReportPage({
                   >
                     <div className="flex items-baseline justify-between gap-3">
                       <h3 className="text-heading text-fg">
-                        {SCORE_CARD_LABEL[key]}
+                        {t(SCORE_CARD_LABEL[key])}
                       </h3>
                       <p className="tnum text-metric text-fg leading-none shrink-0">
                         {result.scores[key].score}
@@ -239,15 +252,17 @@ export default async function AnalyzerReportPage({
 
             <ReportSection
               id="analyzer-charts"
-              heading="Shape of the video"
-              scope="The same six scores as a profile, and how the emotional pitch moves from start to end."
+              heading={t('Shape of the video')}
+              scope={t(
+                'The same six scores as a profile, and how the emotional pitch moves from start to end.'
+              )}
             >
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <Card tone="subtle" padding="md">
                   <ScoreRadar
                     scores={
                       Object.fromEntries(
-                        SCORE_KEYS.map((k) => [k, result.scores[k].score]),
+                        SCORE_KEYS.map((k) => [k, result.scores[k].score])
                       ) as Record<ScoreKey, number>
                     }
                   />
@@ -263,11 +278,13 @@ export default async function AnalyzerReportPage({
 
             <ReportSection
               id="analyzer-transcript"
-              heading="Transcript"
+              heading={t('Transcript')}
               scope={
                 job.video_url === null
-                  ? 'Spoken words with their timecodes.'
-                  : 'Spoken words with their timecodes. Select a line to jump the player there.'
+                  ? t('Spoken words with their timecodes.')
+                  : t(
+                      'Spoken words with their timecodes. Select a line to jump the player there.'
+                    )
               }
             >
               <TranscriptPlayer
@@ -282,16 +299,23 @@ export default async function AnalyzerReportPage({
   );
 }
 
-function StatusPanel({ job }: { job: AnalyzerJob }): ReactElement {
-  const back = { href: '/studio/analyzer', label: 'Back to Video Analyzer' };
+async function StatusPanel({
+  job,
+}: {
+  job: AnalyzerJob;
+}): Promise<ReactElement> {
+  const { t } = await getI18n();
+  const back = { href: '/studio/analyzer', label: t('Back to Video Analyzer') };
 
   if (job.status === 'queued' || job.status === 'running') {
     return (
       <EmptyState
         size="lg"
-        title="Still analysing"
-        description="This report isn't ready yet — analysis usually takes a few minutes. Progress is shown on the analyzer page."
-        action={{ href: '/studio/analyzer', label: 'See progress' }}
+        title={t('Still analysing')}
+        description={t(
+          "This report isn't ready yet — analysis usually takes a few minutes. Progress is shown on the analyzer page."
+        )}
+        action={{ href: '/studio/analyzer', label: t('See progress') }}
       />
     );
   }
@@ -300,8 +324,8 @@ function StatusPanel({ job }: { job: AnalyzerJob }): ReactElement {
     return (
       <EmptyState
         size="lg"
-        title="This analysis failed"
-        description={errorCopy(job.error?.code)}
+        title={t('This analysis failed')}
+        description={t(errorCopy(job.error?.code))}
         action={back}
       />
     );
@@ -311,8 +335,10 @@ function StatusPanel({ job }: { job: AnalyzerJob }): ReactElement {
     return (
       <EmptyState
         size="lg"
-        title="This report can't be displayed"
-        description="The analysis finished but the scores came back incomplete. Uploading the video again is the fastest fix."
+        title={t("This report can't be displayed")}
+        description={t(
+          'The analysis finished but the scores came back incomplete. Uploading the video again is the fastest fix.'
+        )}
         action={back}
       />
     );
@@ -325,8 +351,8 @@ function StatusPanel({ job }: { job: AnalyzerJob }): ReactElement {
   return (
     <EmptyState
       size="lg"
-      title="This analysis failed"
-      description={errorCopy(null)}
+      title={t('This analysis failed')}
+      description={t(errorCopy(null))}
       action={back}
     />
   );

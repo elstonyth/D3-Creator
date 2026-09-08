@@ -33,6 +33,10 @@
  */
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import {
+  LocaleProvider,
+  useI18n,
+} from '@gitroom/frontend/components/i18n/locale-provider';
 
 import {
   parseProfileUpdate,
@@ -131,7 +135,7 @@ function renderForm(overrides: Partial<BusinessProfile> = {}) {
 async function save(): Promise<void> {
   await act(async () => {
     fireEvent.submit(
-      screen.getByRole('button', { name: 'Save changes' }).closest('form')!,
+      screen.getByRole('button', { name: 'Save changes' }).closest('form')!
     );
   });
 }
@@ -145,7 +149,7 @@ function patchBody(fetchMock: FetchMock): Record<string, unknown> {
   expect(fetchMock).toHaveBeenCalledTimes(1);
   const [url, init] = fetchMock.mock.calls[0] as [
     string,
-    { method: string; body: string },
+    { method: string; body: string }
   ];
   expect(url).toBe('/api/studio/profile');
   expect(init.method).toBe('PATCH');
@@ -205,7 +209,11 @@ it('saves a new two-answer profile without requiring the removed selections', as
   expect(screen.queryByLabelText(/Main platform/)).toBeNull();
   expect(screen.queryByLabelText(/Do you appear on camera/)).toBeNull();
   await save();
-  expect(patchBody(fetchMock)).toEqual({ ...EDITABLE, main_platform: null, on_camera: null });
+  expect(patchBody(fetchMock)).toEqual({
+    ...EDITABLE,
+    main_platform: null,
+    on_camera: null,
+  });
   expect(status()).toBe('Saved.');
 });
 
@@ -243,23 +251,12 @@ it('clearing an optional text field sends null, not an empty string', async () =
   expect(patchBody(fetchMock)).toEqual({ ...EDITABLE, location: null });
 });
 
-it('the Reply language blank option reads "Same as content language" and saves null', async () => {
+it('preserves the saved reply preference while the interface controls Coach replies', async () => {
   const fetchMock = mockFetch();
   renderForm();
-
-  // Blank is a MEANING on this control — "follow content_language", which is
-  // what every row did before the column existed — not an unfinished field. The
-  // default "Choose one" placeholder would read as the latter, so the wording is
-  // part of the contract, and the option has to be selectable at all.
-  const blank = screen.getByText(
-    'Same as content language',
-  ) as HTMLOptionElement;
-  expect(blank.disabled).toBe(false);
-
-  fireEvent.change(blank.closest('select')!, { target: { value: '' } });
+  expect(screen.queryByLabelText(/Reply language/)).toBeNull();
   await save();
-
-  expect(patchBody(fetchMock)).toEqual({ ...EDITABLE, reply_language: null });
+  expect(patchBody(fetchMock)).toEqual(EDITABLE);
 });
 
 it('a rejected save shows the failure and keeps every typed value', async () => {
@@ -320,7 +317,7 @@ it('the preview shows what is typed, not what is stored', () => {
   expect(panel()).not.toContain(EDITABLE.voice_notes!);
 });
 
-it('renders controls for editable fields while preserving the two legacy preferences', () => {
+it('renders controls for editable fields while preserving the three legacy preferences', () => {
   renderForm();
 
   // The fourth thread, and the one nothing else here can see. A column can be
@@ -336,8 +333,48 @@ it('renders controls for editable fields while preserving the two legacy prefere
   // `business_type` is 'other' in the fixture, which is what keeps the
   // conditional `business_type_other` input mounted and the count at parity.
   expect(document.querySelectorAll('input, textarea, select')).toHaveLength(
-    Object.keys(EDITABLE).length - 2,
+    Object.keys(EDITABLE).length - 3
   );
+});
+
+it('changing the interface preserves unsaved profile data and stored content language', async () => {
+  const fetchMock = mockFetch();
+  function SwitchLocale() {
+    const { changeLocale } = useI18n();
+    return <button onClick={() => changeLocale('zh')}>Switch locale</button>;
+  }
+  const view = render(
+    <LocaleProvider locale="en">
+      <SwitchLocale />
+      <ProfileSettingsForm profile={PROFILE} />
+    </LocaleProvider>
+  );
+  fireEvent.change(screen.getByLabelText(/Voice notes/), {
+    target: { value: 'Keep my original draft 原始草稿' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Switch locale' }));
+  // A locale refresh can supply a new object with the same database revision.
+  view.rerender(
+    <LocaleProvider locale="zh">
+      <SwitchLocale />
+      <ProfileSettingsForm profile={{ ...PROFILE }} />
+    </LocaleProvider>
+  );
+  expect(
+    screen.getByDisplayValue('Keep my original draft 原始草稿')
+  ).toBeTruthy();
+  expect((screen.getByLabelText('内容语言') as HTMLSelectElement).value).toBe(
+    'malay'
+  );
+  await act(async () => {
+    fireEvent.submit(
+      screen.getByRole('button', { name: '保存更改' }).closest('form')!
+    );
+  });
+  expect(patchBody(fetchMock)).toEqual({
+    ...EDITABLE,
+    voice_notes: 'Keep my original draft 原始草稿',
+  });
 });
 
 it('every select option renders a display label, never a raw stored slug', () => {

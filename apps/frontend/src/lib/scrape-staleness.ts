@@ -1,3 +1,4 @@
+import { type Locale } from '@gitroom/frontend/lib/i18n';
 /**
  * Scrape staleness — how old a profile's DATA is, not how recently we tried.
  *
@@ -32,7 +33,7 @@ const MS_PER_HOUR = 60 * 60 * 1000;
  */
 export function dataAgeHours(
   newestCapturedAt: string | null,
-  nowMs: number,
+  nowMs: number
 ): number | null {
   if (!newestCapturedAt) return null;
   const t = Date.parse(newestCapturedAt);
@@ -48,7 +49,7 @@ export function dataAgeHours(
  */
 export function isStale(
   newestCapturedAt: string | null,
-  nowMs: number,
+  nowMs: number
 ): boolean {
   const age = dataAgeHours(newestCapturedAt, nowMs);
   if (age === null) return true;
@@ -75,15 +76,19 @@ export const RETIRED_STATUSES: ReadonlySet<string> = new Set(['private']);
 export function needsAttention(
   scrapeStatus: string,
   newestCapturedAt: string | null,
-  nowMs: number,
+  nowMs: number
 ): boolean {
   if (RETIRED_STATUSES.has(scrapeStatus)) return false;
   return isStale(newestCapturedAt, nowMs);
 }
 
 /** Short label for a badge: 'no data' | '7h' | '70d'. */
-export function formatDataAge(hours: number | null): string {
-  if (hours === null) return 'no data';
-  if (hours < STALE_AFTER_HOURS) return `${Math.round(hours)}h`;
-  return `${Math.floor(hours / 24)}d`;
+export function formatDataAge(
+  hours: number | null,
+  locale: Locale = 'en'
+): string {
+  if (hours === null) return locale === 'zh' ? '无数据' : 'no data';
+  if (hours < STALE_AFTER_HOURS)
+    return `${Math.round(hours)}${locale === 'zh' ? '小时' : 'h'}`;
+  return `${Math.floor(hours / 24)}${locale === 'zh' ? '天' : 'd'}`;
 }

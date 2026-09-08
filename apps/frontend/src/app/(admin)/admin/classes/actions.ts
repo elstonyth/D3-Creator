@@ -1,5 +1,7 @@
 'use server';
 
+import { localizeAdminError } from '../localize-error';
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import { revalidatePath } from 'next/cache';
 import { getSupabaseAdmin } from '@d3/database';
 import { requireAdmin } from '@gitroom/frontend/lib/auth';
@@ -39,14 +41,15 @@ export async function createClassVideo(
   _prev: ClassResult | null,
   fd: FormData,
 ): Promise<ClassResult> {
+  const { t, locale } = await getI18n();
   try {
     await requireAdmin();
     const f = readFields(fd);
-    if (!f.title) return { ok: false, message: 'Title is required.' };
+    if (!f.title) return { ok: false, message: t('Title is required.') };
     if (!f.driveFileId)
       return {
         ok: false,
-        message: 'Could not read a Google Drive file ID from that link.',
+        message: t('Could not read a Google Drive file ID from that link.'),
       };
     const admin = getSupabaseAdmin();
     const { error } = await admin.from('class_video').insert({
@@ -58,12 +61,16 @@ export async function createClassVideo(
       allow_download: f.allow_download,
       sort_order: f.sort_order,
     });
-    if (error) return { ok: false, message: error.message };
+    if (error)
+      return {
+        ok: false,
+        message: localizeAdminError(error.message, locale, t),
+      };
     revalidatePath('/admin/classes');
     revalidatePath('/classes');
-    return { ok: true, message: `Added "${f.title}".` };
+    return { ok: true, message: t('Added "{value1}".', { value1: f.title }) };
   } catch (e) {
-    return { ok: false, message: err(e) };
+    return { ok: false, message: localizeAdminError(err(e), locale, t) };
   }
 }
 
@@ -71,16 +78,17 @@ export async function updateClassVideo(
   _prev: ClassResult | null,
   fd: FormData,
 ): Promise<ClassResult> {
+  const { t, locale } = await getI18n();
   try {
     await requireAdmin();
     const id = String(fd.get('id') ?? '');
-    if (!isUuid(id)) return { ok: false, message: 'Invalid id.' };
+    if (!isUuid(id)) return { ok: false, message: t('Invalid id.') };
     const f = readFields(fd);
-    if (!f.title) return { ok: false, message: 'Title is required.' };
+    if (!f.title) return { ok: false, message: t('Title is required.') };
     if (!f.driveFileId)
       return {
         ok: false,
-        message: 'Could not read a Google Drive file ID from that link.',
+        message: t('Could not read a Google Drive file ID from that link.'),
       };
     const admin = getSupabaseAdmin();
     const { data, error } = await admin
@@ -96,35 +104,44 @@ export async function updateClassVideo(
       })
       .eq('id', id)
       .select('id');
-    if (error) return { ok: false, message: error.message };
+    if (error)
+      return {
+        ok: false,
+        message: localizeAdminError(error.message, locale, t),
+      };
     // Stale id matched nothing — don't confirm a mutation that never happened.
     if (!data || data.length === 0)
-      return { ok: false, message: 'Class not found.' };
+      return { ok: false, message: t('Class not found.') };
     revalidatePath('/admin/classes');
     revalidatePath('/classes');
-    return { ok: true, message: 'Saved.' };
+    return { ok: true, message: t('Saved.') };
   } catch (e) {
-    return { ok: false, message: err(e) };
+    return { ok: false, message: localizeAdminError(err(e), locale, t) };
   }
 }
 
 export async function deleteClassVideo(id: string): Promise<ClassResult> {
+  const { t, locale } = await getI18n();
   try {
     await requireAdmin();
-    if (!isUuid(id)) return { ok: false, message: 'Invalid id.' };
+    if (!isUuid(id)) return { ok: false, message: t('Invalid id.') };
     const admin = getSupabaseAdmin();
     const { data, error } = await admin
       .from('class_video')
       .delete()
       .eq('id', id)
       .select('id');
-    if (error) return { ok: false, message: error.message };
+    if (error)
+      return {
+        ok: false,
+        message: localizeAdminError(error.message, locale, t),
+      };
     if (!data || data.length === 0)
-      return { ok: false, message: 'Class not found.' };
+      return { ok: false, message: t('Class not found.') };
     revalidatePath('/admin/classes');
     revalidatePath('/classes');
-    return { ok: true, message: 'Deleted.' };
+    return { ok: true, message: t('Deleted.') };
   } catch (e) {
-    return { ok: false, message: err(e) };
+    return { ok: false, message: localizeAdminError(err(e), locale, t) };
   }
 }

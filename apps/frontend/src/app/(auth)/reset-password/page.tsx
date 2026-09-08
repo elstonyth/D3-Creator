@@ -1,3 +1,4 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import type { Metadata } from 'next';
 
 import { AuthShell } from '@gitroom/frontend/components/auth/auth-shell';
@@ -8,16 +9,20 @@ import { ResetPasswordForm } from '@gitroom/frontend/components/auth/reset-passw
 // someone who has just clicked a good one.
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'Set a new password — D3 Creator',
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Set a new password — D3 Creator"),
   robots: { index: false, follow: false },
 };
+}
 
-export default function ResetPasswordPage() {
+export default async function ResetPasswordPage() {
+  const { t } = await getI18n();
   return (
     <AuthShell
-      heading="Set a new password"
-      subheading="The last step of the reset you started by email."
+      heading={t("Set a new password")}
+      subheading={t("The last step of the reset you started by email.")}
     >
       <ResetPasswordForm />
     </AuthShell>

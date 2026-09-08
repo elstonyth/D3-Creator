@@ -1,3 +1,7 @@
+'use client';
+
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
+import { LanguageSwitcher } from '@gitroom/frontend/components/i18n/language-switcher';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 
@@ -19,8 +23,12 @@ interface AuthShellProps {
  * not the same shell any more.
  */
 export function AuthShell({ children, heading, subheading }: AuthShellProps) {
+  const { t } = useI18n();
   return (
     <div className="flex min-h-screen flex-col bg-canvas text-fg">
+      <div className="flex justify-end px-5 pt-5 sm:px-6">
+        <LanguageSwitcher />
+      </div>
       <main className="flex flex-1 items-center justify-center px-5 py-12 sm:px-6">
         <div className="w-full max-w-[400px]">
           <Link
@@ -53,19 +61,20 @@ export function AuthShell({ children, heading, subheading }: AuthShellProps) {
 
       <footer className="px-5 pb-10 sm:px-6">
         <p className="mx-auto max-w-[400px] text-center text-caption text-fg-muted">
-          No account needed to browse the{' '}
+          {t('No account needed to browse.')}
+          <br />
           <Link
             href="/dashboard"
             className="text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
           >
-            dashboard
+            {t('dashboard')}
           </Link>{' '}
-          or the{' '}
+          ·{' '}
           <Link
             href="/leaderboard"
             className="text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
           >
-            leaderboard
+            {t('leaderboard')}
           </Link>
           .
         </p>

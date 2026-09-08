@@ -1,3 +1,4 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 /**
  * /studio/chat — the Script Coach. PRD 3 §2, §5.4, §7.1.
  *
@@ -35,10 +36,13 @@ import {
 import { getSupabaseRoute } from '@gitroom/frontend/lib/supabase-route';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = {
-  title: 'Script Coach — D3 Creator',
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+    title: t('Script Coach — D3 Creator'),
+    robots: { index: false, follow: false },
+  };
+}
 
 interface ScriptCoachPageProps {
   searchParams: Promise<{ thread?: string }>;
@@ -129,7 +133,7 @@ export default async function ScriptCoachPage({
         .limit(THREAD_WINDOW_MESSAGES);
       if (messageError) throw messageError;
       initialTurns = ((messageRows ?? []) as { id: number | string }[])
-        .map((row) => ({ ...row, id: String(row.id) }) as ChatTurn)
+        .map((row) => ({ ...row, id: String(row.id) } as ChatTurn))
         .reverse();
     }
   }

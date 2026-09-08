@@ -1,4 +1,5 @@
 'use client';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 
 /**
  * A password input with a show/hide toggle, shared by sign-up, sign-in and the
@@ -42,6 +43,7 @@ export function PasswordField({
   hint,
   aside,
 }: PasswordFieldProps): ReactElement {
+  const { t } = useI18n();
   const [shown, setShown] = useState(false);
   const id = useId();
 
@@ -66,7 +68,7 @@ export function PasswordField({
           type="button"
           onClick={() => setShown((v) => !v)}
           disabled={disabled}
-          aria-label={shown ? 'Hide password' : 'Show password'}
+          aria-label={t(shown ? 'Hide password' : 'Show password')}
           aria-pressed={shown}
           className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-lg text-fg-subtle transition-colors duration-150 ease-out hover:text-fg focus-visible:outline-none focus-visible:shadow-focus disabled:pointer-events-none disabled:opacity-50"
         >

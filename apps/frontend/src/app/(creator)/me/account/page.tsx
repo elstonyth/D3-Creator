@@ -1,3 +1,4 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
@@ -12,11 +13,15 @@ import { ButtonLink } from '@gitroom/frontend/components/ui/button';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export const metadata: Metadata = {
-  title: 'Account — D3 Creator',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+    title: t('Account — D3 Creator'),
+  };
+}
 
 export default async function AccountPage() {
+  const { t } = await getI18n();
   const auth = await getAuthContext();
   if (!auth) redirect('/login');
   if (auth.role === 'admin') redirect('/admin');
@@ -48,10 +53,11 @@ export default async function AccountPage() {
           between two Sections contributes no spacing of its own. */}
       <Section space="sm" className="flex flex-col gap-10 sm:gap-12">
         <header className="max-w-prose">
-          <h1 className="text-display-2 text-fg">Your account.</h1>
+          <h1 className="text-display-2 text-fg">{t('Your account.')}</h1>
           <p className="mt-4 text-body-lg text-fg-muted">
-            Your agency owns the creator record and the accounts attached to it.
-            This page shows what we hold, and lets you sign out.
+            {t(
+              'Your agency owns the creator record and the accounts attached to it. This page shows what we hold, and lets you sign out.'
+            )}{' '}
           </p>
         </header>
 
@@ -60,36 +66,40 @@ export default async function AccountPage() {
             these are three facts about one account, not three features. */}
           <dl className="max-w-prose divide-y divide-line-subtle overflow-hidden rounded-2xl border border-line bg-surface">
             <Row
-              term="Creator name"
-              note="Shown wherever your work appears on D3. Your agency can change it."
+              term={t('Creator name')}
+              note={t(
+                'Shown wherever your work appears on D3. Your agency can change it.'
+              )}
             >
               <span className={displayName ? 'text-fg' : 'text-fg-subtle'}>
-                {displayName || 'Not set yet'}
+                {displayName || t('Not set yet')}
               </span>
             </Row>
 
             <Row
-              term="Signed in as"
-              note="Used for sign-in and account recovery."
+              term={t('Signed in as')}
+              note={t('Used for sign-in and account recovery.')}
             >
               <span className="block truncate text-fg">{auth.email}</span>
             </Row>
 
             <Row
-              term="Tracked accounts"
-              note="Every profile feeding the numbers on your dashboard."
+              term={t('Tracked accounts')}
+              note={t('Every profile feeding the numbers on your dashboard.')}
             >
               <span className="tnum text-fg">
                 {tracked === 0
-                  ? 'None yet'
-                  : `${tracked} account${tracked === 1 ? '' : 's'}`}
+                  ? t('None yet')
+                  : t(tracked === 1 ? '{count} account' : '{count} accounts', {
+                      count: tracked,
+                    })}
               </span>
             </Row>
           </dl>
 
           <div className="mt-6 flex max-w-prose flex-wrap items-center gap-3">
             <ButtonLink href="/me" variant="secondary">
-              Back to your numbers
+              {t('Back to your numbers')}{' '}
             </ButtonLink>
             <SignOutButton />
           </div>

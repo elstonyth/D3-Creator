@@ -1,3 +1,7 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
+import { localeTag } from '@gitroom/frontend/lib/i18n';
+import { LocaleProvider } from '@gitroom/frontend/components/i18n/locale-provider';
+import { LanguageSwitcher } from '@gitroom/frontend/components/i18n/language-switcher';
 import '../global.scss';
 import { geistSans, geistMono } from '../fonts';
 import type { ReactNode } from 'react';
@@ -23,20 +27,21 @@ export default async function CreatorLayout({
 }: {
   children: ReactNode;
 }) {
+  const { locale, t } = await getI18n();
   const auth = await getAuthContext();
   if (!auth) redirect('/login');
   if (auth.role !== 'creator' && auth.role !== 'admin') redirect('/classes');
 
   const nav = [
-    { href: '/me', label: 'Dashboard', exact: true },
-    { href: '/me/leaderboard', label: 'Leaderboard' },
-    { href: '/me/account', label: 'Account' },
-    ...(auth.role === 'admin' ? [{ href: '/admin', label: 'Admin' }] : []),
+    { href: '/me', label: t('Dashboard'), exact: true },
+    { href: '/me/leaderboard', label: t('Leaderboard') },
+    { href: '/me/account', label: t('Account') },
+    ...(auth.role === 'admin' ? [{ href: '/admin', label: t('Admin') }] : []),
   ];
 
   return (
     <html
-      lang="en"
+      lang={localeTag(locale)}
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
@@ -46,65 +51,72 @@ export default async function CreatorLayout({
         <meta name="darkreader-lock" />
       </head>
       <body className="dark flex min-h-screen flex-col bg-canvas font-sans text-fg antialiased">
-        <a
-          href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-md focus:bg-brand focus:px-4 focus:py-2 focus:text-label focus:text-fg-on-brand"
-        >
-          Skip to content
-        </a>
+        <LocaleProvider locale={locale}>
+          <a
+            href="#main"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-md focus:bg-brand focus:px-4 focus:py-2 focus:text-label focus:text-fg-on-brand"
+          >
+            {t('Skip to content')}
+          </a>
 
-        <header className="sticky top-0 z-50 border-b border-line-subtle bg-canvas">
-          <div className="mx-auto grid h-14 max-w-content grid-cols-[1fr_auto] items-center px-6 md:grid-cols-[1fr_auto_1fr] md:px-8">
-            <Link
-              href="/me"
-              className="flex select-none items-center gap-2 justify-self-start transition-opacity duration-150 hover:opacity-90"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/d3-logo.png"
-                alt=""
-                width={28}
-                height={28}
-                suppressHydrationWarning
-              />
-              <span className="text-heading tracking-[-0.02em] text-fg">
-                D3 Creator
-              </span>
-            </Link>
+          <header className="sticky top-0 z-50 border-b border-line-subtle bg-canvas">
+            <div className="mx-auto grid h-14 max-w-content grid-cols-[1fr_auto] items-center px-6 lg:grid-cols-[1fr_auto_1fr] md:px-8">
+              <Link
+                href="/me"
+                className="flex select-none items-center gap-2 justify-self-start transition-opacity duration-150 hover:opacity-90"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/d3-logo.png"
+                  alt=""
+                  width={28}
+                  height={28}
+                  suppressHydrationWarning
+                />
+                <span className="text-heading tracking-[-0.02em] text-fg">
+                  D3 Creator
+                </span>
+              </Link>
 
-            <nav
-              aria-label="Creator"
-              className="hidden items-center gap-0.5 text-label md:flex"
-            >
-              {nav.map((item) => (
-                <NavLink key={item.href} href={item.href} exact={item.exact}>
-                  {item.label}
-                </NavLink>
-              ))}
-            </nav>
+              <nav
+                aria-label={t('Creator')}
+                className="hidden items-center gap-0.5 text-label lg:flex"
+              >
+                {nav.map((item) => (
+                  <NavLink key={item.href} href={item.href} exact={item.exact}>
+                    {item.label}
+                  </NavLink>
+                ))}
+              </nav>
 
-            <div className="hidden items-center gap-2 justify-self-end text-label md:flex">
-              <span className="max-w-[20ch] truncate text-caption text-fg-subtle">
-                {auth.email}
-              </span>
-              <SignOutButton />
+              <div className="hidden items-center gap-2 justify-self-end text-label lg:flex">
+                <span className="max-w-[12ch] truncate text-caption text-fg-subtle">
+                  {auth.email}
+                </span>
+                <LanguageSwitcher />
+                <SignOutButton />
+              </div>
+
+              <div className="flex items-center gap-1 justify-self-end lg:hidden">
+                <LanguageSwitcher />
+                <MobileNav links={nav} showSignOut />
+              </div>
             </div>
+          </header>
 
-            <div className="flex items-center gap-1 justify-self-end md:hidden">
-              <SignOutButton />
-              <MobileNav links={nav} />
-            </div>
-          </div>
-        </header>
-
-        {/* No gutter here on purpose: each page owns its own <Container>, so a
+          {/* No gutter here on purpose: each page owns its own <Container>, so a
             band can run full-bleed instead of every page being one 1200px
             column. Matches the public layout. */}
-        <main id="main" tabIndex={-1} className="w-full flex-1 overflow-x-clip">
-          {children}
-        </main>
+          <main
+            id="main"
+            tabIndex={-1}
+            className="w-full flex-1 overflow-x-clip"
+          >
+            {children}
+          </main>
 
-        <Analytics />
+          <Analytics />
+        </LocaleProvider>
       </body>
     </html>
   );

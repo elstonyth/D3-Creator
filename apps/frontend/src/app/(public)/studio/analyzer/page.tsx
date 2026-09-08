@@ -1,3 +1,5 @@
+import { localeTag } from '@gitroom/frontend/lib/i18n';
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 /**
  * /studio/analyzer — PRD 3 §6.1, §6.2, §6.4.
  *
@@ -31,16 +33,22 @@ import {
 import { listJobs } from '@gitroom/frontend/lib/analyzer';
 import { getAuthContext, isStudioMember } from '@gitroom/frontend/lib/auth';
 import type { BusinessProfile } from '@gitroom/frontend/lib/business-profile';
-import { renderProfileBlock } from '@gitroom/frontend/lib/chat-prompt';
+import {
+  isProfileComplete,
+  renderProfileBlock,
+} from '@gitroom/frontend/lib/chat-prompt';
 import { getSupabaseRoute } from '@gitroom/frontend/lib/supabase-route';
 
 import AnalyzerWorkspace from './analyzer-workspace';
 
 export const dynamic = 'force-dynamic'; // per-user, auth-dependent, never cacheable
-export const metadata: Metadata = {
-  title: 'Video Analyzer — D3 Creator',
-  robots: { index: false, follow: false }, // overrides the (public) layout's index: true
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+    title: t('Video Analyzer — D3 Creator'),
+    robots: { index: false, follow: false }, // overrides the (public) layout's index: true
+  };
+}
 
 /**
  * What a row with no score says instead of a bare em dash.
@@ -62,7 +70,12 @@ const ROW_STATUS_LABEL: Partial<Record<JobStatus, string>> = {
 
 const THUMB = 'h-9 w-16 min-w-16 rounded-md object-cover';
 
-function HistoryTable({ rows }: { rows: AnalyzerJobSummary[] }): ReactElement {
+async function HistoryTable({
+  rows,
+}: {
+  rows: AnalyzerJobSummary[];
+}): Promise<ReactElement> {
+  const { locale, t } = await getI18n();
   return (
     <TableWrap>
       {/* 700, not §6.4's 560: five columns at their real widths — 96px
@@ -77,15 +90,15 @@ function HistoryTable({ rows }: { rows: AnalyzerJobSummary[] }): ReactElement {
                 image column no intrinsic size, so `w-16` on the <img> lost and
                 thumbnails rendered ~1.5px wide. 64px tile + px-4 both sides. */}
             <Th className="w-[96px]">
-              <span className="sr-only">Thumbnail</span>
+              <span className="sr-only">{t('Thumbnail')}</span>
             </Th>
-            <Th>Video</Th>
-            <Th>Analysed</Th>
+            <Th>{t('Video')}</Th>
+            <Th>{t('Analysed')}</Th>
             {/* "Result", not "Score": the cell below carries a status word for
                 every row that has no number yet. */}
-            <Th numeric>Result</Th>
+            <Th numeric>{t('Result')}</Th>
             <Th numeric>
-              <span className="sr-only">Open report</span>
+              <span className="sr-only">{t('Open report')}</span>
             </Th>
           </tr>
         </thead>
@@ -115,7 +128,7 @@ function HistoryTable({ rows }: { rows: AnalyzerJobSummary[] }): ReactElement {
                 </span>
               </Td>
               <Td className="tnum whitespace-nowrap text-fg-muted">
-                {formatJobDate(row.created_at)}
+                {formatJobDate(row.created_at, locale)}
               </Td>
               <Td numeric className="whitespace-nowrap">
                 {row.overall_score === null ? (
@@ -124,11 +137,18 @@ function HistoryTable({ rows }: { rows: AnalyzerJobSummary[] }): ReactElement {
                   ) : (
                     // Neutral, never brand: yellow on this screen belongs to
                     // "Choose file" alone.
-                    <Badge tone="muted">{ROW_STATUS_LABEL[row.status]}</Badge>
+                    <Badge tone="muted">
+                      {t(ROW_STATUS_LABEL[row.status]!)}
+                    </Badge>
                   )
                 ) : (
                   <>
-                    <span>{row.overall_score.toFixed(1)}</span>
+                    <span>
+                      {row.overall_score.toLocaleString(localeTag(locale), {
+                        minimumFractionDigits: 1,
+                        maximumFractionDigits: 1,
+                      })}
+                    </span>
                     <span className="text-fg-subtle">/10</span>
                   </>
                 )}
@@ -138,8 +158,11 @@ function HistoryTable({ rows }: { rows: AnalyzerJobSummary[] }): ReactElement {
                   href={`/studio/analyzer/${row.id}`}
                   className="text-fg-muted hover:text-fg transition-colors duration-150 ease-out"
                 >
-                  Open
-                  <span className="sr-only"> {row.filename} report</span>
+                  {t('Open')}{' '}
+                  <span className="sr-only">
+                    {' '}
+                    {t('{filename} report', { filename: row.filename })}
+                  </span>
                 </Link>
               </Td>
             </Tr>
@@ -151,6 +174,7 @@ function HistoryTable({ rows }: { rows: AnalyzerJobSummary[] }): ReactElement {
 }
 
 export default async function VideoAnalyzerPage(): Promise<ReactElement> {
+  const { locale, t } = await getI18n();
   const auth = await getAuthContext();
   if (!auth) redirect('/login?redirectTo=/studio/analyzer');
   if (!isStudioMember(auth)) return <StudioLocked />;
@@ -161,11 +185,6 @@ export default async function VideoAnalyzerPage(): Promise<ReactElement> {
   // A profile outage must not block uploading, the same rule the history read
   // below already follows — the analysis simply runs without the context.
   let businessProfile: string | null = null;
-  // Owner request 2026-08-24. Settings → Reply language, mapped to the worker's
-  // two-letter `report_language`. Stays null when the user has not chosen one,
-  // and the worker's own 'en' default applies — mapping null to 'en' here would
-  // freeze that default into the request and make the worker's unchangeable.
-  let reportLanguage: 'en' | 'zh' | null = null;
   try {
     const supabase = await getSupabaseRoute();
     const { data, error } = await supabase
@@ -179,18 +198,12 @@ export default async function VideoAnalyzerPage(): Promise<ReactElement> {
     // indistinguishable from "no profile": every analysis silently drops its
     // business context with no log line anywhere.
     if (error) console.error('[studio/analyzer] profile read failed', error);
-    const block = renderProfileBlock(data as BusinessProfile | null);
+    const profile = data as BusinessProfile | null;
     // `NO PROFILE ON FILE` is the chat guardrail's sentinel and means nothing
     // to the analyzer prompt: send null instead of a line saying there is none.
-    businessProfile = data === null ? null : block;
-    // `REPLY_LANGUAGES` has two members and so does this map. A third value
-    // added to the column with no entry here falls to null, which is the
-    // worker's default rather than a crash — but it is also silent, so add the
-    // entry in the same change.
-    reportLanguage =
-      { english: 'en' as const, chinese: 'zh' as const }[
-        (data as BusinessProfile | null)?.reply_language ?? ''
-      ] ?? null;
+    businessProfile = isProfileComplete(profile)
+      ? renderProfileBlock(profile, locale)
+      : null;
   } catch (cause) {
     console.error('[studio/analyzer] profile read failed', cause);
   }
@@ -216,23 +229,23 @@ export default async function VideoAnalyzerPage(): Promise<ReactElement> {
     <Section space="md">
       <Container className="flex flex-col gap-10">
         <header className="max-w-prose flex flex-col gap-3">
-          <h1 className="text-display-2 text-fg">Video Analyzer.</h1>
+          <h1 className="text-display-2 text-fg">{t('Video Analyzer.')}</h1>
           <p className="text-body-lg text-fg-muted">
-            Upload a short video, or paste a link to one you have posted. You
-            get six scores out of ten, the reasoning behind each, and a
-            transcript you can jump around in.
+            {t(
+              'Upload a short video, or paste a link to one you have posted. You get six scores out of ten, the reasoning behind each, and a transcript you can jump around in.'
+            )}{' '}
           </p>
           {/* Amendment 1's open item: the profile silently steered every
               analysis and nothing on this page said so. One caption, only when
               a profile is actually in play — a user without one sees nothing. */}
           {businessProfile !== null && (
             <p className="text-caption text-fg-subtle">
-              Scored against your business profile — edit it in{' '}
+              {t('Scored against your business profile — edit it in')}{' '}
               <Link
                 href="/studio/settings"
                 className="underline underline-offset-4 hover:text-fg transition-colors duration-150 ease-out"
               >
-                Settings
+                {t('Settings')}{' '}
               </Link>
               .
             </p>
@@ -241,7 +254,7 @@ export default async function VideoAnalyzerPage(): Promise<ReactElement> {
         <AnalyzerWorkspace
           initialJob={initialJob}
           businessProfile={businessProfile}
-          reportLanguage={reportLanguage}
+          reportLanguage={locale}
           hasHistory={rows.length > 0}
           historyUnavailable={historyUnavailable}
         >
