@@ -1,7 +1,7 @@
 {
   "name": "d3-creator",
   "version": "0.1.0",
-  "description": "Login-free social analytics — D3 Creator",
+  "description": "Login-free social analytics \u00e2\u20ac\u201d D3 Creator",
   "main": "index.js",
   "license": "AGPL-3.0",
   "keywords": [],
@@ -39,7 +39,7 @@
     "react-use-cookie": "^1.6.1",
     "sass": "^1.103.1",
     "tailwind-merge": "^3.6.0",
-    "tailwindcss": "3.4.17",
+    "tailwindcss": "3.4.19",
     "three": "^0.167.1"
   },
   "devDependencies": {
