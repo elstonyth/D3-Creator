@@ -128,7 +128,9 @@ export default async function CreatorPage({
               {creator.displayName}
             </h1>
             {primaryHandle ? (
-              <p className="mt-2 text-body text-fg-muted">@{primaryHandle}</p>
+              <p className="mt-2 text-body text-fg-muted [overflow-wrap:anywhere]">
+                @{primaryHandle}
+              </p>
             ) : null}
             {creator.biography ? (
               <p className="mt-4 max-w-prose whitespace-pre-line break-words text-body text-fg-muted">
