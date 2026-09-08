@@ -1,4 +1,5 @@
 'use client';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 
 /**
  * The one client island on /studio/analyzer — PRD 3 §6.2 and §6.4.
@@ -31,7 +32,6 @@ import {
   FILE_ACCEPT,
   MAX_DURATION_SECONDS,
   MAX_UPLOAD_BYTES,
-  LINK_HINT,
   STEP_LABEL,
   STEP_ORDER,
   errorCopy,
@@ -56,13 +56,9 @@ export interface AnalyzerWorkspaceProps {
    */
   businessProfile: string | null;
   /**
-   * The worker's `report_language`, derived server-side from the profile's
-   * `reply_language` (owner request 2026-08-24). `null` leaves the field off
-   * entirely and the worker applies its own `'en'` default.
-   *
-   * It has to be sent. Without it the profile block would carry a
-   * `Reply language: Chinese` line into a prompt whose own instruction says to
-   * write the report in English — two contradictory orders in one request.
+   * The interface language for new reports. The server also uses it for the
+   * profile block's Reply language line, keeping the worker's instructions
+   * consistent without changing the saved profile or existing reports.
    */
   reportLanguage: 'en' | 'zh' | null;
   hasHistory: boolean;
@@ -131,6 +127,7 @@ export default function AnalyzerWorkspace({
   historyUnavailable,
   children,
 }: AnalyzerWorkspaceProps): ReactElement {
+  const { t } = useI18n();
   const router = useRouter();
   // Read EXACTLY once, as the useState seed. Never re-read on a later render
   // and never wired into a useEffect, so a router.refresh() after a give-up
@@ -172,11 +169,11 @@ export default function AnalyzerWorkspace({
       setJob((prev) =>
         prev === null || prev.id !== jobId
           ? prev
-          : { ...prev, status: 'failed', step: null, error: { code, message } },
+          : { ...prev, status: 'failed', step: null, error: { code, message } }
       );
       router.refresh();
     },
-    [clearPoll, router],
+    [clearPoll, router]
   );
 
   const tick = useCallback(
@@ -224,7 +221,7 @@ export default function AnalyzerWorkspace({
       }
       pollTimer.current = setTimeout(() => void run(jobId), POLL_INTERVAL_MS);
     },
-    [clearPoll, giveUp, router],
+    [clearPoll, giveUp, router]
   );
 
   const beginPolling = useCallback(
@@ -233,7 +230,7 @@ export default function AnalyzerWorkspace({
       deadline.current = Date.now() + POLL_GIVE_UP_MS;
       void tick(jobId); // fired IMMEDIATELY, not after one interval
     },
-    [tick],
+    [tick]
   );
 
   // A running job survives a reload: a reload is a new mount and a deliberate
@@ -261,7 +258,7 @@ export default function AnalyzerWorkspace({
 
       if (
         !(ALLOWED_EXTENSIONS as readonly string[]).includes(
-          extensionOf(file.name),
+          extensionOf(file.name)
         )
       ) {
         setClientError(COPY.format);
@@ -284,9 +281,7 @@ export default function AnalyzerWorkspace({
       }
 
       try {
-        // There is still no language control on THIS page. The language comes
-        // from Settings → Reply language; with none set the field is omitted
-        // and the worker applies its "en" default (PRD 1 §8.8.3).
+        // New reports follow the interface language selected in the header.
         const form = new FormData();
         // BEFORE the file: multer only populates `req.body` with text fields
         // that precede it in the stream (apps/analyzer/src/upload.ts).
@@ -311,7 +306,7 @@ export default function AnalyzerWorkspace({
           console.error(
             '[studio/analyzer] upload rejected',
             res.status,
-            envelope?.error,
+            envelope?.error
           );
           setPending(false);
           setClientError(COPY.upload);
@@ -330,7 +325,7 @@ export default function AnalyzerWorkspace({
         setClientError(COPY.upload);
       }
     },
-    [beginPolling, businessProfile, clearPoll, reportLanguage, router],
+    [beginPolling, businessProfile, clearPoll, reportLanguage, router]
   );
 
   /**
@@ -371,7 +366,7 @@ export default function AnalyzerWorkspace({
           console.error(
             '[studio/analyzer] link rejected',
             res.status,
-            envelope?.error,
+            envelope?.error
           );
           setPending(false);
           // Switch on the machine-facing diagnostic; render our own copy.
@@ -389,7 +384,7 @@ export default function AnalyzerWorkspace({
         setClientError(linkErrorCopy(null));
       }
     },
-    [beginPolling, businessProfile, clearPoll, reportLanguage, router],
+    [beginPolling, businessProfile, clearPoll, reportLanguage, router]
   );
 
   const status = job?.status ?? null;
@@ -430,13 +425,13 @@ export default function AnalyzerWorkspace({
 
       {showPanel ? (
         <section
-          aria-label="Analysis progress"
+          aria-label={t('Analysis progress')}
           className="rounded-2xl border border-line bg-surface-subtle p-6 sm:p-8"
         >
           <div className="mx-auto flex max-w-[420px] flex-col gap-6">
             <div className="flex flex-col gap-1">
               <h2 className="text-heading text-fg">
-                {failed ? 'Analysis stopped' : 'Analysing your video'}
+                {failed ? t('Analysis stopped') : t('Analysing your video')}
               </h2>
               {/* Four unlabelled dots for several minutes never say WHICH video
                   is being analysed — and a user who re-picked the wrong file has
@@ -460,7 +455,7 @@ export default function AnalyzerWorkspace({
                     aria-current={current ? 'step' : undefined}
                     className={cn(
                       'flex items-center gap-3 text-body transition-colors duration-150 ease-out',
-                      current || done ? 'text-fg' : 'text-fg-subtle',
+                      current || done ? 'text-fg' : 'text-fg-subtle'
                     )}
                   >
                     {/* The dot is the only thing that changes. The pulse marks
@@ -473,11 +468,11 @@ export default function AnalyzerWorkspace({
                         done
                           ? 'bg-white/[0.78]'
                           : current
-                            ? 'bg-white/[0.78] animate-pulseDot'
-                            : 'bg-white/[0.24]',
+                          ? 'bg-white/[0.78] animate-pulseDot'
+                          : 'bg-white/[0.24]'
                       )}
                     />
-                    {STEP_LABEL[id]}
+                    {t(STEP_LABEL[id])}
                   </li>
                 );
               })}
@@ -486,15 +481,15 @@ export default function AnalyzerWorkspace({
             {showCaption && (
               <p className="text-caption text-fg-subtle">
                 {job === null
-                  ? 'Uploading video — keep this tab open.'
-                  : 'Queued. Most videos finish in two to four minutes.'}
+                  ? t('Uploading video — keep this tab open.')
+                  : t('Queued. Most videos finish in two to four minutes.')}
               </p>
             )}
 
             {failed && (
               <div className="flex flex-col gap-3">
-                <Alert tone="danger" title="This analysis failed">
-                  {errorCopy(job?.error?.code)}
+                <Alert tone="danger" title={t('This analysis failed')}>
+                  {t(errorCopy(job?.error?.code))}
                 </Alert>
                 <Button
                   variant="secondary"
@@ -502,7 +497,7 @@ export default function AnalyzerWorkspace({
                   className="self-start"
                   onClick={openPicker}
                 >
-                  Choose another file
+                  {t('Choose another file')}{' '}
                 </Button>
               </div>
             )}
@@ -511,7 +506,7 @@ export default function AnalyzerWorkspace({
       ) : (
         <div className="flex flex-col gap-5">
           <form
-            aria-label="Analyse a video link"
+            aria-label={t('Analyse a video link')}
             className="flex flex-col gap-2 sm:flex-row"
             onSubmit={(e) => {
               e.preventDefault();
@@ -523,8 +518,8 @@ export default function AnalyzerWorkspace({
               inputMode="url"
               value={link}
               onChange={(e) => setLink(e.target.value)}
-              placeholder={`Paste a ${LINK_HINT}`}
-              aria-label={`Paste a ${LINK_HINT}`}
+              placeholder={t('Paste a TikTok, Douyin or Instagram video link')}
+              aria-label={t('Paste a TikTok, Douyin or Instagram video link')}
               className="flex-1 min-w-0"
             />
             <Button
@@ -534,20 +529,20 @@ export default function AnalyzerWorkspace({
               className="h-10 shrink-0"
               disabled={busy || link.trim() === ''}
             >
-              Analyse link
+              {t('Analyse link')}{' '}
             </Button>
           </form>
 
           <div className="flex items-center gap-4" aria-hidden>
             <span className="h-px flex-1 bg-line" />
             <span className="text-caption text-fg-subtle">
-              or upload the file
+              {t('or upload the file')}{' '}
             </span>
             <span className="h-px flex-1 bg-line" />
           </div>
 
           <section
-            aria-label="Upload a video"
+            aria-label={t('Upload a video')}
             onDragEnter={(e) => {
               e.preventDefault();
               dragDepth.current += 1;
@@ -571,31 +566,32 @@ export default function AnalyzerWorkspace({
               'min-h-[240px] rounded-2xl border border-dashed',
               'flex flex-col items-center justify-center gap-4 px-6 py-10 text-center',
               'transition-colors duration-150 ease-out',
-              dragActive ? 'border-line-strong bg-white/[0.02]' : 'border-line',
+              dragActive ? 'border-line-strong bg-white/[0.02]' : 'border-line'
             )}
           >
             {/* The zone is not a click target and not in the tab order, so
                 without this line a pointer user has no signal that a 240px
                 dashed box does anything. */}
             <div className="flex flex-col gap-1">
-              <p className="text-body text-fg">Drop a video here</p>
+              <p className="text-body text-fg">{t('Drop a video here')}</p>
               <p className="text-caption text-fg-subtle">
-                MP4, MOV, WebM or AVI · up to 5 minutes · up to 2 GB
+                {t('MP4, MOV, WebM or AVI · up to 5 minutes · up to 2 GB')}{' '}
               </p>
             </div>
             <Button variant="primary" size="md" onClick={openPicker}>
-              Choose file
+              {t('Choose file')}{' '}
             </Button>
             {clientError !== null && (
               <Alert tone="danger" className="w-full max-w-[420px] text-left">
-                {clientError}
+                {t(clientError)}
               </Alert>
             )}
           </section>
 
           <p className="text-caption text-fg-subtle">
-            A draft that is not posted anywhere yet can only be uploaded — there
-            is no link to paste.
+            {t(
+              'A draft that is not posted anywhere yet can only be uploaded — there is no link to paste.'
+            )}{' '}
           </p>
         </div>
       )}
@@ -606,24 +602,30 @@ export default function AnalyzerWorkspace({
       >
         <div className="flex flex-col gap-1">
           <h2 id="analyzer-history" className="text-subsection text-fg">
-            Past reports
+            {t('Past reports')}{' '}
           </h2>
           <p className="text-caption text-fg-subtle">
-            Every video you have run through the analyzer, newest first.
+            {t('Every video you have run through the analyzer, newest first.')}{' '}
           </p>
         </div>
         {historyUnavailable ? (
-          <Alert tone="warning" title="Past reports are unavailable right now">
-            This is a problem reading your history, not with your reports —
-            nothing has been lost. Uploading a new video still works.
+          <Alert
+            tone="warning"
+            title={t('Past reports are unavailable right now')}
+          >
+            {t(
+              'This is a problem reading your history, not with your reports — nothing has been lost. Uploading a new video still works.'
+            )}{' '}
           </Alert>
         ) : hasHistory ? (
           children
         ) : (
           <EmptyState
             size="sm"
-            title="No reports yet"
-            description="Analyse your first video and it will show up here with its score."
+            title={t('No reports yet')}
+            description={t(
+              'Analyse your first video and it will show up here with its score.'
+            )}
           >
             {/* Through `children`, not `action`: `action` renders a yellow
                 <Link>, which cannot open a file picker and would put a second
@@ -634,7 +636,7 @@ export default function AnalyzerWorkspace({
               onClick={openPicker}
               disabled={busy}
             >
-              Upload a video
+              {t('Upload a video')}{' '}
             </Button>
           </EmptyState>
         )}

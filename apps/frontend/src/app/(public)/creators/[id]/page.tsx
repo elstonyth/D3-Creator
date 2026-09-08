@@ -1,3 +1,6 @@
+import { type Locale } from '@gitroom/frontend/lib/i18n';
+
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -32,27 +35,36 @@ const SUPPORTED: PlatformKey[] = [
   // xiaohongshu (RedNote) archived - hidden from the per-creator platform list.
 ];
 
-const compact = new Intl.NumberFormat('en-US', {
-  notation: 'compact',
-  maximumFractionDigits: 1,
-});
-const exact = new Intl.NumberFormat('en-US');
+const compact = (locale: Locale) =>
+  new Intl.NumberFormat(locale === 'zh' ? 'zh-CN' : 'en-US', {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  });
+const exact = (locale: Locale) =>
+  new Intl.NumberFormat(locale === 'zh' ? 'zh-CN' : 'en-US');
 
 export async function generateMetadata({
   params,
 }: {
   params: Promise<Params>;
 }): Promise<Metadata> {
+  const { t } = await getI18n();
   const { id } = await params;
   const creator = await getCreatorByHandle(id).catch(() => null);
   const name = creator?.displayName ?? id;
   return {
     title: `${name} — D3 Creator`,
-    description: `Live follower counts, engagement, and growth for ${name} across every platform.`,
+    description: t(
+      'Live follower counts, engagement, and growth for {name} across every platform.',
+      { name }
+    ),
     alternates: { canonical: `/creators/${id}` },
     openGraph: {
       title: `${name} — D3 Creator`,
-      description: `Live follower counts, engagement, and growth for ${name} across every platform.`,
+      description: t(
+        'Live follower counts, engagement, and growth for {name} across every platform.',
+        { name }
+      ),
     },
   };
 }
@@ -62,6 +74,7 @@ export default async function CreatorPage({
 }: {
   params: Promise<Params>;
 }) {
+  const { locale, t } = await getI18n();
   const { id } = await params;
   const creator = await getCreatorByHandle(id).catch((err) => {
     console.error('[creators/[id]] getCreatorByHandle failed', err);
@@ -109,7 +122,7 @@ export default async function CreatorPage({
           href="/leaderboard"
           className="-ml-2 mb-6 inline-flex h-10 items-center gap-1.5 rounded-lg px-2 text-caption text-fg-muted transition-colors duration-150 ease-out hover:text-fg focus-visible:outline-none focus-visible:shadow-focus"
         >
-          <span aria-hidden="true">&larr;</span> All creators
+          <span aria-hidden="true">{'←'}</span> {t('All creators')}{' '}
         </Link>
 
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-7">
@@ -149,7 +162,7 @@ export default async function CreatorPage({
                         className="inline-flex h-10 items-center gap-2 rounded-full border border-line bg-surface px-4 text-label text-fg transition-colors duration-150 ease-out hover:border-line-strong hover:bg-white/[0.04] focus-visible:outline-none focus-visible:shadow-focus"
                       >
                         <Icon size={14} className="shrink-0" />
-                        {PLATFORM_LABELS[key]}
+                        {t(PLATFORM_LABELS[key])}
                       </Link>
                     </li>
                   );
@@ -162,42 +175,48 @@ export default async function CreatorPage({
 
       <Section space="md" divided>
         <SectionHeader
-          title="Reach"
-          lede="Followers come from the latest daily capture. Views and likes are summed over the 30 most recent posts on each platform, which is why they read lower than the all-time totals on the leaderboard."
+          title={t('Reach')}
+          lede={t(
+            'Followers come from the latest daily capture. Views and likes are summed over the 30 most recent posts on each platform, which is why they read lower than the all-time totals on the leaderboard.'
+          )}
         />
         <StatRow>
           <Stat
-            label="Total followers"
+            label={t('Total followers')}
             size="lg"
-            value={compact.format(creator.totalFollowers)}
+            value={compact(locale).format(creator.totalFollowers)}
             meta={
               <>
-                <span className="tnum">
-                  {exact.format(creator.totalFollowers)}
-                </span>{' '}
-                across {platformCount} platform
-                {platformCount === 1 ? '' : 's'}
+                {t(
+                  platformCount === 1
+                    ? '{followers} across {count} platform'
+                    : '{followers} across {count} platforms',
+                  {
+                    followers: exact(locale).format(creator.totalFollowers),
+                    count: platformCount,
+                  }
+                )}
               </>
             }
           />
           <Stat
-            label="Total views"
+            label={t('Total views')}
             size="lg"
-            value={hasViews ? compact.format(totalViews) : '—'}
+            value={hasViews ? compact(locale).format(totalViews) : '—'}
             meta={
               hasViews
-                ? 'Last 30 posts per platform'
-                : 'No view counts captured yet'
+                ? t('Last 30 posts per platform')
+                : t('No view counts captured yet')
             }
           />
           <Stat
-            label="Total likes"
+            label={t('Total likes')}
             size="lg"
-            value={hasLikes ? compact.format(totalLikes) : '—'}
+            value={hasLikes ? compact(locale).format(totalLikes) : '—'}
             meta={
               hasLikes
-                ? 'Last 30 posts per platform'
-                : 'No like counts captured yet'
+                ? t('Last 30 posts per platform')
+                : t('No like counts captured yet')
             }
           />
         </StatRow>
@@ -205,15 +224,19 @@ export default async function CreatorPage({
 
       <Section space="md" divided className="pb-20 sm:pb-28">
         <SectionHeader
-          title="Platforms"
-          lede="Open a platform for its followers and the posts behind these numbers."
+          title={t('Platforms')}
+          lede={t(
+            'Open a platform for its followers and the posts behind these numbers.'
+          )}
         />
 
         {tracked.length === 0 ? (
           <EmptyState
-            title="No platforms tracked yet"
-            description="This creator is on the roster but has no profile connected, so there is nothing to scrape yet."
-            action={{ href: '/leaderboard', label: 'Browse other creators' }}
+            title={t('No platforms tracked yet')}
+            description={t(
+              'This creator is on the roster but has no profile connected, so there is nothing to scrape yet.'
+            )}
+            action={{ href: '/leaderboard', label: t('Browse other creators') }}
           />
         ) : (
           <ul className="divide-y divide-line-subtle overflow-hidden rounded-2xl border border-line bg-surface">
@@ -234,7 +257,7 @@ export default async function CreatorPage({
  * detail view; an untracked one is inert, dimmed, and says so in words rather
  * than by being an empty box.
  */
-function PlatformRow({
+async function PlatformRow({
   creatorId,
   platform,
   slot,
@@ -243,8 +266,9 @@ function PlatformRow({
   platform: PlatformKey;
   slot: CreatorPlatformSlot | null;
 }) {
+  const { locale, t } = await getI18n();
   const Icon = PLATFORM_ICONS[platform];
-  const label = PLATFORM_LABELS[platform];
+  const label = t(PLATFORM_LABELS[platform]);
 
   if (!slot) {
     return (
@@ -253,7 +277,9 @@ function PlatformRow({
           <Icon size={16} />
         </span>
         <span className="min-w-0 flex-1 text-label text-fg-muted">{label}</span>
-        <span className="shrink-0 text-caption text-fg-subtle">Not tracked</span>
+        <span className="shrink-0 text-caption text-fg-subtle">
+          {t('Not tracked')}
+        </span>
       </div>
     );
   }
@@ -271,15 +297,15 @@ function PlatformRow({
       <span className="min-w-0 flex-1">
         <span className="block text-label text-fg">{label}</span>
         <span className="block truncate text-caption text-fg-subtle">
-          {slot.handle ? `@${slot.handle}` : 'Handle not recorded'}
+          {slot.handle ? `@${slot.handle}` : t('Handle not recorded')}
         </span>
       </span>
       <span className="shrink-0 text-right">
         <span className="tnum block text-body text-fg">
-          {followers != null ? compact.format(followers) : '—'}
+          {followers != null ? compact(locale).format(followers) : '—'}
         </span>
         <span className="block text-caption text-fg-subtle">
-          {followers != null ? 'followers' : 'syncing'}
+          {followers != null ? t('followers') : t('syncing')}
         </span>
       </span>
       <svg

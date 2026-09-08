@@ -1,3 +1,4 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 /**
  * Shared 7D/30D/90D/Lifetime selector for /me. Pure server component:
  * URL-as-state via <Link href="/me?window=…"> tabs, no client JS.
@@ -15,14 +16,15 @@ import { WINDOW_LABEL } from '@gitroom/frontend/lib/me-window';
 
 const WINDOWS: MetricWindow[] = ['7d', '30d', '90d', 'lifetime'];
 
-export function WindowTabs({ current }: { current: MetricWindow }) {
+export async function WindowTabs({ current }: { current: MetricWindow }) {
+  const { t } = await getI18n();
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
       <span
         id="window-tabs-label"
         className="text-micro uppercase text-fg-subtle"
       >
-        Time window
+        {t('Time window')}{' '}
       </span>
       <nav
         aria-labelledby="window-tabs-label"
@@ -42,7 +44,7 @@ export function WindowTabs({ current }: { current: MetricWindow }) {
                   : 'text-fg-muted hover:bg-white/[0.05] hover:text-fg'
               }`}
             >
-              {WINDOW_LABEL[w]}
+              {t(WINDOW_LABEL[w])}
             </Link>
           );
         })}

@@ -15,6 +15,7 @@
 
 import type { ChatMessage, ChatTextPart } from '@d3/openrouter';
 
+import type { Locale } from './i18n';
 import type { BusinessProfile } from './business-profile';
 
 /**
@@ -135,9 +136,10 @@ export function isProfileComplete(profile: BusinessProfile | null): boolean {
  * omitted ENTIRELY when its column is null or blank — never emitted with an
  * empty value.
  */
-export function renderProfileBlock(profile: BusinessProfile | null): string {
+export function renderProfileBlock(profile: BusinessProfile | null, interfaceLocale?: Locale): string {
+  const replyLanguage = interfaceLocale === undefined ? null : interfaceLocale === 'zh' ? 'Chinese' : 'English';
   if (!isProfileComplete(profile) || profile === null) {
-    return NO_PROFILE_ON_FILE;
+    return replyLanguage ? `${NO_PROFILE_ON_FILE}\nReply language: ${replyLanguage}` : NO_PROFILE_ON_FILE;
   }
 
   const lines: string[] = ['BUSINESS PROFILE'];
@@ -173,7 +175,7 @@ export function renderProfileBlock(profile: BusinessProfile | null): string {
   // Directly under Content language, and omitted entirely when null — the two
   // lines only make sense read together, and their absence is what tells the
   // persona to fall back to the content language.
-  push('Reply language', label(REPLY_LANGUAGE_LABELS, profile.reply_language));
+  push('Reply language', replyLanguage ?? label(REPLY_LANGUAGE_LABELS, profile.reply_language));
   push('Main platform', label(PLATFORM_LABELS, profile.main_platform));
   push('Appears on camera', label(ON_CAMERA_LABELS, profile.on_camera));
 
@@ -261,6 +263,8 @@ export interface BuildMessagesInput {
   question: string;
   /** `usesCacheControl(CHAT_MODEL)`. */
   cacheControl: boolean;
+  /** Current UI choice controls explanations; script language remains in the profile. */
+  interfaceLocale?: Locale;
 }
 
 /**
@@ -284,7 +288,7 @@ export function buildMessages(input: BuildMessagesInput): ChatMessage[] {
       role: 'system',
       content: [{ type: 'text', text: input.persona }, playbookBlock],
     },
-    { role: 'user', content: renderProfileBlock(input.profile) },
+    { role: 'user', content: renderProfileBlock(input.profile, input.interfaceLocale) },
     { role: 'assistant', content: ASSISTANT_ACK },
     ...selectHistory(input.history),
     { role: 'user', content: input.question.trim() },

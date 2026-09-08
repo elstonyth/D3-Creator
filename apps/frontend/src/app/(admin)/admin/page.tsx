@@ -1,3 +1,5 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
+import { localeTag } from '@gitroom/frontend/lib/i18n';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
@@ -18,11 +20,13 @@ import { ProvisionForm } from './provision-form';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export const metadata: Metadata = {
-  title: 'Admin — D3 Creator',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: t('Admin — D3 Creator') };
+}
 
 export default async function AdminPage() {
+  const { t, locale } = await getI18n();
   // Defense-in-depth: layout already gates on role=admin, but re-check here
   // before touching service-role.
   const auth = await getAuthContext();
@@ -73,11 +77,12 @@ export default async function AdminPage() {
     <Container>
       <Section space="sm" className="space-y-10">
         <header className="max-w-prose">
-          <p className="text-micro uppercase text-fg-subtle">Overview</p>
-          <h1 className="mt-3 text-display-2 text-fg">Agency console</h1>
+          <p className="text-micro uppercase text-fg-subtle">{t('Overview')}</p>
+          <h1 className="mt-3 text-display-2 text-fg">{t('Agency console')}</h1>
           <p className="mt-3 text-body-lg text-fg-muted">
-            Roster size, thirty-day movers, and the form that puts a new creator
-            in the system. Everything here reads live — no cache.
+            {t(
+              'Roster size, thirty-day movers, and the form that puts a new creator in the system. Everything here reads live — no cache.',
+            )}
           </p>
         </header>
 
@@ -86,9 +91,9 @@ export default async function AdminPage() {
             {stats.map((s) => (
               <Stat
                 key={s.label}
-                label={s.label}
-                value={Intl.NumberFormat().format(s.value)}
-                meta={s.meta}
+                label={t(s.label)}
+                value={Intl.NumberFormat(localeTag(locale)).format(s.value)}
+                meta={t(s.meta)}
               />
             ))}
           </StatRow>
@@ -97,21 +102,20 @@ export default async function AdminPage() {
               href="/admin/profiles"
               className="text-fg-muted underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg focus-visible:outline-none focus-visible:shadow-focus"
             >
-              Review every account
-            </Link>{' '}
-            to see per-profile scrape health.
+              {t('Review every account to see per-profile scrape health.')}
+            </Link>
           </p>
         </div>
 
         <section aria-labelledby="provision-heading" className="space-y-4">
           <div className="max-w-prose">
             <h2 id="provision-heading" className="text-section text-fg">
-              Provision a creator
+              {t('Provision a creator')}
             </h2>
             <p className="mt-2 text-body text-fg-muted">
-              Creates the login and attaches social URLs in one step. The
-              password is shown once, right here, and never again — copy it
-              before you leave the page.
+              {t(
+                'Creates the login and attaches social URLs in one step. The password is shown once, right here, and never again — copy it before you leave the page.',
+              )}
             </p>
           </div>
           <Card tone="subtle" padding="lg">
@@ -122,19 +126,20 @@ export default async function AdminPage() {
         <section aria-labelledby="movers-heading" className="space-y-4">
           <div className="max-w-prose">
             <h2 id="movers-heading" className="text-section text-fg">
-              Thirty-day movers
+              {t('Thirty-day movers')}
             </h2>
             <p className="mt-2 text-body text-fg-muted">
-              Ranked on change since 30 days ago. Accounts with less than a full
-              window of history are marked instead of ranked.
+              {t(
+                'Ranked on change since 30 days ago. Accounts with less than a full window of history are marked instead of ranked.',
+              )}
             </p>
           </div>
           <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
             <Top30Creators rows={rankedCreators} />
             <ViewLeaderboard
               rows={topContent}
-              title="Top Content"
-              subtitle="Top 30 by views · last 30 days"
+              title={t('Top Content')}
+              subtitle={t('Top 30 by views · last 30 days')}
             />
           </div>
         </section>

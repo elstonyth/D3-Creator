@@ -10,6 +10,8 @@
  * it, which is how you delete the wrong row.
  */
 
+import { localizeAdminError } from '../localize-error';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { useId, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@gitroom/frontend/components/ui/button';
@@ -37,6 +39,7 @@ interface Video {
 type Msg = { ok: boolean; text: string } | null;
 
 export function ClassManager({ videos }: { videos: Video[] }) {
+  const { t, locale } = useI18n();
   const router = useRouter();
   const [msg, setMsg] = useState<Msg>(null);
   // Keyed by action AND row ("save:<id>" / "delete:<id>"): a single row id made
@@ -48,7 +51,11 @@ export function ClassManager({ videos }: { videos: Video[] }) {
     // action never returned a result, so say so instead of failing silently.
     setMsg({
       ok: false,
-      text: e instanceof Error ? e.message : 'Unexpected error',
+      text: localizeAdminError(
+        e instanceof Error ? e.message : 'Unexpected error',
+        locale,
+        t,
+      ),
     });
   }
 
@@ -98,18 +105,18 @@ export function ClassManager({ videos }: { videos: Video[] }) {
 
   return (
     <div className="space-y-8">
-      {msg && <Alert tone={msg.ok ? 'success' : 'danger'}>{msg.text}</Alert>}
+      {msg && <Alert tone={msg.ok ? 'success' : 'danger'}>{t(msg.text)}</Alert>}
 
       <section aria-labelledby="add-class-heading" className="space-y-4">
         <h2 id="add-class-heading" className="text-section text-fg">
-          Add a class
+          {t('Add a class')}
         </h2>
         <Card tone="subtle" padding="lg">
           <form action={onCreate} className="space-y-5">
             <ClassFields idPrefix="new" />
             <div className="flex justify-end border-t border-line-subtle pt-5">
               <Button type="submit" loading={pendingKey === 'new'}>
-                Add class
+                {t('Add class')}
               </Button>
             </div>
           </form>
@@ -119,26 +126,27 @@ export function ClassManager({ videos }: { videos: Video[] }) {
       <section aria-labelledby="catalogue-heading" className="space-y-4">
         <div className="max-w-prose">
           <h2 id="catalogue-heading" className="text-section text-fg">
-            Catalogue
+            {t('Catalogue')}
           </h2>
           <p className="mt-2 text-body text-fg-muted">
-            {videos.length === 0 ? (
-              'Nothing published yet.'
-            ) : (
-              <>
-                <span className="tnum text-fg">{videos.length}</span>{' '}
-                {videos.length === 1 ? 'class' : 'classes'}, ordered by the
-                order field then newest first.
-              </>
-            )}
+            {videos.length === 0
+              ? t('Nothing published yet.')
+              : t(
+                  videos.length === 1
+                    ? '{count} class, ordered by the order field then newest first.'
+                    : '{count} classes, ordered by the order field then newest first.',
+                  { count: videos.length },
+                )}
           </p>
         </div>
 
         {videos.length === 0 ? (
           <EmptyState
             size="sm"
-            title="The library is empty"
-            description="Paste a Drive link above to publish the first class. Members see it as soon as Visible is ticked."
+            title={t('The library is empty')}
+            description={t(
+              'Paste a Drive link above to publish the first class. Members see it as soon as Visible is ticked.',
+            )}
           />
         ) : (
           <div className="space-y-4">
@@ -172,6 +180,7 @@ function ClassRow({
   onUpdate: (fd: FormData) => void;
   onDelete: (id: string) => void;
 }) {
+  const { t } = useI18n();
   const [confirming, setConfirming] = useState(false);
   return (
     <Card padding="lg">
@@ -181,16 +190,16 @@ function ClassRow({
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line-subtle pt-5">
           <Button type="submit" variant="secondary" loading={saving}>
-            Save changes
+            {t('Save changes')}
           </Button>
           {!confirming && (
             <Button
               type="button"
               variant="ghost"
               onClick={() => setConfirming(true)}
-              aria-label={`Delete the class ${video.title}`}
+              aria-label={t('Delete the class {title}', { title: video.title })}
             >
-              Delete
+              {t('Delete')}
             </Button>
           )}
         </div>
@@ -199,9 +208,10 @@ function ClassRow({
       {confirming && (
         <div className="mt-4 space-y-3 border-t border-line-subtle pt-4">
           <p className="text-body-sm text-fg-muted">
-            Delete <span className="text-fg">{video.title}</span> from the
-            library? Members lose access immediately. The Drive file itself is
-            not touched.
+            {t(
+              'Delete {title} from the library? Members lose access immediately. The Drive file itself is not touched.',
+              { title: video.title },
+            )}
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -210,7 +220,7 @@ function ClassRow({
               size="sm"
               onClick={() => setConfirming(false)}
             >
-              Keep
+              {t('Keep')}
             </Button>
             <Button
               type="button"
@@ -218,9 +228,9 @@ function ClassRow({
               size="sm"
               loading={deleting}
               onClick={() => onDelete(video.id)}
-              aria-label={`Delete the class ${video.title}`}
+              aria-label={t('Delete the class {title}', { title: video.title })}
             >
-              Delete class
+              {t('Delete class')}
             </Button>
           </div>
         </div>
@@ -234,36 +244,37 @@ function ClassRow({
  * to one can never go missing from the other.
  */
 function ClassFields({ idPrefix, video }: { idPrefix: string; video?: Video }) {
+  const { t } = useI18n();
   const uid = useId();
   const id = (name: string) => `${uid}-${idPrefix}-${name}`;
   return (
     <>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Title" htmlFor={id('title')}>
+        <Field label={t('Title')} htmlFor={id('title')}>
           <Input
             id={id('title')}
             name="title"
             required
             maxLength={200}
             defaultValue={video?.title}
-            placeholder="Hook writing, part 1"
+            placeholder={t('Hook writing, part 1')}
           />
         </Field>
-        <Field label="Description" htmlFor={id('description')} optional>
+        <Field label={t('Description')} htmlFor={id('description')} optional>
           <Input
             id={id('description')}
             name="description"
             maxLength={500}
             defaultValue={video?.description ?? ''}
-            placeholder="One line shown under the title"
+            placeholder={t('One line shown under the title')}
           />
         </Field>
       </div>
 
       <Field
-        label="Google Drive link"
+        label={t('Google Drive link')}
         htmlFor={id('link')}
-        hint="Sharing must be “anyone with the link can view”"
+        hint={t('Sharing must be “anyone with the link can view”')}
       >
         <Input
           id={id('link')}
@@ -280,20 +291,20 @@ function ClassFields({ idPrefix, video }: { idPrefix: string; video?: Video }) {
       </Field>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Field label="Who can watch" htmlFor={id('visibility')}>
+        <Field label={t('Who can watch')} htmlFor={id('visibility')}>
           <Select
             id={id('visibility')}
             name="visibility"
             defaultValue={video?.visibility ?? 'members'}
           >
-            <option value="members">Members only</option>
-            <option value="public">Anyone</option>
+            <option value="members">{t('Members only')}</option>
+            <option value="public">{t('Anyone')}</option>
           </Select>
         </Field>
         <Field
-          label="Order"
+          label={t('Order')}
           htmlFor={id('sort_order')}
-          hint="Lower shows first"
+          hint={t('Lower shows first')}
         >
           <Input
             id={id('sort_order')}
@@ -304,18 +315,18 @@ function ClassFields({ idPrefix, video }: { idPrefix: string; video?: Video }) {
           />
         </Field>
         <fieldset className="space-y-2">
-          <legend className="text-label text-fg">Options</legend>
+          <legend className="text-label text-fg">{t('Options')}</legend>
           <Checkbox
             id={id('is_published')}
             name="is_published"
             defaultChecked={video?.is_published}
-            label="Visible in the library"
+            label={t('Visible in the library')}
           />
           <Checkbox
             id={id('allow_download')}
             name="allow_download"
             defaultChecked={video?.allow_download}
-            label="Allow download"
+            label={t('Allow download')}
           />
         </fieldset>
       </div>

@@ -1,3 +1,6 @@
+import { localeTag } from '@gitroom/frontend/lib/i18n';
+
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { GlassCard } from '@gitroom/frontend/components/ui/glass-card';
@@ -12,7 +15,6 @@ import {
   type PlatformKey,
 } from '@gitroom/frontend/components/ui/platform-icons';
 import {
-  exactFormatter,
   formatShowcase,
   handleToSlug,
   demoCreatorRows,
@@ -39,12 +41,16 @@ import { SITE_NAME, SITE_URL } from '@gitroom/frontend/lib/site';
 // follow-up.
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'D3 Creator — We don’t sell dreams. We show numbers.',
-  description:
-    'D3 Creator is a live showcase of the creators, brands, and IPs we grow across every platform. Real traffic. Real engagement. Real growth.',
-  alternates: { canonical: '/' },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+    title: t('D3 Creator — We don’t sell dreams. We show numbers.'),
+    description: t(
+      'D3 Creator is a live showcase of the creators, brands, and IPs we grow across every platform. Real traffic. Real engagement. Real growth.'
+    ),
+    alternates: { canonical: '/' },
+  };
+}
 
 // Organization schema for rich results / knowledge panel.
 const organizationJsonLd = {
@@ -69,6 +75,7 @@ const PLATFORM_ORDER: PlatformKey[] = [
  * (ISR, hourly) and falls back to synthetic demo rows on error or when empty.
  */
 export default async function HomePage() {
+  const { locale, t } = await getI18n();
   // One fetch → derive the summary, top creators, and platform breakdown. When
   // there is no live data yet, the synthetic demo rows flow through the SAME
   // helpers, so the page always shows combined totals (followers + views),
@@ -112,31 +119,31 @@ export default async function HomePage() {
               <div className="flex flex-col gap-5 text-center lg:text-left">
                 <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-subtle border border-borderGlass text-caption text-fgMuted self-center lg:self-start">
                   <span className="inline-block size-1.5 rounded-full bg-brand-500" />
-                  Live showcase
+                  {t('Live showcase')}{' '}
                 </span>
                 <h1 className="text-[clamp(36px,4.5vw,64px)] leading-[1.04] tracking-[-0.03em] font-semibold text-fg max-w-[520px] mx-auto lg:mx-0 text-balance">
-                  We don&rsquo;t sell dreams.{' '}
-                  <span className="text-brand">We show numbers.</span>
+                  {t('We don’t sell dreams.')}{' '}
+                  <span className="text-brand">{t('We show numbers.')}</span>
                 </h1>
                 <p className="text-body text-fgMuted max-w-[480px] mx-auto lg:mx-0">
-                  D3 Creator is a live showcase of the creators, brands, and IPs
-                  we grow across every platform. Real traffic. Real engagement.
-                  Real growth.
+                  {t(
+                    'D3 Creator is a live showcase of the creators, brands, and IPs we grow across every platform. Real traffic. Real engagement. Real growth.'
+                  )}{' '}
                 </p>
                 <div className="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-3 mt-2">
                   <Link href="/dashboard" className="contents">
                     <AuroraButton variant="cta" size="lg">
-                      View Dashboard
+                      {t('View Dashboard')}{' '}
                     </AuroraButton>
                   </Link>
                   <Link href="/leaderboard" className="contents">
                     <AuroraButton variant="ghost" size="lg">
-                      View Leaderboard
+                      {t('View Leaderboard')}{' '}
                     </AuroraButton>
                   </Link>
                 </div>
                 <ShinyText className="text-caption text-fgSubtle mt-1">
-                  Built by D3
+                  {t('Built by D3')}{' '}
                 </ShinyText>
               </div>
 
@@ -160,20 +167,22 @@ export default async function HomePage() {
       >
         <Reveal>
           <h2 id="manifesto-heading" className="sr-only">
-            Manifesto
+            {t('Manifesto')}{' '}
           </h2>
           <p className="text-body-lg text-fgSubtle">
             <span className="line-through decoration-fgSubtle/60 mr-3">
-              No screenshots.
+              {t('No screenshots.')}{' '}
             </span>
             <span className="line-through decoration-fgSubtle/60 mr-3">
-              No fake case studies.
+              {t('No fake case studies.')}{' '}
             </span>
-            <span className="text-brand font-medium">Just live numbers.</span>
+            <span className="text-brand font-medium">
+              {t('Just live numbers.')}
+            </span>
           </p>
           <blockquote className="mt-8 text-display-2 text-fg tracking-[-0.03em] leading-[1.06] max-w-[640px] mx-auto">
-            <div>Real growth.</div>
-            <div>Real-time numbers.</div>
+            <div>{t('Real growth.')}</div>
+            <div>{t('Real-time numbers.')}</div>
           </blockquote>
         </Reveal>
       </section>
@@ -187,38 +196,41 @@ export default async function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
               <p className="text-micro uppercase text-fgSubtle tracking-[0.04em] mb-2">
-                Why this exists
+                {t('Why this exists')}{' '}
               </p>
               <h3 id="ethos-heading" className="text-subsection text-fg mb-3">
-                Numbers, not narratives.
+                {t('Numbers, not narratives.')}{' '}
               </h3>
               <p className="text-body text-fgMuted">
-                Every creator we&apos;ve built shows up here with their live
-                counts — not a cherry-picked deck.
+                {t(
+                  "Every creator we've built shows up here with their live counts — not a cherry-picked deck."
+                )}{' '}
               </p>
             </div>
             <div>
               <p className="text-micro uppercase text-fgSubtle tracking-[0.04em] mb-2">
-                What you&apos;ll see
+                {t("What you'll see")}{' '}
               </p>
               <h3 className="text-subsection text-fg mb-3">
-                Followers, engagement, growth, reach.
+                {t('Followers, engagement, growth, reach.')}{' '}
               </h3>
               <p className="text-body text-fgMuted">
-                Across every platform we operate. Snapshots every day. No edited
-                screenshots.
+                {t(
+                  'Across every platform we operate. Snapshots every day. No edited screenshots.'
+                )}{' '}
               </p>
             </div>
             <div>
               <p className="text-micro uppercase text-fgSubtle tracking-[0.04em] mb-2">
-                Who&apos;s behind it
+                {t("Who's behind it")}{' '}
               </p>
               <h3 className="text-subsection text-fg mb-3">
-                A creator-growth ecosystem from Malaysia.
+                {t('A creator-growth ecosystem from Malaysia.')}{' '}
               </h3>
               <p className="text-body text-fgMuted">
-                Since 2021. Founders, operators, and creators building real
-                commercial IP.
+                {t(
+                  'Since 2021. Founders, operators, and creators building real commercial IP.'
+                )}{' '}
               </p>
             </div>
           </div>
@@ -229,9 +241,9 @@ export default async function HomePage() {
       <section className="w-full pb-20 sm:pb-24 max-w-[1100px] mx-auto">
         <Reveal>
           <SectionLabel
-            eyebrow="Live preview"
-            title="What's behind the door."
-            caption="A snapshot of the dashboard, refreshed continuously."
+            eyebrow={t('Live preview')}
+            title={t("What's behind the door.")}
+            caption={t('A snapshot of the dashboard, refreshed continuously.')}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,400px)] gap-4 items-stretch">
@@ -245,17 +257,17 @@ export default async function HomePage() {
               <div className="flex items-end justify-between mb-4">
                 <div className="flex flex-col gap-1">
                   <span className="text-label text-fg font-medium">
-                    Top Creators
+                    {t('Top Creators')}{' '}
                   </span>
                   <span className="text-body-sm text-fgMuted">
-                    By views · all platforms
+                    {t('By views · all platforms')}{' '}
                   </span>
                 </div>
                 <Link
                   href="/leaderboard"
                   className="text-caption text-fgMuted hover:text-fg transition-colors duration-150 ease-out"
                 >
-                  See all →
+                  {t('See all →')}{' '}
                 </Link>
               </div>
 
@@ -329,14 +341,14 @@ export default async function HomePage() {
                 <div className="flex items-end justify-between mb-4">
                   <div className="flex flex-col gap-1">
                     <span className="text-label text-fg font-medium">
-                      Total Views
+                      {t('Total Views')}{' '}
                     </span>
                     <span className="text-body-sm text-fgMuted">
-                      All platforms · recent posts
+                      {t('All platforms · recent posts')}{' '}
                     </span>
                   </div>
                   <span className="text-caption text-fgMuted">
-                    Open{' '}
+                    {t('Open')}{' '}
                     <span className="inline-block transition-transform duration-150 ease-out group-hover:translate-x-0.5">
                       →
                     </span>
@@ -345,28 +357,28 @@ export default async function HomePage() {
 
                 <div className="flex flex-1 flex-col justify-center py-2">
                   <div className="text-[clamp(34px,4.2vw,52px)] leading-[1.0] tracking-[-0.03em] font-semibold text-fg tabular-nums">
-                    {formatShowcase(summary.combinedViews)}
+                    {formatShowcase(summary.combinedViews, locale)}
                   </div>
                   <div className="text-caption text-fgMuted mt-2">
-                    views across tracked recent posts
+                    {t('views across tracked recent posts')}{' '}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 pt-4 border-t border-borderGlass">
                   <div className="flex flex-col gap-0.5">
                     <span className="text-caption text-fgSubtle">
-                      Combined followers
+                      {t('Combined followers')}{' '}
                     </span>
                     <span className="text-heading text-fg tabular-nums">
-                      {formatShowcase(summary.combinedFollowers)}
+                      {formatShowcase(summary.combinedFollowers, locale)}
                     </span>
                   </div>
                   <div className="flex flex-col gap-0.5">
                     <span className="text-caption text-fgSubtle">
-                      Total engagement
+                      {t('Total engagement')}{' '}
                     </span>
                     <span className="text-heading text-fg tabular-nums">
-                      {formatShowcase(combinedEngagement)}
+                      {formatShowcase(combinedEngagement, locale)}
                     </span>
                   </div>
                 </div>
@@ -380,9 +392,9 @@ export default async function HomePage() {
       <section className="w-full pb-20 sm:pb-24 max-w-[1100px] mx-auto">
         <Reveal>
           <SectionLabel
-            eyebrow="Coverage"
-            title="Four platforms. One showcase."
-            caption="Every creator we manage, every platform we run."
+            eyebrow={t('Coverage')}
+            title={t('Four platforms. One showcase.')}
+            caption={t('Every creator we manage, every platform we run.')}
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-5">
@@ -406,7 +418,9 @@ export default async function HomePage() {
                 >
                   <Link
                     href="/dashboard"
-                    className={`block h-full group ${isEmpty ? 'opacity-50' : ''}`}
+                    className={`block h-full group ${
+                      isEmpty ? 'opacity-50' : ''
+                    }`}
                   >
                     <GlassCard
                       variant="base"
@@ -421,23 +435,30 @@ export default async function HomePage() {
                         </span>
                         <span className="text-caption text-fgSubtle font-mono tabular-nums">
                           {isEmpty
-                            ? 'Not yet tracked'
-                            : `${creatorCount} creator${creatorCount === 1 ? '' : 's'}`}
+                            ? t('Not yet tracked')
+                            : t(
+                                creatorCount === 1
+                                  ? '{count} creator'
+                                  : '{count} creators',
+                                { count: creatorCount }
+                              )}
                         </span>
                       </div>
 
                       <div className="flex flex-col gap-1">
                         <span className="text-label text-fg font-medium">
-                          {PLATFORM_LABELS[platform]}
+                          {t(PLATFORM_LABELS[platform])}
                         </span>
                         <span className="text-[clamp(20px,2vw,24px)] leading-none tracking-[-0.02em] font-semibold text-fg tabular-nums">
-                          {isEmpty ? '—' : formatShowcase(totalViews)}
+                          {isEmpty ? '—' : formatShowcase(totalViews, locale)}
                         </span>
                       </div>
 
                       <div className="flex items-center justify-between text-caption text-fgMuted font-mono tabular-nums pt-3 border-t border-borderGlass">
-                        <span>{isEmpty ? '—' : formatShowcase(followers)}</span>
-                        <span>followers</span>
+                        <span>
+                          {isEmpty ? '—' : formatShowcase(followers, locale)}
+                        </span>
+                        <span>{t('followers')}</span>
                       </div>
                     </GlassCard>
                   </Link>
@@ -454,19 +475,21 @@ export default async function HomePage() {
           <GlassCard variant="base" padding="none" radius="2xl">
             <dl className="grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-borderGlass">
               <StatCell
-                label="Tracked Creators"
-                value={exactFormatter.format(summary.trackedCreators)}
-                note="Across every platform"
+                label={t('Tracked Creators')}
+                value={new Intl.NumberFormat(localeTag(locale)).format(
+                  summary.trackedCreators
+                )}
+                note={t('Across every platform')}
               />
               <StatCell
-                label="Combined Followers"
-                value={formatShowcase(summary.combinedFollowers)}
-                note="Summed across all profiles"
+                label={t('Combined Followers')}
+                value={formatShowcase(summary.combinedFollowers, locale)}
+                note={t('Summed across all profiles')}
               />
               <StatCell
-                label="Total Views"
-                value={formatShowcase(summary.combinedViews)}
-                note="across tracked recent posts"
+                label={t('Total Views')}
+                value={formatShowcase(summary.combinedViews, locale)}
+                note={t('across tracked recent posts')}
               />
             </dl>
           </GlassCard>
@@ -483,27 +506,30 @@ export default async function HomePage() {
             className="text-center"
           >
             <h2 className="text-display-2 text-fg max-w-[640px] mx-auto mb-4">
-              Watch creators grow, live.
+              {t('Watch creators grow, live.')}{' '}
             </h2>
             <p className="text-body-lg text-fgMuted max-w-[520px] mx-auto mb-8">
-              The dashboard refreshes the moment our scraper kicks in. Pick a
-              platform, sort by growth, watch the numbers move.
+              {t(
+                'The dashboard refreshes the moment our scraper kicks in. Pick a platform, sort by growth, watch the numbers move.'
+              )}{' '}
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link href="/dashboard" className="contents">
                 <AuroraButton variant="cta" size="lg">
-                  Open the dashboard
+                  {t('Open the dashboard')}{' '}
                 </AuroraButton>
               </Link>
               <Link href="/leaderboard" className="contents">
                 <AuroraButton variant="ghost" size="lg">
-                  See the leaderboard
+                  {t('See the leaderboard')}{' '}
                 </AuroraButton>
               </Link>
             </div>
             {!isLive && (
               <p className="text-caption text-fgSubtle mt-8 tabular-nums">
-                Showcase preview · synthetic data until the scraper switches on.
+                {t(
+                  'Showcase preview · synthetic data until the scraper switches on.'
+                )}{' '}
               </p>
             )}
           </GlassCard>

@@ -1,3 +1,6 @@
+import { localeTag, type Locale } from '@gitroom/frontend/lib/i18n';
+
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
@@ -20,20 +23,25 @@ import { ImageWithFallback } from '@gitroom/frontend/components/ui/image-with-fa
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export const metadata: Metadata = {
-  title: 'My leaderboard — D3 Creator',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+    title: t('My leaderboard — D3 Creator'),
+  };
+}
 
 // Module scope: one formatter for the whole list, and a fixed locale so the
 // server-rendered date can never disagree with the client's.
-const dateFmt = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-});
-const numberFmt = new Intl.NumberFormat('en-US');
+const dateFmt = (locale: Locale) =>
+  new Intl.DateTimeFormat(locale === 'zh' ? 'zh-CN' : 'en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+const numberFmt = (locale: Locale) => new Intl.NumberFormat(localeTag(locale));
 
 export default async function CreatorMeLeaderboardPage() {
+  const { t } = await getI18n();
   const auth = await getAuthContext();
   if (!auth) redirect('/login');
   if (auth.role === 'admin') redirect('/admin');
@@ -79,12 +87,13 @@ export default async function CreatorMeLeaderboardPage() {
       <Section space="sm" className="flex flex-col gap-10 sm:gap-12">
         <header className="max-w-prose">
           <Badge tone="muted" className="mb-5 uppercase tracking-[0.08em]">
-            All time
+            {t('All time')}{' '}
           </Badge>
-          <h1 className="text-display-2 text-fg">Your top posts.</h1>
+          <h1 className="text-display-2 text-fg">{t('Your top posts.')}</h1>
           <p className="mt-4 text-body-lg text-fg-muted">
-            Your highest-viewed posts across every platform we track, ranked by
-            total views since the post went up.
+            {t(
+              'Your highest-viewed posts across every platform we track, ranked by total views since the post went up.'
+            )}{' '}
           </p>
         </header>
 
@@ -106,20 +115,26 @@ export default async function CreatorMeLeaderboardPage() {
                   <path d="M4 21V9M10 21V4M16 21v-7M22 21H2" />
                 </svg>
               }
-              title="No posts to rank yet"
+              title={t('No posts to rank yet')}
               description={
                 ids.length === 0
-                  ? 'Your agency manages the accounts we track. Your top posts appear here once the first one is connected.'
-                  : 'Your top posts appear here once the first daily scrape collects them — usually within 24 hours.'
+                  ? t(
+                      'Your agency manages the accounts we track. Your top posts appear here once the first one is connected.'
+                    )
+                  : t(
+                      'Your top posts appear here once the first daily scrape collects them — usually within 24 hours.'
+                    )
               }
-              action={{ href: '/me', label: 'See your numbers' }}
+              action={{ href: '/me', label: t('See your numbers') }}
             />
           ) : (
             <>
               <p className="mb-4 text-caption text-fg-subtle">
                 {posts.length === 1
-                  ? '1 post · ranked by total views'
-                  : `${posts.length} posts · ranked by total views`}
+                  ? t('1 post · ranked by total views')
+                  : t('{count} posts · ranked by total views', {
+                      count: posts.length,
+                    })}
               </p>
               <ol className="divide-y divide-line-subtle overflow-hidden rounded-2xl border border-line bg-surface">
                 {posts.map((p, i) => (
@@ -138,7 +153,8 @@ export default async function CreatorMeLeaderboardPage() {
   );
 }
 
-function PostRow({ row, rank }: { row: TopContentRow; rank: number }) {
+async function PostRow({ row, rank }: { row: TopContentRow; rank: number }) {
+  const { locale, t } = await getI18n();
   const leader = rank === 1;
   return (
     <li className="flex items-center gap-4 px-4 py-3.5 transition-colors duration-150 ease-out hover:bg-white/[0.025] sm:px-5">
@@ -167,18 +183,18 @@ function PostRow({ row, rank }: { row: TopContentRow; rank: number }) {
 
       <div className="min-w-0 flex-1">
         <p className="truncate text-body text-fg">
-          {row.captionExcerpt ?? 'Untitled post'}
+          {row.captionExcerpt ?? t('Untitled post')}
         </p>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-caption text-fg-subtle">
           <span>
             {row.postedAt
-              ? dateFmt.format(new Date(row.postedAt))
-              : 'Date unknown'}
+              ? dateFmt(locale).format(new Date(row.postedAt))
+              : t('Date unknown')}
           </span>
           {row.alsoOn && row.alsoOn.length > 0 ? (
             <span className="flex items-center gap-1.5">
               <span aria-hidden>·</span>
-              <span>also on</span>
+              <span>{t('also on')}</span>
               {/* The glyphs are aria-hidden, so name the platforms for a
                   screen reader rather than leaving "also on" dangling. */}
               <span className="sr-only">
@@ -204,15 +220,15 @@ function PostRow({ row, rank }: { row: TopContentRow; rank: number }) {
       </div>
 
       <div className="flex shrink-0 items-center gap-4 sm:gap-6">
-        <PostStat label="Views" value={row.currentViews} strong />
-        <PostStat label="Likes" value={row.likes} />
-        <PostStat label="Comments" value={row.comments} />
+        <PostStat label={t('Views')} value={row.currentViews} strong />
+        <PostStat label={t('Likes')} value={row.likes} />
+        <PostStat label={t('Comments')} value={row.comments} />
       </div>
     </li>
   );
 }
 
-function PostStat({
+async function PostStat({
   label,
   value,
   strong = false,
@@ -221,10 +237,11 @@ function PostStat({
   value: number | null;
   strong?: boolean;
 }) {
+  const { locale } = await getI18n();
   return (
     <div className={strong ? 'text-right' : 'hidden text-right sm:block'}>
       <div className={`tnum text-body ${strong ? 'text-fg' : 'text-fg-muted'}`}>
-        {value != null ? numberFmt.format(value) : '—'}
+        {value != null ? numberFmt(locale).format(value) : '—'}
       </div>
       <div className="text-micro uppercase text-fg-subtle">{label}</div>
     </div>

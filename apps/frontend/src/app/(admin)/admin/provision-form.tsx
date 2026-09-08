@@ -9,6 +9,7 @@
  * Yellow-mono: every outcome reads from a glyph + a word, never colour alone.
  */
 
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { useId, useRef, useState, useTransition, type FormEvent } from 'react';
 import { Button } from '@gitroom/frontend/components/ui/button';
 import { Input, Field } from '@gitroom/frontend/components/ui/input';
@@ -65,6 +66,7 @@ function XGlyph({ className }: { className?: string }) {
 }
 
 export function ProvisionForm() {
+  const { t } = useI18n();
   const fieldId = useId();
   const rowSeq = useRef(1);
   const nextRowId = () => (rowSeq.current += 1);
@@ -109,7 +111,7 @@ export function ProvisionForm() {
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Field label="Display name" htmlFor={`${fieldId}-name`}>
+        <Field label={t('Display name')} htmlFor={`${fieldId}-name`}>
           <Input
             id={`${fieldId}-name`}
             name="display_name"
@@ -117,10 +119,10 @@ export function ProvisionForm() {
             required
             maxLength={80}
             autoComplete="off"
-            placeholder="Creator name"
+            placeholder={t('Creator name')}
           />
         </Field>
-        <Field label="Email" htmlFor={`${fieldId}-email`}>
+        <Field label={t('Email')} htmlFor={`${fieldId}-email`}>
           <Input
             id={`${fieldId}-email`}
             name="email"
@@ -132,9 +134,9 @@ export function ProvisionForm() {
           />
         </Field>
         <Field
-          label="Password"
+          label={t('Password')}
           htmlFor={`${fieldId}-password`}
-          hint="8 to 72 characters"
+          hint={t('8 to 72 characters')}
         >
           <Input
             id={`${fieldId}-password`}
@@ -151,10 +153,11 @@ export function ProvisionForm() {
 
       <div className="space-y-3 border-t border-line-subtle pt-6">
         <div>
-          <p className="text-label text-fg">Social profile URLs</p>
+          <p className="text-label text-fg">{t('Social profile URLs')}</p>
           <p className="mt-1 text-caption text-fg-subtle">
-            Instagram, TikTok, Facebook or Douyin. The platform is detected from
-            the URL — paste the profile page, not a post.
+            {t(
+              'Instagram, TikTok, Facebook or Douyin. The platform is detected from the URL — paste the profile page, not a post.',
+            )}
           </p>
         </div>
 
@@ -164,7 +167,7 @@ export function ProvisionForm() {
             return (
               <li key={row.id} className="flex items-center gap-2">
                 <label htmlFor={id} className="sr-only">
-                  Profile URL {i + 1}
+                  {t('Profile URL {count}', { count: i + 1 })}
                 </label>
                 <Input
                   id={id}
@@ -180,7 +183,7 @@ export function ProvisionForm() {
                   onClick={() => removeRow(row.id)}
                   disabled={onlyRow}
                   className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-line text-fg-muted transition-colors duration-150 ease-out hover:border-line-strong hover:text-fg focus-visible:outline-none focus-visible:shadow-focus disabled:pointer-events-none disabled:opacity-40"
-                  aria-label={`Remove profile URL ${i + 1}`}
+                  aria-label={t('Remove profile URL {count}', { count: i + 1 })}
                 >
                   <XGlyph className="shrink-0" />
                 </button>
@@ -190,16 +193,16 @@ export function ProvisionForm() {
         </ul>
 
         <Button type="button" variant="secondary" size="sm" onClick={addRow}>
-          Add another URL
+          {t('Add another URL')}
         </Button>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line-subtle pt-6">
         <p className="text-caption text-fg-subtle">
-          The creator can sign in immediately.
+          {t('The creator can sign in immediately.')}
         </p>
         <Button type="submit" size="lg" loading={pending}>
-          Create creator
+          {t('Create creator')}
         </Button>
       </div>
 
@@ -208,12 +211,12 @@ export function ProvisionForm() {
           a login that now exists and cannot be recovered. */}
       {result && !result.ok && (
         <div className="space-y-4">
-          <Alert tone="danger" title="Creator not created">
-            {result.message}
+          <Alert tone="danger" title={t('Creator not created')}>
+            {t(result.message)}
           </Alert>
           {result.credentials && (
             <CredentialsPanel
-              title="Login was created before the failure"
+              title={t('Login was created before the failure')}
               email={result.credentials.email}
               password={result.credentials.password}
             />
@@ -223,12 +226,12 @@ export function ProvisionForm() {
 
       {result?.ok && (
         <div className="space-y-4">
-          <Alert tone="success" title="Creator created">
-            {result.message}
+          <Alert tone="success" title={t('Creator created')}>
+            {t(result.message)}
           </Alert>
           {result.credentials && (
             <CredentialsPanel
-              title="Login credentials"
+              title={t('Login credentials')}
               email={result.credentials.email}
               password={result.credentials.password}
             />
@@ -242,15 +245,15 @@ export function ProvisionForm() {
                 >
                   {r.status === 'failed' ? <XGlyph /> : <CheckGlyph />}
                   <span className="sr-only">
-                    {r.status === 'failed' ? 'Failed:' : 'Added:'}
+                    {r.status === 'failed' ? t('Failed:') : t('Added:')}
                   </span>
                   <span className="min-w-0 truncate text-fg-muted">
-                    {r.platform ? `${r.platform} · ` : ''}
+                    {r.platform ? `${t(r.platform)} · ` : ''}
                     {r.url}
                   </span>
                   {r.detail && (
                     <span className="shrink-0 text-fg-subtle">
-                      — {r.detail}
+                      — {t(r.detail)}
                     </span>
                   )}
                 </li>
@@ -272,6 +275,7 @@ function CredentialsPanel({
   email: string;
   password: string;
 }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   async function copy() {
     try {
@@ -288,25 +292,27 @@ function CredentialsPanel({
       <div className="flex items-center justify-between gap-3">
         <p className="text-label text-fg">{title}</p>
         <Button type="button" variant="secondary" size="sm" onClick={copy}>
-          {copied ? 'Copied' : 'Copy both'}
+          {copied ? t('Copied') : t('Copy both')}
         </Button>
       </div>
       <dl className="mt-3 space-y-1.5 font-mono text-body-sm">
         <div className="flex gap-2">
           <dt className="w-20 shrink-0 font-sans text-caption text-fg-subtle">
-            Email
+            {t('Email')}
           </dt>
           <dd className="min-w-0 break-all text-fg">{email}</dd>
         </div>
         <div className="flex gap-2">
           <dt className="w-20 shrink-0 font-sans text-caption text-fg-subtle">
-            Password
+            {t('Password')}
           </dt>
           <dd className="min-w-0 break-all text-fg">{password}</dd>
         </div>
       </dl>
       <p className="mt-3 text-caption text-fg-subtle">
-        Shown once. Leaving this page loses it — a reset is the only way back.
+        {t(
+          'Shown once. Leaving this page loses it — a reset is the only way back.',
+        )}
       </p>
     </div>
   );

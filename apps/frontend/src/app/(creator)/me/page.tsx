@@ -1,3 +1,4 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
@@ -34,11 +35,15 @@ const SUPPORTED_PLATFORMS: PlatformKey[] = [
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export const metadata: Metadata = {
-  title: 'My dashboard — D3 Creator',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+    title: t('My dashboard — D3 Creator'),
+  };
+}
 
-function NoAccountsState() {
+async function NoAccountsState() {
+  const { t } = await getI18n();
   return (
     <EmptyState
       icon={
@@ -57,9 +62,11 @@ function NoAccountsState() {
           <path d="M7 15l3-3 3 2 4-5" />
         </svg>
       }
-      title="Your accounts are being set up"
-      description="Your agency adds and manages the accounts we track. Followers, views and engagement appear here within a day of the first one going live."
-      action={{ href: '/me/account', label: 'View your account' }}
+      title={t('Your accounts are being set up')}
+      description={t(
+        'Your agency adds and manages the accounts we track. Followers, views and engagement appear here within a day of the first one going live.'
+      )}
+      action={{ href: '/me/account', label: t('View your account') }}
     >
       <div className="mt-1 flex items-center gap-2.5">
         {SUPPORTED_PLATFORMS.map((p) => {
@@ -68,8 +75,8 @@ function NoAccountsState() {
             <span
               key={p}
               role="img"
-              aria-label={PLATFORM_LABELS[p]}
-              title={PLATFORM_LABELS[p]}
+              aria-label={t(PLATFORM_LABELS[p])}
+              title={t(PLATFORM_LABELS[p])}
               className="flex size-9 items-center justify-center rounded-full border border-line bg-surface text-fg-muted"
             >
               <Icon size={16} />
@@ -86,6 +93,7 @@ export default async function CreatorMePage({
 }: {
   searchParams: Promise<{ window?: string }>;
 }) {
+  const { t } = await getI18n();
   const auth = await getAuthContext();
   if (!auth) redirect('/login');
   // Admins manage from /admin.
@@ -93,7 +101,7 @@ export default async function CreatorMePage({
 
   const creatorId = auth.creatorLink?.creator_id ?? null;
   const metricWindow = parseWindowParam(await searchParams);
-  const scope = WINDOW_SCOPE[metricWindow];
+  const scope = t(WINDOW_SCOPE[metricWindow]);
 
   // Split in two so the header and the numbers it introduces share ONE
   // <Section>: a bare div between two Sections collapses to zero padding and
@@ -135,8 +143,8 @@ export default async function CreatorMePage({
           <Section space="sm" divided>
             <ViewLeaderboard
               rows={topContent}
-              title="Top content"
-              subtitle={`Ranked by views · ${scope}`}
+              title={t('Top content')}
+              subtitle={t('Ranked by views · {scope}', { scope })}
             />
           </Section>
 
@@ -155,15 +163,16 @@ export default async function CreatorMePage({
       <Section space="sm" className="flex flex-col gap-10 sm:gap-12">
         <header className="max-w-prose">
           <Badge tone="muted" className="mb-5 uppercase tracking-[0.08em]">
-            Refreshed daily
+            {t('Refreshed daily')}{' '}
           </Badge>
-          <h1 className="text-display-2 text-fg">Your numbers.</h1>
+          <h1 className="text-display-2 text-fg">{t('Your numbers.')}</h1>
           <p className="mt-4 text-body-lg text-fg-muted">
-            Followers, views and engagement across every account your agency
-            tracks for you — scraped straight from the platforms, unedited.
+            {t(
+              'Followers, views and engagement across every account your agency tracks for you — scraped straight from the platforms, unedited.'
+            )}{' '}
           </p>
           <p className="mt-2 break-words text-body-sm text-fg-subtle">
-            Signed in as {auth.email}
+            {t('Signed in as {email}', { email: auth.email ?? '' })}
           </p>
         </header>
 

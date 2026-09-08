@@ -1,4 +1,5 @@
 'use client';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 
 /**
  * Route-level error boundary for /studio/*. PRD 3 §6.8.
@@ -25,6 +26,7 @@ export default function StudioError({
   error: Error & { digest?: string };
   reset: () => void;
 }): ReactElement {
+  const { t } = useI18n();
   // Never render error.message; the diagnostic still reaches the console.
   useEffect(() => console.error('[studio] route error', error), [error]);
 
@@ -34,18 +36,20 @@ export default function StudioError({
         {/* EmptyState's title is an <h3>, so without this the page has no
             <h1> at all and its heading order opens at level 3. Visually hidden
             because the card below already says it on screen. */}
-        <h1 className="sr-only">Something went wrong</h1>
+        <h1 className="sr-only">{t('Something went wrong')}</h1>
         <EmptyState
           size="lg"
-          title="Something went wrong"
-          description="We couldn't load this page. Nothing you saved is lost — try again, or go back to the analyzer."
+          title={t('Something went wrong')}
+          description={t(
+            "We couldn't load this page. Nothing you saved is lost — try again, or go back to the analyzer."
+          )}
         >
           <div className="mt-1 flex flex-wrap items-center justify-center gap-3">
             <Button variant="primary" size="md" onClick={reset}>
-              Try again
+              {t('Try again')}{' '}
             </Button>
             <Link href="/studio/analyzer" className={secondaryCta}>
-              Video Analyzer
+              {t('Video Analyzer')}{' '}
             </Link>
           </div>
         </EmptyState>

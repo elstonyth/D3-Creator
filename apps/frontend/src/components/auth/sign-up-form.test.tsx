@@ -11,8 +11,22 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 import { SignUpForm } from './sign-up-form';
+import { LocaleProvider } from '../i18n/locale-provider';
+import { LanguageSwitcher } from '../i18n/language-switcher';
 
 const signUp = jest.fn();
+
+it('shows signup failures in the selected language and updates the visible error when switched', async () => {
+  signUp.mockResolvedValue({ data: { user: null, session: null }, error: { code: 'weak_password' } });
+  render(<LocaleProvider locale="zh"><LanguageSwitcher /><SignUpForm /></LocaleProvider>);
+  fireEvent.change(screen.getByLabelText('邮箱'), { target: { value: 'new@example.invalid' } });
+  fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'password1234' } });
+  fireEvent.click(screen.getByRole('button', { name: '创建账号', exact: true }));
+  const alert = await screen.findByRole('alert');
+  expect(alert.textContent).toContain('密码太容易被猜到');
+  fireEvent.change(screen.getByLabelText('界面语言'), { target: { value: 'en' } });
+  expect(alert.textContent).toContain('That password is too easy to guess.');
+});
 
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push: jest.fn(), refresh: jest.fn() }),

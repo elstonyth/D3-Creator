@@ -9,6 +9,7 @@
  * matching the platform chips. The active platform filter is carried through.
  */
 
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { useId, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@gitroom/frontend/components/ui/input';
@@ -21,6 +22,7 @@ export function AdminSearchForm({
   defaultQuery: string;
   platform: string;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const id = useId();
   const [q, setQ] = useState(defaultQuery);
@@ -48,7 +50,7 @@ export function AdminSearchForm({
       className="flex flex-wrap items-center gap-2"
     >
       <label htmlFor={id} className="sr-only">
-        Search accounts by creator name or handle
+        {t('Search accounts by creator name or handle')}
       </label>
       <Input
         id={id}
@@ -57,11 +59,11 @@ export function AdminSearchForm({
         value={q}
         onChange={(e) => setQ(e.target.value)}
         maxLength={80}
-        placeholder="Creator name or handle"
+        placeholder={t('Creator name or handle')}
         className="w-full sm:max-w-[340px]"
       />
       <Button type="submit" variant="secondary">
-        Search
+        {t('Search')}
       </Button>
       {defaultQuery && (
         <Button
@@ -72,7 +74,7 @@ export function AdminSearchForm({
             push('');
           }}
         >
-          Clear
+          {t('Clear')}
         </Button>
       )}
     </form>

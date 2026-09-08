@@ -1,3 +1,7 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
+import { localeTag } from '@gitroom/frontend/lib/i18n';
+import { LocaleProvider } from '@gitroom/frontend/components/i18n/locale-provider';
+import { LanguageSwitcher } from '@gitroom/frontend/components/i18n/language-switcher';
 import '../global.scss';
 import { geistSans, geistMono } from '../fonts';
 import type { ReactNode } from 'react';
@@ -29,13 +33,16 @@ export default async function AdminLayout({
 }: {
   children: ReactNode;
 }) {
+  const { locale, t } = await getI18n();
   const auth = await getAuthContext();
   if (!auth) redirect('/login');
   if (auth.role !== 'admin') redirect('/me');
 
+  const nav = NAV.map((item) => ({ ...item, label: t(item.label) }));
+
   return (
     <html
-      lang="en"
+      lang={localeTag(locale)}
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
@@ -44,51 +51,64 @@ export default async function AdminLayout({
         <meta name="darkreader-lock" />
       </head>
       <body className="dark flex min-h-screen flex-col bg-canvas font-sans text-fg antialiased">
-        <a
-          href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-lg focus:bg-brand focus:px-4 focus:py-2 focus:text-label focus:text-fg-on-brand"
-        >
-          Skip to content
-        </a>
+        <LocaleProvider locale={locale}>
+          <a
+            href="#main"
+            className="sr-only focus:not-sr-only focus:fixed focus:left-3 focus:top-3 focus:z-[100] focus:rounded-lg focus:bg-brand focus:px-4 focus:py-2 focus:text-label focus:text-fg-on-brand"
+          >
+            {t('Skip to content')}
+          </a>
 
-        <header className="sticky top-0 z-50 border-b border-line bg-canvas">
-          <Container className="flex h-14 items-center justify-between gap-4">
-            <Link
-              href="/admin"
-              className="flex shrink-0 items-center gap-2.5 rounded-md transition-opacity duration-150 ease-out hover:opacity-80 focus-visible:outline-none focus-visible:shadow-focus"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/d3-logo.png" alt="D3 Creator" width={28} height={28} />
-              <span className="text-heading text-fg">Console</span>
-            </Link>
+          <header className="sticky top-0 z-50 border-b border-line bg-canvas">
+            <Container className="flex h-14 items-center justify-between gap-4">
+              <Link
+                href="/admin"
+                className="flex shrink-0 items-center gap-2.5 rounded-md transition-opacity duration-150 ease-out hover:opacity-80 focus-visible:outline-none focus-visible:shadow-focus"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/d3-logo.png"
+                  alt="D3 Creator"
+                  width={28}
+                  height={28}
+                />
+                <span className="text-heading text-fg">{t('Console')}</span>
+              </Link>
 
-            <nav aria-label="Admin" className="hidden items-center gap-1 md:flex">
-              {NAV.map((item) => (
-                <NavLink key={item.href} href={item.href} exact={item.exact}>
-                  {item.label}
-                </NavLink>
-              ))}
-            </nav>
+              <nav
+                aria-label={t('Admin')}
+                className="hidden items-center gap-1 lg:flex"
+              >
+                {nav.map((item) => (
+                  <NavLink key={item.href} href={item.href} exact={item.exact}>
+                    {item.label}
+                  </NavLink>
+                ))}
+              </nav>
 
-            <div className="flex items-center gap-2">
-              {auth.email ? (
-                <span
-                  className="hidden max-w-[180px] truncate text-caption text-fg-subtle sm:block"
-                  title={auth.email}
-                >
-                  {auth.email}
-                </span>
-              ) : null}
-              <SignOutButton />
-              <MobileNav links={NAV} />
-            </div>
-          </Container>
-        </header>
+              <div className="flex items-center gap-2">
+                {auth.email ? (
+                  <span
+                    className="hidden max-w-[180px] truncate text-caption text-fg-subtle xl:block"
+                    title={auth.email}
+                  >
+                    {auth.email}
+                  </span>
+                ) : null}
+                <LanguageSwitcher />
+                <div className="hidden lg:block">
+                  <SignOutButton />
+                </div>
+                <MobileNav links={nav} showSignOut />
+              </div>
+            </Container>
+          </header>
 
-        <main id="main" tabIndex={-1} className="flex-1">
-          {children}
-        </main>
-        <Analytics />
+          <main id="main" tabIndex={-1} className="flex-1">
+            {children}
+          </main>
+          <Analytics />
+        </LocaleProvider>
       </body>
     </html>
   );

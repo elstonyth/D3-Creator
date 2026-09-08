@@ -1,3 +1,7 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
+import { localeTag } from '@gitroom/frontend/lib/i18n';
+import { LocaleProvider } from '@gitroom/frontend/components/i18n/locale-provider';
+import { LanguageSwitcher } from '@gitroom/frontend/components/i18n/language-switcher';
 import '../global.scss';
 import { geistSans, geistMono } from '../fonts';
 import { ReactNode } from 'react';
@@ -37,42 +41,50 @@ const STUDIO_ITEMS = [
 // image (opengraph-image.tsx) and any relative URLs resolve to absolute. Pages
 // override title/description via their own `metadata` exports; openGraph and
 // twitter inherit these defaults so shared links always render a card.
-export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
-  title: `${SITE_NAME} — login-free social analytics`,
-  description,
-  applicationName: SITE_NAME,
-  robots: { index: true, follow: true },
-  openGraph: {
-    type: 'website',
-    siteName: SITE_NAME,
-    // og:url intentionally omitted — per-page canonical (alternates.canonical)
-    // carries the authoritative URL; a static url here would be wrong on subpages.
-    title: `${SITE_NAME} — login-free social analytics`,
-    description,
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: `${SITE_NAME} — login-free social analytics`,
-    description,
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+    metadataBase: new URL(SITE_URL),
+    title: t('D3 Creator — login-free social analytics'),
+    description: t(description),
+    applicationName: SITE_NAME,
+    robots: { index: true, follow: true },
+    openGraph: {
+      type: 'website',
+      siteName: SITE_NAME,
+      // og:url intentionally omitted — per-page canonical (alternates.canonical)
+      // carries the authoritative URL; a static url here would be wrong on subpages.
+      title: t('D3 Creator — login-free social analytics'),
+      description: t(description),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: t('D3 Creator — login-free social analytics'),
+      description: t(description),
+    },
+  };
+}
 
 export default async function PublicLayout({
   children,
 }: {
   children: ReactNode;
 }) {
+  const { locale, t } = await getI18n();
   const auth = await getAuthContext();
+  const studioItems = STUDIO_ITEMS.map((item) => ({
+    ...item,
+    label: t(item.label),
+  }));
   const studioViewer: StudioViewer = !auth
     ? 'signed-out'
     : isStudioMember(auth)
-      ? 'member'
-      : 'no-access';
+    ? 'member'
+    : 'no-access';
 
   return (
     <html
-      lang="en"
+      lang={localeTag(locale)}
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable}`}
     >
@@ -84,133 +96,141 @@ export default async function PublicLayout({
         <meta name="darkreader-lock" />
       </head>
       <body className="dark text-fg bg-canvas min-h-screen flex flex-col font-sans">
-        <a
-          href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-black focus:shadow-lg"
-        >
-          Skip to content
-        </a>
-        {/* Header — DESIGN.md §4 navbar: logo left, nav center, account right.
+        <LocaleProvider locale={locale}>
+          <a
+            href="#main"
+            className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-black focus:shadow-lg"
+          >
+            {t('Skip to content')}
+          </a>
+          {/* Header — DESIGN.md §4 navbar: logo left, nav center, account right.
             The grid's outer tracks are equal (1fr) so the centre group sits on
             the true page centreline, not "between logo and account". */}
-        <header className="sticky top-0 z-50 border-b border-borderGlass bg-canvas">
-          <div className="max-w-[1200px] mx-auto px-6 md:px-8 h-14 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_1fr] items-center">
-            <Link
-              href="/"
-              className="justify-self-start flex items-center gap-2 select-none hover:opacity-90 transition-opacity"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src="/d3-logo.png"
-                alt="D3"
-                width={28}
-                height={28}
-                suppressHydrationWarning
-              />
-              <span className="text-heading font-semibold tracking-[-0.02em] text-fg">
-                D3 Creator
-              </span>
-            </Link>
+          <header className="sticky top-0 z-50 border-b border-borderGlass bg-canvas">
+            <div className="max-w-[1200px] mx-auto px-6 md:px-8 h-14 grid grid-cols-[1fr_auto] lg:grid-cols-[1fr_auto_1fr] items-center">
+              <Link
+                href="/"
+                className="justify-self-start flex items-center gap-2 select-none hover:opacity-90 transition-opacity"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/d3-logo.png"
+                  alt="D3"
+                  width={28}
+                  height={28}
+                  suppressHydrationWarning
+                />
+                <span className="text-heading font-semibold tracking-[-0.02em] text-fg">
+                  D3 Creator
+                </span>
+              </Link>
 
-            {/* Centre — browse surfaces only; account actions live on the right */}
-            <nav className="hidden md:flex items-center gap-1 text-label">
-              <NavLink href="/about">About</NavLink>
-              <NavLink href="/dashboard">Dashboard</NavLink>
-              <NavLink href="/leaderboard">Leaderboard</NavLink>
-              <NavLink href="/classes">Classes</NavLink>
-              <NavDropdown
-                label={STUDIO_LABEL}
-                items={STUDIO_ITEMS}
-                viewer={studioViewer}
-              />
-            </nav>
+              {/* Centre — browse surfaces only; account actions live on the right */}
+              <nav className="hidden lg:flex items-center gap-1 text-label">
+                <NavLink href="/about">{t('About')}</NavLink>
+                <NavLink href="/dashboard">{t('Dashboard')}</NavLink>
+                <NavLink href="/leaderboard">{t('Leaderboard')}</NavLink>
+                <NavLink href="/classes">{t('Classes')}</NavLink>
+                <NavDropdown
+                  label={t(STUDIO_LABEL)}
+                  items={studioItems}
+                  viewer={studioViewer}
+                />
+              </nav>
 
-            {/* Right — the account cluster. Signed out gets the one bordered
+              {/* Right — the account cluster. Signed out gets the one bordered
                 affordance in the bar (ghost button per DESIGN.md §4) so the
                 entry action reads as an action, not a sixth sibling link. */}
-            <div className="hidden md:flex items-center gap-1 justify-self-end text-label">
-              {auth ? (
-                <>
-                  <NavLink href={auth.role === 'admin' ? '/admin' : '/me'}>
-                    {auth.role === 'admin' ? 'Admin' : 'My data'}
-                  </NavLink>
-                  <SignOutButton />
-                </>
-              ) : (
-                <Link
-                  href="/login"
-                  className="inline-flex items-center h-8 px-3 rounded-md border border-borderGlassStrong text-fg hover:bg-white/[0.04] transition-colors duration-150 ease-out"
-                >
-                  Sign in
-                </Link>
-              )}
-            </div>
+              <div className="hidden lg:flex items-center gap-1 justify-self-end text-label">
+                <LanguageSwitcher />
+                {auth ? (
+                  <>
+                    <NavLink href={auth.role === 'admin' ? '/admin' : '/me'}>
+                      {t(auth.role === 'admin' ? 'Admin' : 'My data')}
+                    </NavLink>
+                    <SignOutButton />
+                  </>
+                ) : (
+                  <Link
+                    href="/login"
+                    className="inline-flex items-center h-8 px-3 rounded-md border border-borderGlassStrong text-fg hover:bg-white/[0.04] transition-colors duration-150 ease-out"
+                  >
+                    {t('Sign in')}
+                  </Link>
+                )}
+              </div>
 
-            {/* Mobile — links live in the hamburger; sign-out stays visible */}
-            <div className="flex md:hidden items-center gap-1 justify-self-end text-label">
-              {auth && <SignOutButton />}
-              <MobileNav
-                viewer={studioViewer}
-                links={[
-                  { href: '/about', label: 'About' },
-                  { href: '/dashboard', label: 'Dashboard' },
-                  { href: '/leaderboard', label: 'Leaderboard' },
-                  { href: '/classes', label: 'Classes' },
-                  { label: STUDIO_LABEL, children: STUDIO_ITEMS },
-                  ...(auth
-                    ? [
-                        {
-                          href: auth.role === 'admin' ? '/admin' : '/me',
-                          label: auth.role === 'admin' ? 'Admin' : 'My data',
-                        },
-                      ]
-                    : [{ href: '/login', label: 'Sign in' }]),
-                ]}
-              />
+              {/* Mobile — account actions live in the menu to leave room for languages */}
+              <div className="flex lg:hidden items-center gap-1 justify-self-end text-label">
+                <LanguageSwitcher />
+                <MobileNav
+                  showSignOut={Boolean(auth)}
+                  viewer={studioViewer}
+                  links={[
+                    { href: '/about', label: t('About') },
+                    { href: '/dashboard', label: t('Dashboard') },
+                    { href: '/leaderboard', label: t('Leaderboard') },
+                    { href: '/classes', label: t('Classes') },
+                    { label: t(STUDIO_LABEL), children: studioItems },
+                    ...(auth
+                      ? [
+                          {
+                            href: auth.role === 'admin' ? '/admin' : '/me',
+                            label: t(
+                              auth.role === 'admin' ? 'Admin' : 'My data'
+                            ),
+                          },
+                        ]
+                      : [{ href: '/login', label: t('Sign in') }]),
+                  ]}
+                />
+              </div>
             </div>
+          </header>
+
+          {/* Main content */}
+          <main
+            id="main"
+            tabIndex={-1}
+            className="relative z-10 flex-1 w-full overflow-x-clip"
+          >
+            <div className="max-w-[1200px] mx-auto px-6 md:px-8">
+              {children}
+            </div>
+          </main>
+
+          {/* Footer */}
+          <div className="relative z-10 mt-12">
+            <Footer
+              logo={
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src="/d3-logo.png"
+                  alt=""
+                  width={28}
+                  height={28}
+                  suppressHydrationWarning
+                />
+              }
+              brandName="D3 Creator"
+              mainLinks={[
+                { href: '/about', label: t('About') },
+                { href: '/dashboard', label: t('Dashboard') },
+                { href: '/leaderboard', label: t('Leaderboard') },
+                { href: '/classes', label: t('Classes') },
+              ]}
+              legalLinks={[
+                { href: '/privacy', label: t('Privacy') },
+                { href: '/terms', label: t('Terms') },
+              ]}
+              copyright={{
+                text: '© 2025 D3 Creator',
+                license: t('All rights reserved'),
+              }}
+            />
           </div>
-        </header>
-
-        {/* Main content */}
-        <main
-          id="main"
-          tabIndex={-1}
-          className="relative z-10 flex-1 w-full overflow-x-clip"
-        >
-          <div className="max-w-[1200px] mx-auto px-6 md:px-8">{children}</div>
-        </main>
-
-        {/* Footer */}
-        <div className="relative z-10 mt-12">
-          <Footer
-            logo={
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img
-                src="/d3-logo.png"
-                alt=""
-                width={28}
-                height={28}
-                suppressHydrationWarning
-              />
-            }
-            brandName="D3 Creator"
-            mainLinks={[
-              { href: '/about', label: 'About' },
-              { href: '/dashboard', label: 'Dashboard' },
-              { href: '/leaderboard', label: 'Leaderboard' },
-              { href: '/classes', label: 'Classes' },
-            ]}
-            legalLinks={[
-              { href: '/privacy', label: 'Privacy' },
-              { href: '/terms', label: 'Terms' },
-            ]}
-            copyright={{
-              text: '© 2025 D3 Creator',
-              license: 'All rights reserved',
-            }}
-          />
-        </div>
-        <Analytics />
+          <Analytics />
+        </LocaleProvider>
       </body>
     </html>
   );

@@ -11,6 +11,7 @@
  * with the word "Delete"/"Remove" — never a bare icon.
  */
 
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { useActionState, useEffect, useId, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Input, Field } from '@gitroom/frontend/components/ui/input';
@@ -47,6 +48,7 @@ function Save({
   variant?: 'primary' | 'secondary' | 'danger';
   ariaLabel?: string;
 }) {
+  const { t } = useI18n();
   const { pending } = useFormStatus();
   return (
     <Button
@@ -56,23 +58,24 @@ function Save({
       loading={pending}
       aria-label={ariaLabel}
     >
-      {label}
+      {t(label)}
     </Button>
   );
 }
 
 /** Result line for a section. Success is quiet; failure is an Alert. */
 function Msg({ state }: { state: ActionResult | null }) {
+  const { t } = useI18n();
   if (!state) return null;
   if (!state.ok)
     return (
       <Alert tone="danger" className="text-caption">
-        {state.message}
+        {t(state.message)}
       </Alert>
     );
   return (
     <p role="status" className="text-caption text-fg-muted">
-      {state.message}
+      {t(state.message)}
     </p>
   );
 }
@@ -123,17 +126,18 @@ function RenameSection({
   creatorId: string;
   displayName: string;
 }) {
+  const { t } = useI18n();
   const [state, action] = useActionState(renameCreator, null);
   const id = useId();
   return (
     <SectionCard
-      title="Display name"
-      description="Shown on the public leaderboard and every creator page."
+      title={t('Display name')}
+      description={t('Shown on the public leaderboard and every creator page.')}
     >
       <form action={action} className="flex items-end gap-2">
         <input type="hidden" name="creator_id" value={creatorId} />
         <div className="min-w-0 flex-1">
-          <Field label="Name" htmlFor={id}>
+          <Field label={t('Name')} htmlFor={id}>
             <Input
               id={id}
               name="display_name"
@@ -158,15 +162,19 @@ function UrlsSection({
   creatorId: string;
   profiles: AdminProfileRow[];
 }) {
+  const { t } = useI18n();
   return (
     <SectionCard
-      title="Social URLs"
-      description="One profile per platform. Repointing a URL keeps the history attached; removing one deletes its snapshots."
+      title={t('Social URLs')}
+      description={t(
+        'One profile per platform. Repointing a URL keeps the history attached; removing one deletes its snapshots.',
+      )}
     >
       {profiles.length === 0 ? (
         <p className="text-body-sm text-fg-muted">
-          No profiles yet. Add the first URL below — the platform is detected
-          automatically.
+          {t(
+            'No profiles yet. Add the first URL below — the platform is detected automatically.',
+          )}
         </p>
       ) : (
         <ul className="divide-y divide-line-subtle">
@@ -187,6 +195,7 @@ function ProfileUrlRow({
   creatorId: string;
   profile: AdminProfileRow;
 }) {
+  const { t } = useI18n();
   const [editState, editAction] = useActionState(editCreatorUrl, null);
   const [removeState, removeAction] = useActionState(removeCreatorUrl, null);
   const [confirming, setConfirming] = useState(false);
@@ -208,7 +217,7 @@ function ProfileUrlRow({
         <input type="hidden" name="creator_id" value={creatorId} />
         <input type="hidden" name="profile_id" value={profile.id} />
         <div className="min-w-0 flex-1">
-          <Field label={profile.platform} htmlFor={id}>
+          <Field label={t(profile.platform)} htmlFor={id}>
             <Input
               id={id}
               name="url"
@@ -217,7 +226,11 @@ function ProfileUrlRow({
             />
           </Field>
         </div>
-        <Save ariaLabel={`Save ${profile.platform} URL`} />
+        <Save
+          ariaLabel={t('Save {platform} URL', {
+            platform: t(profile.platform),
+          })}
+        />
       </form>
 
       {confirming ? (
@@ -225,9 +238,10 @@ function ProfileUrlRow({
           <input type="hidden" name="creator_id" value={creatorId} />
           <input type="hidden" name="profile_id" value={profile.id} />
           <p className="text-caption text-fg-muted">
-            Remove the {profile.platform} profile{' '}
-            <span className="text-fg">{name}</span>? Its snapshot history goes
-            with it and cannot be restored.
+            {t(
+              'Remove the {platform} profile {name}? Its snapshot history goes with it and cannot be restored.',
+              { platform: t(profile.platform), name },
+            )}
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -236,12 +250,15 @@ function ProfileUrlRow({
               variant="ghost"
               onClick={() => setConfirming(false)}
             >
-              Keep
+              {t('Keep')}
             </Button>
             <Save
-              label="Remove profile"
+              label={t('Remove profile')}
               variant="danger"
-              ariaLabel={`Remove ${profile.platform} profile ${name}`}
+              ariaLabel={t('Remove {platform} profile {name}', {
+                platform: t(profile.platform),
+                name,
+              })}
             />
           </div>
         </form>
@@ -251,9 +268,12 @@ function ProfileUrlRow({
           size="sm"
           variant="ghost"
           onClick={() => setConfirming(true)}
-          aria-label={`Remove ${profile.platform} profile ${name}`}
+          aria-label={t('Remove {platform} profile {name}', {
+            platform: t(profile.platform),
+            name,
+          })}
         >
-          Remove
+          {t('Remove')}
         </Button>
       )}
 
@@ -264,6 +284,7 @@ function ProfileUrlRow({
 }
 
 function AddUrlRow({ creatorId }: { creatorId: string }) {
+  const { t } = useI18n();
   const [state, action] = useActionState(addCreatorUrl, null);
   const formRef = useRef<HTMLFormElement>(null);
   const id = useId();
@@ -276,9 +297,9 @@ function AddUrlRow({ creatorId }: { creatorId: string }) {
         <input type="hidden" name="creator_id" value={creatorId} />
         <div className="min-w-0 flex-1">
           <Field
-            label="Add a URL"
+            label={t('Add a URL')}
             htmlFor={id}
-            hint="Instagram, TikTok, Facebook or Douyin profile page"
+            hint={t('Instagram, TikTok, Facebook or Douyin profile page')}
           >
             <Input
               id={id}
@@ -290,7 +311,7 @@ function AddUrlRow({ creatorId }: { creatorId: string }) {
             />
           </Field>
         </div>
-        <Save label="Add" />
+        <Save label={t('Add')} />
       </form>
       <Msg state={state} />
     </div>
@@ -304,6 +325,7 @@ function LoginsSection({
   creatorId: string;
   logins: AdminCreatorLogin[];
 }) {
+  const { t } = useI18n();
   // Own the add-login action state HERE, not inside AddLoginRow: a successful add
   // revalidates → logins becomes nonzero → the add-form unmounts. Holding the
   // state in this always-mounted section preserves the one-time credentials
@@ -311,12 +333,14 @@ function LoginsSection({
   // but a downstream step failed), where the generated password is irreplaceable.
   const [addState, addAction] = useActionState(
     addCreatorLogin,
-    null as PasswordResetResult | null
+    null as PasswordResetResult | null,
   );
   return (
     <SectionCard
-      title="Login"
-      description="Portal access for this creator. Passwords are shown once, at the moment they are set."
+      title={t('Login')}
+      description={t(
+        'Portal access for this creator. Passwords are shown once, at the moment they are set.',
+      )}
     >
       {logins.length === 0 ? (
         <AddLoginRow
@@ -333,7 +357,7 @@ function LoginsSection({
       )}
       {addState?.credentials && (
         <CredentialsPanel
-          title="New login"
+          title={t('New login')}
           email={addState.credentials.email}
           password={addState.credentials.password}
         />
@@ -351,6 +375,7 @@ function AddLoginRow({
   state: PasswordResetResult | null;
   action: (formData: FormData) => void;
 }) {
+  const { t } = useI18n();
   const formRef = useRef<HTMLFormElement>(null);
   const id = useId();
   useEffect(() => {
@@ -359,7 +384,7 @@ function AddLoginRow({
   return (
     <div className="space-y-3">
       <p className="text-body-sm text-fg-muted">
-        No login linked. This creator cannot sign in until one exists.
+        {t('No login linked. This creator cannot sign in until one exists.')}
       </p>
       <form
         ref={formRef}
@@ -368,7 +393,7 @@ function AddLoginRow({
       >
         <input type="hidden" name="creator_id" value={creatorId} />
         <div className="flex-1">
-          <Field label="Email" htmlFor={`${id}-email`}>
+          <Field label={t('Email')} htmlFor={`${id}-email`}>
             <Input
               id={`${id}-email`}
               name="email"
@@ -381,9 +406,9 @@ function AddLoginRow({
         </div>
         <div className="flex-1">
           <Field
-            label="Password"
+            label={t('Password')}
             htmlFor={`${id}-password`}
-            hint="Leave blank to generate one"
+            hint={t('Leave blank to generate one')}
             optional
           >
             {/* type="text" is intentional — the admin reads it back to share it once */}
@@ -398,13 +423,13 @@ function AddLoginRow({
             />
           </Field>
         </div>
-        <Save label="Create login" />
+        <Save label={t('Create login')} />
       </form>
       {/* CredentialsPanel is rendered by LoginsSection so it survives the form's
           unmount on success; here we only show the inline error on failure. */}
       {state && !state.ok && (
         <Alert tone="danger" className="text-caption">
-          {state.message}
+          {t(state.message)}
         </Alert>
       )}
     </div>
@@ -418,9 +443,10 @@ function LoginRow({
   creatorId: string;
   login: AdminCreatorLogin;
 }) {
+  const { t } = useI18n();
   const [state, action] = useActionState(
     resetCreatorPassword,
-    null as PasswordResetResult | null
+    null as PasswordResetResult | null,
   );
   const formRef = useRef<HTMLFormElement>(null);
   const id = useId();
@@ -439,9 +465,9 @@ function LoginRow({
         <input type="hidden" name="user_id" value={login.userId} />
         <div className="flex-1">
           <Field
-            label="New password"
+            label={t('New password')}
             htmlFor={id}
-            hint="Leave blank to generate one"
+            hint={t('Leave blank to generate one')}
             optional
           >
             {/* type="text" is intentional — the admin reads it back to share it once */}
@@ -457,18 +483,20 @@ function LoginRow({
           </Field>
         </div>
         <Save
-          label="Reset password"
-          ariaLabel={`Reset the password for ${login.email}`}
+          label={t('Reset password')}
+          ariaLabel={t('Reset the password for {email}', {
+            email: login.email,
+          })}
         />
       </form>
       {state && !state.ok && (
         <Alert tone="danger" className="text-caption">
-          {state.message}
+          {t(state.message)}
         </Alert>
       )}
       {state?.ok && state.credentials && (
         <CredentialsPanel
-          title="New password"
+          title={t('New password')}
           email={state.credentials.email}
           password={state.credentials.password}
         />
@@ -486,6 +514,7 @@ function CredentialsPanel({
   email: string;
   password: string;
 }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
   async function copy() {
     try {
@@ -502,26 +531,27 @@ function CredentialsPanel({
       <div className="flex items-center justify-between gap-3">
         <p className="text-label text-fg">{title}</p>
         <Button type="button" variant="secondary" size="sm" onClick={copy}>
-          {copied ? 'Copied' : 'Copy both'}
+          {copied ? t('Copied') : t('Copy both')}
         </Button>
       </div>
       <dl className="mt-3 space-y-1.5 font-mono text-body-sm">
         <div className="flex gap-2">
           <dt className="w-20 shrink-0 font-sans text-caption text-fg-subtle">
-            Email
+            {t('Email')}
           </dt>
           <dd className="min-w-0 break-all text-fg">{email}</dd>
         </div>
         <div className="flex gap-2">
           <dt className="w-20 shrink-0 font-sans text-caption text-fg-subtle">
-            Password
+            {t('Password')}
           </dt>
           <dd className="min-w-0 break-all text-fg">{password}</dd>
         </div>
       </dl>
       <p className="mt-3 text-caption text-fg-subtle">
-        Shown once. Leaving this page loses it — another reset is the only way
-        back.
+        {t(
+          'Shown once. Leaving this page loses it — another reset is the only way back.',
+        )}
       </p>
     </div>
   );
@@ -534,20 +564,24 @@ function DangerSection({
   creatorId: string;
   displayName: string;
 }) {
+  const { t } = useI18n();
   const [state, action] = useActionState(deleteCreator, null);
   const [confirming, setConfirming] = useState(false);
   return (
     <SectionCard
-      title="Delete this creator"
-      description="Removes the account, every platform profile under it, all snapshot history, and the login."
+      title={t('Delete this creator')}
+      description={t(
+        'Removes the account, every platform profile under it, all snapshot history, and the login.',
+      )}
     >
       {confirming ? (
         <form action={action} className="space-y-3">
           <input type="hidden" name="creator_id" value={creatorId} />
-          <Alert tone="warning" title="This cannot be undone">
-            Deleting <span className="text-fg">{displayName}</span> also deletes
-            its profiles, every snapshot ever taken of them, and its login.
-            Public pages lose the creator immediately.
+          <Alert tone="warning" title={t('This cannot be undone')}>
+            {t(
+              'Deleting {name} also deletes its profiles, every snapshot ever taken of them, and its login. Public pages lose the creator immediately.',
+              { name: displayName },
+            )}
           </Alert>
           <div className="flex items-center gap-2">
             <Button
@@ -556,15 +590,17 @@ function DangerSection({
               variant="ghost"
               onClick={() => setConfirming(false)}
             >
-              Keep
+              {t('Keep')}
             </Button>
             {/* Fixed label: a display name can run 80 chars and the button
                 is whitespace-nowrap, which would push the row off a 360px
                 screen. The Alert directly above names the target. */}
             <Save
-              label="Delete permanently"
+              label={t('Delete permanently')}
               variant="danger"
-              ariaLabel={`Permanently delete ${displayName} and all of its data`}
+              ariaLabel={t('Permanently delete {name} and all of its data', {
+                name: displayName,
+              })}
             />
           </div>
         </form>
@@ -575,14 +611,14 @@ function DangerSection({
           variant="secondary"
           className="self-start"
           onClick={() => setConfirming(true)}
-          aria-label={`Delete ${displayName}`}
+          aria-label={t('Delete {target}', { target: displayName })}
         >
-          Delete creator
+          {t('Delete creator')}
         </Button>
       )}
       {state && !state.ok && (
         <Alert tone="danger" className="text-caption">
-          {state.message}
+          {t(state.message)}
         </Alert>
       )}
     </SectionCard>

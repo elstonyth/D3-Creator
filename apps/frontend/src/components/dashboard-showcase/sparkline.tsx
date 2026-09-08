@@ -19,7 +19,11 @@ interface SparklineGeometry {
   baselineY: number;
 }
 
-function buildGeometry(values: number[], width: number, height: number): SparklineGeometry | null {
+function buildGeometry(
+  values: number[],
+  width: number,
+  height: number
+): SparklineGeometry | null {
   if (values.length < 2) return null;
   const min = Math.min(...values);
   const max = Math.max(...values);
@@ -37,12 +41,16 @@ function buildGeometry(values: number[], width: number, height: number): Sparkli
   });
 
   const linePath = points
-    .map(([x, y], i) => `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`)
+    .map(
+      ([x, y], i) => `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`
+    )
     .join(' ');
 
   const baselineY = height - padBottom;
   const [lastX, lastY] = points[points.length - 1];
-  const areaPath = `${linePath} L ${lastX.toFixed(2)} ${baselineY} L ${padX} ${baselineY} Z`;
+  const areaPath = `${linePath} L ${lastX.toFixed(
+    2
+  )} ${baselineY} L ${padX} ${baselineY} Z`;
 
   return { linePath, areaPath, lastX, lastY, baselineY };
 }
@@ -54,7 +62,10 @@ export function Sparkline({
   className,
   ariaLabel,
 }: SparklineProps) {
-  const geometry = useMemo(() => buildGeometry(values, width, height), [values, width, height]);
+  const geometry = useMemo(
+    () => buildGeometry(values, width, height),
+    [values, width, height]
+  );
   // Re-trigger one-shot CSS animations when values change (e.g. dashboard filter switch).
   // Key change → React remounts the <g> children → keyframes fire fresh.
   const animationKey = values.length

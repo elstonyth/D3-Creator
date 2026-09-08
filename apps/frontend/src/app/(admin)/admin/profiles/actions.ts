@@ -16,6 +16,8 @@
  * useActionState `(prevState, formData)` signature.
  */
 
+import { localizeAdminError } from '../localize-error';
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import { revalidatePath } from 'next/cache';
 import { getSupabaseAdmin } from '@d3/database';
 import { requireAdmin } from '@gitroom/frontend/lib/auth';
@@ -34,12 +36,13 @@ export async function approveClaim(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
+  const { t, locale } = await getI18n();
   try {
     await requireAdmin();
     const userId = String(formData.get('user_id') ?? '');
     const profileId = String(formData.get('profile_id') ?? '');
     if (!isUuid(userId) || !isUuid(profileId)) {
-      return { ok: false, message: 'Invalid user or profile id.' };
+      return { ok: false, message: t('Invalid user or profile id.') };
     }
 
     const admin = getSupabaseAdmin();
@@ -56,8 +59,9 @@ export async function approveClaim(
     if (owner.data && owner.data.user_id !== userId) {
       return {
         ok: false,
-        message:
+        message: t(
           "This profile already has an owner — reject this claim, or reassign ownership from the creator's editor.",
+        ),
       };
     }
 
@@ -72,15 +76,20 @@ export async function approveClaim(
         ok: false,
         message:
           error.code === '23505'
-            ? "This profile already has an owner — reject this claim, or reassign ownership from the creator's editor."
-            : 'Could not approve the claim.',
+            ? t(
+                "This profile already has an owner — reject this claim, or reassign ownership from the creator's editor.",
+              )
+            : t('Could not approve the claim.'),
       };
     }
 
     revalidatePath('/admin/profiles');
-    return { ok: true, message: 'Claim approved.' };
+    return { ok: true, message: t('Claim approved.') };
   } catch (error: unknown) {
-    return { ok: false, message: getErrorMessage(error) };
+    return {
+      ok: false,
+      message: localizeAdminError(getErrorMessage(error), locale, t),
+    };
   }
 }
 
@@ -88,12 +97,13 @@ export async function rejectClaim(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
+  const { t, locale } = await getI18n();
   try {
     await requireAdmin();
     const userId = String(formData.get('user_id') ?? '');
     const profileId = String(formData.get('profile_id') ?? '');
     if (!isUuid(userId) || !isUuid(profileId)) {
-      return { ok: false, message: 'Invalid user or profile id.' };
+      return { ok: false, message: t('Invalid user or profile id.') };
     }
 
     const admin = getSupabaseAdmin();
@@ -104,13 +114,16 @@ export async function rejectClaim(
       .eq('profile_id', profileId);
     if (error) {
       console.error('[admin/rejectClaim]', error);
-      return { ok: false, message: 'Could not reject the claim.' };
+      return { ok: false, message: t('Could not reject the claim.') };
     }
 
     revalidatePath('/admin/profiles');
-    return { ok: true, message: 'Claim rejected.' };
+    return { ok: true, message: t('Claim rejected.') };
   } catch (error: unknown) {
-    return { ok: false, message: getErrorMessage(error) };
+    return {
+      ok: false,
+      message: localizeAdminError(getErrorMessage(error), locale, t),
+    };
   }
 }
 
@@ -118,11 +131,12 @@ export async function deleteProfile(
   _prev: ActionResult | null,
   formData: FormData,
 ): Promise<ActionResult> {
+  const { t, locale } = await getI18n();
   try {
     await requireAdmin();
     const profileId = String(formData.get('profile_id') ?? '');
     if (!isUuid(profileId)) {
-      return { ok: false, message: 'Invalid profile id.' };
+      return { ok: false, message: t('Invalid profile id.') };
     }
 
     // ON DELETE CASCADE on profile_claim.profile_id + profile_snapshot.profile_id
@@ -132,12 +146,15 @@ export async function deleteProfile(
     const { error } = await admin.from('profile').delete().eq('id', profileId);
     if (error) {
       console.error('[admin/deleteProfile]', error);
-      return { ok: false, message: 'Could not delete the profile.' };
+      return { ok: false, message: t('Could not delete the profile.') };
     }
 
     revalidatePath('/admin/profiles');
-    return { ok: true, message: 'Profile deleted.' };
+    return { ok: true, message: t('Profile deleted.') };
   } catch (error: unknown) {
-    return { ok: false, message: getErrorMessage(error) };
+    return {
+      ok: false,
+      message: localizeAdminError(getErrorMessage(error), locale, t),
+    };
   }
 }

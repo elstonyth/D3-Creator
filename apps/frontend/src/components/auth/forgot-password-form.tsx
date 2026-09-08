@@ -1,4 +1,5 @@
 'use client';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 
 /**
  * Step 1 of password recovery: ask Supabase to email a link.
@@ -19,6 +20,7 @@ import { resetErrorMessage } from '@gitroom/frontend/lib/auth-errors';
 import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
 
 export function ForgotPasswordForm(): ReactElement {
+  const { t } = useI18n();
   const emailId = useId();
   const [email, setEmail] = useState('');
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -38,8 +40,10 @@ export function ForgotPasswordForm(): ReactElement {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(
         address,
         {
-          redirectTo: `${window.location.origin}/auth/callback?redirectTo=${encodeURIComponent('/reset-password')}`,
-        },
+          redirectTo: `${
+            window.location.origin
+          }/auth/callback?redirectTo=${encodeURIComponent('/reset-password')}`,
+        }
       );
       // A rate limit is worth showing; "no such user" is not, and Supabase does
       // not report it here anyway.
@@ -58,9 +62,13 @@ export function ForgotPasswordForm(): ReactElement {
   if (sentTo !== null) {
     return (
       <div className="space-y-5">
-        <Alert tone="success" title="Check your email.">
-          If <span className="break-words text-fg">{sentTo}</span> has an account, a reset
-          link is on its way. The link works once and expires within the hour.
+        <Alert tone="success" title={t('Check your email.')}>
+          <span className="break-words text-fg">
+            {t(
+              'If {email} has an account, a reset link is on its way. The link works once and expires within the hour.',
+              { email: sentTo }
+            )}
+          </span>
         </Alert>
         {/* A text link, not a <Link> inside a <Button> — nesting an anchor in a
             real <button> is invalid markup. */}
@@ -69,7 +77,7 @@ export function ForgotPasswordForm(): ReactElement {
             href="/login"
             className="rounded text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
           >
-            Back to sign in
+            {t('Back to sign in')}
           </Link>
         </p>
       </div>
@@ -79,9 +87,9 @@ export function ForgotPasswordForm(): ReactElement {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <Field
-        label="Email"
+        label={t('Email')}
         htmlFor={emailId}
-        hint="The address you signed up with."
+        hint={t('The address you signed up with.')}
       >
         <Input
           id={emailId}
@@ -98,19 +106,19 @@ export function ForgotPasswordForm(): ReactElement {
         />
       </Field>
 
-      {error ? <Alert tone="danger">{error}</Alert> : null}
+      {error ? <Alert tone="danger">{t(error)}</Alert> : null}
 
       <Button type="submit" size="lg" className="w-full" loading={pending}>
-        Send reset link
+        {t('Send reset link')}
       </Button>
 
       <p className="text-center text-caption text-fg-muted">
-        Remembered it?{' '}
+        {t('Remembered it?')}{' '}
         <Link
           href="/login"
           className="rounded text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
         >
-          Sign in
+          {t('Sign in')}
         </Link>
       </p>
     </form>

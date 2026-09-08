@@ -1,5 +1,7 @@
 'use client';
 
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
+
 /**
  * The script card — PRD 3 §7.3, which owns this file's layout, classes and copy.
  *
@@ -54,6 +56,7 @@ export function ScriptCard({
   onFollowUp,
   sendBlocked,
 }: ScriptCardProps): ReactElement {
+  const { locale, t } = useI18n();
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -61,12 +64,12 @@ export function ScriptCard({
     () => () => {
       if (timerRef.current !== null) clearTimeout(timerRef.current);
     },
-    [],
+    []
   );
 
   async function onCopy(): Promise<void> {
     try {
-      await navigator.clipboard.writeText(scriptToClipboard(script));
+      await navigator.clipboard.writeText(scriptToClipboard(script, locale));
     } catch {
       // A refused clipboard permission returns early: the label does not
       // change and nothing else is shown.
@@ -81,8 +84,11 @@ export function ScriptCard({
   // the whole clause rather than rendering a bare "Based on".
   const caption =
     script.lesson_used.trim() === ''
-      ? `${script.length_seconds}s`
-      : `${script.length_seconds}s · Based on ${script.lesson_used}`;
+      ? t('{seconds}s', { seconds: script.length_seconds })
+      : t('{seconds}s · Based on {lesson}', {
+          seconds: script.length_seconds,
+          lesson: script.lesson_used,
+        });
 
   return (
     <article className="rounded-2xl border border-line bg-surface p-5 sm:p-6 flex flex-col gap-5">
@@ -91,9 +97,9 @@ export function ScriptCard({
         <p className="tnum text-caption text-fg-subtle">{caption}</p>
       </header>
 
-      <Field label="Hook · 0–3s">{script.hook}</Field>
+      <Field label={t('Hook · 0–3s')}>{script.hook}</Field>
 
-      <Field label="Body">
+      <Field label={t('Body')}>
         {/* Hairlines between beats, not a box around each one: a script is one
             list, and Tailwind preflight strips the default markers, so an
             unstyled <ol> would render identically to prose. */}
@@ -109,11 +115,14 @@ export function ScriptCard({
               <div className="min-w-0 flex flex-col gap-1.5">
                 <p className="text-body text-fg">{beat.say}</p>
                 <p className="tnum text-caption text-fg-subtle">
-                  {beat.seconds}s · Show: {beat.show}
+                  {t('{seconds}s · Show: {visual}', {
+                    seconds: beat.seconds,
+                    visual: beat.show,
+                  })}
                 </p>
                 {beat.on_screen_text !== '' && (
                   <p className="text-caption text-fg-subtle">
-                    On screen: {beat.on_screen_text}
+                    {t('On screen: {text}', { text: beat.on_screen_text })}
                   </p>
                 )}
               </div>
@@ -122,7 +131,7 @@ export function ScriptCard({
         </ol>
       </Field>
 
-      <Field label="Call to action">{script.call_to_action}</Field>
+      <Field label={t('Call to action')}>{script.call_to_action}</Field>
 
       {/* The card is already a `flex flex-col gap-5`, so the gap supplies the
           space above the rule — no `mt-4` as well. */}
@@ -132,28 +141,28 @@ export function ScriptCard({
           className={`${compactSecondary} min-h-10 sm:min-h-8`}
           onClick={onCopy}
         >
-          {copied ? 'Copied' : 'Copy script'}
+          {copied ? t('Copied') : t('Copy script')}
         </button>
         <button
           type="button"
           className={`${compactSecondary} min-h-10 sm:min-h-8`}
           disabled={sendBlocked}
-          onClick={() => onFollowUp('Make it shorter.')}
+          onClick={() => onFollowUp(t('Make it shorter.'))}
         >
-          Shorten
+          {t('Shorten')}
         </button>
         <button
           type="button"
           className={`${compactSecondary} min-h-10 sm:min-h-8`}
           disabled={sendBlocked}
-          onClick={() => onFollowUp('Give me 3 more hooks.')}
+          onClick={() => onFollowUp(t('Give me 3 more hooks.'))}
         >
-          More hooks
+          {t('More hooks')}
         </button>
         {/* Card-local, so "Copied" and the page-level reply notification cannot
             overwrite each other. */}
         <span aria-live="polite" className="sr-only">
-          {copied ? 'Script copied to clipboard.' : ''}
+          {copied ? t('Script copied to clipboard.') : ''}
         </span>
       </div>
     </article>

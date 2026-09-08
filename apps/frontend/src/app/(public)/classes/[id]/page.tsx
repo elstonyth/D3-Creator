@@ -1,3 +1,4 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 // apps/frontend/src/app/(public)/classes/[id]/page.tsx
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
@@ -13,7 +14,10 @@ import { ClassPlayer } from '@gitroom/frontend/components/classes/class-player';
 export const dynamic = 'force-dynamic';
 // The public layout appends " — D3 Creator" via metadata.title.template; the
 // class title itself would need a second fetch, so the static label stays.
-export const metadata: Metadata = { title: 'Class' };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: t('Class') };
+}
 
 interface Props {
   params: Promise<{ id: string }>;

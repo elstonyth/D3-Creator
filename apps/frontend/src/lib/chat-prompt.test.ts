@@ -657,6 +657,20 @@ const BUILD = {
 };
 
 describe('buildMessages', () => {
+  it('uses the interface language for explanations without changing script language or cached instructions', () => {
+    const profile = { ...FULL, reply_language: 'english' as const, content_language: 'malay' as const };
+    const chinese = buildMessages({ ...BUILD, profile, interfaceLocale: 'zh' });
+    const english = buildMessages({ ...BUILD, profile, interfaceLocale: 'en' });
+    expect(chinese[1].content).toContain('Reply language: Chinese');
+    expect(chinese[1].content).toContain('Content language: Malay');
+    expect(english[1].content).toContain('Reply language: English');
+    expect(chinese[0]).toEqual(english[0]);
+    expect(profile.reply_language).toBe('english');
+  });
+
+  it('uses the selected language when asking a new user for their business details', () => {
+    expect(buildMessages({ ...BUILD, profile: null, interfaceLocale: 'zh' })[1].content).toBe('NO PROFILE ON FILE\nReply language: Chinese');
+  });
   it('puts the profile at messages[1], below the cache marker', () => {
     const messages = buildMessages(BUILD);
 

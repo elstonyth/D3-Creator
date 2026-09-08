@@ -1,4 +1,7 @@
 'use client';
+import { RichText } from '@gitroom/frontend/components/legal/rich-text';
+
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 
 import { motion, useReducedMotion } from 'framer-motion';
 import { GlassCard } from '@gitroom/frontend/components/ui/glass-card';
@@ -39,6 +42,7 @@ const MILESTONES: Milestone[] = [
 ];
 
 export function StoryTimeline() {
+  const { t } = useI18n();
   const reducedMotion = useReducedMotion();
 
   return (
@@ -48,19 +52,27 @@ export function StoryTimeline() {
     >
       <header className="mb-12 max-w-[760px]">
         <p className="text-micro uppercase text-fgSubtle tracking-[0.35em] mb-3">
-          Since 2023
+          {t('Since 2023')}{' '}
         </p>
         <h2
           id="about-timeline-heading"
           className="text-display-2 text-fg tracking-[-0.03em] leading-[1.08]"
         >
-          Three years of building creators that actually{' '}
-          <span className="text-brand">generate business</span>.
+          <RichText
+            text={t(
+              'Three years of building creators that actually {emphasis1}.'
+            )}
+            values={{
+              emphasis1: (
+                <span className="text-brand">{t('generate business')}</span>
+              ),
+            }}
+          />
         </h2>
         <p className="text-body-lg text-fgMuted mt-6">
-          Not influencer vanity. Not motivational decks. A short, real history
-          of an operating company that turns short-video attention into leads,
-          sales, and long-term brand value.
+          {t(
+            'Not influencer vanity. Not motivational decks. A short, real history of an operating company that turns short-video attention into leads, sales, and long-term brand value.'
+          )}{' '}
         </p>
       </header>
 
@@ -94,7 +106,7 @@ export function StoryTimeline() {
               </span>
 
               <p className="font-mono text-caption text-fgSubtle uppercase tracking-[0.2em] mb-2 tabular-nums">
-                {milestone.year}
+                {milestone.year === 'now' ? t('now') : milestone.year}
               </p>
               <GlassCard
                 variant="base"
@@ -103,10 +115,10 @@ export function StoryTimeline() {
                 className="flex flex-col gap-2"
               >
                 <h3 className="text-subsection text-fg tracking-[-0.015em]">
-                  {milestone.title}
+                  {t(milestone.title)}
                 </h3>
                 <p className="text-body text-fgMuted leading-relaxed">
-                  {milestone.body}
+                  {t(milestone.body)}
                 </p>
               </GlassCard>
             </motion.li>

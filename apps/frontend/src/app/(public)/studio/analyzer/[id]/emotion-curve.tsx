@@ -1,3 +1,4 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 /**
  * The emotion curve — PRD 3 §6.6. Pure server-rendered inline SVG. x is seconds
  * over 0 … duration_seconds, the video's own length; y is a fixed 0–SCORE_MAX
@@ -30,21 +31,22 @@ import {
   type EmotionPoint,
 } from '@gitroom/frontend/lib/analyzer-contract';
 
-export function EmotionCurve({
+export async function EmotionCurve({
   samples,
   durationSeconds,
 }: {
   samples: readonly EmotionPoint[];
   durationSeconds: number | null;
-}): ReactElement {
+}): Promise<ReactElement> {
+  const { t } = await getI18n();
   const geometry = buildCurve(samples, durationSeconds);
 
   if (geometry.empty) {
     return (
       <div className="flex flex-col gap-2">
-        <h3 className="text-heading text-fg">Emotion curve</h3>
+        <h3 className="text-heading text-fg">{t('Emotion curve')}</h3>
         <p className="text-body text-fg-muted">
-          No emotion data was returned for this video.
+          {t('No emotion data was returned for this video.')}{' '}
         </p>
       </div>
     );
@@ -59,16 +61,20 @@ export function EmotionCurve({
     .map((dot) => `${formatTimecode(dot.t)} ${dot.value}`)
     .join(', ');
   const label =
-    `Emotion curve over ${duration}, each point scored out of ${SCORE_MAX}.` +
-    (enumeration === '' ? '' : ` ${enumeration}`);
+    t('Emotion curve over {duration}, each point scored out of {max}.', {
+      duration,
+      max: SCORE_MAX,
+    }) + (enumeration === '' ? '' : ` ${enumeration}`);
 
   return (
     <figure className="flex flex-col gap-4">
       <figcaption className="flex flex-col gap-1">
-        <h3 className="text-heading text-fg">Emotion curve</h3>
+        <h3 className="text-heading text-fg">{t('Emotion curve')}</h3>
         <p className="text-caption text-fg-subtle">
-          Emotional pitch left to right across the full {duration} · vertical
-          axis 0–{SCORE_MAX}
+          {t(
+            'Emotional pitch left to right across the full {duration} · vertical axis 0–{max}',
+            { duration, max: SCORE_MAX }
+          )}
         </p>
       </figcaption>
 
@@ -121,7 +127,9 @@ export function EmotionCurve({
                 r="3.5"
                 className="fill-fg-muted motion-safe:group-hover:fill-brand transition-colors duration-150 ease-out"
               >
-                <title>{`${formatTimecode(dot.t)} — ${dot.value} / ${SCORE_MAX}`}</title>
+                <title>{`${formatTimecode(dot.t)} — ${
+                  dot.value
+                } / ${SCORE_MAX}`}</title>
               </circle>
             </g>
           ))}

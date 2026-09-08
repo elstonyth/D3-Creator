@@ -1,3 +1,4 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 
@@ -5,9 +6,12 @@ import { AuthShell } from '@gitroom/frontend/components/auth/auth-shell';
 import { SignInForm } from '@gitroom/frontend/components/auth/sign-in-form';
 import { Alert } from '@gitroom/frontend/components/ui/alert';
 
-export const metadata: Metadata = {
-  title: 'Sign in — D3 Creator',
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Sign in — D3 Creator"),
 };
+}
 
 /**
  * Notices `/auth/callback` can hand us. Keyed by a stable slug, never by the
@@ -32,26 +36,25 @@ interface LoginPageProps {
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const { t } = await getI18n();
   const { redirectTo, notice } = await searchParams;
   const message = notice ? NOTICES[notice] : undefined;
 
   return (
     <AuthShell
-      heading="Sign in to D3 Creator"
-      subheading="One account for the Studio, the class library and your own numbers."
+      heading={t("Sign in to D3 Creator")}
+      subheading={t("One account for the Studio, the class library and your own numbers.")}
     >
       <div className="space-y-5">
         {message ? (
           <Alert tone="info">
-            <p>{message}</p>
+            <p>{t(message)}</p>
             {notice === 'reset_expired' ? (
               <p>
                 <Link
                   href="/forgot-password"
                   className="rounded text-fg underline underline-offset-4 focus-visible:outline-none focus-visible:shadow-focus"
-                >
-                  Send a new reset link
-                </Link>
+                >{t("Send a new reset link")}</Link>
               </p>
             ) : null}
           </Alert>

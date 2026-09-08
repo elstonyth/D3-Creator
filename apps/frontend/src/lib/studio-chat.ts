@@ -1,3 +1,4 @@
+import { createTranslator, type Locale } from './i18n';
 /**
  * Shared vocabulary for the Script Coach page — PRD 3 §5.9.6.
  *
@@ -105,26 +106,27 @@ export function isValidScript(value: unknown): value is ChatScript {
  * three lines, `On screen:` included, even when `on_screen_text` is `''`
  * (unlike the card, which omits it). There is no trailing newline.
  */
-export function scriptToClipboard(script: ChatScript): string {
+export function scriptToClipboard(script: ChatScript, locale: Locale = 'en'): string {
+  const t = createTranslator(locale);
   const beats = script.body
     .map(
       (beat, index) =>
         `${index + 1}. ${beat.say}  (${beat.seconds}s)\n` +
-        `   Show: ${beat.show}\n` +
-        `   On screen: ${beat.on_screen_text}`,
+        `   ${t('Show:')} ${beat.show}\n` +
+        `   ${t('On screen:')} ${beat.on_screen_text}`,
     )
     .join('\n');
 
   return [
-    `Script type: ${script.script_type}`,
-    `Hook (0-3s): ${script.hook}`,
+    `${t('Script type:')} ${script.script_type}`,
+    `${t('Hook (0-3s):')} ${script.hook}`,
     '',
-    'Body:',
+    t('Body:'),
     beats,
     '',
-    `Call to action: ${script.call_to_action}`,
-    `Length: ${script.length_seconds}s`,
-    `Based on ${script.lesson_used}`,
+    `${t('Call to action:')} ${script.call_to_action}`,
+    `${t('Length:')} ${script.length_seconds}s`,
+    t('Based on {lesson}', { lesson: script.lesson_used }),
   ].join('\n');
 }
 
@@ -141,7 +143,8 @@ export function scriptToClipboard(script: ChatScript): string {
  * This is NOT `formatJobDate` (§6.4) — different page, different rules, no
  * sharing.
  */
-export function relativeThreadDate(iso: string, now: Date): string {
+export function relativeThreadDate(iso: string, now: Date, locale: Locale = 'en'): string {
+  const t = createTranslator(locale);
   const then = new Date(iso);
   if (Number.isNaN(then.getTime())) return '';
 
@@ -151,9 +154,9 @@ export function relativeThreadDate(iso: string, now: Date): string {
     (startOfDay(now) - startOfDay(then)) / (24 * 60 * 60 * 1000),
   );
 
-  if (days === 0) return 'Today';
-  if (days === 1) return 'Yesterday';
-  return then.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  if (days === 0) return t('Today');
+  if (days === 1) return t('Yesterday');
+  return then.toLocaleDateString(locale === 'zh' ? 'zh-CN' : 'en-GB', { day: 'numeric', month: 'short' });
 }
 
 /* -------------------------------------------------------------------------- */

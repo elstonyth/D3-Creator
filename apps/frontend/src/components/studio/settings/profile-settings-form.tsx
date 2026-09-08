@@ -1,5 +1,8 @@
 'use client';
 
+import { localeTag } from '@gitroom/frontend/lib/i18n';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
+
 /**
  * The Settings edit form — `plans/ai-tools/amendment-1-profile-settings-and-voice-memory.md`
  * Part C.ii (owner decision 10).
@@ -45,7 +48,6 @@ import {
   CREATOR_ROLES,
   PROFILE_LIMITS,
   REACH_BUCKETS,
-  REPLY_LANGUAGES,
   TONES,
   TYPICAL_VIDEO_SECONDS,
   parseProfileUpdate,
@@ -62,7 +64,6 @@ const LABELS: Record<string, Record<string, string>> = {
     malay: 'Malay',
     mixed: 'Mixed',
   },
-  reply_language: { english: 'English', chinese: 'Chinese' },
   business_type: {
     retail: 'Retail',
     food: 'Food',
@@ -140,7 +141,7 @@ type FormState = ReturnType<typeof formFrom>;
  */
 function toPreviewProfile(
   profile: BusinessProfile,
-  form: FormState,
+  form: FormState
 ): BusinessProfile {
   const orNull = (v: string) => (v.trim() === '' ? null : v);
   return {
@@ -209,6 +210,7 @@ function Counter({
   value: string;
   max: number;
 }): ReactElement | null {
+  const { locale } = useI18n();
   if (value.length <= max * 0.8) return null;
   return (
     <span
@@ -216,7 +218,8 @@ function Counter({
         value.length >= max ? 'text-fg' : 'text-fg-subtle'
       }`}
     >
-      {value.length}/{max}
+      {value.length.toLocaleString(localeTag(locale))}/
+      {max.toLocaleString(localeTag(locale))}
     </span>
   );
 }
@@ -243,6 +246,7 @@ function Choice({
    *  behaviour, which the user has to be able to read off the control. */
   placeholder?: string;
 }): ReactElement {
+  const { t } = useI18n();
   return (
     <SelectControl
       id={id}
@@ -254,11 +258,11 @@ function Choice({
       {/* On an optional field `''` is a legal submission meaning "not set",
           unlike §7.4's two required selects where it blocks the submit. */}
       <option value="" disabled={required}>
-        {placeholder}
+        {t(placeholder)}
       </option>
       {options.map((slug) => (
         <option key={slug} value={slug}>
-          {labels[slug] ?? slug}
+          {t(labels[slug] ?? slug)}
         </option>
       ))}
     </SelectControl>
@@ -272,6 +276,7 @@ export function ProfileSettingsForm({
 }: {
   profile: BusinessProfile;
 }): ReactElement {
+  const { locale, t } = useI18n();
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState('');
@@ -294,7 +299,7 @@ export function ProfileSettingsForm({
 
   const stored = formFrom(profile);
   const dirty = (Object.keys(stored) as (keyof FormState)[]).some(
-    (k) => stored[k] !== form[k],
+    (k) => stored[k] !== form[k]
   );
 
   // A 17-field form with no guard loses everything to a stray back-navigation.
@@ -315,7 +320,7 @@ export function ProfileSettingsForm({
   }
 
   async function handleSubmit(
-    event: FormEvent<HTMLFormElement>,
+    event: FormEvent<HTMLFormElement>
   ): Promise<void> {
     event.preventDefault();
     setMessage('');
@@ -364,12 +369,14 @@ export function ProfileSettingsForm({
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-8">
       <Group
-        title="The business"
-        blurb="Who you are and what you sell. The coach writes every script against this, so vague answers get vague scripts."
+        title={t('The business')}
+        blurb={t(
+          'Who you are and what you sell. The coach writes every script against this, so vague answers get vague scripts.'
+        )}
       >
         <div className={grid}>
           <Field
-            label="What you sell"
+            label={t('What you sell')}
             htmlFor="settings-what-you-sell"
             aside={
               <Counter
@@ -383,14 +390,14 @@ export function ProfileSettingsForm({
               required
               maxLength={PROFILE_LIMITS.what_you_sell}
               disabled={pending}
-              placeholder="e.g. second-hand phones"
+              placeholder={t('e.g. second-hand phones')}
               value={form.what_you_sell}
               onChange={(e) => set('what_you_sell', e.target.value)}
             />
           </Field>
 
           <Field
-            label="Who buys it"
+            label={t('Who buys it')}
             htmlFor="settings-who-buys-it"
             aside={
               <Counter
@@ -404,14 +411,14 @@ export function ProfileSettingsForm({
               required
               maxLength={PROFILE_LIMITS.who_buys_it}
               disabled={pending}
-              placeholder="e.g. students and young workers"
+              placeholder={t('e.g. students and young workers')}
               value={form.who_buys_it}
               onChange={(e) => set('who_buys_it', e.target.value)}
             />
           </Field>
 
           <Field
-            label="Business type"
+            label={t('Business type')}
             htmlFor="settings-business-type"
             optional
           >
@@ -438,7 +445,7 @@ export function ProfileSettingsForm({
 
           {isOther ? (
             <Field
-              label="Which trade, exactly?"
+              label={t('Which trade, exactly?')}
               htmlFor="settings-business-type-other"
               aside={
                 <Counter
@@ -452,14 +459,18 @@ export function ProfileSettingsForm({
                 required
                 maxLength={PROFILE_LIMITS.business_type_other}
                 disabled={pending}
-                placeholder="e.g. phone repair and trade-in"
+                placeholder={t('e.g. phone repair and trade-in')}
                 value={form.business_type_other}
                 onChange={(e) => set('business_type_other', e.target.value)}
               />
             </Field>
           ) : null}
 
-          <Field label="Your role" htmlFor="settings-creator-role" optional>
+          <Field
+            label={t('Your role')}
+            htmlFor="settings-creator-role"
+            optional
+          >
             <Choice
               id="settings-creator-role"
               required={false}
@@ -471,7 +482,7 @@ export function ProfileSettingsForm({
             />
           </Field>
 
-          <Field label="Audience size" htmlFor="settings-reach" optional>
+          <Field label={t('Audience size')} htmlFor="settings-reach" optional>
             <Choice
               id="settings-reach"
               required={false}
@@ -484,7 +495,7 @@ export function ProfileSettingsForm({
           </Field>
 
           <Field
-            label="Business name"
+            label={t('Business name')}
             htmlFor="settings-business-name"
             optional
             aside={
@@ -498,14 +509,14 @@ export function ProfileSettingsForm({
               id="settings-business-name"
               maxLength={PROFILE_LIMITS.business_name}
               disabled={pending}
-              placeholder="e.g. Ah Meng Mobile"
+              placeholder={t('e.g. Ah Meng Mobile')}
               value={form.business_name}
               onChange={(e) => set('business_name', e.target.value)}
             />
           </Field>
 
           <Field
-            label="Where you are"
+            label={t('Where you are')}
             htmlFor="settings-location"
             optional
             aside={
@@ -516,7 +527,7 @@ export function ProfileSettingsForm({
               id="settings-location"
               maxLength={PROFILE_LIMITS.location}
               disabled={pending}
-              placeholder="e.g. Kuala Lumpur"
+              placeholder={t('e.g. Kuala Lumpur')}
               value={form.location}
               onChange={(e) => set('location', e.target.value)}
             />
@@ -525,11 +536,14 @@ export function ProfileSettingsForm({
       </Group>
 
       <Group
-        title="How you make videos"
-        blurb="Length and language for your scripts. Reply language is the odd one out — it changes how the coach talks to you, not what the script says."
+        title={t('How you make videos')}
+        blurb={t('Choose the length and content language for your scripts.')}
       >
         <div className={grid}>
-          <Field label="Content language" htmlFor="settings-content-language">
+          <Field
+            label={t('Content language')}
+            htmlFor="settings-content-language"
+          >
             <Choice
               id="settings-content-language"
               required
@@ -541,30 +555,14 @@ export function ProfileSettingsForm({
             />
           </Field>
 
-          {/* Optional, and blank is the interesting value: it means "follow
-              Content language", which is what every profile did before this
-              control existed. The blank option has to SAY that — "Choose one"
-              would read as an unfinished field. */}
-          <Field
-            label="Reply language"
-            htmlFor="settings-reply-language"
-            optional
-            hint="How the coach talks to you, and the language your reports come back in."
-          >
-            <Choice
-              id="settings-reply-language"
-              required={false}
-              disabled={pending}
-              value={form.reply_language}
-              onChange={(next) => set('reply_language', next)}
-              options={REPLY_LANGUAGES}
-              labels={LABELS.reply_language}
-              placeholder="Same as content language"
-            />
-          </Field>
+          <p className="text-body-sm text-fg-muted md:col-span-2">
+            {t(
+              'Coach replies and new reports follow the interface language selected in the header.'
+            )}
+          </p>
 
           <Field
-            label="Typical video length"
+            label={t('Typical video length')}
             htmlFor="settings-typical-video-seconds"
             optional
           >
@@ -582,11 +580,13 @@ export function ProfileSettingsForm({
       </Group>
 
       <Group
-        title="Voice and limits"
-        blurb="What the coach remembers about how you sound. It is read, never guessed at — anything you leave blank is simply not sent."
+        title={t('Voice and limits')}
+        blurb={t(
+          'What the coach remembers about how you sound. It is read, never guessed at — anything you leave blank is simply not sent.'
+        )}
       >
         <div className={grid}>
-          <Field label="Tone" htmlFor="settings-tone" optional>
+          <Field label={t('Tone')} htmlFor="settings-tone" optional>
             <Choice
               id="settings-tone"
               required={false}
@@ -603,7 +603,7 @@ export function ProfileSettingsForm({
           <div className="hidden md:block" />
 
           <Field
-            label="Content pillars"
+            label={t('Content pillars')}
             htmlFor="settings-content-pillars"
             optional
             aside={
@@ -618,14 +618,14 @@ export function ProfileSettingsForm({
               rows={3}
               maxLength={PROFILE_LIMITS.content_pillars}
               disabled={pending}
-              placeholder="The ideas you keep coming back to"
+              placeholder={t('The ideas you keep coming back to')}
               value={form.content_pillars}
               onChange={(e) => set('content_pillars', e.target.value)}
             />
           </Field>
 
           <Field
-            label="Voice notes"
+            label={t('Voice notes')}
             htmlFor="settings-voice-notes"
             optional
             aside={
@@ -640,14 +640,16 @@ export function ProfileSettingsForm({
               rows={3}
               maxLength={PROFILE_LIMITS.voice_notes}
               disabled={pending}
-              placeholder="Vocabulary, pacing, humour, phrases worth keeping"
+              placeholder={t(
+                'Vocabulary, pacing, humour, phrases worth keeping'
+              )}
               value={form.voice_notes}
               onChange={(e) => set('voice_notes', e.target.value)}
             />
           </Field>
 
           <Field
-            label="What you have already tried"
+            label={t('What you have already tried')}
             htmlFor="settings-already-tried"
             optional
             aside={
@@ -662,14 +664,14 @@ export function ProfileSettingsForm({
               rows={3}
               maxLength={PROFILE_LIMITS.already_tried}
               disabled={pending}
-              placeholder="e.g. posted 10 videos, no views"
+              placeholder={t('e.g. posted 10 videos, no views')}
               value={form.already_tried}
               onChange={(e) => set('already_tried', e.target.value)}
             />
           </Field>
 
           <Field
-            label="Things to avoid"
+            label={t('Things to avoid')}
             htmlFor="settings-things-to-avoid"
             optional
             aside={
@@ -684,7 +686,7 @@ export function ProfileSettingsForm({
               rows={3}
               maxLength={PROFILE_LIMITS.things_to_avoid}
               disabled={pending}
-              placeholder="e.g. no price talk, no discount claims"
+              placeholder={t('e.g. no price talk, no discount claims')}
               value={form.things_to_avoid}
               onChange={(e) => set('things_to_avoid', e.target.value)}
             />
@@ -703,14 +705,19 @@ export function ProfileSettingsForm({
           className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left transition-colors duration-150 ease-out hover:bg-white/[0.02]"
         >
           <span className="flex flex-col gap-0.5">
-            <span className="text-label text-fg">What the coach reads</span>
+            <span className="text-label text-fg">
+              {t('What the coach reads')}
+            </span>
             <span className="text-body-sm text-fg-muted">
-              The exact text sent with every script and every video analysis.
+              {t(
+                'Your saved business context. Coach replies and new reports also follow the interface language selected in the header.'
+              )}
             </span>
           </span>
           <span className="flex items-center gap-3 shrink-0">
             <span className="tnum text-caption text-fg-subtle">
-              {preview.length}/{BLOCK_CEILING}
+              {preview.length.toLocaleString(localeTag(locale))}/
+              {BLOCK_CEILING.toLocaleString(localeTag(locale))}
             </span>
             <svg
               aria-hidden
@@ -754,12 +761,12 @@ export function ProfileSettingsForm({
               without this the line reads "You have unsaved changes." for the
               whole of a save — and the button's label is behind a spinner. */}
           {pending
-            ? 'Saving…'
+            ? t('Saving…')
             : message !== ''
-              ? message
-              : dirty
-                ? LEAVING
-                : ''}
+            ? t(message)
+            : dirty
+            ? t(LEAVING)
+            : ''}
         </p>
         <Button
           type="submit"
@@ -768,7 +775,7 @@ export function ProfileSettingsForm({
           loading={pending}
           disabled={pending}
         >
-          Save changes
+          {t('Save changes')}
         </Button>
       </div>
     </form>

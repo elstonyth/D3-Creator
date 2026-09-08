@@ -1,4 +1,5 @@
 'use client';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -19,6 +20,7 @@ import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
 const AFTER_CONFIRM = '/studio/chat';
 
 export function SignUpForm() {
+  const { t } = useI18n();
   const router = useRouter();
   const emailId = useId();
   const [email, setEmail] = useState('');
@@ -41,7 +43,9 @@ export function SignUpForm() {
         // `exchangeCodeForSession` lives in that route and nowhere else. The
         // user clicked "confirm", landed on the home page, and still looked
         // signed out.
-        emailRedirectTo: `${window.location.origin}/auth/callback?redirectTo=${encodeURIComponent(AFTER_CONFIRM)}`,
+        emailRedirectTo: `${
+          window.location.origin
+        }/auth/callback?redirectTo=${encodeURIComponent(AFTER_CONFIRM)}`,
       },
     });
 
@@ -130,15 +134,18 @@ export function SignUpForm() {
   if (taken !== null) {
     return (
       <div className="space-y-5">
-        <Alert tone="info" title="You already have an account.">
-          <span className="break-words text-fg">{taken}</span> is already registered, so
-          there is no new link to send. Sign in with your password, or reset it
-          if it has slipped your mind.
+        <Alert tone="info" title={t('You already have an account.')}>
+          <span className="break-words text-fg">
+            {t(
+              '{email} is already registered, so there is no new link to send. Sign in with your password, or reset it if it has slipped your mind.',
+              { email: taken }
+            )}
+          </span>
         </Alert>
 
         <div className="space-y-2.5">
           <ButtonLink href="/login" size="lg" className="w-full">
-            Sign in
+            {t('Sign in')}
           </ButtonLink>
           <ButtonLink
             href="/forgot-password"
@@ -146,7 +153,7 @@ export function SignUpForm() {
             size="lg"
             className="w-full"
           >
-            Reset your password
+            {t('Reset your password')}
           </ButtonLink>
           <Button
             type="button"
@@ -158,7 +165,7 @@ export function SignUpForm() {
               setError(null);
             }}
           >
-            Use a different email
+            {t('Use a different email')}
           </Button>
         </div>
       </div>
@@ -168,15 +175,19 @@ export function SignUpForm() {
   if (sentTo !== null) {
     return (
       <div className="space-y-5">
-        <Alert tone="success" title="Check your email.">
-          If <span className="break-words text-fg">{sentTo}</span> is new, a confirmation
-          link is on its way — open it and you land straight in the Studio.
+        <Alert tone="success" title={t('Check your email.')}>
+          <span className="break-words text-fg">
+            {t(
+              'If {email} is new, a confirmation link is on its way — open it and you land straight in the Studio.',
+              { email: sentTo }
+            )}
+          </span>
         </Alert>
 
-        {error ? <Alert tone="danger">{error}</Alert> : null}
+        {error ? <Alert tone="danger">{t(error)}</Alert> : null}
         {resent ? (
           <p role="status" className="text-caption text-fg-muted">
-            Requested again just now.
+            {t('Requested again just now.')}
           </p>
         ) : null}
 
@@ -189,7 +200,7 @@ export function SignUpForm() {
             onClick={handleResend}
             loading={pending}
           >
-            Resend the link
+            {t('Resend the link')}
           </Button>
           <Button
             type="button"
@@ -203,24 +214,24 @@ export function SignUpForm() {
             }}
             disabled={pending}
           >
-            Use a different email
+            {t('Use a different email')}
           </Button>
         </div>
 
         <p className="text-center text-caption text-fg-muted">
-          Only new addresses get a link. Already signed up with this one?{' '}
+          {t('Only new addresses get a link. Already signed up with this one?')}{' '}
           <Link
             href="/login"
             className="rounded text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
           >
-            Sign in
+            {t('Sign in')}
           </Link>{' '}
-          or{' '}
+          {t('or')}{' '}
           <Link
             href="/forgot-password"
             className="rounded text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
           >
-            reset your password
+            {t('reset your password')}
           </Link>
           .
         </p>
@@ -230,7 +241,7 @@ export function SignUpForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <Field label="Email" htmlFor={emailId}>
+      <Field label={t('Email')} htmlFor={emailId}>
         <Input
           id={emailId}
           type="email"
@@ -246,29 +257,29 @@ export function SignUpForm() {
       </Field>
 
       <PasswordField
-        label="Password"
+        label={t('Password')}
         value={password}
         onChange={setPassword}
         autoComplete="new-password"
-        placeholder="At least 8 characters"
+        placeholder={t('At least 8 characters')}
         minLength={8}
         disabled={pending}
-        hint="8 characters or more. A short phrase beats a clever word."
+        hint={t('8 characters or more. A short phrase beats a clever word.')}
       />
 
-      {error ? <Alert tone="danger">{error}</Alert> : null}
+      {error ? <Alert tone="danger">{t(error)}</Alert> : null}
 
       <Button type="submit" size="lg" className="w-full" loading={pending}>
-        Create account
+        {t('Create account')}
       </Button>
 
       <p className="text-center text-caption text-fg-muted">
-        Already have an account?{' '}
+        {t('Already have an account?')}{' '}
         <Link
           href="/login"
           className="rounded text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
         >
-          Sign in
+          {t('Sign in')}
         </Link>
       </p>
     </form>

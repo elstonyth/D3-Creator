@@ -1,4 +1,6 @@
 'use client';
+import { localeTag } from '@gitroom/frontend/lib/i18n';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -7,7 +9,6 @@ import { GlassCard } from '../ui/glass-card';
 import { PLATFORM_ICONS, PLATFORM_LABELS } from '../ui/platform-icons';
 import { ImageWithFallback } from '../ui/image-with-fallback';
 import {
-  exactFormatter,
   formatShowcase,
   handleToSlug,
   demoCreatorRows,
@@ -55,7 +56,7 @@ interface LbRow {
 /** Resolve creators for the active filter into ranked rows with combined totals, sorted by views (desc). */
 function resolveRows(
   creators: LiveCreatorRow[],
-  filter: PlatformFilter,
+  filter: PlatformFilter
 ): LbRow[] {
   const rows: LbRow[] =
     filter === 'all'
@@ -107,17 +108,18 @@ export function LeaderboardShowcase({
   liveCreators,
   topContentByWindow,
 }: LeaderboardShowcaseProps = {}) {
+  const { locale, t } = useI18n();
   const [filter, setFilter] = useState<PlatformFilter>('all');
   const [contentPeriod, setContentPeriod] = useState<ViewPeriod>('lifetime');
   const isLive = !!(liveCreators && liveCreators.length > 0);
   const baseCreators = useMemo(
     () => (isLive ? liveCreators! : demoCreatorRows()),
-    [isLive, liveCreators],
+    [isLive, liveCreators]
   );
 
   const rows = useMemo(
     () => resolveRows(baseCreators, filter),
-    [baseCreators, filter],
+    [baseCreators, filter]
   );
 
   const stats = useMemo(() => {
@@ -142,29 +144,38 @@ export function LeaderboardShowcase({
           totals (e.g. 30,053,805) aren't clipped in a cramped 3-up row. */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <SummaryStat
-          label="Total Followers"
-          value={formatShowcase(stats.followers)}
-          note={`${exactFormatter.format(stats.creators)} creator${stats.creators === 1 ? '' : 's'}`}
+          label={t('Total Followers')}
+          value={formatShowcase(stats.followers, locale)}
+          note={t(
+            stats.creators === 1 ? t('{count} creator') : t('{count} creators'),
+            {
+              count: new Intl.NumberFormat(localeTag(locale)).format(
+                stats.creators
+              ),
+            }
+          )}
         />
         <SummaryStat
-          label="Total Views"
-          value={formatShowcase(stats.views)}
-          note="across recent posts"
+          label={t('Total Views')}
+          value={formatShowcase(stats.views, locale)}
+          note={t('across recent posts')}
         />
         <SummaryStat
-          label="Total Engagement"
-          value={formatShowcase(stats.engagement)}
-          note="likes, comments & shares"
+          label={t('Total Engagement')}
+          value={formatShowcase(stats.engagement, locale)}
+          note={t('likes, comments & shares')}
         />
       </div>
 
       {/* Ranking 1 — Top creators by followers */}
       <RankSection
-        title="Top Creators"
-        subtitle={`${filterLabel(filter)} · by views`}
+        title={t('Top Creators')}
+        subtitle={t('{platform} · by views', {
+          platform: t(filterLabel(filter)),
+        })}
       >
         {rows.length === 0 ? (
-          <EmptyRow label="No creators on this platform yet." />
+          <EmptyRow label={t('No creators on this platform yet.')} />
         ) : (
           <CreatorTable rows={rows} />
         )}
@@ -176,23 +187,24 @@ export function LeaderboardShowcase({
       {/* Ranking 2 — Top content by views */}
       <ViewLeaderboard
         rows={content?.byViews ?? []}
-        title="Top Content"
-        subtitle="Most-viewed posts"
+        title={t('Top Content')}
+        subtitle={t('Most-viewed posts')}
         metric="views"
       />
 
       {/* Ranking 3 — Top content by interactions */}
       <ViewLeaderboard
         rows={content?.byInteractions ?? []}
-        title="Top Engaging Content"
-        subtitle="Most likes, comments & shares"
+        title={t('Top Engaging Content')}
+        subtitle={t('Most likes, comments & shares')}
         metric="interactions"
       />
 
       {!isLive && (
         <p className="text-caption text-fgSubtle text-center pt-2 tabular-nums">
-          Showcase preview · synthetic data. Live numbers replace this the
-          moment the scraper switches on.
+          {t(
+            'Showcase preview · synthetic data. Live numbers replace this the moment the scraper switches on.'
+          )}{' '}
         </p>
       )}
     </div>
@@ -208,10 +220,11 @@ interface PlatformTabBarProps {
 
 /** Platform filter tab bar (All + one tab per platform) for the leaderboard showcase. */
 function PlatformTabBar({ value, onChange }: PlatformTabBarProps) {
+  const { t } = useI18n();
   return (
     <div
       role="tablist"
-      aria-label="Platform filter"
+      aria-label={t('Platform filter')}
       className="border border-borderGlass rounded-2xl bg-customColor1 p-1.5 flex items-center gap-1 overflow-x-auto"
     >
       {TABS.map((tab) => {
@@ -229,11 +242,11 @@ function PlatformTabBar({ value, onChange }: PlatformTabBarProps) {
               'transition-colors duration-150 ease-out',
               isActive
                 ? 'bg-customColor16 text-fg border border-borderGlassStrong'
-                : 'border border-transparent text-fgMuted hover:text-fg hover:bg-white/[0.04]',
+                : 'border border-transparent text-fgMuted hover:text-fg hover:bg-white/[0.04]'
             )}
           >
             {Icon ? <Icon size={14} /> : null}
-            <span>{tab.label}</span>
+            <span>{t(tab.label)}</span>
           </button>
         );
       })}
@@ -251,12 +264,13 @@ function ContentPeriodBar({
   value: ViewPeriod;
   onChange: (next: ViewPeriod) => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <span className="text-caption text-fgSubtle">Posted in</span>
+      <span className="text-caption text-fgSubtle">{t('Posted in')}</span>
       <div
         role="tablist"
-        aria-label="Content time period"
+        aria-label={t('Content time period')}
         className="flex flex-wrap items-center gap-1"
       >
         {VIEW_PERIODS.map((period) => {
@@ -273,10 +287,10 @@ function ContentPeriodBar({
                 'transition-colors duration-150 ease-out',
                 isActive
                   ? 'bg-glass-subtle text-fg border border-borderGlassStrong'
-                  : 'border border-transparent text-fgMuted hover:text-fg hover:bg-white/[0.04]',
+                  : 'border border-transparent text-fgMuted hover:text-fg hover:bg-white/[0.04]'
               )}
             >
-              {period.label}
+              {t(period.label)}
             </button>
           );
         })}
@@ -366,6 +380,7 @@ const GRID =
 
 /** Ranked creator table (rank · avatar+name · views · followers) for the active filter. */
 function CreatorTable({ rows }: { rows: LbRow[] }) {
+  const { t } = useI18n();
   return (
     <div className="flex flex-col">
       <div
@@ -373,9 +388,11 @@ function CreatorTable({ rows }: { rows: LbRow[] }) {
         className={`${GRID} px-2 pb-2 text-micro uppercase tracking-[0.04em] text-fgSubtle border-b border-borderGlass`}
       >
         <span>#</span>
-        <span>Creator</span>
-        <span className="text-right">Views</span>
-        <span className="hidden sm:block text-right sm:pl-6">Followers</span>
+        <span>{t('Creator')}</span>
+        <span className="text-right">{t('Views')}</span>
+        <span className="hidden sm:block text-right sm:pl-6">
+          {t('Followers')}
+        </span>
       </div>
       <ul>
         {rows.map((row, i) => (
@@ -388,6 +405,7 @@ function CreatorTable({ rows }: { rows: LbRow[] }) {
 
 /** One ranked creator row (rank · name · views · followers); links to the creator page when a slug exists. */
 function CreatorRow({ row, rank }: { row: LbRow; rank: number }) {
+  const { t } = useI18n();
   const isWinner = rank === 1;
   const initial = row.name.trim().charAt(0).toUpperCase() || '?';
   const cells = (
@@ -395,7 +413,7 @@ function CreatorRow({ row, rank }: { row: LbRow; rank: number }) {
       <span
         className={clsx(
           'font-mono tabular-nums text-body-sm',
-          isWinner ? 'text-brand font-semibold' : 'text-fgSubtle',
+          isWinner ? 'text-brand font-semibold' : 'text-fgSubtle'
         )}
       >
         {String(rank).padStart(2, '0')}
@@ -424,14 +442,14 @@ function CreatorRow({ row, rank }: { row: LbRow; rank: number }) {
   const rowClass = clsx(
     GRID,
     'px-2 h-14 rounded-lg transition-colors duration-150 ease-out border-b border-borderGlass last:border-b-0',
-    isWinner && 'bg-brand/[0.06]',
+    isWinner && 'bg-brand/[0.06]'
   );
   return (
     <li>
       {row.slug ? (
         <Link
           href={`/creators/${row.slug}`}
-          aria-label={`View ${row.name} profile`}
+          aria-label={t('View {name} profile', { name: row.name })}
           className={`${rowClass} hover:bg-white/[0.03] focus-visible:bg-white/[0.05] outline-none`}
         >
           {cells}

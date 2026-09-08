@@ -1,4 +1,5 @@
 'use client';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -11,6 +12,7 @@ import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
  * text beside it. No Alert here — a bordered box would break the header row.
  */
 export function SignOutButton() {
+  const { t } = useI18n();
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +25,7 @@ export function SignOutButton() {
     if (signOutErr) {
       // Surface the failure inline and bail out — redirecting would mask
       // a still-active session and confuse the user about their auth state.
-      setError(signOutErr.message);
+      setError('Still signed in. Please try signing out again.');
       setPending(false);
       return;
     }
@@ -34,7 +36,7 @@ export function SignOutButton() {
   return (
     <div className="inline-flex items-center gap-2">
       <Button variant="ghost" size="sm" onClick={handle} loading={pending}>
-        Sign out
+        {t('Sign out')}
       </Button>
       {error ? (
         <span
@@ -52,7 +54,7 @@ export function SignOutButton() {
             <path d="M8 2.4 14.4 13.4H1.6z" strokeLinejoin="round" />
             <path d="M8 6.6v3.1M8 11.7v.4" strokeLinecap="round" />
           </svg>
-          Still signed in — {error}
+          {t(error)}
         </span>
       ) : null}
     </div>

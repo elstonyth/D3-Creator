@@ -1,4 +1,7 @@
 'use client';
+import { RichText } from '@gitroom/frontend/components/legal/rich-text';
+
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 
 import { motion, useReducedMotion } from 'framer-motion';
 import { cn } from '@gitroom/frontend/lib/utils';
@@ -54,10 +57,15 @@ const containerVariants = {
 
 const itemVariants = {
   hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const } },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] as const },
+  },
 };
 
 export function FivePillars() {
+  const { t } = useI18n();
   const reducedMotion = useReducedMotion();
 
   return (
@@ -68,19 +76,26 @@ export function FivePillars() {
       <header className="mb-10 flex flex-col gap-6 border-b border-borderGlass pb-6 md:flex-row md:items-end md:justify-between">
         <div className="flex flex-col gap-2">
           <span className="text-micro uppercase text-fgSubtle tracking-[0.35em]">
-            Five pillars
+            {t('Five pillars')}{' '}
           </span>
           <h2
             id="about-pillars-heading"
             className="text-section text-fg max-w-[640px] tracking-[-0.025em]"
           >
-            Everything D3 is built around{' '}
-            <span className="text-brand">real execution</span>.
+            <RichText
+              text={t('Everything D3 is built around {emphasis1}.')}
+              values={{
+                emphasis1: (
+                  <span className="text-brand">{t('real execution')}</span>
+                ),
+              }}
+            />
           </h2>
         </div>
         <p className="max-w-sm text-body-sm text-fgMuted md:text-right">
-          Our system focuses on measurable outcomes. No vanity metrics, no
-          motivational decks.
+          {t(
+            'Our system focuses on measurable outcomes. No vanity metrics, no motivational decks.'
+          )}{' '}
         </p>
       </header>
 
@@ -100,7 +115,7 @@ export function FivePillars() {
               'border border-borderGlass bg-customColor1 p-6',
               'transition-[transform,border-color,background-color] duration-200 ease-out',
               'hover:-translate-y-0.5 hover:border-borderGlassStrong hover:bg-customColor35',
-              pillar.span,
+              pillar.span
             )}
           >
             {/* Soft brand wash, top-left */}
@@ -115,21 +130,21 @@ export function FivePillars() {
 
             <header className="flex items-start gap-3">
               <h3 className="text-subsection text-fg tracking-[-0.015em] flex-1">
-                {pillar.title}
+                {t(pillar.title)}
               </h3>
               <span className="ml-auto rounded-full border border-borderGlass px-2 py-0.5 text-[10px] uppercase tracking-[0.3em] text-fgSubtle">
-                {pillar.meta}
+                {t(pillar.meta)}
               </span>
             </header>
             <p className="mt-3 text-body-sm leading-relaxed text-fgMuted">
-              {pillar.body}
+              {t(pillar.body)}
             </p>
           </motion.article>
         ))}
       </motion.div>
 
       <p className="text-caption text-fgSubtle uppercase tracking-[0.2em] mt-12 border-t border-borderGlass pt-6">
-        Quiet precision for outcomes that compound.
+        {t('Quiet precision for outcomes that compound.')}{' '}
       </p>
     </section>
   );

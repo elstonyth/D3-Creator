@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 
 // Brand yellow — must match colors.scss brand-500.
 const PARTICLE_COLOR = '#F2E600';
@@ -48,6 +49,7 @@ export function D3LogoParticles({
   logoSrc = '/d3-logo.png',
   className,
 }: D3LogoParticlesProps) {
+  const { t } = useI18n();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mouse = useRef({ x: -1000, y: -1000 });
   const touching = useRef(false);
@@ -288,7 +290,7 @@ export function D3LogoParticles({
   return (
     <canvas
       ref={canvasRef}
-      aria-label="D3 Creator logo"
+      aria-label={t('D3 Creator logo')}
       role="img"
       className={className}
     />

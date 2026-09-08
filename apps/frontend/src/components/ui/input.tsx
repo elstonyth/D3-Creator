@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { cn } from '@gitroom/frontend/lib/utils';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 
 const CONTROL = cn(
   'w-full rounded-lg bg-surface-subtle border border-line px-3 text-body text-fg',
@@ -14,7 +15,7 @@ const CONTROL = cn(
   // restyle the fill, so the standard trick is an inset shadow the size of the
   // field plus a text-fill colour.
   '[&:-webkit-autofill]:[-webkit-text-fill-color:var(--fg)]',
-  '[&:-webkit-autofill]:[box-shadow:0_0_0_1000px_var(--surface-subtle)_inset]',
+  '[&:-webkit-autofill]:[box-shadow:0_0_0_1000px_var(--surface-subtle)_inset]'
 );
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
@@ -32,12 +33,12 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           CONTROL,
           'h-10',
           invalid && 'border-brand-700 focus:border-brand-700',
-          className,
+          className
         )}
         {...props}
       />
     );
-  },
+  }
 );
 
 export const Textarea = React.forwardRef<
@@ -113,6 +114,7 @@ export function Field({
   optional = false,
   children,
 }: FieldProps) {
+  const { t } = useI18n();
   return (
     <div className="space-y-1.5">
       <div className="flex items-baseline justify-between gap-3">
@@ -120,7 +122,7 @@ export function Field({
           {label}
           {optional ? (
             <span className="ml-1.5 text-caption font-normal text-fg-subtle">
-              optional
+              {t('optional')}
             </span>
           ) : null}
         </label>
@@ -128,7 +130,11 @@ export function Field({
       </div>
       {children}
       {error ? (
-        <p id={`${htmlFor}-error`} role="alert" className="text-caption text-brand-200">
+        <p
+          id={`${htmlFor}-error`}
+          role="alert"
+          className="text-caption text-brand-200"
+        >
           {error}
         </p>
       ) : hint ? (

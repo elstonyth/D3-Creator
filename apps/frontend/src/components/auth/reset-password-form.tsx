@@ -1,4 +1,5 @@
 'use client';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 
 /**
  * Step 2 of password recovery: set the new password.
@@ -23,6 +24,7 @@ import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
 type SessionState = 'checking' | 'ready' | 'missing';
 
 export function ResetPasswordForm(): ReactElement {
+  const { t } = useI18n();
   const router = useRouter();
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -83,7 +85,7 @@ export function ResetPasswordForm(): ReactElement {
     return (
       <div className="space-y-4" aria-busy="true">
         <p className="sr-only" role="status">
-          Checking your link.
+          {t('Checking your link.')}
         </p>
         <Skeleton className="h-4 w-28" />
         <Skeleton className="h-10 w-full" />
@@ -97,19 +99,20 @@ export function ResetPasswordForm(): ReactElement {
   if (session === 'missing') {
     return (
       <div className="space-y-5">
-        <Alert tone="warning" title="That link has expired.">
-          Reset links work once and time out within the hour. Ask for a new one
-          and it will land in your inbox straight away.
+        <Alert tone="warning" title={t('That link has expired.')}>
+          {t(
+            'Reset links work once and time out within the hour. Ask for a new one and it will land in your inbox straight away.'
+          )}
         </Alert>
         <ButtonLink href="/forgot-password" size="lg" className="w-full">
-          Send a new link
+          {t('Send a new link')}
         </ButtonLink>
         <p className="text-center text-caption text-fg-muted">
           <Link
             href="/login"
             className="rounded text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
           >
-            Back to sign in
+            {t('Back to sign in')}
           </Link>
         </p>
       </div>
@@ -119,30 +122,30 @@ export function ResetPasswordForm(): ReactElement {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <PasswordField
-        label="New password"
+        label={t('New password')}
         value={password}
         onChange={setPassword}
         autoComplete="new-password"
-        placeholder="At least 8 characters"
+        placeholder={t('At least 8 characters')}
         minLength={8}
         disabled={pending}
-        hint="8 characters or more. A short phrase beats a clever word."
+        hint={t('8 characters or more. A short phrase beats a clever word.')}
       />
       <PasswordField
-        label="Confirm new password"
+        label={t('Confirm new password')}
         value={confirm}
         onChange={setConfirm}
         autoComplete="new-password"
-        placeholder="Type it again"
+        placeholder={t('Type it again')}
         minLength={8}
         disabled={pending}
-        hint="Both fields have to match."
+        hint={t('Both fields have to match.')}
       />
 
-      {error ? <Alert tone="danger">{error}</Alert> : null}
+      {error ? <Alert tone="danger">{t(error)}</Alert> : null}
 
       <Button type="submit" size="lg" className="w-full" loading={pending}>
-        Set new password
+        {t('Set new password')}
       </Button>
     </form>
   );

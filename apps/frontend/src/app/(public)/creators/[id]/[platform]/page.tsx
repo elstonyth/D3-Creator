@@ -1,3 +1,6 @@
+import { type Locale } from '@gitroom/frontend/lib/i18n';
+
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
@@ -36,26 +39,40 @@ const VALID: PlatformKey[] = [
   // xiaohongshu (RedNote) archived - its per-platform route now 404s (notFound).
 ];
 
-const compact = new Intl.NumberFormat('en-US', {
-  notation: 'compact',
-  maximumFractionDigits: 1,
-});
+const compact = (locale: Locale) =>
+  new Intl.NumberFormat(locale === 'zh' ? 'zh-CN' : 'en-US', {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  });
 
 export async function generateMetadata({
   params,
 }: {
   params: Promise<Params>;
 }): Promise<Metadata> {
+  const { t } = await getI18n();
   const { id, platform } = await params;
   const key = platform.toLowerCase() as PlatformKey;
-  const label = PLATFORM_LABELS[key] ?? platform;
+  const label = t(PLATFORM_LABELS[key] ?? platform);
   return {
-    title: `${id} on ${label} — D3 Creator`,
-    description: `Live ${label} stats for ${id} — followers, engagement, and recent posts.`,
+    title: t('{name} on {platform} — D3 Creator', {
+      name: id,
+      platform: label,
+    }),
+    description: t(
+      'Live {platform} stats for {name} — followers, engagement, and recent posts.',
+      { platform: label, name: id }
+    ),
     alternates: { canonical: `/creators/${id}/${platform}` },
     openGraph: {
-      title: `${id} on ${label} — D3 Creator`,
-      description: `Live ${label} stats for ${id} — followers, engagement, and recent posts.`,
+      title: t('{name} on {platform} — D3 Creator', {
+        name: id,
+        platform: label,
+      }),
+      description: t(
+        'Live {platform} stats for {name} — followers, engagement, and recent posts.',
+        { platform: label, name: id }
+      ),
     },
   };
 }
@@ -65,6 +82,7 @@ export default async function CreatorPlatformPage({
 }: {
   params: Promise<Params>;
 }) {
+  const { locale, t } = await getI18n();
   const { id, platform } = await params;
   const platformKey = platform.toLowerCase() as PlatformKey;
   if (!VALID.includes(platformKey)) notFound();
@@ -73,14 +91,14 @@ export default async function CreatorPlatformPage({
     (err) => {
       console.error(
         '[creators/[id]/[platform]] getCreatorPlatformDetail failed',
-        err,
+        err
       );
       return null;
-    },
+    }
   );
   if (!detail) notFound();
   const { creator, slot, posts } = detail;
-  const label = PLATFORM_LABELS[platformKey];
+  const label = t(PLATFORM_LABELS[platformKey]);
 
   // Newest first. Rows arrive ordered by capture batch, so posts from two
   // different captures can interleave without this.
@@ -106,11 +124,13 @@ export default async function CreatorPlatformPage({
         },
         mediaCount: p.mediaCount,
         durationSec: p.durationSec,
-      }),
+      })
     )
     .sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt));
 
-  const capturedAt = slot?.capturedAt ? formatPostDateLong(slot.capturedAt) : null;
+  const capturedAt = slot?.capturedAt
+    ? formatPostDateLong(slot.capturedAt, locale)
+    : null;
 
   return (
     <Container>
@@ -119,7 +139,7 @@ export default async function CreatorPlatformPage({
           href={`/creators/${encodeURIComponent(id)}`}
           className="-ml-2 mb-6 inline-flex h-10 items-center gap-1.5 rounded-lg px-2 text-caption text-fg-muted transition-colors duration-150 ease-out hover:text-fg focus-visible:outline-none focus-visible:shadow-focus"
         >
-          <span aria-hidden="true">&larr;</span> {creator.displayName}
+          <span aria-hidden="true">{'←'}</span> {creator.displayName}
         </Link>
 
         <div className="mb-5 flex flex-wrap items-center gap-3">
@@ -130,7 +150,10 @@ export default async function CreatorPlatformPage({
         </div>
 
         <h1 className="text-display-2 text-fg [overflow-wrap:anywhere]">
-          {creator.displayName} on {label}
+          {t('{name} on {platform}', {
+            name: creator.displayName,
+            platform: label,
+          })}
         </h1>
         {slot?.nickname ? (
           <p className="mt-3 max-w-prose text-body text-fg-muted">
@@ -139,7 +162,7 @@ export default async function CreatorPlatformPage({
         ) : null}
         {capturedAt ? (
           <p className="mt-4 text-caption text-fg-subtle">
-            Last captured {capturedAt}
+            {t('Last captured {date}', { date: capturedAt })}
           </p>
         ) : null}
       </Section>
@@ -147,38 +170,49 @@ export default async function CreatorPlatformPage({
       {slot ? (
         <Section space="md" divided>
           <SectionHeader
-            title="Reach"
-            lede={`Followers are from the latest capture of this ${label} profile. Views and likes cover the 30 most recent posts only, so they read lower than the all-time totals on the leaderboard.`}
+            title={t('Reach')}
+            lede={t(
+              'Followers are from the latest capture of this {platform} profile. Views and likes cover the 30 most recent posts only, so they read lower than the all-time totals on the leaderboard.',
+              { platform: label }
+            )}
           />
           <StatRow>
             <Stat
-              label="Followers"
-              size="lg"
-              value={slot.followers != null ? compact.format(slot.followers) : '—'}
-              meta={`On ${label}`}
-            />
-            <Stat
-              label="Total views"
+              label={t('Followers')}
               size="lg"
               value={
-                slot.totalViews != null ? compact.format(slot.totalViews) : '—'
+                slot.followers != null
+                  ? compact(locale).format(slot.followers)
+                  : '—'
+              }
+              meta={t('On {platform}', { platform: label })}
+            />
+            <Stat
+              label={t('Total views')}
+              size="lg"
+              value={
+                slot.totalViews != null
+                  ? compact(locale).format(slot.totalViews)
+                  : '—'
               }
               meta={
                 slot.totalViews != null
-                  ? 'Last 30 posts'
-                  : 'This platform reports no view counts'
+                  ? t('Last 30 posts')
+                  : t('This platform reports no view counts')
               }
             />
             <Stat
-              label="Total likes"
+              label={t('Total likes')}
               size="lg"
               value={
-                slot.totalLikes != null ? compact.format(slot.totalLikes) : '—'
+                slot.totalLikes != null
+                  ? compact(locale).format(slot.totalLikes)
+                  : '—'
               }
               meta={
                 slot.totalLikes != null
-                  ? 'Last 30 posts'
-                  : 'No likes captured yet'
+                  ? t('Last 30 posts')
+                  : t('No likes captured yet')
               }
             />
           </StatRow>
@@ -187,13 +221,18 @@ export default async function CreatorPlatformPage({
 
       <Section space="md" divided className="pb-20 sm:pb-28">
         <SectionHeader
-          title="Recent posts"
+          title={t('Recent posts')}
           lede={
             livePosts.length === 1
-              ? 'The one post we have captured so far. Open it for the full caption and counts.'
+              ? t(
+                  'The one post we have captured so far. Open it for the full caption and counts.'
+                )
               : livePosts.length > 1
-                ? `The ${livePosts.length} most recent posts we have captured. Open one for its full caption and counts.`
-                : undefined
+              ? t(
+                  'The {count} most recent posts we have captured. Open one for its full caption and counts.',
+                  { count: livePosts.length }
+                )
+              : undefined
           }
         />
 
@@ -201,20 +240,26 @@ export default async function CreatorPlatformPage({
           <ContentGrid posts={livePosts} />
         ) : slot ? (
           <EmptyState
-            title="No posts captured yet"
-            description={`This ${label} profile is tracked, but the daily scrape has not returned any posts for it yet. It fills in after the next run.`}
+            title={t('No posts captured yet')}
+            description={t(
+              'This {platform} profile is tracked, but the daily scrape has not returned any posts for it yet. It fills in after the next run.',
+              { platform: label }
+            )}
             action={{
               href: `/creators/${encodeURIComponent(id)}`,
-              label: `Back to ${creator.displayName}`,
+              label: t('Back to {name}', { name: creator.displayName }),
             }}
           />
         ) : (
           <EmptyState
-            title={`Not tracked on ${label}`}
-            description={`${creator.displayName} has no ${label} profile connected, so there are no numbers to show here.`}
+            title={t('Not tracked on {platform}', { platform: label })}
+            description={t(
+              '{name} has no {platform} profile connected, so there are no numbers to show here.',
+              { name: creator.displayName, platform: label }
+            )}
             action={{
               href: `/creators/${encodeURIComponent(id)}`,
-              label: 'See tracked platforms',
+              label: t('See tracked platforms'),
             }}
           />
         )}

@@ -1,5 +1,8 @@
 'use client';
 
+import { localeTag } from '@gitroom/frontend/lib/i18n';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
+
 /**
  * The left rail — PRD 3 §7.1, which owns this file's geometry, landmarks and
  * copy.
@@ -35,6 +38,7 @@ export function ThreadRail({
   threads,
   activeThreadId,
 }: ThreadRailProps): ReactElement {
+  const { locale, t } = useI18n();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const now = new Date();
@@ -44,7 +48,7 @@ export function ThreadRail({
     // At md and up this is its own full-height column that does not scroll with
     // the page — at 50 rows the rail is 2000px tall.
     <aside
-      aria-label="Conversations"
+      aria-label={t('Conversations')}
       className="md:sticky md:top-14 md:h-[calc(100dvh-56px)] md:flex md:flex-col md:min-h-0 md:py-8 md:border-r md:border-line-subtle md:pr-6"
     >
       {/* h-16 (64px) is load-bearing, not a taste call: the workspace's mobile
@@ -57,10 +61,10 @@ export function ThreadRail({
         onClick={() => setOpen((wasOpen) => !wasOpen)}
         className="md:hidden h-16 w-full flex items-center justify-between gap-3 border-b border-line-subtle text-label text-fg-muted hover:text-fg transition-colors duration-150 ease-out"
       >
-        <span>Conversations</span>
+        <span>{t('Conversations')}</span>
         <span className="flex items-center gap-2">
           <span className="tnum text-caption text-fg-subtle">
-            {threads.length}
+            {threads.length.toLocaleString(localeTag(locale))}
           </span>
           <ChevronDownIcon
             aria-hidden
@@ -75,7 +79,9 @@ export function ThreadRail({
           name the region that toggles, so the id never sits on the nav alone. */}
       <div
         id="studio-thread-list"
-        className={`${open ? 'flex' : 'hidden'} md:flex flex-col gap-3 min-h-0 py-4 md:py-0`}
+        className={`${
+          open ? 'flex' : 'hidden'
+        } md:flex flex-col gap-3 min-h-0 py-4 md:py-0`}
       >
         {/* Not a <Link>: button.tsx has no `asChild`, so an anchor cannot wear
             this variant. Only the thread rows below need to be links. */}
@@ -85,17 +91,18 @@ export function ThreadRail({
           className="w-full justify-center shrink-0"
           onClick={() => router.push('/studio/chat')}
         >
-          New chat
+          {t('New chat')}
         </Button>
 
         {threads.length === 0 ? (
           <p className="px-3 py-2 text-caption text-fg-subtle">
-            Nothing here yet. Your first message starts a conversation, and it
-            is saved automatically.
+            {t(
+              'Nothing here yet. Your first message starts a conversation, and it is saved automatically.'
+            )}
           </p>
         ) : (
           <nav
-            aria-label="Past conversations"
+            aria-label={t('Past conversations')}
             className="flex flex-col gap-0.5 min-h-0 max-h-[40dvh] overflow-y-auto md:max-h-none md:overflow-y-auto"
           >
             {threads.map((thread) => {
@@ -130,7 +137,7 @@ export function ThreadRail({
                     suppressHydrationWarning
                     className="text-caption text-fg-subtle shrink-0"
                   >
-                    {relativeThreadDate(thread.updated_at, now)}
+                    {relativeThreadDate(thread.updated_at, now, locale)}
                   </time>
                 </Link>
               );

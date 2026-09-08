@@ -1,5 +1,7 @@
 'use client';
 
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
+
 /**
  * The inline profile form — PRD 3 §7.4.
  *
@@ -26,6 +28,7 @@ import { parseInlineProfile } from '@gitroom/frontend/lib/business-profile';
 const FAILURE = 'Could not save that. Try again.';
 
 export function ProfileForm(): ReactElement {
+  const { t } = useI18n();
   const router = useRouter();
   const [whatYouSell, setWhatYouSell] = useState('');
   const [whoBuysIt, setWhoBuysIt] = useState('');
@@ -33,7 +36,7 @@ export function ProfileForm(): ReactElement {
   const [error, setError] = useState('');
 
   async function handleSubmit(
-    event: FormEvent<HTMLFormElement>,
+    event: FormEvent<HTMLFormElement>
   ): Promise<void> {
     event.preventDefault();
     setError('');
@@ -78,49 +81,49 @@ export function ProfileForm(): ReactElement {
     >
       <div className="flex flex-col gap-1.5">
         <h2 className="text-heading text-fg">
-          Tell the coach about your business.
+          {t('Tell the coach about your business.')}
         </h2>
         <p className="max-w-prose text-body-sm text-fg-muted">
-          Two questions, and the scripts stop being generic. Everything else —
-          tone, content pillars, what to avoid — is edited later in{' '}
+          {t(
+            'Two questions, and the scripts stop being generic. Everything else — tone, content pillars, what to avoid — is edited later in'
+          )}{' '}
           <Link
             href="/studio/settings"
             className="text-fg underline underline-offset-4"
           >
-            Settings
+            {t('Settings')}
           </Link>
           .
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Field label="What you sell" htmlFor="profile-what-you-sell">
+        <Field label={t('What you sell')} htmlFor="profile-what-you-sell">
           <Input
             id="profile-what-you-sell"
             required
             maxLength={200}
             disabled={pending}
-            placeholder="e.g. second-hand phones"
+            placeholder={t('e.g. second-hand phones')}
             value={whatYouSell}
             onChange={(e) => setWhatYouSell(e.target.value)}
           />
         </Field>
 
-        <Field label="Who buys it" htmlFor="profile-who-buys-it">
+        <Field label={t('Who buys it')} htmlFor="profile-who-buys-it">
           <Input
             id="profile-who-buys-it"
             required
             maxLength={200}
             disabled={pending}
-            placeholder="e.g. students and young workers"
+            placeholder={t('e.g. students and young workers')}
             value={whoBuysIt}
             onChange={(e) => setWhoBuysIt(e.target.value)}
           />
         </Field>
-
       </div>
 
-      {error !== '' && <Alert tone="danger">{error}</Alert>}
+      {error !== '' && <Alert tone="danger">{t(error)}</Alert>}
 
       <div className="flex items-center gap-3">
         <Button
@@ -130,10 +133,10 @@ export function ProfileForm(): ReactElement {
           loading={pending}
           disabled={pending}
         >
-          Save and continue
+          {t('Save and continue')}
         </Button>
         <p className="text-caption text-fg-subtle">
-          You can change any of this later.
+          {t('You can change any of this later.')}
         </p>
       </div>
     </form>

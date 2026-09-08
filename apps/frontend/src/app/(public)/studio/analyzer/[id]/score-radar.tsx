@@ -1,3 +1,4 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 /**
  * The six-dimension radar — PRD 3 §6.6. Pure server-rendered inline SVG; no
  * chart library. All geometry comes from `lib/analyzer-charts.ts`.
@@ -25,23 +26,27 @@ import {
   type ScoreKey,
 } from '@gitroom/frontend/lib/analyzer-contract';
 
-export function ScoreRadar({
+export async function ScoreRadar({
   scores,
 }: {
   scores: Record<ScoreKey, number>;
-}): ReactElement {
+}): Promise<ReactElement> {
+  const { t } = await getI18n();
   const geometry = buildRadar(scores);
   const label =
-    `Radar chart of the six scores, each out of ${SCORE_MAX}. ` +
-    SCORE_KEYS.map((k) => `${SCORE_AXIS_LABEL[k]} ${scores[k]}`).join(', ');
+    t('Radar chart of the six scores, each out of {max}.', { max: SCORE_MAX }) +
+    ' ' +
+    SCORE_KEYS.map((k) => `${t(SCORE_AXIS_LABEL[k])} ${scores[k]}`).join(', ');
 
   return (
     <figure className="flex flex-col gap-4">
       <figcaption className="flex flex-col gap-1">
-        <h3 className="text-heading text-fg">Score profile</h3>
+        <h3 className="text-heading text-fg">{t('Score profile')}</h3>
         <p className="text-caption text-fg-subtle">
-          Six dimensions on one shape · each axis 0 at the centre to {SCORE_MAX}{' '}
-          at the rim
+          {t(
+            'Six dimensions on one shape · each axis 0 at the centre to {max} at the rim',
+            { max: SCORE_MAX }
+          )}{' '}
         </p>
       </figcaption>
 
@@ -93,7 +98,9 @@ export function ScoreRadar({
                 r="3.5"
                 className="fill-fg-muted motion-safe:group-hover:fill-brand transition-colors duration-150 ease-out"
               >
-                <title>{`${SCORE_CARD_LABEL[vertex.key]}: ${scores[vertex.key]} / ${SCORE_MAX}`}</title>
+                <title>{`${t(SCORE_CARD_LABEL[vertex.key])}: ${
+                  scores[vertex.key]
+                } / ${SCORE_MAX}`}</title>
               </circle>
             </g>
           ))}
@@ -109,7 +116,7 @@ export function ScoreRadar({
             className="flex items-baseline justify-between gap-3 border-b border-line-subtle py-2"
           >
             <dt className="text-caption text-fg-muted truncate">
-              {SCORE_AXIS_LABEL[key]}
+              {t(SCORE_AXIS_LABEL[key])}
             </dt>
             <dd className="tnum text-caption text-fg shrink-0">
               {scores[key]}

@@ -1,3 +1,4 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 // apps/frontend/src/app/(public)/classes/page.tsx
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -13,7 +14,10 @@ import { Reveal } from '@gitroom/frontend/components/ui/reveal';
 export const dynamic = 'force-dynamic';
 // The public layout appends " — D3 Creator" via metadata.title.template, so the
 // suffix must NOT be repeated here.
-export const metadata: Metadata = { title: 'Online classes' };
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: t('Online classes') };
+}
 
 interface ClassRow {
   id: string;
@@ -48,6 +52,7 @@ function groupBySeries(rows: ClassRow[]): SeriesGroup[] {
 }
 
 export default async function ClassesPage() {
+  const { t } = await getI18n();
   const auth = await getAuthContext();
   const supabase = await getSupabaseRoute();
   const { data: videos, error } = await supabase
@@ -75,18 +80,23 @@ export default async function ClassesPage() {
     <Section space="md">
       <Container>
         <header className="border-b border-line-subtle pb-10 sm:pb-12">
-          <p className="text-micro uppercase text-fg-subtle">Class library</p>
-          <h1 className="mt-3 text-display-2 text-fg">Online classes</h1>
+          <p className="text-micro uppercase text-fg-subtle">
+            {t('Class library')}
+          </p>
+          <h1 className="mt-3 text-display-2 text-fg">{t('Online classes')}</h1>
           <p className="mt-4 max-w-prose text-body-lg text-fg-muted">
-            Recorded sessions from the D3 creator programme, in the order we
-            teach them. Start at the first session or jump straight to the one
-            you need.
+            {t(
+              'Recorded sessions from the D3 creator programme, in the order we teach them. Start at the first session or jump straight to the one you need.'
+            )}{' '}
           </p>
           {rows.length > 0 && (
             <p className="mt-5 text-caption text-fg-subtle">
-              <span className="tnum">{rows.length}</span>
-              {rows.length === 1 ? ' session' : ' sessions'} available to you ·
-              streamed from Google Drive
+              {t(
+                rows.length === 1
+                  ? '{count} session available to you · streamed from Google Drive'
+                  : '{count} sessions available to you · streamed from Google Drive',
+                { count: rows.length }
+              )}{' '}
             </p>
           )}
         </header>
@@ -98,11 +108,12 @@ export default async function ClassesPage() {
                 <LockGlyph className="mt-0.5 h-4 w-4 shrink-0 text-fg-subtle" />
                 <div className="min-w-0">
                   <p className="text-heading text-fg">
-                    Member sessions are not listed here
+                    {t('Member sessions are not listed here')}{' '}
                   </p>
                   <p className="mt-1.5 max-w-prose text-body text-fg-muted">
-                    You are seeing the classes we publish openly. Sign in with
-                    your member account to see the rest of the library.
+                    {t(
+                      'You are seeing the classes we publish openly. Sign in with your member account to see the rest of the library.'
+                    )}{' '}
                   </p>
                 </div>
               </div>
@@ -111,7 +122,7 @@ export default async function ClassesPage() {
                 href="/login?redirectTo=/classes"
                 className="shrink-0 self-start sm:self-auto"
               >
-                Sign in
+                {t('Sign in')}{' '}
               </ButtonLink>
             </div>
           )}
@@ -120,20 +131,24 @@ export default async function ClassesPage() {
             signedOut ? (
               <EmptyState
                 icon={<LockGlyph className="h-5 w-5" />}
-                title="No classes are open to the public right now"
-                description="Sessions are published to signed-in members. Sign in to see the library."
+                title={t('No classes are open to the public right now')}
+                description={t(
+                  'Sessions are published to signed-in members. Sign in to see the library.'
+                )}
                 action={{
                   href: '/login?redirectTo=/classes',
-                  label: 'Sign in',
+                  label: t('Sign in'),
                 }}
-                secondary={{ href: '/', label: 'Back to the showcase' }}
+                secondary={{ href: '/', label: t('Back to the showcase') }}
               />
             ) : (
               <EmptyState
                 icon={<PlayGlyph className="h-5 w-5" />}
-                title="No classes published yet"
-                description="New sessions appear here as soon as they go live. Nothing to watch today."
-                action={{ href: '/', label: 'Back to the showcase' }}
+                title={t('No classes published yet')}
+                description={t(
+                  'New sessions appear here as soon as they go live. Nothing to watch today.'
+                )}
+                action={{ href: '/', label: t('Back to the showcase') }}
               />
             )
           ) : (
@@ -144,19 +159,23 @@ export default async function ClassesPage() {
                     <div className="min-w-0">
                       {group.label && (
                         <p className="text-micro uppercase text-fg-subtle">
-                          Series
+                          {t('Series')}{' '}
                         </p>
                       )}
                       <h2
                         id={`series-${group.items[0].id}`}
                         className="mt-1 text-subsection text-fg"
                       >
-                        {group.label ?? 'All sessions'}
+                        {group.label ?? t('All sessions')}
                       </h2>
                     </div>
                     <span className="shrink-0 text-caption text-fg-subtle">
-                      <span className="tnum">{group.items.length}</span>
-                      {group.items.length === 1 ? ' session' : ' sessions'}
+                      {t(
+                        group.items.length === 1
+                          ? '{count} session'
+                          : '{count} sessions',
+                        { count: group.items.length }
+                      )}
                     </span>
                   </div>
 
@@ -193,18 +212,18 @@ export default async function ClassesPage() {
                             )}
                             <span className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-2 text-caption text-fg-subtle">
                               <span className="tnum">
-                                Session {item.session}
+                                {t('Session {index}', { index: item.session })}
                               </span>
                               <span aria-hidden="true">·</span>
                               {item.visibility === 'members' ? (
                                 <Badge tone="muted">
                                   <LockGlyph className="h-3 w-3" />
-                                  Members only
+                                  {t('Members only')}{' '}
                                 </Badge>
                               ) : (
                                 <Badge tone="muted">
                                   <GlobeGlyph className="h-3 w-3" />
-                                  Public
+                                  {t('Public')}{' '}
                                 </Badge>
                               )}
                             </span>

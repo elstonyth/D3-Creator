@@ -1,3 +1,4 @@
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 /**
  * /studio/settings — Amendment 1 Part C.i (owner decision 10).
  *
@@ -20,12 +21,16 @@ import type { BusinessProfile } from '@gitroom/frontend/lib/business-profile';
 import { getSupabaseRoute } from '@gitroom/frontend/lib/supabase-route';
 
 export const dynamic = 'force-dynamic'; // per-user, auth-dependent, never cacheable
-export const metadata: Metadata = {
-  title: 'Settings — D3 Creator',
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+    title: t('Settings — D3 Creator'),
+    robots: { index: false, follow: false },
+  };
+}
 
 export default async function StudioSettingsPage(): Promise<ReactElement> {
+  const { t } = await getI18n();
   const auth = await getAuthContext();
   if (!auth) redirect('/login?redirectTo=/studio/settings');
   if (!isStudioMember(auth)) return <StudioLocked />;
@@ -48,10 +53,11 @@ export default async function StudioSettingsPage(): Promise<ReactElement> {
           and its field must not sit 900px apart. */}
       <Container className="max-w-[900px] flex flex-col gap-10">
         <header className="max-w-prose flex flex-col gap-3">
-          <h1 className="text-display-2 text-fg">Your business.</h1>
+          <h1 className="text-display-2 text-fg">{t('Your business.')}</h1>
           <p className="text-body-lg text-fg-muted">
-            Everything the coach knows about what you sell and how you sound. It
-            shapes every script it writes and every video it scores.
+            {t(
+              'Everything the coach knows about what you sell and how you sound. It shapes every script it writes and every video it scores.'
+            )}{' '}
           </p>
         </header>
 
@@ -60,23 +66,26 @@ export default async function StudioSettingsPage(): Promise<ReactElement> {
           // create rows is how a user ends up with two businesses by accident.
           <EmptyState
             size="lg"
-            title="No business set up yet"
-            description="Answer four questions in Script Coach and this page fills in with the rest — tone, content pillars, things to avoid."
-            action={{ href: '/studio/chat', label: 'Start in Script Coach' }}
+            title={t('No business set up yet')}
+            description={t(
+              'Answer two questions in Script Coach and this page fills in with the rest — tone, content pillars, things to avoid.'
+            )}
+            action={{ href: '/studio/chat', label: t('Start in Script Coach') }}
           />
         ) : (
           <>
             <ProfileSettingsForm profile={profile} />
             <p className="max-w-prose text-body-sm text-fg-subtle">
-              Changes apply to your next script or analysis. Nothing already
-              generated is rewritten.{' '}
+              {t(
+                'Changes apply to your next script or analysis. Nothing already generated is rewritten.'
+              )}{' '}
               <Link
                 href="/studio/analyzer"
                 className="text-fg-muted underline underline-offset-4 hover:text-fg transition-colors duration-150 ease-out"
               >
-                Analyse a video
+                {t('Analyse a video')}{' '}
               </Link>{' '}
-              to see it used.
+              {t('to see it used.')}{' '}
             </p>
           </>
         )}

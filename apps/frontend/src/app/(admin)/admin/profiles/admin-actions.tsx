@@ -14,6 +14,7 @@
  * only the failure message is rendered inline.
  */
 
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { useActionState, useState } from 'react';
 import { useFormStatus } from 'react-dom';
 
@@ -63,14 +64,15 @@ export function ClaimActions({
   /** The profile being claimed, for the button's accessible name. */
   target: string;
 }) {
+  const { t } = useI18n();
   const [approveState, approveAction] = useActionState(approveClaim, null);
   const [rejectState, rejectAction] = useActionState(rejectClaim, null);
   const error =
     approveState && !approveState.ok
       ? approveState.message
       : rejectState && !rejectState.ok
-        ? rejectState.message
-        : null;
+      ? rejectState.message
+      : null;
 
   return (
     <div className="flex shrink-0 flex-col gap-2 sm:items-end">
@@ -81,29 +83,30 @@ export function ClaimActions({
             <input type="hidden" name="profile_id" value={profileId} />
             <SubmitButton
               variant="primary"
-              label={`Approve claim on ${target}`}
+              label={t('Approve claim on {target}', { target })}
             >
-              Approve
+              {t('Approve')}
             </SubmitButton>
           </form>
         )}
         <form action={rejectAction}>
           <input type="hidden" name="user_id" value={userId} />
           <input type="hidden" name="profile_id" value={profileId} />
-          <SubmitButton label={`Reject claim on ${target}`}>
-            Reject
+          <SubmitButton label={t('Reject claim on {target}', { target })}>
+            {t('Reject')}
           </SubmitButton>
         </form>
       </div>
       {alreadyOwned && (
         <p className="max-w-[240px] text-caption text-fg-subtle sm:text-right">
-          Already owned. Reject this, or reassign it in the creator&apos;s
-          editor.
+          {t(
+            "Already owned. Reject this, or reassign it in the creator's editor.",
+          )}
         </p>
       )}
       {error && (
         <Alert tone="danger" className="max-w-[280px] text-caption">
-          {error}
+          {t(error)}
         </Alert>
       )}
     </div>
@@ -118,6 +121,7 @@ export function DeleteProfileButton({
   /** Named in the confirmation so the operator deletes what they think they do. */
   target: string;
 }) {
+  const { t } = useI18n();
   const [state, action] = useActionState(deleteProfile, null);
   const [confirming, setConfirming] = useState(false);
 
@@ -127,8 +131,10 @@ export function DeleteProfileButton({
         <form action={action} className="flex flex-col items-end gap-2">
           <input type="hidden" name="profile_id" value={profileId} />
           <p className="max-w-[220px] text-right text-caption text-fg-muted">
-            Delete <span className="text-fg">{target}</span> and every snapshot
-            ever taken of it? This cannot be undone.
+            {t(
+              'Delete {target} and every snapshot ever taken of it? This cannot be undone.',
+              { target },
+            )}
           </p>
           <div className="flex items-center gap-2">
             <Button
@@ -137,10 +143,13 @@ export function DeleteProfileButton({
               variant="ghost"
               onClick={() => setConfirming(false)}
             >
-              Keep
+              {t('Keep')}
             </Button>
-            <SubmitButton variant="danger" label={`Delete ${target}`}>
-              Delete
+            <SubmitButton
+              variant="danger"
+              label={t('Delete {target}', { target })}
+            >
+              {t('Delete')}
             </SubmitButton>
           </div>
         </form>
@@ -150,14 +159,14 @@ export function DeleteProfileButton({
           size="sm"
           variant="secondary"
           onClick={() => setConfirming(true)}
-          aria-label={`Delete ${target}`}
+          aria-label={t('Delete {target}', { target })}
         >
-          Delete
+          {t('Delete')}
         </Button>
       )}
       {state && !state.ok && (
         <Alert tone="danger" className="max-w-[240px] text-caption">
-          {state.message}
+          {t(state.message)}
         </Alert>
       )}
     </div>

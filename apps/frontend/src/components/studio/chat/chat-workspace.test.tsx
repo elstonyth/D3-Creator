@@ -6,6 +6,10 @@
  */
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import {
+  LocaleProvider,
+  useI18n,
+} from '@gitroom/frontend/components/i18n/locale-provider';
 
 import { ChatWorkspace } from './chat-workspace';
 
@@ -65,7 +69,7 @@ function renderWorkspace() {
       threadId={null}
       showProfileForm={false}
       coachReady
-    />,
+    />
   );
 }
 
@@ -74,12 +78,63 @@ function sendMessage(text: string) {
     target: { value: text },
   });
   fireEvent.submit(
-    screen.getByRole('button', { name: 'Send' }).closest('form')!,
+    screen.getByRole('button', { name: 'Send' }).closest('form')!
   );
 }
 
 afterEach(() => {
   jest.useRealTimers();
+});
+
+it('switches interface copy without rewriting saved messages or the unsent draft', () => {
+  deferredFetch();
+  function SwitchLocale() {
+    const { changeLocale } = useI18n();
+    return <button onClick={() => changeLocale('zh')}>Switch locale</button>;
+  }
+  render(
+    <LocaleProvider locale="en">
+      <SwitchLocale />
+      <ChatWorkspace
+        initialTurns={[
+          { id: 'saved', role: 'assistant', content: 'Send', script: null },
+        ]}
+        threadId={null}
+        showProfileForm={false}
+        coachReady
+      />
+    </LocaleProvider>
+  );
+  fireEvent.change(screen.getByLabelText('Message the script coach'), {
+    target: { value: 'My draft 原始草稿' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Switch locale' }));
+  expect(screen.getByText('Send')).toBeTruthy();
+  expect(screen.getByDisplayValue('My draft 原始草稿')).toBeTruthy();
+  fireEvent.submit(
+    screen.getByRole('button', { name: '发送' }).closest('form')!
+  );
+  const request = (global.fetch as jest.Mock).mock.calls[0][1];
+  expect(JSON.parse(request.body).message).toBe('My draft 原始草稿');
+});
+
+it('sends the starter in the selected interface language', () => {
+  deferredFetch();
+  render(
+    <LocaleProvider locale="zh">
+      <ChatWorkspace
+        initialTurns={[]}
+        threadId={null}
+        showProfileForm={false}
+        coachReady
+      />
+    </LocaleProvider>
+  );
+  fireEvent.click(
+    screen.getByRole('button', { name: '为我的业务提供 5 个视频创意' })
+  );
+  const request = (global.fetch as jest.Mock).mock.calls[0][1];
+  expect(JSON.parse(request.body).message).toBe('为我的业务提供 5 个视频创意');
 });
 
 it('shows the labeled dot indicator while a reply is outstanding', () => {

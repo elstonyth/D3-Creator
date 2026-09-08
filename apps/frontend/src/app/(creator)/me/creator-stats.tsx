@@ -1,3 +1,6 @@
+import { type Translator, type Locale } from '@gitroom/frontend/lib/i18n';
+
+import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 /**
  * CreatorStats — the 3-KPI body of /me for the selected time window.
  *
@@ -29,13 +32,18 @@ export const WINDOW_SCOPE: Record<MetricWindow, string> = {
   lifetime: 'all time',
 };
 
-function deltaLine(delta: number, scope: string): string {
-  if (delta === 0) return `No change · ${scope}`;
+function deltaLine(
+  delta: number,
+  scope: string,
+  t: Translator,
+  locale: Locale
+): string {
+  if (delta === 0) return t('No change · {scope}', { scope });
   const caret = delta > 0 ? '▲' : '▼';
-  return `${caret} ${formatDelta(delta)} · ${scope}`;
+  return `${caret} ${formatDelta(delta, locale)} · ${scope}`;
 }
 
-export function CreatorStats({
+export async function CreatorStats({
   row,
   metricWindow,
 }: {
@@ -44,7 +52,8 @@ export function CreatorStats({
       globalThis.window for this whole scope. */
   metricWindow: MetricWindow;
 }) {
-  const scope = WINDOW_SCOPE[metricWindow];
+  const { locale, t } = await getI18n();
+  const scope = t(WINDOW_SCOPE[metricWindow]);
 
   return (
     // Three stats into a 2-up grid leaves an empty fourth cell, and StatRow's
@@ -52,26 +61,30 @@ export function CreatorStats({
     // Go straight from one column to three.
     <StatRow className="sm:grid-cols-3">
       <Stat
-        label="Followers"
+        label={t('Followers')}
         size="lg"
-        value={formatCompact(row.followers)}
+        value={formatCompact(row.followers, locale)}
         meta={
           row.insufficient
-            ? BUILDING_HISTORY
-            : deltaLine(row.followersDelta, scope)
+            ? t(BUILDING_HISTORY)
+            : deltaLine(row.followersDelta, scope, t, locale)
         }
       />
       <Stat
-        label="Views gained"
+        label={t('Views gained')}
         size="lg"
-        value={formatWindowedValue(false, row.viewsGained, formatCompact)}
-        meta={`Across every tracked account · ${scope}`}
+        value={formatWindowedValue(false, row.viewsGained, (value) =>
+          formatCompact(value, locale)
+        )}
+        meta={t('Across every tracked account · {scope}', { scope })}
       />
       <Stat
-        label="Engagement"
+        label={t('Engagement')}
         size="lg"
-        value={formatWindowedValue(false, row.engagement, formatPercent)}
-        meta={`Likes ÷ views · ${scope}`}
+        value={formatWindowedValue(false, row.engagement, (value) =>
+          formatPercent(value, locale)
+        )}
+        meta={t('Likes ÷ views · {scope}', { scope })}
       />
     </StatRow>
   );

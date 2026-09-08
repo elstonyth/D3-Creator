@@ -1,4 +1,6 @@
 'use client';
+import { localeTag } from '@gitroom/frontend/lib/i18n';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -12,14 +14,16 @@ import {
 } from '../ui/platform-icons';
 import {
   formatShowcase,
-  percentFormatter,
   handleToSlug,
   demoCreatorRows,
   placeholderViewsTrend,
   placeholderDeltaPct,
   type PlatformFilter,
 } from './showcase-data';
-import { VIEW_PERIODS, type ViewPeriod } from '@gitroom/frontend/lib/view-periods';
+import {
+  VIEW_PERIODS,
+  type ViewPeriod,
+} from '@gitroom/frontend/lib/view-periods';
 import { ShowcaseNumber } from './showcase-number';
 import type { LiveCreatorRow } from '@gitroom/frontend/lib/queries';
 
@@ -40,7 +44,12 @@ const TABS: TabDef[] = [
 /** Sort key for the Top Creators list (re-rank by views or by followers). */
 type CreatorSort = 'views' | 'followers';
 
-const BREAKDOWN_PLATFORMS: PlatformKey[] = ['facebook', 'instagram', 'tiktok', 'douyin'];
+const BREAKDOWN_PLATFORMS: PlatformKey[] = [
+  'facebook',
+  'instagram',
+  'tiktok',
+  'douyin',
+];
 // Dashboard is a summary — show the top slice; the leaderboard has the full list.
 const TOP_CREATORS_LIMIT = 10;
 
@@ -71,7 +80,10 @@ interface DisplayRow {
 }
 
 /** Resolve creators for the active filter; per-platform slot when filtered. */
-function resolveRows(creators: LiveCreatorRow[], filter: PlatformFilter): DisplayRow[] {
+function resolveRows(
+  creators: LiveCreatorRow[],
+  filter: PlatformFilter
+): DisplayRow[] {
   if (filter === 'all') {
     return creators.map((c) => ({
       key: c.creatorId,
@@ -142,27 +154,41 @@ export function DashboardShowcase({
   viewsByWindow,
   creatorViewsByWindow,
 }: DashboardShowcaseProps = {}) {
+  const { locale, t } = useI18n();
   const [filter, setFilter] = useState<PlatformFilter>('all');
-  const [activeViewFilter, setActiveViewFilter] = useState<ViewPeriod>('lifetime');
+  const [activeViewFilter, setActiveViewFilter] =
+    useState<ViewPeriod>('lifetime');
   const [creatorSort, setCreatorSort] = useState<CreatorSort>('views');
   const isLive = !!(creators && creators.length > 0);
   const baseCreators = useMemo(
     () => (isLive ? creators! : demoCreatorRows()),
-    [isLive, creators],
+    [isLive, creators]
   );
 
-  const rows = useMemo(() => resolveRows(baseCreators, filter), [baseCreators, filter]);
-  const totalFollowers = useMemo(() => rows.reduce((s, r) => s + r.followers, 0), [rows]);
-  const totalViews = useMemo(() => rows.reduce((s, r) => s + r.totalViews, 0), [rows]);
+  const rows = useMemo(
+    () => resolveRows(baseCreators, filter),
+    [baseCreators, filter]
+  );
+  const totalFollowers = useMemo(
+    () => rows.reduce((s, r) => s + r.followers, 0),
+    [rows]
+  );
+  const totalViews = useMemo(
+    () => rows.reduce((s, r) => s + r.totalViews, 0),
+    [rows]
+  );
   const totalEngagement = useMemo(
     () =>
       filter === 'all'
         ? baseCreators.reduce((s, c) => s + c.totalEngagement, 0)
         : baseCreators.reduce(
-            (s, c) => s + (c.platforms.find((p) => p.platform === filter)?.totalEngagement ?? 0),
-            0,
+            (s, c) =>
+              s +
+              (c.platforms.find((p) => p.platform === filter)
+                ?.totalEngagement ?? 0),
+            0
           ),
-    [baseCreators, filter],
+    [baseCreators, filter]
   );
 
   // Sparkline series + per-metric deltas. Real values arrive via props; until the
@@ -172,15 +198,17 @@ export function DashboardShowcase({
       propViewsTrend && propViewsTrend.length > 1
         ? propViewsTrend
         : placeholderViewsTrend(totalViews),
-    [propViewsTrend, totalViews],
+    [propViewsTrend, totalViews]
   );
   const viewsDelta = useMemo(() => {
     if (typeof propDeltas?.views === 'number') return propDeltas.views;
     const first = viewsTrend[0] || 1;
     return (viewsTrend[viewsTrend.length - 1] - first) / first;
   }, [propDeltas, viewsTrend]);
-  const followersDelta = propDeltas?.followers ?? placeholderDeltaPct(totalFollowers);
-  const engagementDelta = propDeltas?.engagement ?? placeholderDeltaPct(totalEngagement);
+  const followersDelta =
+    propDeltas?.followers ?? placeholderDeltaPct(totalFollowers);
+  const engagementDelta =
+    propDeltas?.engagement ?? placeholderDeltaPct(totalEngagement);
 
   // Windowed view matrices: live (populated) vs absent/empty (demo mode or RPC
   // error). When live, a MISSING cell means "no posts in that window" → 0; the
@@ -209,15 +237,25 @@ export function DashboardShowcase({
         .sort((a, b) =>
           creatorSort === 'followers'
             ? b.followers - a.followers
-            : b.totalViews - a.totalViews,
+            : b.totalViews - a.totalViews
         )
         .slice(0, TOP_CREATORS_LIMIT),
-    [rows, creatorWinLive, creatorViewsByWindow, filter, activeViewFilter, creatorSort],
+    [
+      rows,
+      creatorWinLive,
+      creatorViewsByWindow,
+      filter,
+      activeViewFilter,
+      creatorSort,
+    ]
   );
   const hasMore = rows.length > TOP_CREATORS_LIMIT;
 
   const breakdown = useMemo(() => {
-    const map = new Map<PlatformKey, { followers: number; totalViews: number }>();
+    const map = new Map<
+      PlatformKey,
+      { followers: number; totalViews: number }
+    >();
     for (const c of baseCreators) {
       for (const slot of c.platforms) {
         const b = map.get(slot.platform) ?? { followers: 0, totalViews: 0 };
@@ -263,7 +301,7 @@ export function DashboardShowcase({
           ? viewsByWindow?.[b.platform]?.[activeViewFilter] ?? 0
           : b.totalViews,
       })),
-    [breakdown, winLive, viewsByWindow, activeViewFilter],
+    [breakdown, winLive, viewsByWindow, activeViewFilter]
   );
 
   return (
@@ -275,14 +313,14 @@ export function DashboardShowcase({
       <div className="grid grid-cols-1 gap-8 py-2 sm:grid-cols-12 sm:gap-x-10 sm:gap-y-7">
         <div className="flex flex-col justify-center gap-3 sm:col-span-8 sm:row-span-2">
           <div className="flex items-center gap-3">
-            <span className="text-label text-fgMuted">Total Views</span>
+            <span className="text-label text-fgMuted">{t('Total Views')}</span>
             {showViewsTrend && <DeltaChip value={viewsDelta} />}
           </div>
 
           {/* Time-period filter — UI-only for now (see activeViewFilter TODO). */}
           <div
             role="tablist"
-            aria-label="Total Views time period"
+            aria-label={t('Total Views time period')}
             className="flex flex-wrap items-center gap-1"
           >
             {VIEW_PERIODS.map((period) => {
@@ -302,7 +340,7 @@ export function DashboardShowcase({
                       : 'border border-transparent text-fgMuted hover:text-fg hover:bg-white/[0.04]'
                   )}
                 >
-                  {period.label}
+                  {t(period.label)}
                 </button>
               );
             })}
@@ -310,7 +348,7 @@ export function DashboardShowcase({
 
           <div className="flex items-center gap-6">
             <div className="text-[clamp(48px,6.5vw,84px)] leading-[0.98] tracking-[-0.035em] font-semibold text-fg tabular-nums">
-              {formatShowcase(heroViews)}
+              {formatShowcase(heroViews, locale)}
             </div>
             {showViewsTrend && (
               <Sparkline
@@ -320,32 +358,38 @@ export function DashboardShowcase({
             )}
           </div>
           <p className="text-caption text-fgSubtle tabular-nums">
-            {`${filterLabel(filter)} · ${activeViewCaption}`}
+            {`${t(filterLabel(filter))} · ${t(activeViewCaption)}`}
           </p>
         </div>
 
         <div className="flex flex-col gap-2 sm:col-span-4 sm:items-end sm:text-right">
-          <span className="text-label text-fgMuted">Total Followers</span>
+          <span className="text-label text-fgMuted">
+            {t('Total Followers')}
+          </span>
           <div className="flex items-baseline gap-2.5">
             <div className="text-[clamp(28px,3vw,38px)] leading-none tracking-[-0.025em] font-semibold text-fg tabular-nums">
-              {formatShowcase(totalFollowers)}
+              {formatShowcase(totalFollowers, locale)}
             </div>
             <DeltaChip value={followersDelta} />
           </div>
           <p className="text-caption text-fgSubtle tabular-nums">
-            {`${filterLabel(filter)} · tracked`}
+            {t('{platform} · tracked', { platform: t(filterLabel(filter)) })}
           </p>
         </div>
 
         <div className="flex flex-col gap-2 sm:col-span-4 sm:items-end sm:text-right">
-          <span className="text-label text-fgMuted">Total Engagement</span>
+          <span className="text-label text-fgMuted">
+            {t('Total Engagement')}
+          </span>
           <div className="flex items-baseline gap-2.5">
             <div className="text-[clamp(28px,3vw,38px)] leading-none tracking-[-0.025em] font-semibold text-fg tabular-nums">
-              {formatShowcase(totalEngagement)}
+              {formatShowcase(totalEngagement, locale)}
             </div>
             <DeltaChip value={engagementDelta} />
           </div>
-          <p className="text-caption text-fgSubtle">{'likes, comments & shares'}</p>
+          <p className="text-caption text-fgSubtle">
+            {t('likes, comments & shares')}
+          </p>
         </div>
       </div>
 
@@ -358,12 +402,18 @@ export function DashboardShowcase({
           sort={creatorSort}
           onSortChange={setCreatorSort}
         />
-        <PlatformBreakdownCard activeFilter={filter} onSelect={setFilter} rows={breakdownWindowed} />
+        <PlatformBreakdownCard
+          activeFilter={filter}
+          onSelect={setFilter}
+          rows={breakdownWindowed}
+        />
       </div>
 
       {!isLive && (
         <p className="text-caption text-fgSubtle text-center pt-2 tabular-nums">
-          Showcase preview · synthetic data. Live numbers replace this the moment the scraper switches on.
+          {t(
+            'Showcase preview · synthetic data. Live numbers replace this the moment the scraper switches on.'
+          )}{' '}
         </p>
       )}
     </div>
@@ -380,10 +430,11 @@ function PlatformTabBar({
   value: PlatformFilter;
   onChange: (next: PlatformFilter) => void;
 }) {
+  const { t } = useI18n();
   return (
     <div
       role="tablist"
-      aria-label="Platform filter"
+      aria-label={t('Platform filter')}
       className="border border-borderGlass rounded-2xl bg-customColor1 p-1.5 flex items-center gap-1 overflow-x-auto"
     >
       {TABS.map((tab) => {
@@ -405,7 +456,7 @@ function PlatformTabBar({
             )}
           >
             {Icon ? <Icon size={14} /> : null}
-            <span>{tab.label}</span>
+            <span>{t(tab.label)}</span>
           </button>
         );
       })}
@@ -416,7 +467,13 @@ function PlatformTabBar({
 // --- Sparkline + trend chip -----------------------------------------------
 
 /** Axis-less SVG sparkline; stretches to fill its box. Color via `currentColor`. */
-function Sparkline({ data, className }: { data: number[]; className?: string }) {
+function Sparkline({
+  data,
+  className,
+}: {
+  data: number[];
+  className?: string;
+}) {
   if (!data || data.length < 2) return null;
   const w = 120;
   const h = 36;
@@ -458,13 +515,27 @@ function Sparkline({ data, className }: { data: number[]; className?: string }) 
 }
 
 /** Period-over-period change. Direction via caret, not color (DESIGN.md: no red/green). */
-function DeltaChip({ value, period = 'recent' }: { value: number; period?: string }) {
+function DeltaChip({
+  value,
+  period = 'recent',
+}: {
+  value: number;
+  period?: string;
+}) {
+  const { locale, t } = useI18n();
   const up = value >= 0;
-  const pct = percentFormatter.format(Math.abs(value));
+  const pct = new Intl.NumberFormat(localeTag(locale), {
+    style: 'percent',
+    maximumFractionDigits: 1,
+  }).format(Math.abs(value));
   return (
     <span
       className="inline-flex items-center gap-1 text-caption tabular-nums"
-      title={`${up ? 'Up' : 'Down'} ${pct} · ${period} trend`}
+      title={t('{direction} {percent} · {period} trend', {
+        direction: t(up ? 'Up' : 'Down'),
+        percent: pct,
+        period: t(period),
+      })}
     >
       <svg
         width="8"
@@ -476,7 +547,7 @@ function DeltaChip({ value, period = 'recent' }: { value: number; period?: strin
         <path d="M5 1 L9.33 8.5 L0.67 8.5 Z" fill="currentColor" />
       </svg>
       <span className="text-fg">{pct}</span>
-      <span className="text-fgSubtle">· {period}</span>
+      <span className="text-fgSubtle">· {t(period)}</span>
     </span>
   );
 }
@@ -509,17 +580,32 @@ function TopCreatorsCard({
   sort: CreatorSort;
   onSortChange: (next: CreatorSort) => void;
 }) {
+  const { t } = useI18n();
   return (
-    <GlassCard variant="base" padding="md" radius="2xl" className="flex flex-col">
+    <GlassCard
+      variant="base"
+      padding="md"
+      radius="2xl"
+      className="flex flex-col"
+    >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-4">
         <div className="flex flex-col gap-1">
-          <span className="text-label text-fg font-medium">Top Creators</span>
+          <span className="text-label text-fg font-medium">
+            {t('Top Creators')}
+          </span>
           <span className="text-body-sm text-fgMuted">
-            {filterLabel(filter)} · by {sort === 'followers' ? 'followers' : 'views'}
+            {t('{platform} · by {metric}', {
+              platform: t(filterLabel(filter)),
+              metric: t(sort === 'followers' ? 'followers' : 'views'),
+            })}
           </span>
         </div>
         <div className="flex items-center gap-3">
-          <div role="tablist" aria-label="Sort creators" className="flex items-center gap-1">
+          <div
+            role="tablist"
+            aria-label={t('Sort creators')}
+            className="flex items-center gap-1"
+          >
             {(['views', 'followers'] as const).map((value) => {
               const isActive = value === sort;
               return (
@@ -537,7 +623,7 @@ function TopCreatorsCard({
                       : 'border border-transparent text-fgMuted hover:text-fg hover:bg-white/[0.04]'
                   )}
                 >
-                  {value === 'followers' ? 'Followers' : 'Views'}
+                  {value === 'followers' ? t('Followers') : t('Views')}
                 </button>
               );
             })}
@@ -546,14 +632,14 @@ function TopCreatorsCard({
             href="/leaderboard"
             className="text-caption text-fgMuted hover:text-fg transition-colors whitespace-nowrap"
           >
-            See all →
+            {t('See all →')}{' '}
           </Link>
         </div>
       </div>
 
       {rows.length === 0 ? (
         <div className="grid place-items-center text-body-sm text-fgMuted py-12">
-          No creators on this platform yet.
+          {t('No creators on this platform yet.')}{' '}
         </div>
       ) : (
         <>
@@ -562,9 +648,11 @@ function TopCreatorsCard({
             className={`${GRID} px-2 pb-2 text-micro uppercase tracking-[0.04em] text-fgSubtle border-b border-borderGlass`}
           >
             <span>#</span>
-            <span>Creator</span>
-            <span className="text-right">Views</span>
-            <span className="hidden sm:block text-right sm:pl-6">Followers</span>
+            <span>{t('Creator')}</span>
+            <span className="text-right">{t('Views')}</span>
+            <span className="hidden sm:block text-right sm:pl-6">
+              {t('Followers')}
+            </span>
           </div>
           <ul>
             {rows.map((row, i) => (
@@ -576,7 +664,7 @@ function TopCreatorsCard({
               href="/leaderboard"
               className="mt-3 text-center text-caption text-fgMuted hover:text-fg transition-colors"
             >
-              View the full leaderboard →
+              {t('View the full leaderboard →')}{' '}
             </Link>
           )}
         </>
@@ -594,7 +682,7 @@ function CreatorRow({ row, rank }: { row: DisplayRow; rank: number }) {
       <span
         className={clsx(
           'font-mono tabular-nums text-body-sm',
-          isWinner ? 'text-brand font-semibold' : 'text-fgSubtle',
+          isWinner ? 'text-brand font-semibold' : 'text-fgSubtle'
         )}
       >
         {String(rank).padStart(2, '0')}
@@ -608,7 +696,9 @@ function CreatorRow({ row, rank }: { row: DisplayRow; rank: number }) {
             fallback={initial}
           />
         </span>
-        <span className="truncate text-body text-fg font-medium">{row.name}</span>
+        <span className="truncate text-body text-fg font-medium">
+          {row.name}
+        </span>
       </span>
       <span className="text-right font-mono tabular-nums text-body text-fg">
         <ShowcaseNumber value={row.totalViews} />
@@ -621,7 +711,7 @@ function CreatorRow({ row, rank }: { row: DisplayRow; rank: number }) {
   const rowClass = clsx(
     GRID,
     'px-2 min-h-[52px] rounded-lg transition-colors duration-150 ease-out border-b border-borderGlass last:border-b-0',
-    isWinner && 'bg-brand/[0.06]',
+    isWinner && 'bg-brand/[0.06]'
   );
   return (
     <li>
@@ -657,12 +747,22 @@ function PlatformBreakdownCard({
   onSelect: (filter: PlatformFilter) => void;
   rows: BreakdownRow[];
 }) {
+  const { locale, t } = useI18n();
   const max = Math.max(1, ...rows.map((p) => p.totalViews));
   return (
-    <GlassCard variant="base" padding="md" radius="2xl" className="flex flex-col">
+    <GlassCard
+      variant="base"
+      padding="md"
+      radius="2xl"
+      className="flex flex-col"
+    >
       <div className="flex flex-col gap-1 mb-4">
-        <span className="text-label text-fg font-medium">Platform Breakdown</span>
-        <span className="text-body-sm text-fgMuted">Views + followers by platform</span>
+        <span className="text-label text-fg font-medium">
+          {t('Platform Breakdown')}
+        </span>
+        <span className="text-body-sm text-fgMuted">
+          {t('Views + followers by platform')}
+        </span>
       </div>
 
       <ul className="flex flex-col gap-2.5">
@@ -691,11 +791,15 @@ function PlatformBreakdownCard({
                       <Icon size={14} />
                     </span>
                     <span className="text-body-sm text-fg truncate">
-                      {PLATFORM_LABELS[row.platform]}
+                      {t(PLATFORM_LABELS[row.platform])}
                     </span>
                   </div>
                   <span className="text-body-sm font-mono tabular-nums text-fg">
-                    {isEmpty ? '—' : `${formatShowcase(row.totalViews)} views`}
+                    {isEmpty
+                      ? '—'
+                      : t('{count} views', {
+                          count: formatShowcase(row.totalViews, locale),
+                        })}
                   </span>
                 </div>
 
@@ -711,7 +815,11 @@ function PlatformBreakdownCard({
 
                 <div className="flex items-center justify-end mt-1.5 text-caption text-fgMuted font-mono tabular-nums">
                   <span className="text-fgMuted">
-                    {isEmpty ? 'Not yet tracked' : `${formatShowcase(row.followers)} followers`}
+                    {isEmpty
+                      ? t('Not yet tracked')
+                      : t('{count} followers', {
+                          count: formatShowcase(row.followers, locale),
+                        })}
                   </span>
                 </div>
               </button>

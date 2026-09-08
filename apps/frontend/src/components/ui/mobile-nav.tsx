@@ -18,6 +18,8 @@ import { useEffect, useRef, useState, type ReactElement } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@gitroom/frontend/lib/utils';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
+import { SignOutButton } from '@gitroom/frontend/components/auth/signout-button';
 import {
   LockGlyph,
   type StudioViewer,
@@ -40,11 +42,14 @@ export type MobileNavItem = MobileNavLink | MobileNavGroup;
 export default function MobileNav({
   links,
   viewer = 'no-access',
+  showSignOut = false,
 }: {
   links: MobileNavItem[];
   /** Read only by group children. Omitted at the (admin) call site. */
   viewer?: StudioViewer;
+  showSignOut?: boolean;
 }): ReactElement {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const ref = useRef<HTMLDivElement>(null);
@@ -75,10 +80,10 @@ export default function MobileNav({
   const locked = viewer !== 'member';
 
   return (
-    <div ref={ref} className="md:hidden">
+    <div ref={ref} className="lg:hidden">
       <button
         type="button"
-        aria-label={open ? 'Close menu' : 'Open menu'}
+        aria-label={t(open ? 'Close menu' : 'Open menu')}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         className="flex size-11 items-center justify-center rounded-md text-fg hover:bg-white/[0.04] transition-colors"
@@ -106,11 +111,11 @@ export default function MobileNav({
           `invisible` removes it from the tab order and a11y tree while closed. */}
       <div
         className={cn(
-          'absolute left-0 right-0 top-14 z-50 border-b border-borderGlass bg-canvas',
+          'absolute left-0 right-0 top-14 z-50 max-h-[calc(100dvh-3.5rem)] overflow-y-auto overscroll-contain border-b border-borderGlass bg-canvas',
           'transition-[opacity,transform] duration-150 ease-out',
           open
             ? 'opacity-100 translate-y-0'
-            : 'invisible pointer-events-none opacity-0 -translate-y-1',
+            : 'invisible pointer-events-none opacity-0 -translate-y-1'
         )}
       >
         <nav className="max-w-[1200px] mx-auto px-6 py-2 flex flex-col">
@@ -143,14 +148,17 @@ export default function MobileNav({
                           'flex items-center gap-2 h-12 pl-4 transition-colors duration-150 ease-out',
                           active
                             ? 'text-aurora-cta font-medium'
-                            : 'text-fgMuted hover:text-fg',
+                            : 'text-fgMuted hover:text-fg'
                         )}
                       >
                         {child.label}
                         {locked && (
                           <>
                             <LockGlyph />
-                            <span className="sr-only"> (members only)</span>
+                            <span className="sr-only">
+                              {' '}
+                              {t('(members only)')}
+                            </span>
                           </>
                         )}
                       </Link>
@@ -168,12 +176,17 @@ export default function MobileNav({
                   'flex items-center h-12 border-b border-white/[0.06] last:border-b-0 text-label transition-colors',
                   isActive(item)
                     ? 'text-aurora-cta font-medium'
-                    : 'text-fg hover:text-aurora-cta',
+                    : 'text-fg hover:text-aurora-cta'
                 )}
               >
                 {item.label}
               </Link>
-            ),
+            )
+          )}
+          {showSignOut && (
+            <div className="py-2">
+              <SignOutButton />
+            </div>
           )}
         </nav>
       </div>
