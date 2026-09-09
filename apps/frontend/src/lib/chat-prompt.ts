@@ -136,8 +136,8 @@ export function isProfileComplete(profile: BusinessProfile | null): boolean {
  * omitted ENTIRELY when its column is null or blank — never emitted with an
  * empty value.
  */
-export function renderProfileBlock(profile: BusinessProfile | null, interfaceLocale?: Locale): string {
-  const replyLanguage = interfaceLocale === undefined ? null : interfaceLocale === 'zh' ? 'Chinese' : 'English';
+export function renderProfileBlock(profile: BusinessProfile | null, replyLocale?: Locale): string {
+  const replyLanguage = replyLocale === undefined ? null : replyLocale === 'zh' ? 'Chinese' : 'English';
   if (!isProfileComplete(profile) || profile === null) {
     return replyLanguage ? `${NO_PROFILE_ON_FILE}\nReply language: ${replyLanguage}` : NO_PROFILE_ON_FILE;
   }
@@ -263,8 +263,39 @@ export interface BuildMessagesInput {
   question: string;
   /** `usesCacheControl(CHAT_MODEL)`. */
   cacheControl: boolean;
-  /** Current UI choice controls explanations; script language remains in the profile. */
+  /** Fallback only when neither the current message nor user history has language. */
   interfaceLocale?: Locale;
+}
+
+/** Chinese may contain English product names (PC, GPU); assistant replies must
+ * never lock a conversation into a language the user did not choose. */
+function resolveReplyLocale(input: BuildMessagesInput): Locale | undefined {
+  const detect = (text: string): Locale | undefined => {
+    // Quoted examples are content, not a request to change the coach's language.
+    const request = text.replace(/```[\s\S]*?```|`[^`]*`|"[^"\n]*"|“[^”]*”|「[^」]*」|'[^'\n]*'/g, ' ');
+    const languageRequests = request.matchAll(
+      /\b(?:reply|respond|answer|write|speak)(?:\s+to\s+me)?(?:\s+only)?\s+in\s+(?:(?:simplified|traditional)\s+)?(english|chinese|mandarin)\b|(?:用|使用|讲|講|说|說)\s*(英文|英语|英語|中文|华文|華文|汉语|漢語|普通话|普通話)/gi,
+    );
+    let explicit: Locale | undefined;
+    for (const match of languageRequests) {
+      const prefix = request.slice(0, match.index).trimEnd();
+      if (/(?:\bdon't|\bdo not|\bnever|不要|别|別)$/i.test(prefix)) continue;
+      explicit = /^(?:english|英文|英语|英語)$/i.test(match[1] ?? match[2]) ? 'en' : 'zh';
+    }
+    if (explicit) return explicit;
+    if (/\p{Script=Han}/u.test(text)) return 'zh';
+    if (/[a-z]/i.test(text)) return 'en';
+    return undefined;
+  };
+  const current = detect(input.question);
+  if (current) return current;
+  for (let i = input.history.length - 1; i >= 0; i--) {
+    const row = input.history[i];
+    if (row.role !== 'user') continue;
+    const previous = detect(row.content);
+    if (previous) return previous;
+  }
+  return input.interfaceLocale;
 }
 
 /**
@@ -288,7 +319,7 @@ export function buildMessages(input: BuildMessagesInput): ChatMessage[] {
       role: 'system',
       content: [{ type: 'text', text: input.persona }, playbookBlock],
     },
-    { role: 'user', content: renderProfileBlock(input.profile, input.interfaceLocale) },
+    { role: 'user', content: renderProfileBlock(input.profile, resolveReplyLocale(input)) },
     { role: 'assistant', content: ASSISTANT_ACK },
     ...selectHistory(input.history),
     { role: 'user', content: input.question.trim() },
