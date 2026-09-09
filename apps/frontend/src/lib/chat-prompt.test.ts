@@ -194,7 +194,9 @@ describe('renderProfileBlock', () => {
     const profile = { ...MINIMAL, main_platform: null, on_camera: null };
     expect(isProfileComplete(profile)).toBe(true);
     const block = renderProfileBlock(profile);
-    expect(block).toContain('What they sell: Second-hand iPhones and accessories');
+    expect(block).toContain(
+      'What they sell: Second-hand iPhones and accessories',
+    );
     expect(block).toContain('Who buys it: Students and young workers, 18-30');
     expect(block).not.toContain('Main platform:');
     expect(block).not.toContain('Appears on camera:');
@@ -202,10 +204,7 @@ describe('renderProfileBlock', () => {
 
   it('replaces the whole block when either business answer is missing', () => {
     expect(renderProfileBlock(null)).toBe(NO_PROFILE_ON_FILE);
-    for (const key of [
-      'what_you_sell',
-      'who_buys_it',
-    ] as const) {
+    for (const key of ['what_you_sell', 'who_buys_it'] as const) {
       expect(renderProfileBlock({ ...FULL, [key]: '   ' })).toBe(
         NO_PROFILE_ON_FILE,
       );
@@ -657,10 +656,60 @@ const BUILD = {
 };
 
 describe('buildMessages', () => {
-  it('uses the interface language for explanations without changing script language or cached instructions', () => {
-    const profile = { ...FULL, reply_language: 'english' as const, content_language: 'malay' as const };
-    const chinese = buildMessages({ ...BUILD, profile, interfaceLocale: 'zh' });
-    const english = buildMessages({ ...BUILD, profile, interfaceLocale: 'en' });
+  it.each([
+    ['请用英文回复，电竞电脑，电竞玩家', 'English'],
+    ['Please reply in Chinese. I sell gaming PCs.', 'Chinese'],
+    ['Answer in English about the product 电竞电脑', 'English'],
+    ['请用英文回复。参考文案：“请用中文回复”', 'English'],
+    ['Please respond in Chinese about "reply in English".', 'Chinese'],
+    ['講英文，幫我寫腳本', 'English'],
+    ['用华文回答，PC 和 GPU', 'Chinese'],
+    ["I'm selling gaming PCs, please reply in Chinese, that's all", 'Chinese'],
+  ])('honors the explicit language request in %s', (question, language) => {
+    const messages = buildMessages({ ...BUILD, question });
+    expect(messages[1].content).toContain(`Reply language: ${language}`);
+  });
+
+  it.each([
+    ['I sell 电竞电脑 to gamers in Malaysia', 'English'],
+    ['Here is my caption: "帮我写脚本" — what do you think?', 'English'],
+    ['用 PC 和 GPU 写脚本', 'Chinese'],
+    ['帮我写一个 Black Friday 脚本', 'Chinese'],
+    ['"帮我写脚本"', 'Chinese'],
+  ])(
+    'judges a mixed message by its own words, not by quotes or product names: %s',
+    (question, language) => {
+      expect(buildMessages({ ...BUILD, question })[1].content).toContain(
+        `Reply language: ${language}`,
+      );
+    },
+  );
+
+  it('preserves an explicit Chinese request for a neutral follow-up', () => {
+    const messages = buildMessages({
+      ...BUILD,
+      question: '👍',
+      interfaceLocale: 'en',
+      history: [
+        { role: 'user', content: 'Please reply in Chinese.', script: null },
+      ],
+    });
+    expect(messages[1].content).toContain('Reply language: Chinese');
+  });
+
+  it('follows the user message over the interface and saved reply language', () => {
+    const profile = {
+      ...FULL,
+      reply_language: 'english' as const,
+      content_language: 'malay' as const,
+    };
+    const chinese = buildMessages({
+      ...BUILD,
+      profile,
+      question: '电竞电脑，电竞玩家',
+      interfaceLocale: 'en',
+    });
+    const english = buildMessages({ ...BUILD, profile, interfaceLocale: 'zh' });
     expect(chinese[1].content).toContain('Reply language: Chinese');
     expect(chinese[1].content).toContain('Content language: Malay');
     expect(english[1].content).toContain('Reply language: English');
@@ -668,8 +717,47 @@ describe('buildMessages', () => {
     expect(profile.reply_language).toBe('english');
   });
 
-  it('uses the selected language when asking a new user for their business details', () => {
-    expect(buildMessages({ ...BUILD, profile: null, interfaceLocale: 'zh' })[1].content).toBe('NO PROFILE ON FILE\nReply language: Chinese');
+  it('follows Chinese even without a business profile', () => {
+    expect(
+      buildMessages({
+        ...BUILD,
+        question: '讲华文',
+        profile: null,
+        interfaceLocale: 'en',
+      })[1].content,
+    ).toBe('NO PROFILE ON FILE\nReply language: Chinese');
+  });
+
+  it('switches to English after a Chinese conversation', () => {
+    expect(
+      buildMessages({
+        ...BUILD,
+        interfaceLocale: 'zh',
+        history: [{ role: 'user', content: '帮我写脚本', script: null }],
+      })[1].content,
+    ).toContain('Reply language: English');
+  });
+
+  it('uses the last user language for a language-neutral follow-up', () => {
+    expect(
+      buildMessages({
+        ...BUILD,
+        question: '👍',
+        interfaceLocale: 'en',
+        history: [
+          { role: 'user', content: '帮我写脚本', script: null },
+          { role: 'assistant', content: 'Here is a script', script: null },
+        ],
+      })[1].content,
+    ).toContain('Reply language: Chinese');
+    expect(
+      buildMessages({
+        ...BUILD,
+        question: '👍',
+        history: [],
+        interfaceLocale: 'zh',
+      })[1].content,
+    ).toContain('Reply language: Chinese');
   });
   it('puts the profile at messages[1], below the cache marker', () => {
     const messages = buildMessages(BUILD);
@@ -714,7 +802,7 @@ describe('buildMessages', () => {
 
   it('replaces the whole profile block when the profile is absent', () => {
     expect(buildMessages({ ...BUILD, profile: null })[1].content).toBe(
-      NO_PROFILE_ON_FILE,
+      `${NO_PROFILE_ON_FILE}\nReply language: English`,
     );
   });
 });
