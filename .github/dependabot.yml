@@ -5,45 +5,41 @@
 
 version: 2
 updates:
-  # Root manifest — workspace-wide tooling only, since plan 013 moved the app's
-  # real runtime dependencies into apps/frontend/package.json.
-  - package-ecosystem: "npm"
-    directory: "/"
+  # ONE npm entry over BOTH manifests, on purpose. This is a pnpm workspace
+  # with a single lockfile at the root, and most runtime packages (three,
+  # @types/node, @supabase/supabase-js, next, ...) are declared in both
+  # package.json files. Two separate `directory` entries bump the same package
+  # in two separate PRs, and the /apps/frontend one changes its manifest
+  # without being able to regenerate the shared lockfile — every such PR
+  # (#93, #94, #95, #105, #106) failed `pnpm install` with
+  # ERR_PNPM_OUTDATED_LOCKFILE. `directories` makes it one PR per dependency
+  # with one lockfile update.
+  - package-ecosystem: 'npm'
+    directories:
+      - '/'
+      - '/apps/frontend'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
     open-pull-requests-limit: 5
     commit-message:
-      prefix: "chore(deps)"
-      prefix-development: "chore(deps-dev)"
+      prefix: 'chore(deps)'
+      prefix-development: 'chore(deps-dev)'
     ignore:
       # TypeScript majors are toolchain migrations (Next, ts-jest and
       # typescript-eslint each pin a range), never a routine bump: the 7.0 PR
-      # (#94) failed pnpm install on every build. Take them by hand.
-      - dependency-name: "typescript"
-        update-types: ["version-update:semver-major"]
-
-  # The Next.js app declares its own dependencies and is outside "/".
-  # Watching only "/" would miss almost everything the product actually ships.
-  - package-ecosystem: "npm"
-    directory: "/apps/frontend"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    commit-message:
-      prefix: "chore(deps)"
-      prefix-development: "chore(deps-dev)"
-    ignore:
-      # TypeScript majors are toolchain migrations (Next, ts-jest and
-      # typescript-eslint each pin a range), never a routine bump: the 7.0 PR
-      # (#94) failed pnpm install on every build. Take them by hand.
-      - dependency-name: "typescript"
-        update-types: ["version-update:semver-major"]
+      # (#94) failed on every build. Take them by hand.
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
+      # @types/node tracks the runtime major (engines: node >=22 <25). A
+      # higher major (#105 went to 26) types APIs the deployment does not have.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
 
   # Keep the GitHub Actions in .github/workflows current too.
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
     open-pull-requests-limit: 3
     commit-message:
-      prefix: "ci(deps)"
+      prefix: 'ci(deps)'
