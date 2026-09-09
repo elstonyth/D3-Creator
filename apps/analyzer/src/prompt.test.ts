@@ -99,3 +99,27 @@ describe('parseBusinessProfile', () => {
     expect(MAX_BUSINESS_PROFILE_CHARS).toBe(3075);
   });
 });
+
+describe('the report language drives the dimension names', () => {
+  const base = {
+    durationSeconds: 30,
+    transcript: [],
+    businessProfile: null,
+  };
+
+  it('a Chinese report gets the score cards’ own Chinese names and opener', () => {
+    const zh = buildAnalysisPrompt({ ...base, reportLanguage: 'zh' });
+    expect(zh).toContain('write its name as "开场钩子"');
+    expect(zh).toContain('"开场钩子", "脚本结构", "情绪发展", "互动引导", "表现预测", "内容公式"');
+    expect(zh).toContain('begin with "首先要改的："');
+    expect(zh).not.toContain('"Opening hook"');
+    expect(zh).toContain('Simplified Chinese');
+  });
+
+  it('an English report keeps the English names', () => {
+    const en = buildAnalysisPrompt({ ...base, reportLanguage: 'en' });
+    expect(en).toContain('write its name as "Opening hook"');
+    expect(en).toContain('begin with "What to change first:"');
+    expect(en).not.toContain('开场钩子');
+  });
+});

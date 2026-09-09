@@ -59,32 +59,39 @@ function findWorkspace(
 }
 
 it.each(['en', 'zh'] as const)(
-  'uses %s for new reports without changing saved content preferences',
+  'follows the saved reply language (English) whatever the %s interface says',
   async (locale) => {
     setup(locale, savedProfile);
     const workspace = findWorkspace(await VideoAnalyzerPage());
-    expect(workspace?.props.reportLanguage).toBe(locale);
+    expect(workspace?.props.reportLanguage).toBe('en');
     expect(workspace?.props.businessProfile).toContain(
       'Content language: Malay'
     );
     expect(workspace?.props.businessProfile).toContain(
-      `Reply language: ${locale === 'zh' ? 'Chinese' : 'English'}`
+      'Reply language: English'
     );
     expect(savedProfile.reply_language).toBe('english');
     expect(savedProfile.content_language).toBe('malay');
   }
 );
 
-it('keeps the chosen report language when there is no saved profile', async () => {
-  setup('zh', null);
+it('reports in Chinese on an English interface when the reply language is Chinese', async () => {
+  setup('en', { ...savedProfile, reply_language: 'chinese' });
+  const workspace = findWorkspace(await VideoAnalyzerPage());
+  expect(workspace?.props.reportLanguage).toBe('zh');
+  expect(workspace?.props.businessProfile).toContain('Reply language: Chinese');
+});
+
+it('defaults to Chinese when there is no saved profile', async () => {
+  setup('en', null);
   const workspace = findWorkspace(await VideoAnalyzerPage());
   expect(workspace?.props.reportLanguage).toBe('zh');
   expect(workspace?.props.businessProfile).toBeNull();
 });
 
-it('omits incomplete profile context without changing the chosen report language', async () => {
+it('omits incomplete profile context but still honours its reply language', async () => {
   setup('zh', { ...savedProfile, what_you_sell: '' });
   const workspace = findWorkspace(await VideoAnalyzerPage());
-  expect(workspace?.props.reportLanguage).toBe('zh');
+  expect(workspace?.props.reportLanguage).toBe('en');
   expect(workspace?.props.businessProfile).toBeNull();
 });
