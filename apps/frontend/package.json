@@ -44,7 +44,7 @@
     "tailwind-merge": "^3.6.0",
     "tailwind-scrollbar": "^3.1.0",
     "tailwindcss-rtl": "^0.9.0",
-    "three": "^0.167.1",
+    "three": "^0.185.1",
     "tslib": "^2.3.0"
   },
   "devDependencies": {
