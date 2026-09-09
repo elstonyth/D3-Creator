@@ -184,6 +184,11 @@ export default async function VideoAnalyzerPage(): Promise<ReactElement> {
   //
   // A profile outage must not block uploading, the same rule the history read
   // below already follows — the analysis simply runs without the context.
+  // Owner decision 2026-09-09: reports are written in Chinese unless the
+  // user's Settings say the coach replies in English. The interface language
+  // no longer decides — an English UI was handing Chinese-speaking creators
+  // English reports.
+  let reportLanguage: 'en' | 'zh' = 'zh';
   let businessProfile: string | null = null;
   try {
     const supabase = await getSupabaseRoute();
@@ -199,10 +204,13 @@ export default async function VideoAnalyzerPage(): Promise<ReactElement> {
     // business context with no log line anywhere.
     if (error) console.error('[studio/analyzer] profile read failed', error);
     const profile = data as BusinessProfile | null;
+    if (profile?.reply_language === 'english') reportLanguage = 'en';
     // `NO PROFILE ON FILE` is the chat guardrail's sentinel and means nothing
     // to the analyzer prompt: send null instead of a line saying there is none.
+    // The block's "Reply language" line must agree with the report language,
+    // or the prompt tells the model two different things.
     businessProfile = isProfileComplete(profile)
-      ? renderProfileBlock(profile, locale)
+      ? renderProfileBlock(profile, reportLanguage)
       : null;
   } catch (cause) {
     console.error('[studio/analyzer] profile read failed', cause);
@@ -232,7 +240,7 @@ export default async function VideoAnalyzerPage(): Promise<ReactElement> {
           <h1 className="text-display-2 text-fg">{t('Video Analyzer.')}</h1>
           <p className="text-body-lg text-fg-muted">
             {t(
-              'Upload a short video, or paste a link to one you have posted. You get six scores out of ten, the reasoning behind each, and a transcript you can jump around in.'
+              'Upload a short video, or paste a link to one you have posted. You get six scores out of ten, the reasoning behind each, and a transcript you can jump around in.',
             )}{' '}
           </p>
           {/* Amendment 1's open item: the profile silently steered every
@@ -254,7 +262,7 @@ export default async function VideoAnalyzerPage(): Promise<ReactElement> {
         <AnalyzerWorkspace
           initialJob={initialJob}
           businessProfile={businessProfile}
-          reportLanguage={locale}
+          reportLanguage={reportLanguage}
           hasHistory={rows.length > 0}
           historyUnavailable={historyUnavailable}
         >

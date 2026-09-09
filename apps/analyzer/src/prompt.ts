@@ -40,22 +40,59 @@ export function parseBusinessProfile(raw: unknown): string | null {
   return value;
 }
 
-
 const LANGUAGE_NAMES: Record<ReportLanguage, string> = {
   en: 'English',
   zh: 'Simplified Chinese (简体中文)',
   ms: 'Bahasa Malaysia',
 };
 
-/** The human name for each dimension. PRD 1 §8.7.1's Card-label column — the
- *  model must write these in `report_text`, never the machine key. */
-const DIMENSION_LABEL: Record<(typeof SCORE_KEYS)[number], string> = {
-  opening_hook: 'Opening hook',
-  script_structure: 'Script structure',
-  emotional_arc: 'Emotional arc',
-  engagement_prompts: 'Engagement prompts',
-  performance_prediction: 'Performance prediction',
-  content_formula: 'Content formula',
+/**
+ * The human name for each dimension, per report language. PRD 1 §8.7.1's
+ * Card-label column — the model must write these in `report_text`, never the
+ * machine key. The Chinese names are the SAME strings the report page renders
+ * on its score cards (lib/i18n/studio.zh.ts), so a Chinese report reads as one
+ * document instead of English headings over Chinese prose. Bahasa has no UI
+ * translation yet and keeps the English names.
+ *
+ * Owner decision 2026-09-09: reports are Chinese by default. This edit changes
+ * the zh prompt's token count; PRD 1 §9's measurement was already invalidated
+ * by the §8.3.5 prompt edit and needs a re-run either way.
+ */
+const DIMENSION_LABELS: Record<
+  ReportLanguage,
+  Record<(typeof SCORE_KEYS)[number], string>
+> = {
+  en: {
+    opening_hook: 'Opening hook',
+    script_structure: 'Script structure',
+    emotional_arc: 'Emotional arc',
+    engagement_prompts: 'Engagement prompts',
+    performance_prediction: 'Performance prediction',
+    content_formula: 'Content formula',
+  },
+  zh: {
+    opening_hook: '开场钩子',
+    script_structure: '脚本结构',
+    emotional_arc: '情绪发展',
+    engagement_prompts: '互动引导',
+    performance_prediction: '表现预测',
+    content_formula: '内容公式',
+  },
+  ms: {
+    opening_hook: 'Opening hook',
+    script_structure: 'Script structure',
+    emotional_arc: 'Emotional arc',
+    engagement_prompts: 'Engagement prompts',
+    performance_prediction: 'Performance prediction',
+    content_formula: 'Content formula',
+  },
+};
+
+/** The final paragraph's opening words, in the report language. */
+const CHANGE_FIRST_PREFIX: Record<ReportLanguage, string> = {
+  en: 'What to change first:',
+  zh: '首先要改的：',
+  ms: 'What to change first:',
 };
 
 const DIMENSION_BRIEF: Record<(typeof SCORE_KEYS)[number], string> = {
@@ -94,11 +131,13 @@ export function buildAnalysisPrompt(input: {
   businessProfile?: string | null;
 }): string {
   const language = LANGUAGE_NAMES[input.reportLanguage];
+  const labels = DIMENSION_LABELS[input.reportLanguage];
+  const changeFirst = CHANGE_FIRST_PREFIX[input.reportLanguage];
   const duration = input.durationSeconds;
   const hasAudio = input.transcript.length > 0;
   const dimensions = SCORE_KEYS.map(
     (k, i) =>
-      `${i + 1}. "${k}" — write its name as "${DIMENSION_LABEL[k]}" — ${DIMENSION_BRIEF[k]}`,
+      `${i + 1}. "${k}" — write its name as "${labels[k]}" — ${DIMENSION_BRIEF[k]}`,
   ).join('\n');
 
   // Rendered by the frontend and bounded there; absent leaves the prompt
@@ -137,8 +176,8 @@ Then plot how the emotional energy moves across the clip, as "emotion_curve": be
 Then write "report_text": the full written breakdown a creator would read. Plain text only — no markdown, no "#", no "*", no bullet characters. Separate EVERY paragraph with a blank line; a single unbroken block of text is unusable. Structure it exactly like this:
 
 First paragraph: the overall verdict, two or three sentences — what this video is trying to do, and whether it does it.
-Then one paragraph per dimension, in the order above. Open each with the dimension's NAME exactly as given above — "${SCORE_KEYS.map((k) => DIMENSION_LABEL[k]).join('", "')}" — never the machine key like "opening_hook". Follow it with " — ", then two or three sentences that judge a specific moment rather than the clip in general.
-Final paragraph: begin with "What to change first:" and name one concrete change, specific enough to act on this week.
+Then one paragraph per dimension, in the order above. Open each with the dimension's NAME exactly as given above — "${SCORE_KEYS.map((k) => labels[k]).join('", "')}" — never the machine key like "opening_hook". Follow it with " — ", then two or three sentences that judge a specific moment rather than the clip in general.
+Final paragraph: begin with "${changeFirst}" and name one concrete change, specific enough to act on this week.
 
 Write "why", "evidence" and "report_text" in ${language}. Leave the video's own language alone anywhere you quote it. Every other instruction above stays in English whatever the report language is — translating the instructions changes the prompt token count per language and makes §9's rows incomparable.
 

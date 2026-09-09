@@ -83,8 +83,10 @@ const INGEST_STATUS: Record<IngestFailure, [number, string]> = {
   too_large: [413, 'file is over the 2 GB limit'],
 };
 
+/** Chinese unless asked otherwise (owner decision 2026-09-09) — the page sends
+ *  the user's choice explicitly; this is the fallback for a bare API call. */
 function parseReportLanguage(raw: unknown): ReportLanguage {
-  return raw === 'zh' || raw === 'ms' ? raw : 'en';
+  return raw === 'en' || raw === 'ms' ? raw : 'zh';
 }
 
 export async function POST(request: Request): Promise<Response> {
