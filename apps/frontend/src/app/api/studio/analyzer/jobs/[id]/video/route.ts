@@ -1,28 +1,31 @@
 /**
- * GET /api/studio/analyzer/jobs/{id}/video — the compressed MP4, same-origin
- * and Range-capable.
+ * GET /api/studio/analyzer/jobs/{id}/video — the compressed MP4.
  *
- * PRD 1 §8.8.7. The incoming `Range` header is forwarded to the worker and
- * `206`, `Content-Range` and `Accept-Ranges` come straight back: clicking a
- * transcript line to seek the video does not work without it.
+ * PRD 1 §8.8.7, phase 2. Answers a 302 to a short-lived signed Storage URL:
+ * Supabase serves the bytes with `Accept-Ranges` and `206`s, which is what
+ * clicking a transcript line to seek the player needs, and nothing streams
+ * through a function. `media-src` in next.config.js allows the bucket host.
  *
  * Every job-related failure — unknown, not yours, or a job that never reached
- * `done` — and every worker failure is the same bare, empty-body 404. A JSON
- * envelope delivered into a <video> element is not a failure any client handles.
+ * `done` — is the same bare, empty-body 404. A JSON envelope delivered into a
+ * <video> element is not a failure any client handles.
  */
 
 import { NextResponse } from 'next/server';
 
+import { readJob, signedUrl } from '../../../../../../../lib/analyzer-store';
 import {
   getAuthContext,
   isStudioMember,
   type AuthContext,
 } from '../../../../../../../lib/auth';
-import { getJob } from '../../../../../../../lib/analyzer';
 import { isUuid } from '../../../../../../../lib/ids';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+/** Long enough to scrub through a report; the page mints a fresh one per load. */
+const MEDIA_URL_SECONDS = 3600;
 
 function jsonError(status: number, error: string): Response {
   return NextResponse.json({ ok: false, error }, { status });
@@ -31,12 +34,9 @@ function jsonError(status: number, error: string): Response {
 const missing = () => new Response(null, { status: 404 });
 
 export async function GET(
-  request: Request,
+  _request: Request,
   context: { params: Promise<{ id: string }> },
 ): Promise<Response> {
-  const base = (process.env.ANALYZER_SERVICE_URL ?? '').replace(/\/+$/, '');
-  if (base === '') return jsonError(503, 'analyzer not configured');
-
   let auth: AuthContext | null;
   try {
     auth = await getAuthContext();
@@ -50,51 +50,22 @@ export async function GET(
   if (!isUuid(id)) return jsonError(400, 'invalid job id');
 
   try {
-    const job = await getJob(auth.userId, id);
-    if (job === null || job.status !== 'done') return missing();
+    const row = await readJob(id);
+    if (
+      row === null ||
+      row.user_id !== auth.userId ||
+      row.status !== 'done' ||
+      row.video_path === null
+    ) {
+      return missing();
+    }
+    const url = await signedUrl(row.video_path, MEDIA_URL_SECONDS);
+    return NextResponse.redirect(url, {
+      status: 302,
+      headers: { 'Cache-Control': 'private, no-store' },
+    });
   } catch (cause) {
-    console.error('[studio/analyzer] video job read failed', cause);
+    console.error('[studio/analyzer] video read failed', cause);
     return missing();
   }
-
-  // 10 s to reach the worker and receive headers, then DISARMED. A signal that
-  // is still armed also aborts the response body in undici, which truncates any
-  // Range read slower than ten seconds and stops the player mid-seek.
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10_000);
-  let upstream: Response;
-  try {
-    const range = request.headers.get('range');
-    upstream = await fetch(
-      `${base}/media/${encodeURIComponent(id)}/compressed.mp4`,
-      {
-        headers: {
-          authorization: `Bearer ${process.env.ANALYZER_SERVICE_TOKEN ?? ''}`,
-          'x-d3-user-id': auth.userId,
-          ...(range === null ? {} : { range }),
-        },
-        cache: 'no-store',
-        signal: controller.signal,
-      },
-    );
-  } catch (cause) {
-    console.error('[studio/analyzer] video fetch failed', cause);
-    return missing();
-  } finally {
-    clearTimeout(timer);
-  }
-
-  if (!upstream.ok) return missing();
-
-  const headers = new Headers({
-    'Content-Type': 'video/mp4',
-    'Accept-Ranges': 'bytes',
-    'Cache-Control': 'private, max-age=3600',
-  });
-  const contentRange = upstream.headers.get('content-range');
-  if (contentRange !== null) headers.set('Content-Range', contentRange);
-  const contentLength = upstream.headers.get('content-length');
-  if (contentLength !== null) headers.set('Content-Length', contentLength);
-
-  return new Response(upstream.body, { status: upstream.status, headers });
 }

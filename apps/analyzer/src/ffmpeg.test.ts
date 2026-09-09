@@ -15,6 +15,7 @@ import {
   LADDER,
   MAX_RETRY_HEIGHT,
   MIN_RETRY_VIDEO_KBPS,
+  parseProbeOutput,
   pickLadderRow,
   retryEncodeSettings,
   thumbnailSeekSeconds,
@@ -215,5 +216,52 @@ describe('the audio extract and the poster frame', () => {
     expect(args[args.indexOf('-i') + 1]).toBe('compressed.mp4');
     expect(args[args.indexOf('-ss') + 1]).toBe('1');
     expect(args).toContain('-frames:v');
+  });
+});
+
+describe('parseProbeOutput — the one probe on the hosted binary', () => {
+  const VIDEO =
+    '  Stream #0:0[0x1](und): Video: h264 (High) (avc1 / 0x31637661), yuv420p(tv, bt709), 1080x1920, 2720 kb/s, 30 fps, 30 tbr, 15360 tbn (default)';
+  const AUDIO =
+    '  Stream #0:1[0x2](und): Audio: aac (LC) (mp4a / 0x6D6F7061), 44100 Hz, stereo, fltp, 128 kb/s (default)';
+  const COVER =
+    '  Stream #0:1: Video: mjpeg (Baseline), yuvj420p(pc, bt470bg/unknown/unknown), 500x500 [SAR 1:1 DAR 1:1], 90k tbr, 90k tbn (attached pic)';
+
+  const info = (streams: string[], duration = '00:01:05.40') =>
+    [
+      "Input #0, mov,mp4,m4a,3gp,3g2,mj2, from 'x.mp4':",
+      '  Metadata:',
+      '    major_brand     : mp42',
+      `  Duration: ${duration}, start: 0.000000, bitrate: 2853 kb/s`,
+      ...streams,
+      'At least one output file must be specified',
+    ].join('\n');
+
+  it('reads duration, video and audio from a phone recording', () => {
+    expect(parseProbeOutput(info([VIDEO, AUDIO]))).toEqual({
+      durationRaw: 65.4,
+      hasVideo: true,
+      hasAudio: true,
+    });
+  });
+
+  it('a silent screen recording has no audio and is still a video', () => {
+    expect(parseProbeOutput(info([VIDEO]))).toEqual({
+      durationRaw: 65.4,
+      hasVideo: true,
+      hasAudio: false,
+    });
+  });
+
+  it('an MP3 with cover art is not a video — no_video_stream', () => {
+    expect(parseProbeOutput(info([AUDIO, COVER]))).toBeNull();
+  });
+
+  it('an unreadable duration is no_video_stream', () => {
+    expect(parseProbeOutput(info([VIDEO, AUDIO], 'N/A'))).toBeNull();
+  });
+
+  it('a missing input is null, never a throw', () => {
+    expect(parseProbeOutput('x.mp4: No such file or directory')).toBeNull();
   });
 });
