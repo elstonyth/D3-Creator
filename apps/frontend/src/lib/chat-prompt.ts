@@ -123,8 +123,7 @@ function label(map: Record<string, string>, slug: string | null): string {
 export function isProfileComplete(profile: BusinessProfile | null): boolean {
   if (profile === null) return false;
   return (
-    clean(profile.what_you_sell) !== '' &&
-    clean(profile.who_buys_it) !== ''
+    clean(profile.what_you_sell) !== '' && clean(profile.who_buys_it) !== ''
   );
 }
 
@@ -136,10 +135,20 @@ export function isProfileComplete(profile: BusinessProfile | null): boolean {
  * omitted ENTIRELY when its column is null or blank — never emitted with an
  * empty value.
  */
-export function renderProfileBlock(profile: BusinessProfile | null, replyLocale?: Locale): string {
-  const replyLanguage = replyLocale === undefined ? null : replyLocale === 'zh' ? 'Chinese' : 'English';
+export function renderProfileBlock(
+  profile: BusinessProfile | null,
+  replyLocale?: Locale,
+): string {
+  const replyLanguage =
+    replyLocale === undefined
+      ? null
+      : replyLocale === 'zh'
+        ? 'Chinese'
+        : 'English';
   if (!isProfileComplete(profile) || profile === null) {
-    return replyLanguage ? `${NO_PROFILE_ON_FILE}\nReply language: ${replyLanguage}` : NO_PROFILE_ON_FILE;
+    return replyLanguage
+      ? `${NO_PROFILE_ON_FILE}\nReply language: ${replyLanguage}`
+      : NO_PROFILE_ON_FILE;
   }
 
   const lines: string[] = ['BUSINESS PROFILE'];
@@ -175,7 +184,10 @@ export function renderProfileBlock(profile: BusinessProfile | null, replyLocale?
   // Directly under Content language, and omitted entirely when null — the two
   // lines only make sense read together, and their absence is what tells the
   // persona to fall back to the content language.
-  push('Reply language', replyLanguage ?? label(REPLY_LANGUAGE_LABELS, profile.reply_language));
+  push(
+    'Reply language',
+    replyLanguage ?? label(REPLY_LANGUAGE_LABELS, profile.reply_language),
+  );
   push('Main platform', label(PLATFORM_LABELS, profile.main_platform));
   push('Appears on camera', label(ON_CAMERA_LABELS, profile.on_camera));
 
@@ -271,8 +283,14 @@ export interface BuildMessagesInput {
  * never lock a conversation into a language the user did not choose. */
 function resolveReplyLocale(input: BuildMessagesInput): Locale | undefined {
   const detect = (text: string): Locale | undefined => {
-    // Quoted examples are content, not a request to change the coach's language.
-    const request = text.replace(/```[\s\S]*?```|`[^`]*`|"[^"\n]*"|“[^”]*”|「[^」]*」|'[^'\n]*'/g, ' ');
+    // Quoted examples and code are content: neither a request to change the
+    // coach's language nor evidence of the user's own. Single quotes are left
+    // alone — in English they are apostrophes ("don't", "I'm") far more often
+    // than quotes, and stripping "'t reply in Chinese, I'" eats the request.
+    const request = text.replace(
+      /```[\s\S]*?```|`[^`]*`|"[^"\n]*"|“[^”]*”|「[^」]*」/g,
+      ' ',
+    );
     const languageRequests = request.matchAll(
       /\b(?:reply|respond|answer|write|speak)(?:\s+to\s+me)?(?:\s+only)?\s+in\s+(?:(?:simplified|traditional)\s+)?(english|chinese|mandarin)\b|(?:用|使用|讲|講|说|說)\s*(英文|英语|英語|中文|华文|華文|汉语|漢語|普通话|普通話)/gi,
     );
@@ -280,12 +298,20 @@ function resolveReplyLocale(input: BuildMessagesInput): Locale | undefined {
     for (const match of languageRequests) {
       const prefix = request.slice(0, match.index).trimEnd();
       if (/(?:\bdon't|\bdo not|\bnever|不要|别|別)$/i.test(prefix)) continue;
-      explicit = /^(?:english|英文|英语|英語)$/i.test(match[1] ?? match[2]) ? 'en' : 'zh';
+      explicit = /^(?:english|英文|英语|英語)$/i.test(match[1] ?? match[2])
+        ? 'en'
+        : 'zh';
     }
     if (explicit) return explicit;
-    if (/\p{Script=Han}/u.test(text)) return 'zh';
-    if (/[a-z]/i.test(text)) return 'en';
-    return undefined;
+    // Majority decides, so a product name in the other script does not flip
+    // the reply: "I sell 电竞电脑 to gamers" is English, "用 PC 和 GPU 写脚本" is
+    // Chinese. One Han character weighs about one English word. A message
+    // that is nothing but quoted text is judged on the quote.
+    const own = request.trim() ? request : text;
+    const han = (own.match(/\p{Script=Han}/gu) ?? []).length;
+    const latin = (own.match(/[a-z]+/gi) ?? []).length;
+    if (han === 0 && latin === 0) return undefined;
+    return han > latin ? 'zh' : 'en';
   };
   const current = detect(input.question);
   if (current) return current;
@@ -319,7 +345,10 @@ export function buildMessages(input: BuildMessagesInput): ChatMessage[] {
       role: 'system',
       content: [{ type: 'text', text: input.persona }, playbookBlock],
     },
-    { role: 'user', content: renderProfileBlock(input.profile, resolveReplyLocale(input)) },
+    {
+      role: 'user',
+      content: renderProfileBlock(input.profile, resolveReplyLocale(input)),
+    },
     { role: 'assistant', content: ASSISTANT_ACK },
     ...selectHistory(input.history),
     { role: 'user', content: input.question.trim() },

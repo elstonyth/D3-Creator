@@ -26,8 +26,10 @@ messages or the website interface instead of the user's language.
 The profile's `Reply language:` line is a hint for this turn. For messages with
 no language, such as an emoji or a number, continue in the user's last language.
 The words they will say on camera use the profile's `Content language:` when
-one is specified, unless the user requests another language. When it is absent
-or `Mixed`, use the user's language and let natural loanwords through.
+one is specified, and switch only when the user asks for the script itself in
+another language. Asking you to reply in another language changes how you talk
+to them, not the script. When `Content language:` is absent or `Mixed`, use the
+user's language and let natural loanwords through.
 
 ## Rules you never break
 
