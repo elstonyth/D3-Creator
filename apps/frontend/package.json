@@ -52,7 +52,7 @@
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "@types/three": "0.167.2",
-    "autoprefixer": "^10.4.17",
+    "autoprefixer": "^10.5.5",
     "dotenv-cli": "^8.0.0",
     "eslint": "9.39.4",
     "eslint-config-next": "16.2.11",
