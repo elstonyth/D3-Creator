@@ -31,6 +31,7 @@ const config: Config = {
     // node_modules. Tests that `jest.mock()` it still need the specifier to
     // RESOLVE before the factory can replace it.
     '^@d3/analyzer$': '<rootDir>/../analyzer/src/contract.ts',
+    '^@d3/analyzer/(.*)$': '<rootDir>/../analyzer/src/$1',
     '^@d3/database$': '<rootDir>/../../libraries/database/src/index.ts',
   },
 };

@@ -20,6 +20,10 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "optionalDependencies": {
+    "@ffmpeg-installer/linux-x64": "4.1.0",
+    "@ffmpeg-installer/win32-x64": "4.1.0"
+  },
   "dependencies": {
     "@d3/analyzer": "workspace:*",
     "@d3/openrouter": "workspace:*",

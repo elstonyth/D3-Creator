@@ -1,14 +1,17 @@
 /**
- * GET /api/studio/analyzer/jobs/{id}/thumbnail — the poster frame, same-origin.
+ * GET /api/studio/analyzer/jobs/{id}/thumbnail — the poster frame.
  *
- * PRD 1 §8.8.7's media-route rules: a bare, EMPTY-BODY 404 covers unknown, not
- * yours, no poster frame, AND a worker that is down, slow or past the 10 s read
- * timeout. A broken tile is the right user experience; a 502 inside an <img> is
- * not. 400 / 401 / 403 / 503 still use the JSON envelope.
+ * PRD 1 §8.8.7, phase 2. A 302 to a short-lived signed Storage URL, like the
+ * video route; `img-src` already allows the bucket host. The poster exists
+ * from the end of the compressing step, so a running job may have one.
+ *
+ * Unknown, not yours, or no poster: a bare, empty-body 404 — the
+ * <ImageWithFallback> tile handles that and nothing else.
  */
 
 import { NextResponse } from 'next/server';
 
+import { readJob, signedUrl } from '../../../../../../../lib/analyzer-store';
 import {
   getAuthContext,
   isStudioMember,
@@ -18,6 +21,8 @@ import { isUuid } from '../../../../../../../lib/ids';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+const MEDIA_URL_SECONDS = 3600;
 
 function jsonError(status: number, error: string): Response {
   return NextResponse.json({ ok: false, error }, { status });
@@ -29,9 +34,6 @@ export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> },
 ): Promise<Response> {
-  const base = (process.env.ANALYZER_SERVICE_URL ?? '').replace(/\/+$/, '');
-  if (base === '') return jsonError(503, 'analyzer not configured');
-
   let auth: AuthContext | null;
   try {
     auth = await getAuthContext();
@@ -45,28 +47,18 @@ export async function GET(
   if (!isUuid(id)) return jsonError(400, 'invalid job id');
 
   try {
-    const upstream = await fetch(
-      `${base}/media/${encodeURIComponent(id)}/thumbnail.jpg`,
-      {
-        headers: {
-          authorization: `Bearer ${process.env.ANALYZER_SERVICE_TOKEN ?? ''}`,
-          'x-d3-user-id': auth.userId,
-        },
-        cache: 'no-store',
-        signal: AbortSignal.timeout(10_000),
-      },
-    );
-    if (!upstream.ok) return missing();
-    // The body is read to completion INSIDE the armed signal and only then
-    // written to the response. Never `new Response(upstream.body, …)`, which
-    // lets undici truncate a JPEG under a 200.
-    const bytes = await upstream.arrayBuffer();
-    return new Response(bytes, {
-      status: 200,
-      headers: {
-        'Content-Type': 'image/jpeg',
-        'Cache-Control': 'private, max-age=3600',
-      },
+    const row = await readJob(id);
+    if (
+      row === null ||
+      row.user_id !== auth.userId ||
+      row.thumbnail_path === null
+    ) {
+      return missing();
+    }
+    const url = await signedUrl(row.thumbnail_path, MEDIA_URL_SECONDS);
+    return NextResponse.redirect(url, {
+      status: 302,
+      headers: { 'Cache-Control': 'private, no-store' },
     });
   } catch (cause) {
     console.error('[studio/analyzer] thumbnail read failed', cause);

@@ -18,6 +18,23 @@ const nextConfig = {
   // locally does.
   outputFileTracingIncludes: {
     '/api/chat': ['./src/content/chatbot-persona.md'],
+    // The Video Analyzer runs ffmpeg inside these three functions
+    // (lib/analyzer-run.ts). The binary is a plain file in a platform npm
+    // package with no entry point, so nothing imports it and the tracer never
+    // sees it. `.npmrc` says node-linker=hoisted, which puts it at the
+    // monorepo root; the app-local path is listed too in case that changes.
+    '/api/studio/analyzer/jobs': [
+      '../../node_modules/@ffmpeg-installer/linux-x64/**',
+      './node_modules/@ffmpeg-installer/linux-x64/**',
+    ],
+    '/api/studio/analyzer/jobs/[id]/start': [
+      '../../node_modules/@ffmpeg-installer/linux-x64/**',
+      './node_modules/@ffmpeg-installer/linux-x64/**',
+    ],
+    '/api/studio/analyzer/health': [
+      '../../node_modules/@ffmpeg-installer/linux-x64/**',
+      './node_modules/@ffmpeg-installer/linux-x64/**',
+    ],
   },
   // Security and Document-Policy headers
   async headers() {
@@ -37,7 +54,9 @@ const nextConfig = {
       scriptSrc,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://*.supabase.co https://*.scdn.cc https://picsum.photos",
-      "media-src 'self' blob: https://commondatastorage.googleapis.com",
+      // *.supabase.co: the analyzer's video route 302s to a signed Storage URL
+      // so the player gets Range/206 straight from the bucket.
+      "media-src 'self' blob: https://*.supabase.co https://commondatastorage.googleapis.com",
       "font-src 'self'",
       // Dev points at a local Supabase stack on 127.0.0.1:54321 — allow it (and ws HMR).
       // https://*.sentry.io covers the Sentry ingest endpoint for client-side

@@ -3,17 +3,19 @@
  *
  * PRD 1 §8.8.7. The Download button is a link to this route, gated on
  * `status === 'done'` and nothing else; the `Content-Disposition` is set HERE
- * and on no other route, so the filename is built in exactly one place.
+ * and on no other route, so the filename is built in exactly one place. The
+ * body comes from Storage (phase 2) — a few kilobytes, so it streams through
+ * rather than redirecting like the two media routes.
  */
 
 import { NextResponse } from 'next/server';
 
+import { downloadText, readJob } from '../../../../../../../lib/analyzer-store';
 import {
   getAuthContext,
   isStudioMember,
   type AuthContext,
 } from '../../../../../../../lib/auth';
-import { getJob } from '../../../../../../../lib/analyzer';
 import { isUuid } from '../../../../../../../lib/ids';
 
 export const runtime = 'nodejs';
@@ -64,9 +66,6 @@ export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> },
 ): Promise<Response> {
-  const base = (process.env.ANALYZER_SERVICE_URL ?? '').replace(/\/+$/, '');
-  if (base === '') return jsonError(503, 'analyzer not configured');
-
   let auth: AuthContext | null;
   try {
     auth = await getAuthContext();
@@ -79,36 +78,23 @@ export async function GET(
   const { id } = await context.params;
   if (!isUuid(id)) return jsonError(400, 'invalid job id');
 
-  let filename: string;
   try {
-    const job = await getJob(auth.userId, id);
-    if (job === null || job.status !== 'done') return missing();
-    filename = job.filename;
-  } catch (cause) {
-    console.error('[studio/analyzer] report job read failed', cause);
-    return missing();
-  }
-
-  try {
-    const upstream = await fetch(
-      `${base}/media/${encodeURIComponent(id)}/report.txt`,
-      {
-        headers: {
-          authorization: `Bearer ${process.env.ANALYZER_SERVICE_TOKEN ?? ''}`,
-          'x-d3-user-id': auth.userId,
-        },
-        cache: 'no-store',
-        signal: AbortSignal.timeout(10_000),
-      },
-    );
-    if (!upstream.ok) return missing();
-    // Read to completion inside the armed signal, then write.
-    const body = await upstream.text();
+    const row = await readJob(id);
+    if (
+      row === null ||
+      row.user_id !== auth.userId ||
+      row.status !== 'done' ||
+      row.report_path === null
+    ) {
+      return missing();
+    }
+    const body = await downloadText(row.report_path);
+    if (body === null) return missing();
     return new Response(body, {
       status: 200,
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
-        'Content-Disposition': contentDisposition(filename),
+        'Content-Disposition': contentDisposition(row.filename),
         'Cache-Control': 'private, max-age=3600',
       },
     });

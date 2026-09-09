@@ -221,7 +221,9 @@ export interface RunResult {
   stderr: string;
 }
 
-const STDERR_TAIL = 2000;
+/** Long enough that the probe's `Input #0` block — which follows a phone's
+ *  metadata dump — survives the cut. Still a tail, never rendered. */
+const STDERR_TAIL = 8000;
 
 function run(
   bin: string,
@@ -288,22 +290,48 @@ function run(
   });
 }
 
-/** One FFmpeg pass under the caller's deadline. Never throws. */
+/**
+ * One FFmpeg pass under the caller's deadline. Never throws. `bin` is the
+ * binary's path — the hosted app ships its own (lib/analyzer-run.ts) and a
+ * laptop has one on PATH; this file does not decide which.
+ */
 export async function runFfmpeg(
+  bin: string,
   args: string[],
   signal: AbortSignal,
 ): Promise<RunResult> {
-  const { stdout: _stdout, ...result } = await run('ffmpeg', args, { signal });
+  const { stdout: _stdout, ...result } = await run(bin, args, { signal });
   return result;
 }
 
 /** `<bin> -version` exits 0. SIGKILL and `false` after `timeoutMs` (§8.4). */
 export async function probeBinary(
-  bin: 'ffmpeg' | 'ffprobe',
+  bin: string,
   timeoutMs: number,
 ): Promise<boolean> {
   const result = await run(bin, ['-version'], { timeoutMs });
   return result.ok;
+}
+
+/**
+ * `-version` and `-protocols`, for the health route. `https` is the one that
+ * matters hosted: the upload path hands ffmpeg a signed Storage URL, and a
+ * build without TLS fails every upload as `no_video_stream`. Never throws.
+ */
+export async function describeBinary(
+  bin: string,
+  timeoutMs: number,
+): Promise<{ ok: boolean; version: string | null; https: boolean }> {
+  const version = await run(bin, ['-version'], { timeoutMs });
+  if (!version.ok) return { ok: false, version: null, https: false };
+  const protocols = await run(bin, ['-hide_banner', '-protocols'], {
+    timeoutMs,
+  });
+  return {
+    ok: true,
+    version: version.stdout.split('\n')[0]?.trim() || null,
+    https: /^\s*https\s*$/m.test(protocols.stdout),
+  };
 }
 
 export interface ProbeResult {
@@ -314,62 +342,46 @@ export interface ProbeResult {
 }
 
 /**
- * ONE ffprobe invocation answers all three of §8.5's questions: is there a
- * decodable video stream, how long is it, and is there an audio stream. Do not
- * issue a second, and do not use the duration-only form — it succeeds on an MP3
- * and can therefore never raise `no_video_stream`.
+ * `ffmpeg -i <source>` with no output prints the input's duration and streams
+ * to stderr and exits 1 ("At least one output file must be specified"). That
+ * text answers all three of §8.5's questions — is there a video stream, how
+ * long is it, is there audio — from the ONE binary the hosted function ships;
+ * a static ffprobe is another 70 MB in a 250 MB bundle.
  *
- * Returns null when ffprobe exits non-zero, when the JSON does not parse, when
- * no stream has `codec_type == "video"`, or when `format.duration` is not a
- * finite number > 0. All four are `no_video_stream`.
+ * Returns null when there is no `Duration:` line (or it is N/A), when it is
+ * not > 0, or when no stream is `Video:`. An attached cover picture on an MP3
+ * is a Video stream tagged `(attached pic)` and does not count. All of those
+ * are `no_video_stream`.
  */
-export async function probeVideo(
-  file: string,
-  timeoutMs: number,
-): Promise<ProbeResult | null> {
-  const result = await run(
-    'ffprobe',
-    [
-      '-v',
-      'error',
-      '-show_entries',
-      'format=duration:stream=codec_type',
-      '-of',
-      'json',
-      file,
-    ],
-    { timeoutMs },
-  );
-  if (!result.ok) return null;
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(result.stdout);
-  } catch {
-    return null;
-  }
-  if (typeof parsed !== 'object' || parsed === null) return null;
-
-  const body = parsed as {
-    format?: { duration?: unknown };
-    streams?: unknown;
-  };
-  const streams = Array.isArray(body.streams) ? body.streams : [];
-  const codecTypes = streams.map((s) =>
-    typeof s === 'object' && s !== null
-      ? (s as { codec_type?: unknown }).codec_type
-      : undefined,
-  );
-  if (!codecTypes.includes('video')) return null;
-
-  const durationRaw = Number(body.format?.duration);
+export function parseProbeOutput(stderr: string): ProbeResult | null {
+  const duration = /Duration:\s*(\d+):(\d\d):(\d\d(?:\.\d+)?)/.exec(stderr);
+  if (duration === null) return null;
+  const durationRaw =
+    Number(duration[1]) * 3600 + Number(duration[2]) * 60 + Number(duration[3]);
   if (!Number.isFinite(durationRaw) || durationRaw <= 0) return null;
 
-  return {
-    durationRaw,
-    hasVideo: true,
-    hasAudio: codecTypes.includes('audio'),
-  };
+  const lines = stderr.split('\n');
+  const isVideo = (line: string) =>
+    /Stream #\d+:\d+.*: Video: /.test(line) && !/attached pic/.test(line);
+  const isAudio = (line: string) => /Stream #\d+:\d+.*: Audio: /.test(line);
+  if (!lines.some(isVideo)) return null;
+  return { durationRaw, hasVideo: true, hasAudio: lines.some(isAudio) };
+}
+
+/**
+ * ONE invocation under `timeoutMs`. `source` is a local path or an https URL
+ * (the upload path probes the object in Storage without downloading it).
+ */
+export async function probeVideo(
+  bin: string,
+  source: string,
+  timeoutMs: number,
+): Promise<ProbeResult | null> {
+  const result = await run(bin, ['-hide_banner', '-nostdin', '-i', source], {
+    timeoutMs,
+  });
+  if (result.killed) return null;
+  return parseProbeOutput(result.stderr);
 }
 
 /** §9.1's fixture duration reading — duration only, on a file already known good. */

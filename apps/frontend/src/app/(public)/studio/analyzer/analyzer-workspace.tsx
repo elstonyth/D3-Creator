@@ -39,6 +39,7 @@ import {
   type AnalyzerJob,
   type AnalyzerJobSummary,
 } from '@gitroom/frontend/lib/analyzer-contract';
+import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
 import { cn } from '@gitroom/frontend/lib/utils';
 
 export interface AnalyzerWorkspaceProps {
@@ -48,11 +49,10 @@ export interface AnalyzerWorkspaceProps {
    * Amendment 1 Part D. The already-rendered §10A.6 profile block, or null,
    * read server-side by the page.
    *
-   * It travels through the browser because the upload route streams its
-   * multipart body through with `duplex: 'half'` and cannot inject a field
-   * without buffering up to 2 GB. `report_language` works the same way. A user
+   * It travels through the browser with the create request (the file itself
+   * goes straight to Storage). `report_language` works the same way. A user
    * can therefore tamper with their own profile string; the blast radius is
-   * their own report, and the worker bounds the length again.
+   * their own report, and the server bounds the length again.
    */
   businessProfile: string | null;
   /**
@@ -169,11 +169,11 @@ export default function AnalyzerWorkspace({
       setJob((prev) =>
         prev === null || prev.id !== jobId
           ? prev
-          : { ...prev, status: 'failed', step: null, error: { code, message } }
+          : { ...prev, status: 'failed', step: null, error: { code, message } },
       );
       router.refresh();
     },
-    [clearPoll, router]
+    [clearPoll, router],
   );
 
   const tick = useCallback(
@@ -221,7 +221,7 @@ export default function AnalyzerWorkspace({
       }
       pollTimer.current = setTimeout(() => void run(jobId), POLL_INTERVAL_MS);
     },
-    [clearPoll, giveUp, router]
+    [clearPoll, giveUp, router],
   );
 
   const beginPolling = useCallback(
@@ -230,7 +230,7 @@ export default function AnalyzerWorkspace({
       deadline.current = Date.now() + POLL_GIVE_UP_MS;
       void tick(jobId); // fired IMMEDIATELY, not after one interval
     },
-    [tick]
+    [tick],
   );
 
   // A running job survives a reload: a reload is a new mount and a deliberate
@@ -258,7 +258,7 @@ export default function AnalyzerWorkspace({
 
       if (
         !(ALLOWED_EXTENSIONS as readonly string[]).includes(
-          extensionOf(file.name)
+          extensionOf(file.name),
         )
       ) {
         setClientError(COPY.format);
@@ -281,21 +281,67 @@ export default function AnalyzerWorkspace({
       }
 
       try {
+        // Three legs (PRD 1 §8.8.10): ask the server for a job and a signed
+        // Storage target, put the bytes into the bucket straight from the
+        // browser — a Vercel function body is capped at 4.5 MB, so the file
+        // can never travel through one — then tell the server they are there.
         // New reports follow the interface language selected in the header.
-        const form = new FormData();
-        // BEFORE the file: multer only populates `req.body` with text fields
-        // that precede it in the stream (apps/analyzer/src/upload.ts).
-        if (businessProfile !== null) {
-          form.append('business_profile', businessProfile);
-        }
-        if (reportLanguage !== null) {
-          form.append('report_language', reportLanguage);
-        }
-        form.append('video', file);
-        const res = await fetch('/api/studio/analyzer/jobs', {
+        const create = await fetch('/api/studio/analyzer/jobs', {
           method: 'POST',
-          body: form,
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            upload: { filename: file.name, size_bytes: file.size },
+            ...(businessProfile === null
+              ? {}
+              : { business_profile: businessProfile }),
+            ...(reportLanguage === null
+              ? {}
+              : { report_language: reportLanguage }),
+          }),
         });
+        const created = (await create.json().catch(() => null)) as {
+          ok?: unknown;
+          job_id?: string;
+          upload?: { bucket: string; path: string; token: string };
+          error?: string;
+        } | null;
+        if (
+          !create.ok ||
+          !created ||
+          created.ok !== true ||
+          !created.job_id ||
+          !created.upload
+        ) {
+          console.error(
+            '[studio/analyzer] upload rejected',
+            create.status,
+            created?.error,
+          );
+          setPending(false);
+          setClientError(COPY.upload);
+          return;
+        }
+
+        const { error: putError } = await getSupabaseBrowser()
+          .storage.from(created.upload.bucket)
+          .uploadToSignedUrl(created.upload.path, created.upload.token, file, {
+            contentType: file.type || 'application/octet-stream',
+          });
+        if (putError) {
+          console.error(
+            '[studio/analyzer] upload rejected',
+            0,
+            putError.message,
+          );
+          setPending(false);
+          setClientError(COPY.upload);
+          return;
+        }
+
+        const res = await fetch(
+          `/api/studio/analyzer/jobs/${created.job_id}/start`,
+          { method: 'POST' },
+        );
         const body: unknown = await res.json().catch(() => null);
         const envelope = body as {
           ok?: unknown;
@@ -306,7 +352,7 @@ export default function AnalyzerWorkspace({
           console.error(
             '[studio/analyzer] upload rejected',
             res.status,
-            envelope?.error
+            envelope?.error,
           );
           setPending(false);
           setClientError(COPY.upload);
@@ -314,7 +360,7 @@ export default function AnalyzerWorkspace({
         }
         setJob(envelope.job);
         setPending(false);
-        router.refresh(); // the new `queued` row appears in the table
+        router.refresh(); // the new row appears in the table
         beginPolling(envelope.job.id);
       } catch (cause) {
         // No HTTP status on the transport-throw branch: log 0, so one grep
@@ -325,7 +371,7 @@ export default function AnalyzerWorkspace({
         setClientError(COPY.upload);
       }
     },
-    [beginPolling, businessProfile, clearPoll, reportLanguage, router]
+    [beginPolling, businessProfile, clearPoll, reportLanguage, router],
   );
 
   /**
@@ -366,7 +412,7 @@ export default function AnalyzerWorkspace({
           console.error(
             '[studio/analyzer] link rejected',
             res.status,
-            envelope?.error
+            envelope?.error,
           );
           setPending(false);
           // Switch on the machine-facing diagnostic; render our own copy.
@@ -384,7 +430,7 @@ export default function AnalyzerWorkspace({
         setClientError(linkErrorCopy(null));
       }
     },
-    [beginPolling, businessProfile, clearPoll, reportLanguage, router]
+    [beginPolling, businessProfile, clearPoll, reportLanguage, router],
   );
 
   const status = job?.status ?? null;
@@ -455,7 +501,7 @@ export default function AnalyzerWorkspace({
                     aria-current={current ? 'step' : undefined}
                     className={cn(
                       'flex items-center gap-3 text-body transition-colors duration-150 ease-out',
-                      current || done ? 'text-fg' : 'text-fg-subtle'
+                      current || done ? 'text-fg' : 'text-fg-subtle',
                     )}
                   >
                     {/* The dot is the only thing that changes. The pulse marks
@@ -468,8 +514,8 @@ export default function AnalyzerWorkspace({
                         done
                           ? 'bg-white/[0.78]'
                           : current
-                          ? 'bg-white/[0.78] animate-pulseDot'
-                          : 'bg-white/[0.24]'
+                            ? 'bg-white/[0.78] animate-pulseDot'
+                            : 'bg-white/[0.24]',
                       )}
                     />
                     {t(STEP_LABEL[id])}
@@ -566,7 +612,7 @@ export default function AnalyzerWorkspace({
               'min-h-[240px] rounded-2xl border border-dashed',
               'flex flex-col items-center justify-center gap-4 px-6 py-10 text-center',
               'transition-colors duration-150 ease-out',
-              dragActive ? 'border-line-strong bg-white/[0.02]' : 'border-line'
+              dragActive ? 'border-line-strong bg-white/[0.02]' : 'border-line',
             )}
           >
             {/* The zone is not a click target and not in the tab order, so
@@ -590,7 +636,7 @@ export default function AnalyzerWorkspace({
 
           <p className="text-caption text-fg-subtle">
             {t(
-              'A draft that is not posted anywhere yet can only be uploaded — there is no link to paste.'
+              'A draft that is not posted anywhere yet can only be uploaded — there is no link to paste.',
             )}{' '}
           </p>
         </div>
@@ -605,7 +651,9 @@ export default function AnalyzerWorkspace({
             {t('Past reports')}{' '}
           </h2>
           <p className="text-caption text-fg-subtle">
-            {t('Every video you have run through the analyzer, newest first.')}{' '}
+            {t(
+              'Every video you have run through the analyzer, newest first.',
+            )}{' '}
           </p>
         </div>
         {historyUnavailable ? (
@@ -614,7 +662,7 @@ export default function AnalyzerWorkspace({
             title={t('Past reports are unavailable right now')}
           >
             {t(
-              'This is a problem reading your history, not with your reports — nothing has been lost. Uploading a new video still works.'
+              'This is a problem reading your history, not with your reports — nothing has been lost. Uploading a new video still works.',
             )}{' '}
           </Alert>
         ) : hasHistory ? (
@@ -624,7 +672,7 @@ export default function AnalyzerWorkspace({
             size="sm"
             title={t('No reports yet')}
             description={t(
-              'Analyse your first video and it will show up here with its score.'
+              'Analyse your first video and it will show up here with its score.',
             )}
           >
             {/* Through `children`, not `action`: `action` renders a yellow
