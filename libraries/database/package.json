@@ -6,6 +6,6 @@
   "types": "src/index.ts",
   "license": "AGPL-3.0",
   "dependencies": {
-    "@supabase/supabase-js": "^2.106.2"
+    "@supabase/supabase-js": "^2.115.0"
   }
 }
