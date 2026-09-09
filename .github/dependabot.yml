@@ -5,19 +5,15 @@
 
 version: 2
 updates:
-  # ONE npm entry over BOTH manifests, on purpose. This is a pnpm workspace
-  # with a single lockfile at the root, and most runtime packages (three,
-  # @types/node, @supabase/supabase-js, next, ...) are declared in both
-  # package.json files. Two separate `directory` entries bump the same package
-  # in two separate PRs, and the /apps/frontend one changes its manifest
-  # without being able to regenerate the shared lockfile — every such PR
-  # (#93, #94, #95, #105, #106) failed `pnpm install` with
-  # ERR_PNPM_OUTDATED_LOCKFILE. `directories` makes it one PR per dependency
-  # with one lockfile update.
+  # ONE npm entry at the workspace root, on purpose. Dependabot understands the
+  # pnpm workspace: a root-directory bump already edits apps/frontend,
+  # apps/analyzer and libraries/* manifests together with the single lockfile
+  # (#99, #100, #109, #111 all did). A second entry for /apps/frontend opened a
+  # twin PR that changed that manifest WITHOUT regenerating the shared lockfile,
+  # and every one of them (#93, #94, #95, #105, #106, #113) failed
+  # `pnpm install` with ERR_PNPM_OUTDATED_LOCKFILE. Do not add it back.
   - package-ecosystem: 'npm'
-    directories:
-      - '/'
-      - '/apps/frontend'
+    directory: '/'
     schedule:
       interval: 'weekly'
     open-pull-requests-limit: 5
