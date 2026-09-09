@@ -56,9 +56,11 @@ export interface AnalyzerWorkspaceProps {
    */
   businessProfile: string | null;
   /**
-   * The interface language for new reports. The server also uses it for the
-   * profile block's Reply language line, keeping the worker's instructions
-   * consistent without changing the saved profile or existing reports.
+   * The language new reports are written in: Chinese, unless the saved
+   * profile's reply language is English (owner decision 2026-09-09). The page
+   * derives it — never the interface language — and uses the same value for
+   * the profile block's Reply language line, so the prompt never says two
+   * different things. Existing reports are untouched.
    */
   reportLanguage: 'en' | 'zh' | null;
   hasHistory: boolean;
