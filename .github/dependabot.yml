@@ -24,6 +24,17 @@ updates:
     commit-message:
       prefix: 'chore(deps)'
       prefix-development: 'chore(deps-dev)'
+    # `directories` alone still opens one PR per directory (#111 and #113
+    # were the same autoprefixer bump), and the /apps/frontend one keeps
+    # failing with ERR_PNPM_OUTDATED_LOCKFILE. Grouping is what makes a bump
+    # ONE PR across both manifests with ONE lockfile regeneration.
+    groups:
+      npm-minor-and-patch:
+        applies-to: version-updates
+        update-types: ['minor', 'patch']
+      npm-major:
+        applies-to: version-updates
+        update-types: ['major']
     ignore:
       # TypeScript majors are toolchain migrations (Next, ts-jest and
       # typescript-eslint each pin a range), never a routine bump: the 7.0 PR
