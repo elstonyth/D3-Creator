@@ -14,9 +14,11 @@ import { safeRedirect } from '@gitroom/frontend/lib/redirects';
 
 interface SignInFormProps {
   redirectTo?: string;
+  /** The console has no self-signup; the admin host hides the link. */
+  showSignup?: boolean;
 }
 
-export function SignInForm({ redirectTo }: SignInFormProps) {
+export function SignInForm({ redirectTo, showSignup = true }: SignInFormProps) {
   const { t } = useI18n();
   const router = useRouter();
   const emailId = useId();
@@ -90,6 +92,7 @@ export function SignInForm({ redirectTo }: SignInFormProps) {
         {t('Sign in')}
       </Button>
 
+      {showSignup ? (
       <p className="text-center text-caption text-fg-muted">
         {t('New here?')}{' '}
         <Link
@@ -99,6 +102,7 @@ export function SignInForm({ redirectTo }: SignInFormProps) {
           {t('Create an account')}
         </Link>
       </p>
+      ) : null}
     </form>
   );
 }

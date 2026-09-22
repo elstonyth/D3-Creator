@@ -1,6 +1,8 @@
 import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { headers } from 'next/headers';
+import { isAdminHost } from '@gitroom/frontend/lib/admin-host';
 
 import { AuthShell } from '@gitroom/frontend/components/auth/auth-shell';
 import { SignInForm } from '@gitroom/frontend/components/auth/sign-in-form';
@@ -8,9 +10,10 @@ import { Alert } from '@gitroom/frontend/components/ui/alert';
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
+  const admin = isAdminHost((await headers()).get('host'));
   return {
-  title: t("Sign in — D3 Creator"),
-};
+    title: admin ? t('Admin sign in — D3 Creator') : t('Sign in — D3 Creator'),
+  };
 }
 
 /**
@@ -39,11 +42,25 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const { t } = await getI18n();
   const { redirectTo, notice } = await searchParams;
   const message = notice ? NOTICES[notice] : undefined;
+  // admin.d3creator.com gets its own look so staff and creators cannot
+  // mistake one sign-in for the other (lib/admin-host.ts).
+  const admin = isAdminHost((await headers()).get('host'));
 
   return (
     <AuthShell
-      heading={t("Sign in to D3 Creator")}
-      subheading={t("One account for the Studio, the class library and your own numbers.")}
+      variant={admin ? 'admin' : 'default'}
+      heading={
+        admin ? t('Sign in to the admin console') : t('Sign in to D3 Creator')
+      }
+      subheading={
+        admin
+          ? t(
+              'For D3 staff only. This is not the creator or member sign-in — that lives on www.d3creator.com.',
+            )
+          : t(
+              'One account for the Studio, the class library and your own numbers.',
+            )
+      }
     >
       <div className="space-y-5">
         {message ? (
@@ -60,7 +77,10 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </Alert>
         ) : null}
 
-        <SignInForm redirectTo={redirectTo} />
+        <SignInForm
+          redirectTo={redirectTo ?? (admin ? '/' : undefined)}
+          showSignup={!admin}
+        />
       </div>
     </AuthShell>
   );

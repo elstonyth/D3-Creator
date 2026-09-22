@@ -90,4 +90,10 @@ export const authZh: Record<string, string> = {
   'Show password': '显示密码',
   '{email} is already registered, so there is no new link to send. Sign in with your password, or reset it if it has slipped your mind.':
     '{email} 已注册，无需发送新链接。请使用密码登录，若忘记密码，可以重设密码。',
+  // ---- Admin console sign-in --------------------------------------------
+  'Admin sign in — D3 Creator': '管理员登录 — D3 Creator',
+  'Sign in to the admin console': '登录管理控制台',
+  'For D3 staff only. This is not the creator or member sign-in — that lives on www.d3creator.com.':
+    '仅限 D3 员工。这不是创作者或会员的登录入口，创作者与会员请前往 www.d3creator.com 登录。',
+  'Staff console. Creators and members sign in at': '员工控制台。创作者与会员请在此登录：',
 };

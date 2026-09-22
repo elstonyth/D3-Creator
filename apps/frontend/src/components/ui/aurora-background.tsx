@@ -18,6 +18,19 @@ import React, { ReactNode } from 'react';
  * that plugin would turn into cycles, so the caller scopes the eight variables
  * itself (see admin/tracker/tracker.module.scss `.scene`).
  */
+// The eight colours the gradients read, set on the root so the component is
+// self-contained (upstream leaks them onto :root via a Tailwind plugin).
+const PALETTE = {
+  '--white': '#fff',
+  '--black': '#000',
+  '--transparent': 'transparent',
+  '--blue-300': '#93c5fd',
+  '--blue-400': '#60a5fa',
+  '--blue-500': '#3b82f6',
+  '--indigo-300': '#a5b4fc',
+  '--violet-200': '#ddd6fe',
+} as React.CSSProperties;
+
 interface AuroraBackgroundProps extends React.HTMLProps<HTMLDivElement> {
   /** Optional here (required upstream) so it can be a pure backdrop layer. */
   children?: ReactNode;
@@ -28,10 +41,12 @@ export const AuroraBackground = ({
   className,
   children,
   showRadialGradient = true,
+  style,
   ...props
 }: AuroraBackgroundProps) => {
   return (
     <div
+      style={{ ...PALETTE, ...style }}
       className={cn(
         'relative flex flex-col  h-[100vh] items-center justify-center bg-zinc-50 dark:bg-zinc-900  text-slate-950 transition-bg',
         className,
