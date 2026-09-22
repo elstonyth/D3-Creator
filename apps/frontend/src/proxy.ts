@@ -75,6 +75,12 @@ export async function proxy(request: NextRequest) {
   if (isAdminHost && (rawPath === '/admin' || rawPath.startsWith('/admin/'))) {
     return redirect(new URL(stripAdminPrefix(rawPath) + search, request.url));
   }
+  // Nobody signs up on the console host; the form belongs to the public site.
+  // (Signing IN there with a non-admin account is harmless: the role gate
+  // below sends that session straight back to the public site.)
+  if (publicOrigin && rawPath === '/signup') {
+    return redirect(new URL('/signup', publicOrigin));
+  }
 
   // Everything below reasons about the app-tree path; on the admin host that
   // is the rewritten one (`/tracker` -> `/admin/tracker`).
