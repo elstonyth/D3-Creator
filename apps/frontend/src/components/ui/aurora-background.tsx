@@ -4,9 +4,12 @@ import React, { ReactNode } from 'react';
 
 /**
  * Aceternity "Aurora Background" (ui.aceternity.com/components/aurora-background),
- * as requested for the work tracker. Two changes from upstream: the import path,
- * and no `<main>` wrapper — the signed-in layouts already render the page's
- * one `<main>`, and a second visible one is invalid HTML.
+ * as requested for the work tracker. Changes from upstream: the import path;
+ * no `<main>` wrapper (the signed-in layouts already render the page's one
+ * `<main>`, and a second visible one is invalid HTML); `children` optional so
+ * it can be a pure backdrop; and no `background-attachment: fixed` on the
+ * animated layer — the caller positions the whole thing `fixed`, and that
+ * attachment defeats compositing and breaks under a transform.
  *
  * The gradients read `--white`, `--black`, `--transparent` and the five
  * `--blue-*` / `--indigo-*` / `--violet-*` variables. Upstream sets those with
@@ -16,7 +19,8 @@ import React, { ReactNode } from 'react';
  * itself (see admin/tracker/tracker.module.scss `.scene`).
  */
 interface AuroraBackgroundProps extends React.HTMLProps<HTMLDivElement> {
-  children: ReactNode;
+  /** Optional here (required upstream) so it can be a pure backdrop layer. */
+  children?: ReactNode;
   showRadialGradient?: boolean;
 }
 
@@ -50,7 +54,7 @@ export const AuroraBackground = ({
             after:content-[""] after:absolute after:inset-0 after:[background-image:var(--white-gradient),var(--aurora)]
             after:dark:[background-image:var(--dark-gradient),var(--aurora)]
             after:[background-size:200%,_100%]
-            after:animate-aurora after:[background-attachment:fixed] after:mix-blend-difference
+            after:animate-aurora after:mix-blend-difference
             pointer-events-none
             absolute -inset-[10px] opacity-50 will-change-transform`,
 

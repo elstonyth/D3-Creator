@@ -111,14 +111,16 @@ export function WorkTracker({
   const eventsOn = (key: string) => events.filter((e) => e.date === key);
 
   return (
-    <AuroraBackground
-      className={cn(
-        s.scene,
-        'h-auto min-h-screen items-stretch justify-start bg-transparent text-fg dark:bg-transparent',
-      )}
-    >
-      {/* `relative` lifts the content above the absolutely-positioned aurora layer. */}
-      <div className="relative mx-auto w-full max-w-[1320px] px-4 pb-24 pt-8 sm:px-6 md:px-8 md:pt-10">
+    <div className={cn(s.scene, 'min-h-screen')}>
+      {/* Viewport-fixed so the lights fill the whole window, not the content
+          column, and the animated area is one screen rather than the page. */}
+      <AuroraBackground
+        aria-hidden
+        // Half-resolution, scaled 2x: the layer is blurred anyway, and the
+        // per-frame repaint of the animation costs a quarter of the pixels.
+        className="pointer-events-none fixed left-0 top-0 z-0 h-[50vh] w-[50vw] origin-top-left scale-[2] bg-transparent dark:bg-transparent"
+      />
+      <div className="relative z-10 mx-auto w-full max-w-[1320px] px-4 pb-24 pt-8 sm:px-6 md:px-8 md:pt-10">
         {/* Header */}
         <header className="mb-8 flex flex-col gap-4 md:mb-10 md:flex-row md:items-end md:justify-between">
           <div>
@@ -158,6 +160,7 @@ export function WorkTracker({
               <GlassPanel
                 key={key}
                 accent={isToday}
+                lens
                 className="min-h-[132px] transition-transform duration-200 ease-out hover:-translate-y-0.5"
               >
                 <button
@@ -332,12 +335,13 @@ export function WorkTracker({
       {toast ? (
         <GlassPanel
           role="status"
+          lens
           className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 px-5 py-3 text-body-sm text-fg"
         >
           {toast}
         </GlassPanel>
       ) : null}
-    </AuroraBackground>
+    </div>
   );
 }
 
