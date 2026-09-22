@@ -4,12 +4,21 @@ import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { LanguageSwitcher } from '@gitroom/frontend/components/i18n/language-switcher';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { AuroraBackground } from '@gitroom/frontend/components/ui/aurora-background';
+import { cn } from '@gitroom/frontend/lib/utils';
 
 interface AuthShellProps {
   children: ReactNode;
   /** The page's <h1>. One per screen. */
   heading: string;
   subheading?: string;
+  /**
+   * `admin` is the console's own sign-in (admin.d3creator.com): aurora
+   * backdrop, an ADMIN mark beside the logo, a brand-edged card, and a footer
+   * that points everyone else back to the public site — so nobody mistakes
+   * it for the creator/member login.
+   */
+  variant?: 'default' | 'admin';
 }
 
 /**
@@ -22,10 +31,22 @@ interface AuthShellProps {
  * a testimonial — and a marketing panel that has to go blank on one screen is
  * not the same shell any more.
  */
-export function AuthShell({ children, heading, subheading }: AuthShellProps) {
+export function AuthShell({
+  children,
+  heading,
+  subheading,
+  variant = 'default',
+}: AuthShellProps) {
   const { t } = useI18n();
+  const admin = variant === 'admin';
   return (
-    <div className="flex min-h-screen flex-col bg-canvas text-fg">
+    <div className="relative isolate flex min-h-screen flex-col bg-canvas text-fg">
+      {admin ? (
+        <AuroraBackground
+          aria-hidden
+          className="pointer-events-none fixed left-0 top-0 -z-10 h-[50vh] w-[50vw] origin-top-left scale-[2] bg-transparent dark:bg-transparent"
+        />
+      ) : null}
       <div className="flex justify-end px-5 pt-5 sm:px-6">
         <LanguageSwitcher />
       </div>
@@ -47,9 +68,21 @@ export function AuthShell({ children, heading, subheading }: AuthShellProps) {
             <span className="text-heading tracking-[-0.01em] text-fg">
               D3 Creator
             </span>
+            {admin ? (
+              <span className="ml-1 rounded-full border border-brand/50 bg-brand/15 px-2 py-0.5 text-micro uppercase tracking-[0.14em] text-brand">
+                {t('Admin')}
+              </span>
+            ) : null}
           </Link>
 
-          <div className="rounded-2xl border border-line bg-surface p-6 sm:p-8">
+          <div
+            className={cn(
+              'rounded-2xl border p-6 sm:p-8',
+              admin
+                ? 'border-brand/40 bg-surface/80 shadow-[0_24px_60px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(242,230,0,0.35)] backdrop-blur-xl'
+                : 'border-line bg-surface',
+            )}
+          >
             <h1 className="text-subsection text-fg">{heading}</h1>
             {subheading ? (
               <p className="mt-2 text-body-sm text-fg-muted">{subheading}</p>
@@ -60,6 +93,18 @@ export function AuthShell({ children, heading, subheading }: AuthShellProps) {
       </main>
 
       <footer className="px-5 pb-10 sm:px-6">
+        {admin ? (
+          <p className="mx-auto max-w-[400px] text-center text-caption text-fg-muted">
+            {t('Staff console. Creators and members sign in at')}{' '}
+            <a
+              href="https://www.d3creator.com/login"
+              className="text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
+            >
+              www.d3creator.com
+            </a>
+            .
+          </p>
+        ) : (
         <p className="mx-auto max-w-[400px] text-center text-caption text-fg-muted">
           {t('No account needed to browse.')}
           <br />
@@ -78,6 +123,7 @@ export function AuthShell({ children, heading, subheading }: AuthShellProps) {
           </Link>
           .
         </p>
+        )}
       </footer>
     </div>
   );
