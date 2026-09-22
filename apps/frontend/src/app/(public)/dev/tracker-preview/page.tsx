@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import Link from 'next/link';
+import { notFound, redirect } from 'next/navigation';
+import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { WorkTracker } from '@gitroom/frontend/app/(admin)/admin/tracker/work-tracker';
 import {
   addDays,
@@ -21,8 +23,11 @@ export const dynamic = 'force-dynamic';
  * (requireAdmin), which also exercises the rollback path. Dev only: 404 in
  * production. Not linked from anywhere.
  */
-export default function TrackerPreviewPage() {
+export default async function TrackerPreviewPage() {
   if (process.env.NODE_ENV === 'production') notFound();
+  // A signed-in admin has the real board; the sample one only confuses.
+  const auth = await getAuthContext();
+  if (auth?.role === 'admin') redirect('/admin/tracker');
 
   const today = todayKey();
   const month = today.slice(0, 7);
@@ -189,5 +194,19 @@ export default function TrackerPreviewPage() {
     remarks: 'Studio lights fixed. Colly wants shorter hooks next month.',
   };
 
-  return <WorkTracker key={month} initial={data} initialDay={null} />;
+  return (
+    <>
+      <p className="relative z-20 mx-auto mt-6 w-full max-w-[1320px] rounded-2xl border border-brand/40 bg-brand/10 px-5 py-3 text-body-sm text-fg">
+        Sample data — nothing here saves.{' '}
+        <Link
+          href="/login?redirectTo=/admin/tracker"
+          className="font-medium underline underline-offset-4"
+        >
+          Sign in as admin
+        </Link>{' '}
+        to use the real board.
+      </p>
+      <WorkTracker key={month} initial={data} initialDay={null} />
+    </>
+  );
 }
