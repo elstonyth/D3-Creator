@@ -76,6 +76,10 @@ export function StaffingBoard({
   const [adding, setAdding] = useState(false);
   const [draftName, setDraftName] = useState('');
   const [draftRole, setDraftRole] = useState('Trader');
+  // The person whose × was clicked; their column shows an inline confirmation.
+  // Not `window.confirm`: embedded browsers auto-dismiss native dialogs (the
+  // Claude desktop pane returns false in 1 ms), which made the button a no-op.
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
 
   const columns = useMemo(
     () => [
@@ -199,15 +203,8 @@ export function StaffingBoard({
   }
 
   async function remove(member: TrackerMember) {
+    setConfirmRemoveId(null);
     if (isTemp(member.id)) return;
-    if (
-      !window.confirm(
-        t('Remove {name}? Their accounts move to Unassigned.', {
-          name: member.name,
-        }),
-      )
-    )
-      return;
     const beforeCreators = creators;
     setMembers((p) => p.filter((m) => m.id !== member.id));
     setCreators((p) =>
@@ -323,125 +320,161 @@ export function StaffingBoard({
       {/* Columns fit the panel and wrap onto new rows when they run out of
           room — the board never scrolls sideways. */}
       <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
-          {columns.map((col) => {
-            const st = stats.get(col.id)!;
-            const cards = creators.filter(
-              (c) => (c.handlerId ?? UNASSIGNED) === col.id,
-            );
-            const isOver = overCol === col.id && dragId !== null;
-            return (
-              <section
-                key={col.id}
-                aria-label={col.name}
-                onDragOver={(e) => {
-                  if (!dragId) return;
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'move';
-                  if (overCol !== col.id) setOverCol(col.id);
-                }}
-                onDragLeave={(e) => {
-                  if (
-                    !e.currentTarget.contains(e.relatedTarget as Node | null)
-                  ) {
-                    setOverCol((o) => (o === col.id ? null : o));
-                  }
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  dropOn(col.id);
-                }}
-                className={cn(
-                  s.inset,
-                  'flex min-h-[240px] flex-col p-3 transition-colors',
-                  isOver && s.dropTarget,
-                )}
-              >
-                <header className="mb-3 px-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <h3 className="truncate text-subsection text-fg">
-                      {col.name}
-                    </h3>
-                    {col.member ? (
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <span
-                          className={clsx(s.pill, 'px-2.5 py-1 text-micro uppercase tracking-[0.1em] text-fg-muted')}
-                        >
-                          {col.role}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => remove(col.member!)}
-                          aria-label={t('Remove {name}', { name: col.name })}
-                          className="rounded-full p-1 text-fg-subtle transition-colors hover:text-fg"
-                        >
-                          <svg
-                            viewBox="0 0 16 16"
-                            aria-hidden
-                            className="h-3.5 w-3.5"
-                          >
-                            <path
-                              d="m4 4 8 8M12 4l-8 8"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.75"
-                              strokeLinecap="round"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                  <dl className="mt-2 grid grid-cols-3 gap-2">
-                    <Stat label={t('Accounts')} value={String(st.accounts)} />
-                    <Stat
-                      label={t('Videos')}
-                      value={formatCompact(st.videos, locale)}
-                    />
-                    <Stat
-                      label={t('Views')}
-                      value={formatCompact(st.views, locale)}
-                    />
-                  </dl>
+        {columns.map((col) => {
+          const st = stats.get(col.id)!;
+          const cards = creators.filter(
+            (c) => (c.handlerId ?? UNASSIGNED) === col.id,
+          );
+          const isOver = overCol === col.id && dragId !== null;
+          return (
+            <section
+              key={col.id}
+              aria-label={col.name}
+              onDragOver={(e) => {
+                if (!dragId) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (overCol !== col.id) setOverCol(col.id);
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                  setOverCol((o) => (o === col.id ? null : o));
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                dropOn(col.id);
+              }}
+              className={cn(
+                s.inset,
+                'flex min-h-[240px] flex-col p-3 transition-colors',
+                isOver && s.dropTarget,
+              )}
+            >
+              <header className="mb-3 px-1">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="truncate text-subsection text-fg">
+                    {col.name}
+                  </h3>
                   {col.member ? (
-                    <p className="mt-1.5 text-caption text-fg-subtle">
-                      {t('Edits {count} accounts · {videos} videos', {
-                        count: st.edits,
-                        videos: st.editedVideos,
-                      })}
-                    </p>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <span
+                        className={clsx(
+                          s.pill,
+                          'px-2.5 py-1 text-micro uppercase tracking-[0.1em] text-fg-muted',
+                        )}
+                      >
+                        {col.role}
+                      </span>
+                      <button
+                        type="button"
+                        // Until addMember returns the real id there is nothing
+                        // to remove, so the control waits rather than offering
+                        // a Remove that would do nothing.
+                        disabled={isTemp(col.member!.id)}
+                        onClick={() => setConfirmRemoveId(col.member!.id)}
+                        aria-label={t('Remove {name}', { name: col.name })}
+                        className="rounded-full p-1 text-fg-subtle transition-colors hover:text-fg"
+                      >
+                        <svg
+                          viewBox="0 0 16 16"
+                          aria-hidden
+                          className="h-3.5 w-3.5"
+                        >
+                          <path
+                            d="m4 4 8 8M12 4l-8 8"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.75"
+                            strokeLinecap="round"
+                          />
+                        </svg>
+                      </button>
+                    </div>
                   ) : null}
-                </header>
-
-                <div className="flex flex-1 flex-col gap-2">
-                  {cards.length === 0 ? (
-                    <p className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-white/10 px-3 py-6 text-center text-caption text-fg-subtle">
-                      {col.member
-                        ? t('Drop an account here.')
-                        : t('Every account has a handler.')}
-                    </p>
-                  ) : (
-                    cards.map((c) => (
-                      <CreatorCard
-                        key={c.id}
-                        creator={c}
-                        members={members}
-                        month={month}
-                        dragging={dragId === c.id}
-                        onDragStart={() => setDragId(c.id)}
-                        onDragEnd={() => {
-                          setDragId(null);
-                          setOverCol(null);
-                        }}
-                        onHandler={(id) => assignHandler(c.id, id)}
-                        onEditor={(id) => assignEditor(c.id, id)}
-                        onToggleScheduled={() => toggleScheduled(c.id)}
-                      />
-                    ))
-                  )}
                 </div>
-              </section>
-            );
-          })}
+                {col.member && confirmRemoveId === col.member.id ? (
+                  <div
+                    role="group"
+                    aria-label={t('Remove {name}', { name: col.name })}
+                    className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-brand/30 bg-brand/10 px-3 py-2 text-caption text-fg"
+                  >
+                    <span className="min-w-0 flex-1">
+                      {t('Remove {name}? Their accounts move to Unassigned.', {
+                        name: col.name,
+                      })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => remove(col.member!)}
+                      className={clsx(
+                        s.pill,
+                        s.pillBrand,
+                        'h-8 px-3 text-caption',
+                      )}
+                    >
+                      {t('Remove')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmRemoveId(null)}
+                      className={clsx(s.pill, 'h-8 px-3 text-caption')}
+                    >
+                      {t('Cancel')}
+                    </button>
+                  </div>
+                ) : null}
+                <dl className="mt-2 grid grid-cols-3 gap-2">
+                  <Stat label={t('Accounts')} value={String(st.accounts)} />
+                  <Stat
+                    label={t('Videos')}
+                    value={formatCompact(st.videos, locale)}
+                  />
+                  <Stat
+                    label={t('Views')}
+                    value={formatCompact(st.views, locale)}
+                  />
+                </dl>
+                {col.member ? (
+                  <p className="mt-1.5 text-caption text-fg-subtle">
+                    {t('Edits {count} accounts · {videos} videos', {
+                      count: st.edits,
+                      videos: st.editedVideos,
+                    })}
+                  </p>
+                ) : null}
+              </header>
+
+              <div className="flex flex-1 flex-col gap-2">
+                {cards.length === 0 ? (
+                  <p className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-white/10 px-3 py-6 text-center text-caption text-fg-subtle">
+                    {col.member
+                      ? t('Drop an account here.')
+                      : t('Every account has a handler.')}
+                  </p>
+                ) : (
+                  cards.map((c) => (
+                    <CreatorCard
+                      key={c.id}
+                      creator={c}
+                      members={members}
+                      month={month}
+                      dragging={dragId === c.id}
+                      onDragStart={() => setDragId(c.id)}
+                      onDragEnd={() => {
+                        setDragId(null);
+                        setOverCol(null);
+                      }}
+                      onHandler={(id) => assignHandler(c.id, id)}
+                      onEditor={(id) => assignEditor(c.id, id)}
+                      onToggleScheduled={() => toggleScheduled(c.id)}
+                    />
+                  ))
+                )}
+              </div>
+            </section>
+          );
+        })}
       </div>
     </GlassPanel>
   );

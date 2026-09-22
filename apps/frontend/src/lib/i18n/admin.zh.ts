@@ -417,7 +417,8 @@ export const adminZh: Record<string, string> = {
     '移除 {name}？其负责的账号将变为未分配。',
   'Remove {name}': '移除 {name}',
   Videos: '视频',
-  'Edits {count} accounts · {videos} videos': '剪辑 {count} 个账号 · {videos} 条视频',
+  'Edits {count} accounts · {videos} videos':
+    '剪辑 {count} 个账号 · {videos} 条视频',
   'Drop an account here.': '把账号拖到这里。',
   'Every account has a handler.': '所有账号都已分配负责人。',
   videos: '条视频',
