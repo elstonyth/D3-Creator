@@ -12,11 +12,11 @@ import React, { ReactNode } from 'react';
  * attachment defeats compositing and breaks under a transform.
  *
  * The gradients read `--white`, `--black`, `--transparent` and the five
- * `--blue-*` / `--indigo-*` / `--violet-*` variables. Upstream sets those with
- * a Tailwind plugin that exports EVERY theme colour to :root; this project's
- * colour tokens alias CSS variables of the same name (`fg: var(--fg)`), which
- * that plugin would turn into cycles, so the caller scopes the eight variables
- * itself (see admin/tracker/tracker.module.scss `.scene`).
+ * `--blue-*` / `--indigo-*` / `--violet-*` variables. This component sets them
+ * on its own root (PALETTE below), so callers need no scoping. Upstream sets
+ * them with a Tailwind plugin that exports EVERY theme colour to :root; this
+ * project's colour tokens alias CSS variables of the same name
+ * (`fg: var(--fg)`), which that plugin would turn into cycles.
  */
 // The eight colours the gradients read, set on the root so the component is
 // self-contained (upstream leaks them onto :root via a Tailwind plugin).
