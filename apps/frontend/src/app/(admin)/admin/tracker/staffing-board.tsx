@@ -267,14 +267,9 @@ export function StaffingBoard({
         )}
       </div>
 
-      <div className="-mx-5 overflow-x-auto px-5 pb-2 sm:-mx-6 sm:px-6">
-        <div
-          className="grid gap-4"
-          style={{
-            gridTemplateColumns: `repeat(${columns.length}, minmax(260px, 1fr))`,
-            minWidth: `${columns.length * 260 + (columns.length - 1) * 16}px`,
-          }}
-        >
+      {/* Columns fit the panel and wrap onto new rows when they run out of
+          room — the board never scrolls sideways. */}
+      <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
           {columns.map((col) => {
             const st = stats.get(col.id)!;
             const cards = creators.filter(
@@ -397,7 +392,6 @@ export function StaffingBoard({
               </section>
             );
           })}
-        </div>
       </div>
     </GlassPanel>
   );
