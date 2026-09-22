@@ -24,6 +24,10 @@ import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { AuroraBackground } from '@gitroom/frontend/components/ui/aurora-background';
 import { cn } from '@gitroom/frontend/lib/utils';
+// clsx where a custom font-size token sits next to a text colour:
+// tailwind-merge reads `text-label` / `text-metric-lg` as colours and
+// would drop them in favour of the colour.
+import clsx from 'clsx';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
 import {
   addDays,
@@ -79,7 +83,10 @@ export function WorkTracker({
   );
   const [tasks, setTasks] = useState(initial.tasks);
   const [events, setEvents] = useState(initial.events);
-  const [toast, setToast] = useState<string | null>(null);
+  // Keyed per failure so a repeat of the same message restarts the timer.
+  const [toast, setToast] = useState<{ id: number; message: string } | null>(
+    null,
+  );
 
   // Show a failure for a few seconds, then clear it.
   useEffect(() => {
@@ -91,7 +98,10 @@ export function WorkTracker({
   const fail = useCallback(
     (r: ActionResult, rollback: () => void) => {
       rollback();
-      setToast(r.message ?? t('Could not save. Try again.'));
+      setToast({
+        id: Date.now(),
+        message: r.message ?? t('Could not save. Try again.'),
+      });
     },
     [t],
   );
@@ -170,7 +180,7 @@ export function WorkTracker({
                 >
                   <div className="flex w-16 shrink-0 flex-col items-center justify-center">
                     <span
-                      className={cn(
+                      className={clsx(
                         'text-metric-lg tnum leading-none',
                         isToday ? 'text-brand' : 'text-fg',
                       )}
@@ -263,7 +273,6 @@ export function WorkTracker({
             </div>
 
             <div
-              role="grid"
               aria-label={t('Calendar')}
               className={cn(
                 'grid grid-cols-7 gap-1.5',
@@ -273,7 +282,6 @@ export function WorkTracker({
               {WEEKDAYS.map((d) => (
                 <div
                   key={d}
-                  role="columnheader"
                   className="pb-1 text-center text-micro uppercase tracking-[0.12em] text-fg-subtle"
                 >
                   {t(d)}
@@ -336,9 +344,9 @@ export function WorkTracker({
         <GlassPanel
           role="status"
           lens
-          className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 px-5 py-3 text-body-sm text-fg"
+          className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 px-5 py-3 text-body-sm"
         >
-          {toast}
+          {toast.message}
         </GlassPanel>
       ) : null}
     </div>
@@ -373,19 +381,19 @@ function DayCell({
   count: number;
   onPick: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
-      role="gridcell"
-      aria-selected={isSelected}
+      aria-pressed={isSelected}
       aria-current={isToday ? 'date' : undefined}
       onClick={onPick}
-      className={cn(
+      className={clsx(
         s.inset,
         s.insetHover,
-        'relative flex aspect-square flex-col items-center justify-center text-label text-fg focus-visible:outline-none focus-visible:shadow-focus sm:aspect-[1.35]',
+        'relative flex aspect-square flex-col items-center justify-center text-label focus-visible:outline-none focus-visible:shadow-focus sm:aspect-[1.35]',
         isSelected && '!border-brand/60 !bg-brand/15',
-        isToday && !isSelected && 'ring-1 ring-inset ring-brand/50',
+        isToday && !isSelected && s.today,
       )}
     >
       <span className={cn('tnum', isToday && 'text-brand')}>
@@ -393,7 +401,7 @@ function DayCell({
       </span>
       {count > 0 ? (
         <span
-          aria-label={`${count} events`}
+          aria-label={t('{count} events', { count })}
           className="absolute bottom-1.5 flex gap-0.5"
         >
           {Array.from({ length: Math.min(count, 3) }).map((_, i) => (
@@ -446,7 +454,11 @@ function TasksPanel({
     setTasks((p) => p.map((x) => (x.id === tempId ? { ...x, id: r.id! } : x)));
   }
 
+  // Items still waiting for their server id cannot be acted on yet.
+  const isTemp = (id: string) => id.startsWith('temp-');
+
   async function toggle(task: TrackerTask) {
+    if (isTemp(task.id)) return;
     const next = !task.done;
     setTasks((p) =>
       p.map((x) => (x.id === task.id ? { ...x, done: next } : x)),
@@ -461,10 +473,20 @@ function TasksPanel({
   }
 
   async function remove(task: TrackerTask) {
-    const before = tasks;
+    if (isTemp(task.id)) return;
+    const at = tasks.findIndex((x) => x.id === task.id);
     setTasks((p) => p.filter((x) => x.id !== task.id));
     const r = await deleteTask(task.id);
-    if (!r.ok) onFail(r, () => setTasks(() => before));
+    // Put back just this item, where it was — never a whole stale snapshot.
+    if (!r.ok)
+      onFail(r, () =>
+        setTasks((p) => {
+          if (p.some((x) => x.id === task.id)) return p;
+          const next = p.slice();
+          next.splice(Math.min(at, next.length), 0, task);
+          return next;
+        }),
+      );
   }
 
   function drop(to: number) {
@@ -473,11 +495,22 @@ function TasksPanel({
     setDragFrom(null);
     setOver(null);
     if (reordered === open) return;
-    const before = tasks;
-    const next = [...reordered, ...done];
-    setTasks(() => next);
-    void reorderTasks(next.map((x) => x.id)).then((r) => {
-      if (!r.ok) onFail(r, () => setTasks(() => before));
+    const wasAt = new Map(open.map((x, i) => [x.id, i]));
+    setTasks((p) => [...reordered, ...p.filter((x) => x.done)]);
+    // Only open tasks carry an order; finished ones sit in their own list.
+    const ids = reordered.filter((x) => !isTemp(x.id)).map((x) => x.id);
+    void reorderTasks(ids).then((r) => {
+      if (!r.ok)
+        onFail(r, () =>
+          setTasks((p) => [
+            ...p
+              .filter((x) => !x.done)
+              .sort(
+                (a, b) => (wasAt.get(a.id) ?? 1e9) - (wasAt.get(b.id) ?? 1e9),
+              ),
+            ...p.filter((x) => x.done),
+          ]),
+        );
     });
   }
 
@@ -540,7 +573,11 @@ function TasksPanel({
                 e.dataTransfer.dropEffect = 'move';
                 if (over !== i) setOver(i);
               }}
-              onDragLeave={() => setOver((o) => (o === i ? null : o))}
+              onDragLeave={(e) => {
+                // Children fire leave too; only a real exit clears the target.
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+                  setOver((o) => (o === i ? null : o));
+              }}
               onDrop={(e) => {
                 e.preventDefault();
                 drop(i);
@@ -634,9 +671,9 @@ function TaskRow({
         ) : null}
       </button>
       <span
-        className={cn(
-          'min-w-0 flex-1 truncate text-body text-fg',
-          task.done && 'line-through text-fg-muted',
+        className={clsx(
+          'min-w-0 flex-1 truncate text-body',
+          task.done ? 'line-through text-fg-muted' : 'text-fg',
         )}
       >
         {task.title}
@@ -688,9 +725,22 @@ function EventsPanel({
   }
 
   async function remove(ev: TrackerEvent) {
+    if (ev.id.startsWith('temp-')) return;
+    // The same-day neighbour that followed it, so a rollback lands it back in
+    // place rather than at the end of the day's list.
+    const after = events[events.findIndex((x) => x.id === ev.id) + 1]?.id;
     setEvents((p) => p.filter((x) => x.id !== ev.id));
     const r = await deleteEvent(ev.id);
-    if (!r.ok) onFail(r, () => setEvents((p) => [...p, ev]));
+    if (!r.ok)
+      onFail(r, () =>
+        setEvents((p) => {
+          if (p.some((x) => x.id === ev.id)) return p;
+          const at = after ? p.findIndex((x) => x.id === after) : -1;
+          const next = p.slice();
+          next.splice(at === -1 ? next.length : at, 0, ev);
+          return next;
+        }),
+      );
   }
 
   return (
@@ -776,26 +826,44 @@ function RemarksPanel({
   const [state, setState] = useState<'idle' | 'dirty' | 'saving' | 'saved'>(
     'idle',
   );
+  const latest = useRef(initial);
   const lastSaved = useRef(initial);
+  const inFlight = useRef(false);
+
+  // One save at a time, always of the newest text; a save that lands on
+  // already-stale text starts the next one. A failed save never rewinds the
+  // textarea — the words stay and the status says so.
+  const flush = useCallback(
+    async function run(): Promise<void> {
+      if (inFlight.current) return;
+      const v = latest.current;
+      if (v === lastSaved.current) return;
+      inFlight.current = true;
+      setState('saving');
+      const r = await saveRemarks(v);
+      inFlight.current = false;
+      if (r.ok) {
+        lastSaved.current = v;
+        if (latest.current === v) setState('saved');
+        else void run();
+      } else {
+        setState('dirty');
+        onFail(r, () => {});
+      }
+    },
+    [onFail],
+  );
 
   // The debounce lives in an effect; the 'dirty' flag is set by the change
   // handler so the effect body never calls setState itself.
   useEffect(() => {
     if (value === lastSaved.current) return;
-    const timer = window.setTimeout(async () => {
-      setState('saving');
-      const r = await saveRemarks(value);
-      if (r.ok) {
-        lastSaved.current = value;
-        setState('saved');
-      } else {
-        const prev = lastSaved.current;
-        onFail(r, () => setValue(prev));
-        setState('idle');
-      }
-    }, 800);
+    const timer = window.setTimeout(() => void flush(), 800);
     return () => window.clearTimeout(timer);
-  }, [value, onFail]);
+  }, [value, flush]);
+
+  // Month navigation remounts the board: send whatever is still pending.
+  useEffect(() => () => void flush(), [flush]);
 
   const status =
     state === 'saving'
@@ -811,7 +879,7 @@ function RemarksPanel({
       <div className="mb-4 flex items-baseline justify-between gap-3">
         <h2 className="text-heading text-fg">{t('Remarks')}</h2>
         <span
-          className={cn(
+          className={clsx(
             'text-caption',
             state === 'saved' ? 'text-brand' : 'text-fg-subtle',
           )}
@@ -828,6 +896,7 @@ function RemarksPanel({
         value={value}
         onChange={(e) => {
           setValue(e.target.value);
+          latest.current = e.target.value;
           setState('dirty');
         }}
         maxLength={20000}

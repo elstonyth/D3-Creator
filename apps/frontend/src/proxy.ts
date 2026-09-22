@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import {
-  ADMIN_HOST_TO_PUBLIC,
-  PUBLIC_HOST_TO_ADMIN,
+  adminOriginFor,
+  publicOriginFor,
   stripAdminPrefix,
   toAdminPath,
 } from '@gitroom/frontend/lib/admin-host';
@@ -60,9 +60,9 @@ export async function proxy(request: NextRequest) {
   };
 
   const host = request.headers.get('host') ?? '';
-  const publicOrigin = ADMIN_HOST_TO_PUBLIC[host];
+  const publicOrigin = publicOriginFor(host);
   const isAdminHost = publicOrigin !== undefined;
-  const adminOrigin = PUBLIC_HOST_TO_ADMIN[host];
+  const adminOrigin = adminOriginFor(host);
   const rawPath = request.nextUrl.pathname;
   const search = request.nextUrl.search;
 
@@ -171,6 +171,14 @@ export async function proxy(request: NextRequest) {
 
   // Logged-in users shouldn't sit on login/signup.
   if (isAuthPage) {
+    return redirect(home);
+  }
+
+  // The console host is for admins only. Any other role goes home on the
+  // public site whatever it asked for — including the passthrough paths
+  // (/me, /studio, /onboarding) that the role gates below would otherwise
+  // happily serve on this origin.
+  if (isAdminHost && role !== 'admin') {
     return redirect(home);
   }
 

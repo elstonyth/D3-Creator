@@ -20,6 +20,8 @@ describe('tracker date helpers', () => {
     expect(isMonthKey('2026-09')).toBe(true);
     expect(isMonthKey('2026-13')).toBe(false);
     expect(isMonthKey('2026-9')).toBe(false);
+    expect(isMonthKey('0000-05')).toBe(false);
+    expect(isMonthKey('9999-12')).toBe(false);
     expect(isDateKey('2026-02-28')).toBe(true);
     expect(isDateKey('2026-02-31')).toBe(false);
     expect(isDateKey('2026-09-22T00:00')).toBe(false);

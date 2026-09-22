@@ -397,6 +397,7 @@ export const adminZh: Record<string, string> = {
   'New event': '新事件',
   'Add an important event…': '添加重要事件…',
   'No events on this day.': '这一天没有事件。',
+  '{count} events': '{count} 个事件',
   'Delete event': '删除事件',
   Remarks: '备注',
   'Saving…': '保存中…',

@@ -17,6 +17,9 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { cn } from '@gitroom/frontend/lib/utils';
+// clsx where a custom font-size token sits next to a text colour (see
+// work-tracker.tsx): tailwind-merge would drop the size.
+import clsx from 'clsx';
 import { formatCompact } from '@gitroom/frontend/lib/creator-metrics';
 import { ImageWithFallback } from '@gitroom/frontend/components/ui/image-with-fallback';
 import {
@@ -119,21 +122,43 @@ export function StaffingBoard({
     );
   }
 
+  // A person still waiting for their server id cannot be assigned yet.
+  const isTemp = (id: string | null) => id !== null && id.startsWith('temp-');
+
+  // Rollbacks undo only the value this call set, and only if it is still in
+  // place — a later edit to the same card must not be reverted with it.
   async function assignHandler(creatorId: string, handlerId: string | null) {
     const before = creators.find((c) => c.id === creatorId);
-    if (!before || before.handlerId === handlerId) return;
+    if (!before || before.handlerId === handlerId || isTemp(handlerId)) return;
     patch(creatorId, { handlerId });
     const r = await setAssignment(creatorId, { handlerId });
     if (!r.ok)
-      onFail(r, () => patch(creatorId, { handlerId: before.handlerId }));
+      onFail(r, () =>
+        setCreators((p) =>
+          p.map((c) =>
+            c.id === creatorId && c.handlerId === handlerId
+              ? { ...c, handlerId: before.handlerId }
+              : c,
+          ),
+        ),
+      );
   }
 
   async function assignEditor(creatorId: string, editorId: string | null) {
     const before = creators.find((c) => c.id === creatorId);
-    if (!before || before.editorId === editorId) return;
+    if (!before || before.editorId === editorId || isTemp(editorId)) return;
     patch(creatorId, { editorId });
     const r = await setAssignment(creatorId, { editorId });
-    if (!r.ok) onFail(r, () => patch(creatorId, { editorId: before.editorId }));
+    if (!r.ok)
+      onFail(r, () =>
+        setCreators((p) =>
+          p.map((c) =>
+            c.id === creatorId && c.editorId === editorId
+              ? { ...c, editorId: before.editorId }
+              : c,
+          ),
+        ),
+      );
   }
 
   async function toggleScheduled(creatorId: string) {
@@ -142,7 +167,16 @@ export function StaffingBoard({
     const next = !before.scheduledPosting;
     patch(creatorId, { scheduledPosting: next });
     const r = await setAssignment(creatorId, { scheduledPosting: next });
-    if (!r.ok) onFail(r, () => patch(creatorId, { scheduledPosting: !next }));
+    if (!r.ok)
+      onFail(r, () =>
+        setCreators((p) =>
+          p.map((c) =>
+            c.id === creatorId && c.scheduledPosting === next
+              ? { ...c, scheduledPosting: !next }
+              : c,
+          ),
+        ),
+      );
   }
 
   async function submitMember(e: FormEvent) {
@@ -165,6 +199,7 @@ export function StaffingBoard({
   }
 
   async function remove(member: TrackerMember) {
+    if (isTemp(member.id)) return;
     if (
       !window.confirm(
         t('Remove {name}? Their accounts move to Unassigned.', {
@@ -173,7 +208,6 @@ export function StaffingBoard({
       )
     )
       return;
-    const beforeMembers = members;
     const beforeCreators = creators;
     setMembers((p) => p.filter((m) => m.id !== member.id));
     setCreators((p) =>
@@ -186,8 +220,27 @@ export function StaffingBoard({
     const r = await removeMember(member.id);
     if (!r.ok)
       onFail(r, () => {
-        setMembers(beforeMembers);
-        setCreators(beforeCreators);
+        setMembers((p) =>
+          p.some((m) => m.id === member.id) ? p : [...p, member],
+        );
+        // Re-attach the person only where the slot is still empty.
+        setCreators((p) =>
+          p.map((c) => {
+            const b = beforeCreators.find((x) => x.id === c.id);
+            if (!b) return c;
+            return {
+              ...c,
+              handlerId:
+                b.handlerId === member.id && c.handlerId === null
+                  ? member.id
+                  : c.handlerId,
+              editorId:
+                b.editorId === member.id && c.editorId === null
+                  ? member.id
+                  : c.editorId,
+            };
+          }),
+        );
       });
   }
 
@@ -251,7 +304,7 @@ export function StaffingBoard({
             <button
               type="button"
               onClick={() => setAdding(false)}
-              className={cn(s.pill, 'h-10 px-4 text-label text-fg')}
+              className={clsx(s.pill, 'h-10 px-4 text-label')}
             >
               {t('Cancel')}
             </button>
@@ -260,7 +313,7 @@ export function StaffingBoard({
           <button
             type="button"
             onClick={() => setAdding(true)}
-            className={cn(s.pill, 'h-10 px-4 text-label text-fg')}
+            className={clsx(s.pill, 'h-10 px-4 text-label')}
           >
             {t('+ Add person')}
           </button>
@@ -311,10 +364,7 @@ export function StaffingBoard({
                     {col.member ? (
                       <div className="flex shrink-0 items-center gap-1.5">
                         <span
-                          className={cn(
-                            s.pill,
-                            'px-2.5 py-1 text-micro uppercase tracking-[0.1em] text-fg-muted',
-                          )}
+                          className={clsx(s.pill, 'px-2.5 py-1 text-micro uppercase tracking-[0.1em] text-fg-muted')}
                         >
                           {col.role}
                         </span>

@@ -6,11 +6,16 @@
 import { getSupabaseAdmin } from '@d3/database';
 import { resolveMediaUrl } from '@gitroom/frontend/lib/media-url';
 import {
+  addDays,
+  addMonths,
   monthRange,
   todayKey,
   type TrackerCreator,
   type TrackerData,
 } from '@gitroom/frontend/lib/tracker';
+
+/** Finished tasks shown under the open list. Older ones stay in the table. */
+const DONE_TASKS_SHOWN = 30;
 
 interface CreatorRow {
   id: string;
@@ -44,10 +49,21 @@ function must<T>(
 export async function loadTrackerData(month: string): Promise<TrackerData> {
   const admin = getSupabaseAdmin();
   const { from, to } = monthRange(month);
+  const today = todayKey();
+  // Events for the month on screen plus today/tomorrow (the spotlight), and
+  // nothing else: PostgREST caps a response at 1000 rows and would truncate
+  // an unbounded read silently once the table grows past that.
+  const monthStart = `${month}-01`;
+  const nextMonthStart = `${addMonths(month, 1)}-01`;
+  const eventsFrom = today < monthStart ? today : monthStart;
+  const dayAfterTomorrow = addDays(today, 2);
+  const eventsTo =
+    dayAfterTomorrow > nextMonthStart ? dayAfterTomorrow : nextMonthStart;
 
   const [
     membersRes,
-    tasksRes,
+    openTasksRes,
+    doneTasksRes,
     eventsRes,
     noteRes,
     creatorsRes,
@@ -62,11 +78,20 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
     admin
       .from('tracker_task')
       .select('id, title, done, sort_order')
+      .eq('done', false)
       .order('sort_order')
       .order('created_at'),
     admin
+      .from('tracker_task')
+      .select('id, title, done, sort_order')
+      .eq('done', true)
+      .order('completed_at', { ascending: false })
+      .limit(DONE_TASKS_SHOWN),
+    admin
       .from('tracker_event')
       .select('id, event_date, title')
+      .gte('event_date', eventsFrom)
+      .lt('event_date', eventsTo)
       .order('event_date')
       .order('created_at'),
     admin
@@ -87,9 +112,11 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
   const members = must<
     { id: string; name: string; role: string; sort_order: number }[]
   >(membersRes, 'members');
-  const tasks = must<
-    { id: string; title: string; done: boolean; sort_order: number }[]
-  >(tasksRes, 'tasks');
+  type TaskRow = { id: string; title: string; done: boolean; sort_order: number };
+  const tasks = [
+    ...must<TaskRow[]>(openTasksRes, 'tasks'),
+    ...must<TaskRow[]>(doneTasksRes, 'done tasks'),
+  ];
   const events = must<{ id: string; event_date: string; title: string }[]>(
     eventsRes,
     'events',
@@ -127,7 +154,7 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
 
   return {
     month,
-    today: todayKey(),
+    today,
     members: members.map((m) => ({
       id: m.id,
       name: m.name,

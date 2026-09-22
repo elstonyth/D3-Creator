@@ -59,8 +59,10 @@ export interface TrackerData {
   remarks: string;
 }
 
-const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
-const DATE_RE = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+// 2000–2099: a crafted `?month=0000-05` is a year Postgres cannot parse, and
+// `Date.UTC` maps 0001–0099 onto 1901–1999 silently.
+const MONTH_RE = /^20\d{2}-(0[1-9]|1[0-2])$/;
+const DATE_RE = /^20\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
 export function isMonthKey(v: unknown): v is string {
   return typeof v === 'string' && MONTH_RE.test(v);

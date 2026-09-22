@@ -1,4 +1,10 @@
-import { isAdminHost, stripAdminPrefix, toAdminPath } from './admin-host';
+import {
+  adminOriginFor,
+  isAdminHost,
+  publicOriginFor,
+  stripAdminPrefix,
+  toAdminPath,
+} from './admin-host';
 
 describe('admin-host', () => {
   it('recognises the admin hosts only', () => {
@@ -7,6 +13,12 @@ describe('admin-host', () => {
     expect(isAdminHost('www.d3creator.com')).toBe(false);
     expect(isAdminHost('localhost:4200')).toBe(false);
     expect(isAdminHost(null)).toBe(false);
+    // Prototype keys are not hosts.
+    expect(isAdminHost('constructor')).toBe(false);
+    expect(publicOriginFor('toString')).toBeUndefined();
+    expect(adminOriginFor('hasOwnProperty')).toBeUndefined();
+    expect(publicOriginFor('admin.d3creator.com')).toBe('https://www.d3creator.com');
+    expect(adminOriginFor('www.d3creator.com')).toBe('https://admin.d3creator.com');
   });
 
   it('strips the /admin prefix without touching other paths', () => {

@@ -46,8 +46,29 @@ const PASSTHROUGH = [
   '/dev',
 ];
 
+// Own-property lookups only: a `Host: constructor` header must not walk up
+// to Object.prototype and come back as a function.
+function lookup(
+  map: Readonly<Record<string, string>>,
+  host: string | null | undefined,
+): string | undefined {
+  return host != null && Object.prototype.hasOwnProperty.call(map, host)
+    ? map[host]
+    : undefined;
+}
+
+/** The public site a non-admin on this admin host is sent to, or undefined. */
+export function publicOriginFor(host: string | null | undefined) {
+  return lookup(ADMIN_HOST_TO_PUBLIC, host);
+}
+
+/** The admin host this public host's /admin/* belongs on, or undefined. */
+export function adminOriginFor(host: string | null | undefined) {
+  return lookup(PUBLIC_HOST_TO_ADMIN, host);
+}
+
 export function isAdminHost(host: string | null | undefined): boolean {
-  return host != null && host in ADMIN_HOST_TO_PUBLIC;
+  return publicOriginFor(host) !== undefined;
 }
 
 /** `/admin` -> `/`, `/admin/tracker` -> `/tracker`. Other paths unchanged. */
