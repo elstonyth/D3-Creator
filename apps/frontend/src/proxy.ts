@@ -1,5 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import {
+  ADMIN_HOST_TO_PUBLIC,
+  PUBLIC_HOST_TO_ADMIN,
+  stripAdminPrefix,
+  toAdminPath,
+} from '@gitroom/frontend/lib/admin-host';
 
 const ADMIN_PREFIXES = ['/admin'];
 const CREATOR_PREFIXES = ['/me', '/onboarding'];
@@ -53,7 +59,37 @@ export async function proxy(request: NextRequest) {
     return r;
   };
 
-  const pathname = request.nextUrl.pathname;
+  const host = request.headers.get('host') ?? '';
+  const publicOrigin = ADMIN_HOST_TO_PUBLIC[host];
+  const isAdminHost = publicOrigin !== undefined;
+  const adminOrigin = PUBLIC_HOST_TO_ADMIN[host];
+  const rawPath = request.nextUrl.pathname;
+  const search = request.nextUrl.search;
+
+  // The console lives on admin.d3creator.com (lib/admin-host.ts). Public host:
+  // send /admin/* across. Admin host: /admin/* is served from the root, so a
+  // link that still says /admin/tracker lands on /tracker.
+  if (adminOrigin && (rawPath === '/admin' || rawPath.startsWith('/admin/'))) {
+    return redirect(new URL(stripAdminPrefix(rawPath) + search, adminOrigin));
+  }
+  if (isAdminHost && (rawPath === '/admin' || rawPath.startsWith('/admin/'))) {
+    return redirect(new URL(stripAdminPrefix(rawPath) + search, request.url));
+  }
+
+  // Everything below reasons about the app-tree path; on the admin host that
+  // is the rewritten one (`/tracker` -> `/admin/tracker`).
+  const pathname = isAdminHost ? toAdminPath(rawPath) : rawPath;
+  // A redirect target inside the console, spelled for the current host.
+  const consolePath = (p: string) => (isAdminHost ? stripAdminPrefix(p) : p);
+  // The response that finally serves the page — a rewrite on the admin host.
+  const serve = () => {
+    if (pathname === rawPath) return response;
+    const r = NextResponse.rewrite(new URL(pathname + search, request.url), {
+      request,
+    });
+    for (const c of response.cookies.getAll()) r.cookies.set(c);
+    return r;
+  };
 
   // API routes authenticate themselves (handlers call getUser) and must never
   // be redirected — a 3xx would corrupt fetch/JSON callers. Bail after the
@@ -75,10 +111,10 @@ export async function proxy(request: NextRequest) {
   if (!user) {
     if (isAdminRoute || isCreatorRoute || isStudioRoute) {
       const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('redirectTo', pathname);
+      loginUrl.searchParams.set('redirectTo', rawPath);
       return redirect(loginUrl);
     }
-    return response;
+    return serve();
   }
 
   // A logged-in user always needs their role resolved now: admins are confined
@@ -108,7 +144,7 @@ export async function proxy(request: NextRequest) {
     // same lookup, so redirecting on a persistent error would bounce
     // /login -> /login forever (ERR_TOO_MANY_REDIRECTS) and lock the user out
     // entirely. Serve the auth page instead so they can still see the error.
-    if (isAuthPage) return response;
+    if (isAuthPage) return serve();
     const failUrl = new URL('/login', request.url);
     failUrl.searchParams.set('error', 'session_lookup_failed');
     return redirect(failUrl);
@@ -116,12 +152,20 @@ export async function proxy(request: NextRequest) {
   const role =
     (roleRow?.role as 'admin' | 'creator' | 'member' | 'none' | undefined) ??
     'creator';
+  // A non-admin's home is on the public site; on the admin host that is a
+  // cross-origin hop, because their session cookies belong to this host only
+  // and there is nothing for them here.
   const home =
-    role === 'admin' ? '/admin' : role === 'creator' ? '/me' : '/classes';
+    role === 'admin'
+      ? new URL(consolePath('/admin'), request.url)
+      : new URL(
+          role === 'creator' ? '/me' : '/classes',
+          publicOrigin ?? request.url,
+        );
 
   // Logged-in users shouldn't sit on login/signup.
   if (isAuthPage) {
-    return redirect(new URL(home, request.url));
+    return redirect(home);
   }
 
   // Confine admins to the admin surface: ANY non-admin route — public (home,
@@ -138,21 +182,21 @@ export async function proxy(request: NextRequest) {
     !isStudioRoute &&
     pathname !== RESET_PATH
   ) {
-    return redirect(new URL('/admin', request.url));
+    return redirect(home);
   }
 
   // Admin-only routes for non-admins — members and creators go to their home.
   if (isAdminRoute && role !== 'admin') {
-    return redirect(new URL(home, request.url));
+    return redirect(home);
   }
 
   // Creator dashboard is for creators (+ admins, handled above). Members/none
   // have no creator data — send them to the classes library instead.
   if (isCreatorRoute && role !== 'creator') {
-    return redirect(new URL('/classes', request.url));
+    return redirect(new URL('/classes', publicOrigin ?? request.url));
   }
 
-  return response;
+  return serve();
 }
 
 export const config = {
