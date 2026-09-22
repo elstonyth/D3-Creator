@@ -4,18 +4,6 @@
 .scene {
   position: relative;
   isolation: isolate;
-  // The palette the aurora layer (components/ui/aurora-background.tsx) reads.
-  // Scoped here instead of the upstream addVariablesForColors Tailwind plugin,
-  // which would emit every theme colour as a :root variable — including
-  // cyclic ones like `--fg: var(--fg)` from this project's token aliases.
-  --white: #fff;
-  --black: #000;
-  --transparent: transparent;
-  --blue-300: #93c5fd;
-  --blue-400: #60a5fa;
-  --blue-500: #3b82f6;
-  --indigo-300: #a5b4fc;
-  --violet-200: #ddd6fe;
 }
 
 .glass {
