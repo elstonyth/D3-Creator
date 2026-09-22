@@ -368,6 +368,10 @@ export function StaffingBoard({
                       </span>
                       <button
                         type="button"
+                        // Until addMember returns the real id there is nothing
+                        // to remove, so the control waits rather than offering
+                        // a Remove that would do nothing.
+                        disabled={isTemp(col.member!.id)}
                         onClick={() => setConfirmRemoveId(col.member!.id)}
                         aria-label={t('Remove {name}', { name: col.name })}
                         className="rounded-full p-1 text-fg-subtle transition-colors hover:text-fg"
