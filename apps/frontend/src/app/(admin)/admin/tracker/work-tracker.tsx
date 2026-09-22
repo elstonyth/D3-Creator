@@ -22,6 +22,7 @@ import {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
+import { AuroraBackground } from '@gitroom/frontend/components/ui/aurora-background';
 import { cn } from '@gitroom/frontend/lib/utils';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
 import {
@@ -110,41 +111,14 @@ export function WorkTracker({
   const eventsOn = (key: string) => events.filter((e) => e.date === key);
 
   return (
-    <div className={cn(s.scene, 'min-h-screen')}>
-      <div className={s.orbs} aria-hidden>
-        <span
-          className={s.orb}
-          style={{
-            width: 520,
-            height: 520,
-            left: '-12%',
-            top: '-6%',
-            background: 'rgba(242, 230, 0, 0.16)',
-          }}
-        />
-        <span
-          className={s.orb}
-          style={{
-            width: 640,
-            height: 640,
-            right: '-18%',
-            top: '18%',
-            background: 'rgba(255, 255, 255, 0.07)',
-          }}
-        />
-        <span
-          className={s.orb}
-          style={{
-            width: 480,
-            height: 480,
-            left: '28%',
-            bottom: '-10%',
-            background: 'rgba(242, 230, 0, 0.09)',
-          }}
-        />
-      </div>
-
-      <div className="mx-auto w-full max-w-[1320px] px-4 pb-24 pt-8 sm:px-6 md:px-8 md:pt-10">
+    <AuroraBackground
+      className={cn(
+        s.scene,
+        'h-auto min-h-screen items-stretch justify-start bg-transparent text-fg dark:bg-transparent',
+      )}
+    >
+      {/* `relative` lifts the content above the absolutely-positioned aurora layer. */}
+      <div className="relative mx-auto w-full max-w-[1320px] px-4 pb-24 pt-8 sm:px-6 md:px-8 md:pt-10">
         {/* Header */}
         <header className="mb-8 flex flex-col gap-4 md:mb-10 md:flex-row md:items-end md:justify-between">
           <div>
@@ -363,7 +337,7 @@ export function WorkTracker({
           {toast}
         </GlassPanel>
       ) : null}
-    </div>
+    </AuroraBackground>
   );
 }
 
