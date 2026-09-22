@@ -6,9 +6,11 @@ import '../global.scss';
 import { geistSans, geistMono } from '../fonts';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Analytics } from '@vercel/analytics/next';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
+import { isAdminHost } from '@gitroom/frontend/lib/admin-host';
 import { SignOutButton } from '@gitroom/frontend/components/auth/signout-button';
 import NavLink from '@gitroom/frontend/components/ui/nav-link';
 import MobileNav from '@gitroom/frontend/components/ui/mobile-nav';
@@ -18,12 +20,14 @@ import { Container } from '@gitroom/frontend/components/ui/section';
 export const dynamic = 'force-dynamic';
 
 // The console's own nav. Declared once so the desktop bar and the mobile
-// hamburger can never drift apart.
+// hamburger can never drift apart. Paths are relative to the console root:
+// `/admin/...` on the public host, `/...` on admin.d3creator.com.
 const NAV = [
-  { href: '/admin', label: 'Overview', exact: true },
-  { href: '/admin/profiles', label: 'Accounts' },
-  { href: '/admin/classes', label: 'Classes' },
-  { href: '/admin/users', label: 'Users' },
+  { path: '/', label: 'Overview', exact: true },
+  { path: '/tracker', label: 'Tracker' },
+  { path: '/profiles', label: 'Accounts' },
+  { path: '/classes', label: 'Classes' },
+  { path: '/users', label: 'Users' },
 ];
 
 // Admin-only layout. There is NO middleware.ts — THIS server-side check is the
@@ -38,7 +42,13 @@ export default async function AdminLayout({
   if (!auth) redirect('/login');
   if (auth.role !== 'admin') redirect('/me');
 
-  const nav = NAV.map((item) => ({ ...item, label: t(item.label) }));
+  const host = (await headers()).get('host');
+  const base = isAdminHost(host) ? '' : '/admin';
+  const nav = NAV.map(({ path, label, exact }) => ({
+    href: path === '/' ? base || '/' : base + path,
+    label: t(label),
+    exact,
+  }));
 
   return (
     <html
@@ -62,7 +72,7 @@ export default async function AdminLayout({
           <header className="sticky top-0 z-50 border-b border-line bg-canvas">
             <Container className="flex h-14 items-center justify-between gap-4">
               <Link
-                href="/admin"
+                href={nav[0].href}
                 className="flex shrink-0 items-center gap-2.5 rounded-md transition-opacity duration-150 ease-out hover:opacity-80 focus-visible:outline-none focus-visible:shadow-focus"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}

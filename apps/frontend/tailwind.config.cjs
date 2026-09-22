@@ -405,8 +405,16 @@ module.exports = {
         auroraDrift: 'normalFadeIn 0.18s ease-out',
         shimmer: 'normalFadeIn 0.18s ease-out',
         glow: 'normalFadeIn 0.18s ease-out',
+        // The one decorative loop, owner-requested for /admin/tracker's
+        // Aceternity aurora backdrop (components/ui/aurora-background.tsx).
+        // The global prefers-reduced-motion rule still caps it.
+        aurora: 'aurora 60s linear infinite',
       },
       keyframes: (theme) => ({
+        aurora: {
+          from: { backgroundPosition: '50% 50%, 50% 50%' },
+          to: { backgroundPosition: '350% 50%, 350% 50%' },
+        },
         sheen: {
           '0%': { transform: 'translateX(-100%)' },
           '100%': { transform: 'translateX(100%)' },
