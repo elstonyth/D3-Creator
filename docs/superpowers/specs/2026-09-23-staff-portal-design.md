@@ -256,6 +256,11 @@ Added the same day, from the user's description of how the team works:
   jobs and shoots stay as they are, marked "(left)", for the admin to hand on.
 - **Accounts in a month** are the ones held when the month ended (open
   question for the owner: someone archived on the 28th shows none that month).
+- **Approving** needs a confirmed email. The role flip is the first write
+  and is conditional, so of two approvals of one signup exactly one goes
+  on; the unique login column stops double links. A staff login linked to
+  nobody counts as waiting, so a half-done approval can always be redone.
+- **Nobody who has left** can be given a task, a handover or a card move.
 
 ## Testing and preview
 
