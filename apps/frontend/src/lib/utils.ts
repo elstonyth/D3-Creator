@@ -4,7 +4,7 @@ import { extendTailwindMerge } from 'tailwind-merge';
 /**
  * The project's `theme.extend.fontSize` keys (apps/frontend/tailwind.config.cjs).
  * tailwind-merge only knows the stock sizes; anything else after `text-` it
- * files as a colour, so `cn('text-heading text-fg')` used to return `text-fg`
+ * treats as a colour, so `cn('text-heading text-fg')` used to return `text-fg`
  * and the size silently vanished. Registering the tokens here makes them
  * merge against each other (`text-heading` vs `text-section`) and never
  * against a colour. Keep this list in step with the config.
