@@ -26,6 +26,8 @@ export interface TrackerTask {
   title: string;
   done: boolean;
   sortOrder: number;
+  /** The person it was given to (they see it in the staff portal), or null. */
+  assigneeId: string | null;
 }
 
 export interface TrackerEvent {
@@ -33,6 +35,30 @@ export interface TrackerEvent {
   /** `YYYY-MM-DD` */
   date: string;
   title: string;
+}
+
+/** A staff member's shoot, as the calendar shows it (read-only here). */
+export interface TrackerShoot {
+  id: string;
+  /** `YYYY-MM-DD` */
+  date: string;
+  time: string | null;
+  title: string;
+  person: string;
+  status: 'planned' | 'done' | 'cancelled';
+}
+
+/** A video job's posting slot, as the calendar shows it (read-only here). */
+export interface TrackerPost {
+  id: string;
+  /** `YYYY-MM-DD` */
+  date: string;
+  time: string | null;
+  title: string;
+  account: string | null;
+  /** The handler posting it. */
+  person: string | null;
+  posted: boolean;
 }
 
 export interface TrackerCreator {
@@ -61,6 +87,9 @@ export interface TrackerData {
   members: TrackerMember[];
   tasks: TrackerTask[];
   events: TrackerEvent[];
+  /** Shoots and posting slots in the same window as `events`. */
+  shoots: TrackerShoot[];
+  posts: TrackerPost[];
   creators: TrackerCreator[];
   remarks: string;
 }
@@ -132,6 +161,17 @@ export function monthGrid(monthKey: string): (string | null)[][] {
   const rows: (string | null)[][] = [];
   for (let i = 0; i < 42; i += 7) rows.push(cells.slice(i, i + 7));
   return rows;
+}
+
+/**
+ * One line of user text for a title-like column: whitespace collapsed,
+ * trimmed, 1..`max` characters — or null when it does not fit. Actions check
+ * this before the table's own constraint so a refusal reads as a sentence.
+ */
+export function cleanTitle(v: unknown, max = 200): string | null {
+  if (typeof v !== 'string') return null;
+  const s = v.replace(/\s+/g, ' ').trim();
+  return s.length >= 1 && s.length <= max ? s : null;
 }
 
 /** Move the item at `from` to `to`, returning a new array. */

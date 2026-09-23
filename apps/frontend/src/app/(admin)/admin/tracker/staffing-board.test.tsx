@@ -18,6 +18,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react';
+import { useState, type ComponentProps } from 'react';
 
 import type {
   TrackerCreator,
@@ -89,13 +90,22 @@ function card(
   };
 }
 
+/** The page holds the people; so does this stand-in. */
+function Board({
+  members: initialMembers,
+  ...rest
+}: Omit<ComponentProps<typeof StaffingBoard>, 'setMembers'>) {
+  const [members, setMembers] = useState(initialMembers);
+  return <StaffingBoard {...rest} members={members} setMembers={setMembers} />;
+}
+
 function renderBoard(
   members: TrackerMember[] = [KEE],
   creators: TrackerCreator[] = [],
   onFail = jest.fn(),
 ) {
   return render(
-    <StaffingBoard
+    <Board
       monthLabel="September 2026"
       members={members}
       creators={creators}
@@ -231,8 +241,7 @@ describe('StaffingBoard card order', () => {
     (placeCards as jest.Mock).mockImplementationOnce(
       () => new Promise((r) => (settle = r)),
     );
-    return (r: { ok: boolean; message?: string }) =>
-      act(async () => settle(r));
+    return (r: { ok: boolean; message?: string }) => act(async () => settle(r));
   }
 
   it('moves a card up and saves the column order', async () => {

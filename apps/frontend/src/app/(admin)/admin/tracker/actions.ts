@@ -9,9 +9,14 @@
 
 import { revalidatePath } from 'next/cache';
 import { getSupabaseAdmin } from '@d3/database';
-import { requireAdmin } from '@gitroom/frontend/lib/auth';
+import { requireAdmin, type AuthContext } from '@gitroom/frontend/lib/auth';
 import { isUuid } from '@gitroom/frontend/lib/ids';
-import { isDateKey, type MemberKind } from '@gitroom/frontend/lib/tracker';
+import { onBoard } from '@gitroom/frontend/lib/team/on-board';
+import {
+  cleanTitle,
+  isDateKey,
+  type MemberKind,
+} from '@gitroom/frontend/lib/tracker';
 
 export interface ActionResult {
   ok: boolean;
@@ -20,17 +25,18 @@ export interface ActionResult {
 }
 
 const PAGE = '/admin/tracker';
+// A tab opened before someone was removed still offers them; the server
+// refuses rather than handing work to a person who has left.
+const NOT_ON_BOARD = 'That person is not on the board.';
 
-function cleanTitle(v: unknown, max = 200): string | null {
-  if (typeof v !== 'string') return null;
-  const s = v.replace(/\s+/g, ' ').trim();
-  return s.length >= 1 && s.length <= max ? s : null;
-}
-
-async function guarded(fn: () => Promise<ActionResult>): Promise<ActionResult> {
+// `me` is the signed-in admin; writes to tracker_assignment record them as
+// `updated_by`, which the handover log trigger copies onto every change.
+async function guarded(
+  fn: (me: AuthContext) => Promise<ActionResult>,
+): Promise<ActionResult> {
   try {
-    await requireAdmin();
-    const r = await fn();
+    const me = await requireAdmin();
+    const r = await fn(me);
     if (r.ok) revalidatePath(PAGE);
     return r;
   } catch (e) {
@@ -77,6 +83,29 @@ export async function updateTask(
       .update({ title: t })
       .eq('id', id);
     return error ? { ok: false, message: error.message } : { ok: true };
+  });
+}
+
+/** Give a task to someone (they see it in the staff portal), or back to anyone. */
+export async function assignTask(
+  id: string,
+  assigneeId: string | null,
+): Promise<ActionResult> {
+  return guarded(async () => {
+    if (!isUuid(id)) return { ok: false, message: 'Invalid task.' };
+    if (assigneeId !== null && !isUuid(assigneeId))
+      return { ok: false, message: 'Invalid person.' };
+    if (!(await onBoard([assigneeId])))
+      return { ok: false, message: NOT_ON_BOARD };
+    const { data, error } = await getSupabaseAdmin()
+      .from('tracker_task')
+      .update({ assignee_id: assigneeId })
+      .eq('id', id)
+      .select('id');
+    if (error) return { ok: false, message: error.message };
+    if (!data || data.length === 0)
+      return { ok: false, message: 'That task is gone.' };
+    return { ok: true };
   });
 }
 
@@ -203,9 +232,12 @@ export async function setAssignment(
   creatorId: string,
   patch: AssignmentPatch,
 ): Promise<ActionResult> {
-  return guarded(async () => {
+  return guarded(async (me) => {
     if (!isUuid(creatorId)) return { ok: false, message: 'Invalid creator.' };
-    const row: Record<string, unknown> = { creator_id: creatorId };
+    const row: Record<string, unknown> = {
+      creator_id: creatorId,
+      updated_by: me.userId,
+    };
     if ('handlerId' in patch) {
       if (patch.handlerId != null && !isUuid(patch.handlerId))
         return { ok: false, message: 'Invalid person.' };
@@ -218,6 +250,8 @@ export async function setAssignment(
     }
     if ('scheduledPosting' in patch)
       row.scheduled_posting = Boolean(patch.scheduledPosting);
+    if (!(await onBoard([patch.handlerId ?? null, patch.editorId ?? null])))
+      return { ok: false, message: NOT_ON_BOARD };
     const { error } = await getSupabaseAdmin()
       .from('tracker_assignment')
       .upsert(row, { onConflict: 'creator_id' });
@@ -238,7 +272,7 @@ export async function placeCards(
   creatorIds: string[],
   movedIds: string[],
 ): Promise<ActionResult> {
-  return guarded(async () => {
+  return guarded(async (me) => {
     if (handlerId !== null && !isUuid(handlerId))
       return { ok: false, message: 'Invalid person.' };
     if (
@@ -251,6 +285,8 @@ export async function placeCards(
       !movedIds.every((id) => creatorIds.includes(id))
     )
       return { ok: false, message: 'Invalid order.' };
+    if (!(await onBoard([handlerId])))
+      return { ok: false, message: NOT_ON_BOARD };
     const admin = getSupabaseAdmin();
     const moved = new Set(movedIds);
     // The cards that stayed put first, the handovers last. If the handover
@@ -266,10 +302,18 @@ export async function placeCards(
       if (error) return { ok: false, message: error.message };
     }
     if (moved.size === 0) return { ok: true };
+    // updated_by names who made the handover in the log the trigger writes.
     const { error } = await admin.from('tracker_assignment').upsert(
       creatorIds.flatMap((id, i) =>
         moved.has(id)
-          ? [{ creator_id: id, handler_id: handlerId, sort_order: i }]
+          ? [
+              {
+                creator_id: id,
+                handler_id: handlerId,
+                sort_order: i,
+                updated_by: me.userId,
+              },
+            ]
           : [],
       ),
       { onConflict: 'creator_id' },
@@ -311,15 +355,64 @@ export async function addMember(
   });
 }
 
+/**
+ * Take a person off the board. They are archived, never deleted: their
+ * shoots, videos and handovers keep a name. A staff login linked to them is
+ * switched off, their accounts fall back to Unassigned / Nobody (recorded in
+ * the handover log as this admin's change), and their open tasks go back to
+ * nobody. Video jobs and shoots stay as they are for the admin to hand on.
+ *
+ * Every step can be repeated, and archiving comes last: if a step fails the
+ * person is still on the board, and removing them again finishes the job.
+ */
 export async function removeMember(id: string): Promise<ActionResult> {
-  return guarded(async () => {
+  return guarded(async (me) => {
     if (!isUuid(id)) return { ok: false, message: 'Invalid person.' };
-    // handler_id / editor_id are ON DELETE SET NULL — their accounts fall back
-    // to the unassigned pool rather than disappearing.
-    const { error } = await getSupabaseAdmin()
+    const admin = getSupabaseAdmin();
+    const { data: person, error: findErr } = await admin
       .from('tracker_member')
-      .delete()
+      .select('user_id')
+      .eq('id', id)
+      .is('archived_at', null)
+      .maybeSingle();
+    if (findErr) return { ok: false, message: findErr.message };
+    if (!person) return { ok: false, message: 'That person is already gone.' };
+
+    // Access first: whatever fails below, the login already reaches nothing.
+    if (person.user_id) {
+      const { error: roleErr } = await admin
+        .from('user_role')
+        .update({ role: 'none' })
+        .eq('user_id', person.user_id)
+        .in('role', ['staff', 'staff_pending']);
+      if (roleErr) return { ok: false, message: roleErr.message };
+    }
+
+    const cleared = await Promise.all([
+      admin
+        .from('tracker_assignment')
+        .update({ handler_id: null, updated_by: me.userId })
+        .eq('handler_id', id),
+      admin
+        .from('tracker_assignment')
+        .update({ editor_id: null, updated_by: me.userId })
+        .eq('editor_id', id),
+      // Nobody would ever see them; done ones keep the name as a record.
+      admin
+        .from('tracker_task')
+        .update({ assignee_id: null })
+        .eq('assignee_id', id)
+        .eq('done', false),
+    ]);
+    const clearErr = cleared.find((r) => r.error)?.error;
+    if (clearErr) return { ok: false, message: clearErr.message };
+
+    const { error: archiveErr } = await admin
+      .from('tracker_member')
+      .update({ archived_at: new Date().toISOString(), user_id: null })
       .eq('id', id);
-    return error ? { ok: false, message: error.message } : { ok: true };
+    return archiveErr
+      ? { ok: false, message: archiveErr.message }
+      : { ok: true };
   });
 }

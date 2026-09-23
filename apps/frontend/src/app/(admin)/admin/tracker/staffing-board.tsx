@@ -25,8 +25,10 @@ import {
   useMemo,
   useRef,
   useState,
+  type Dispatch,
   type DragEvent,
   type FormEvent,
+  type SetStateAction,
 } from 'react';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { cn } from '@gitroom/frontend/lib/utils';
@@ -78,17 +80,20 @@ interface EditedStats {
 
 export function StaffingBoard({
   monthLabel,
-  members: initialMembers,
+  members,
+  setMembers,
   creators: initialCreators,
   onFail,
 }: {
   monthLabel: string;
+  /** The board's people. Held by the page, which shares them with the task
+   *  list, so someone added or removed here is offered (or not) there too. */
   members: TrackerMember[];
+  setMembers: Dispatch<SetStateAction<TrackerMember[]>>;
   creators: TrackerCreator[];
   onFail: (r: ActionResult, rollback: () => void) => void;
 }) {
   const { t, locale } = useI18n();
-  const [members, setMembers] = useState(initialMembers);
   const [creators, setCreators] = useState(initialCreators);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<string | null>(null);

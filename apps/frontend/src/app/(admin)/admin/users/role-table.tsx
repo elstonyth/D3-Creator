@@ -4,6 +4,7 @@ import { localizeAdminError } from '../localize-error';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag, type Locale } from '@gitroom/frontend/lib/i18n';
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { setUserRole } from './actions';
 import { Select } from '@gitroom/frontend/components/ui/input';
@@ -136,6 +137,22 @@ export function RoleTable({ rows, selfId }: { rows: Row[]; selfId: string }) {
                     {t(formatJoined(r.created_at, locale))}
                   </Td>
                   <Td>
+                    {r.role === 'staff' || r.role === 'staff_pending' ? (
+                      // Staff logins are approved and linked to a person on
+                      // the Team page; a role flip here would skip the link.
+                      <p className="text-body-sm text-fg">
+                        {t(
+                          r.role === 'staff' ? 'Staff' : 'Staff, waiting',
+                        )}{' '}
+                        <Link
+                          href="/admin/team"
+                          className="rounded text-fg-muted underline underline-offset-4 hover:text-fg focus-visible:outline-none focus-visible:shadow-focusRing"
+                        >
+                          {t('Manage on Team')}
+                        </Link>
+                      </p>
+                    ) : (
+                    <>
                     <label htmlFor={`role-${r.user_id}`} className="sr-only">
                       {t('Role for {email}', { email: r.email })}
                     </label>
@@ -157,6 +174,8 @@ export function RoleTable({ rows, selfId }: { rows: Row[]; selfId: string }) {
                       <p className="mt-1.5 text-caption text-fg-subtle">
                         {t('You cannot change your own role.')}
                       </p>
+                    )}
+                    </>
                     )}
                   </Td>
                 </Tr>
