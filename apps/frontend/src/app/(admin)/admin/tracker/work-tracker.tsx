@@ -331,7 +331,6 @@ export function WorkTracker({
         {/* Staffing */}
         <section className="mt-4 md:mt-6">
           <StaffingBoard
-            month={month}
             monthLabel={fmtDate(`${month}-01`, tag, {
               month: 'long',
               year: 'numeric',

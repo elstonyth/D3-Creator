@@ -87,7 +87,6 @@ function renderBoard(
 ) {
   return render(
     <StaffingBoard
-      month="2026-09"
       monthLabel="September 2026"
       members={members}
       creators={creators}

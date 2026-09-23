@@ -66,13 +66,11 @@ interface EditedStats {
 }
 
 export function StaffingBoard({
-  month,
   monthLabel,
   members: initialMembers,
   creators: initialCreators,
   onFail,
 }: {
-  month: string;
   monthLabel: string;
   members: TrackerMember[];
   creators: TrackerCreator[];
@@ -607,7 +605,6 @@ export function StaffingBoard({
                       creator={c}
                       handlers={handlers}
                       editors={editors}
-                      month={month}
                       dragging={dragId === c.id}
                       dropBefore={
                         overCard === c.id && dragId !== null && dragId !== c.id
@@ -750,7 +747,6 @@ function CreatorCard({
   creator,
   handlers,
   editors,
-  month,
   dragging,
   dropBefore,
   onDragStart,
@@ -767,7 +763,6 @@ function CreatorCard({
   creator: TrackerCreator;
   handlers: TrackerMember[];
   editors: TrackerMember[];
-  month: string;
   dragging: boolean;
   dropBefore: boolean;
   onDragStart: () => void;
@@ -848,7 +843,32 @@ function CreatorCard({
             posts: creator.posts,
           })}
         </span>
-        <span className="text-fg-subtle">{month}</span>
+        <span className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={onUp}
+            disabled={!onUp}
+            aria-label={t('Move {name} up', { name: creator.name })}
+            className={clsx(
+              s.pill,
+              'flex h-7 w-7 items-center justify-center text-fg-muted disabled:opacity-30',
+            )}
+          >
+            <ArrowIcon dir="up" />
+          </button>
+          <button
+            type="button"
+            onClick={onDown}
+            disabled={!onDown}
+            aria-label={t('Move {name} down', { name: creator.name })}
+            className={clsx(
+              s.pill,
+              'flex h-7 w-7 items-center justify-center text-fg-muted disabled:opacity-30',
+            )}
+          >
+            <ArrowIcon dir="down" />
+          </button>
+        </span>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
@@ -910,45 +930,17 @@ function CreatorCard({
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={onUp}
-            disabled={!onUp}
-            aria-label={t('Move {name} up', { name: creator.name })}
-            className={clsx(
-              s.pill,
-              'flex h-7 w-7 items-center justify-center text-fg-muted disabled:opacity-30',
-            )}
-          >
-            <ArrowIcon dir="up" />
-          </button>
-          <button
-            type="button"
-            onClick={onDown}
-            disabled={!onDown}
-            aria-label={t('Move {name} down', { name: creator.name })}
-            className={clsx(
-              s.pill,
-              'flex h-7 w-7 items-center justify-center text-fg-muted disabled:opacity-30',
-            )}
-          >
-            <ArrowIcon dir="down" />
-          </button>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-caption text-fg-muted">
-            {t('Scheduled posting')}
-          </span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={creator.scheduledPosting}
-            aria-label={t('Scheduled posting')}
-            onClick={onToggleScheduled}
-            className={s.switch}
-          />
-        </div>
+        <span className="text-caption text-fg-muted">
+          {t('Scheduled posting')}
+        </span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={creator.scheduledPosting}
+          aria-label={t('Scheduled posting')}
+          onClick={onToggleScheduled}
+          className={s.switch}
+        />
       </div>
     </article>
   );
