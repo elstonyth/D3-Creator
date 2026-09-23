@@ -82,6 +82,27 @@ export async function updateTask(
   });
 }
 
+/** Give a task to someone (they see it in the staff portal), or back to anyone. */
+export async function assignTask(
+  id: string,
+  assigneeId: string | null,
+): Promise<ActionResult> {
+  return guarded(async () => {
+    if (!isUuid(id)) return { ok: false, message: 'Invalid task.' };
+    if (assigneeId !== null && !isUuid(assigneeId))
+      return { ok: false, message: 'Invalid person.' };
+    const { data, error } = await getSupabaseAdmin()
+      .from('tracker_task')
+      .update({ assignee_id: assigneeId })
+      .eq('id', id)
+      .select('id');
+    if (error) return { ok: false, message: error.message };
+    if (!data || data.length === 0)
+      return { ok: false, message: 'That task is gone.' };
+    return { ok: true };
+  });
+}
+
 export async function setTaskDone(
   id: string,
   done: boolean,

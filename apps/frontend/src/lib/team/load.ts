@@ -19,6 +19,8 @@ import {
 import { holderAt, type LogRow } from './attribution';
 import { rowToShoot, SHOOT_COLS, type ShootRow } from './shoot-rows';
 import { sortShoots, type Shoot } from './shoots';
+import { rowToVideo, VIDEO_COLS, type VideoRow } from './video-rows';
+import type { Video } from './videos';
 
 export interface TeamPerson {
   id: string;
@@ -243,4 +245,97 @@ export async function loadAccountsAt(
 /** `YYYY-MM-DD` bounds [first day, first day of next month) for a month key. */
 export function monthDays(month: string): { from: string; to: string } {
   return { from: `${month}-01`, to: `${addMonths(month, 1)}-01` };
+}
+
+// ---- video jobs and tasks ----------------------------------------------------
+
+/** Enough for a team of this size; the pages say so if a list is cut. */
+const VIDEO_LIMIT = 500;
+
+/**
+ * Video jobs still in hand (not posted), plus those finished — edited or
+ * posted — since `since` (an ISO instant). Everyone's, or one person's as
+ * editor or handler.
+ */
+export async function loadVideos(
+  since: string,
+  memberId?: string,
+): Promise<Video[]> {
+  let q = getSupabaseAdmin()
+    .from('tracker_video')
+    .select(VIDEO_COLS)
+    // Values quoted: a timestamp's ':' and '.' are reserved in or().
+    .or(
+      `posted_at.is.null,posted_at.gte."${since}",edited_at.gte."${since}"`,
+    );
+  if (memberId) q = q.or(`editor_id.eq.${memberId},handler_id.eq.${memberId}`);
+  const rows = must<VideoRow[]>(
+    await q.order('created_at', { ascending: false }).limit(VIDEO_LIMIT),
+    'videos',
+  );
+  return rows.map(rowToVideo);
+}
+
+/** Videos whose edit or post was clicked Done in [from, to) — for counting. */
+export async function loadVideosDone(from: string, to: string): Promise<Video[]> {
+  const rows = must<VideoRow[]>(
+    await getSupabaseAdmin()
+      .from('tracker_video')
+      .select(VIDEO_COLS)
+      .or(
+        `and(edited_at.gte."${from}",edited_at.lt."${to}"),and(posted_at.gte."${from}",posted_at.lt."${to}")`,
+      )
+      .order('created_at', { ascending: false })
+      .limit(VIDEO_LIMIT),
+    'videos done',
+  );
+  return rows.map(rowToVideo);
+}
+
+/** Who handles and edits each account today, for filling in a new job. */
+export async function loadAssignments(): Promise<
+  Record<string, { handlerId: string | null; editorId: string | null }>
+> {
+  const rows = must<
+    { creator_id: string; handler_id: string | null; editor_id: string | null }[]
+  >(
+    await getSupabaseAdmin()
+      .from('tracker_assignment')
+      .select('creator_id, handler_id, editor_id'),
+    'assignments',
+  );
+  return Object.fromEntries(
+    rows.map((r) => [
+      r.creator_id,
+      { handlerId: r.handler_id, editorId: r.editor_id },
+    ]),
+  );
+}
+
+export interface MyTask {
+  id: string;
+  title: string;
+  done: boolean;
+}
+
+/** Tasks the admin gave this person: all open ones, and the last few done. */
+export async function loadMyTasks(memberId: string): Promise<MyTask[]> {
+  const admin = getSupabaseAdmin();
+  const [open, done] = await Promise.all([
+    admin
+      .from('tracker_task')
+      .select('id, title, done')
+      .eq('assignee_id', memberId)
+      .eq('done', false)
+      .order('sort_order')
+      .order('created_at'),
+    admin
+      .from('tracker_task')
+      .select('id, title, done')
+      .eq('assignee_id', memberId)
+      .eq('done', true)
+      .order('completed_at', { ascending: false })
+      .limit(10),
+  ]);
+  return [...must<MyTask[]>(open, 'my tasks'), ...must<MyTask[]>(done, 'my done tasks')];
 }

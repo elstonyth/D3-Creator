@@ -5,12 +5,13 @@ import { LanguageSwitcher } from '@gitroom/frontend/components/i18n/language-swi
 import '../global.scss';
 import { geistSans, geistMono } from '../fonts';
 import type { ReactNode } from 'react';
+import type { Metadata } from 'next';
+import Image from 'next/image';
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { Analytics } from '@vercel/analytics/next';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
-import { isAdminHost } from '@gitroom/frontend/lib/portal-host';
+import { isStaffHost } from '@gitroom/frontend/lib/portal-host';
 import { SignOutButton } from '@gitroom/frontend/components/auth/signout-button';
 import NavLink from '@gitroom/frontend/components/ui/nav-link';
 import MobileNav from '@gitroom/frontend/components/ui/mobile-nav';
@@ -19,23 +20,29 @@ import { Container } from '@gitroom/frontend/components/ui/section';
 // Cookie-bound. Never prerender — Supabase env required at construction.
 export const dynamic = 'force-dynamic';
 
-// The console's own nav. Declared once so the desktop bar and the mobile
-// hamburger can never drift apart. Paths are relative to the console root:
-// `/admin/...` on the public host, `/...` on admin.d3creator.com.
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+    title: t('D3 Staff'),
+    robots: { index: false, follow: false },
+  };
+}
+
+// Paths are relative to the portal root: `/staff/...` on the public host in
+// dev, `/...` on staff.d3creator.com.
 const NAV = [
-  { path: '/', label: 'Overview', exact: true },
-  { path: '/tracker', label: 'Tracker' },
-  { path: '/videos', label: 'Videos' },
+  { path: '/', label: 'My work', exact: true },
   { path: '/schedule', label: 'Schedule' },
-  { path: '/team', label: 'Team' },
-  { path: '/profiles', label: 'Accounts' },
-  { path: '/classes', label: 'Classes' },
-  { path: '/users', label: 'Users' },
+  { path: '/accounts', label: 'My accounts' },
+  { path: '/history', label: 'History' },
 ];
 
-// Admin-only layout. There is NO middleware.ts — THIS server-side check is the
-// gate for admin pages. Admin mutations re-check requireAdmin() independently.
-export default async function AdminLayout({
+/**
+ * The staff portal's own root layout (staff.d3creator.com). The middleware
+ * already admits only staff here (lib/portal-routing.ts); this is the second
+ * lock, like the (admin) layout's.
+ */
+export default async function StaffLayout({
   children,
 }: {
   children: ReactNode;
@@ -43,15 +50,17 @@ export default async function AdminLayout({
   const { locale, t } = await getI18n();
   const auth = await getAuthContext();
   if (!auth) redirect('/login');
-  if (auth.role !== 'admin') redirect('/me');
+  if (auth.role !== 'staff' && auth.role !== 'staff_pending') redirect('/');
+  const approved = auth.role === 'staff';
 
-  const host = (await headers()).get('host');
-  const base = isAdminHost(host) ? '' : '/admin';
-  const nav = NAV.map(({ path, label, exact }) => ({
-    href: path === '/' ? base || '/' : base + path,
-    label: t(label),
-    exact,
-  }));
+  const base = isStaffHost((await headers()).get('host')) ? '' : '/staff';
+  const nav = approved
+    ? NAV.map(({ path, label, exact }) => ({
+        href: path === '/' ? base || '/' : base + path,
+        label: t(label),
+        exact,
+      }))
+    : [];
 
   return (
     <html
@@ -75,44 +84,38 @@ export default async function AdminLayout({
           <header className="sticky top-0 z-50 border-b border-line bg-canvas">
             <Container className="flex h-14 items-center justify-between gap-4">
               <Link
-                href={nav[0].href}
-                className="flex shrink-0 items-center gap-2.5 rounded-md transition-opacity duration-150 ease-out hover:opacity-80 focus-visible:outline-none focus-visible:shadow-focus"
+                href={base || '/'}
+                className="flex shrink-0 items-center gap-2.5 rounded-md transition-opacity duration-150 ease-out hover:opacity-80 focus-visible:outline-none focus-visible:shadow-focusRing"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/d3-logo.png"
-                  alt="D3 Creator"
-                  width={28}
-                  height={28}
-                />
-                <span className="text-heading text-fg">{t('Console')}</span>
+                <Image src="/d3-logo.png" alt="D3" width={28} height={28} />
+                <span className="text-heading text-fg">{t('Staff')}</span>
               </Link>
 
-              <nav
-                aria-label={t('Admin')}
-                className="hidden items-center gap-1 lg:flex"
-              >
-                {nav.map((item) => (
-                  <NavLink key={item.href} href={item.href} exact={item.exact}>
-                    {item.label}
-                  </NavLink>
-                ))}
-              </nav>
+              {nav.length > 0 ? (
+                <nav
+                  aria-label={t('Staff')}
+                  className="hidden items-center gap-1 md:flex"
+                >
+                  {nav.map((item) => (
+                    <NavLink
+                      key={item.href}
+                      href={item.href}
+                      exact={item.exact}
+                    >
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </nav>
+              ) : null}
 
               <div className="flex items-center gap-2">
-                {auth.email ? (
-                  <span
-                    className="hidden max-w-[180px] truncate text-caption text-fg-subtle xl:block"
-                    title={auth.email}
-                  >
-                    {auth.email}
-                  </span>
-                ) : null}
                 <LanguageSwitcher />
-                <div className="hidden lg:block">
+                <div className="hidden md:block">
                   <SignOutButton />
                 </div>
-                <MobileNav links={nav} showSignOut />
+                <div className="md:hidden">
+                  <MobileNav links={nav} showSignOut />
+                </div>
               </div>
             </Container>
           </header>
@@ -120,7 +123,6 @@ export default async function AdminLayout({
           <main id="main" tabIndex={-1} className="flex-1">
             {children}
           </main>
-          <Analytics />
         </LocaleProvider>
       </body>
     </html>

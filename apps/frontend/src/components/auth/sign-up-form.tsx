@@ -8,7 +8,7 @@ import { useId, useState, type FormEvent } from 'react';
 import { PasswordField } from '@gitroom/frontend/components/auth/password-field';
 import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { Button, ButtonLink } from '@gitroom/frontend/components/ui/button';
-import { Field, Input } from '@gitroom/frontend/components/ui/input';
+import { Field, Input, Select } from '@gitroom/frontend/components/ui/input';
 import { signUpErrorMessage } from '@gitroom/frontend/lib/auth-errors';
 import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
 
@@ -36,7 +36,13 @@ export function SignUpForm({
   const { t } = useI18n();
   const router = useRouter();
   const emailId = useId();
+  const nameId = useId();
+  const kindId = useId();
   const [email, setEmail] = useState('');
+  // Staff only: how the team knows them, and which row of the board they
+  // belong in. A suggestion for the admin, who confirms both on approval.
+  const [displayName, setDisplayName] = useState('');
+  const [kind, setKind] = useState<'handler' | 'editor'>('handler');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -59,7 +65,13 @@ export function SignUpForm({
         emailRedirectTo: `${
           window.location.origin
         }/auth/callback?redirectTo=${encodeURIComponent(afterConfirm)}`,
-        data: portal ? { portal } : undefined,
+        data: portal
+          ? {
+              portal,
+              display_name: displayName.trim().slice(0, 40),
+              staff_kind: kind,
+            }
+          : undefined,
       },
     });
 
@@ -260,6 +272,39 @@ export function SignUpForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {portal ? (
+        <>
+          <Field
+            label={t('Your name on the board')}
+            htmlFor={nameId}
+            hint={t('How the team knows you, e.g. KEE.')}
+          >
+            <Input
+              id={nameId}
+              required
+              maxLength={40}
+              autoComplete="nickname"
+              autoFocus
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              disabled={pending}
+            />
+          </Field>
+          <Field label={t('Your job')} htmlFor={kindId}>
+            <Select
+              id={kindId}
+              value={kind}
+              onChange={(e) =>
+                setKind(e.target.value === 'editor' ? 'editor' : 'handler')
+              }
+              disabled={pending}
+            >
+              <option value="handler">{t('Handler — runs accounts')}</option>
+              <option value="editor">{t('Editor — cuts videos')}</option>
+            </Select>
+          </Field>
+        </>
+      ) : null}
       <Field label={t('Email')} htmlFor={emailId}>
         <Input
           id={emailId}
@@ -267,7 +312,7 @@ export function SignUpForm({
           required
           maxLength={254}
           autoComplete="email"
-          autoFocus
+          autoFocus={!portal}
           placeholder="you@email.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}

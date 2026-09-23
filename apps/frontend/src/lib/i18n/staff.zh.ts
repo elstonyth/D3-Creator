@@ -75,4 +75,177 @@ export const staffZh: Readonly<Record<string, string>> = {
   'That shoot is not yours, or it is already gone.':
     '这条拍摄不是你的，或已被删除。',
   'Invalid status.': '状态无效。',
+
+  // ---- Staff portal chrome and pages --------------------------------------
+  'D3 Staff': 'D3 员工门户',
+  'My work': '我的工作',
+  'My work — D3 Staff': '我的工作 — D3 员工门户',
+  Schedule: '行程',
+  'Schedule — D3 Staff': '行程 — D3 员工门户',
+  'Shoot schedule': '拍摄行程',
+  'My accounts': '我的账号',
+  'My accounts — D3 Staff': '我的账号 — D3 员工门户',
+  History: '记录',
+  'History — D3 Staff': '记录 — D3 员工门户',
+  'Hi, {name}': '你好，{name}',
+  'What the admin gave you. When your part of a video is finished, click Done and paste the link — the admin sees it straight away.':
+    '管理员交给你的工作。你负责的部分完成后，点「完成」并贴上链接——管理员马上就能看到。',
+  'When and where everyone is shooting this week. Add yours — the team and the admin see it straight away.':
+    '本周每个人在哪里、几点拍摄。加上你的行程——团队和管理员马上就能看到。',
+  'What you look after': '你负责的账号',
+  'Output for {month}, from the scraped posts.': '{month} 的数据，来自抓取的帖子。',
+  'Your record': '你的工作记录',
+  'Every shoot you logged, the videos that came out of them, and the accounts you held that month.':
+    '你记录的每次拍摄、产出的视频，以及当月负责的账号。',
+  'Your account is not linked to anyone yet.': '你的账号还没有关联到看板上的人员。',
+  'An admin links each staff login to a person on the work board. Ask them to link yours on the Team page.':
+    '管理员会把每个员工账号关联到工作看板上的人员。请让管理员在团队页为你关联。',
+  'Almost there': '就快好了',
+  'Waiting for an admin': '等待管理员审批',
+  'Waiting for approval — D3 Staff': '等待审批 — D3 员工门户',
+  'Your staff account is set up. An admin has to approve it and link it to your name on the work board before you can see the team’s schedule.':
+    '你的员工账号已创建。管理员审批并关联到你在工作看板上的名字后，你才能看到团队行程。',
+  'Tell your admin you have signed up. This page opens the portal once you are approved — just reload it.':
+    '请告诉管理员你已注册。审批通过后重新载入此页即可进入门户。',
+  'Your name on the board': '你在看板上的名字',
+  'How the team knows you, e.g. KEE.': '团队怎么称呼你，例如 KEE。',
+  'Your job': '你的职位',
+  'Handler — runs accounts': '负责人——负责运营账号',
+  'Editor — cuts videos': '剪辑——负责剪视频',
+
+  // ---- Tasks ----------------------------------------------------------------
+  'Tasks from the admin': '管理员交代的任务',
+  'No tasks for you right now.': '目前没有你的任务。',
+  'Give {title} to': '把「{title}」交给',
+  'That task is not yours, or it is gone.': '这个任务不是你的，或已被删除。',
+  'That task is gone.': '这个任务已被删除。',
+  'Invalid task.': '任务无效。',
+
+  // ---- Video jobs -------------------------------------------------------------
+  'Video jobs': '视频工作',
+  'Videos — D3 Admin': '视频 — D3 管理后台',
+  'Give a video to an account’s editor and handler. Each clicks Done with a link when their part is finished, and it counts toward their month.':
+    '把视频交给账号的剪辑和负责人。各自完成后点「完成」并贴上链接，计入当月工作量。',
+  '+ New video': '+ 新视频',
+  'Show whose videos': '显示谁的视频',
+  'Being edited': '剪辑中',
+  'Ready to post': '待发布',
+  'Done this month': '本月已完成',
+  'Nothing waiting on an edit.': '没有待剪辑的视频。',
+  'Nothing waiting to go out.': '没有待发布的视频。',
+  'Nothing finished yet this month.': '本月还没有完成的视频。',
+  'Which video': '哪条视频',
+  'e.g. CNY promo, reel 2': '例如：新年宣传片第 2 条',
+  'Posting day': '发布日期',
+  You: '你',
+  'done {day}': '{day} 完成',
+  'Edited video': '剪好的视频',
+  editing: '剪辑中',
+  'posted {day}': '{day} 发布',
+  'Live post': '已发布的帖子',
+  'goes out {day}': '{day} 发布',
+  'not scheduled': '未排期',
+  'Link to the edited video': '剪好视频的链接',
+  'Link to the live post': '已发布帖子的链接',
+  'Delete this video job for good?': '确定永久删除这条视频工作？',
+  'Edit done: {title}': '剪辑完成：{title}',
+  'Undo edit': '撤回剪辑完成',
+  'Undo edit: {title}': '撤回剪辑完成：{title}',
+  'Schedule {title}': '为「{title}」排期',
+  Reschedule: '改期',
+  'Posted: {title}': '已发布：{title}',
+  'Undo post: {title}': '撤回发布：{title}',
+  Undo: '撤回',
+  Change: '修改',
+  'Change {title}': '修改「{title}」',
+  'That video is not yours to change, or it has moved on.':
+    '这条视频不归你改，或已进入下一步。',
+  'Only an admin can do that.': '只有管理员可以这样做。',
+  'Paste the link to the edited video (starting with https://).':
+    '请贴上剪好视频的链接（以 https:// 开头）。',
+  'Paste the link to the live post (starting with https://).':
+    '请贴上已发布帖子的链接（以 https:// 开头）。',
+  'Pick a posting day.': '请选择发布日期。',
+  'A posting time needs a day.': '填写发布时间前请先选日期。',
+  'Invalid video.': '视频无效。',
+  'That video is already gone.': '这条视频已被删除。',
+  'Pick the account the video is for.': '请选择视频所属的账号。',
+  'Say which video this is (up to 200 characters).': '请说明是哪条视频（最多 200 字）。',
+  'Give the video to an editor or a handler.': '请把视频交给一位剪辑或负责人。',
+  'Invalid person.': '人员无效。',
+
+  // ---- History / profiles -----------------------------------------------------
+  Month: '月份',
+  'Shoots done': '已完成拍摄',
+  '{planned} still planned · {cancelled} cancelled':
+    '{planned} 个待拍 · {cancelled} 个已取消',
+  'From shoots marked done': '来自已完成的拍摄',
+  'Accounts handled': '负责的账号',
+  'Accounts edited': '剪辑的账号',
+  '{videos} videos · {views} views': '{videos} 条视频 · {views} 播放',
+  '{accounts} accounts · {videos} videos · {views} views':
+    '{accounts} 个账号 · {videos} 条视频 · {views} 播放',
+  'No accounts handled this month.': '本月没有负责的账号。',
+  'No accounts edited this month.': '本月没有剪辑的账号。',
+  Shoots: '拍摄',
+  'No shoots this month.': '本月没有拍摄。',
+  Planned: '计划中',
+  Handovers: '账号交接',
+  'Accounts given to or taken from this person during the month.':
+    '本月交给此人或从此人手上转走的账号。',
+  'No handovers this month.': '本月没有交接。',
+  handler: '负责人',
+  editor: '剪辑',
+  nobody: '无人',
+  'Videos done': '已完成的视频',
+  Edited: '已剪辑',
+  Posted: '已发布',
+  'No edits marked done this month.': '本月没有标记完成的剪辑。',
+  'No posts marked done this month.': '本月没有标记完成的发布。',
+  'Profile — D3 Admin': '人员资料 — D3 管理后台',
+  'Left the board': '已离开看板',
+  'No login yet': '尚无登录账号',
+
+  // ---- Admin: schedule, team ----------------------------------------------------
+  'Schedule — D3 Admin': '行程 — D3 管理后台',
+  'When and where the team is shooting. Staff fill in their own; you can add or change anyone’s.':
+    '团队在哪里、几点拍摄。员工自己填写；你可以添加或修改任何人的行程。',
+  Team: '团队',
+  'Team — D3 Admin': '团队 — D3 管理后台',
+  'The team': '团队成员',
+  'Approve staff who signed up, and see what each person has done this month.':
+    '审批注册的员工，并查看每个人本月的工作量。',
+  'Waiting for approval': '等待审批',
+  'Nobody is waiting. New staff sign up at staff.d3creator.com.':
+    '没有待审批的人。新员工在 staff.d3creator.com 注册。',
+  'Signed up {when} as “{name}”, {job}.': '{when} 注册，名字「{name}」，职位：{job}。',
+  'Approve as': '审批为',
+  'New person': '新人员',
+  'Someone already on the board': '看板上已有的人员',
+  'Name on the board': '看板上的名字',
+  Row: '所在行',
+  'Turn away': '拒绝',
+  'Turn this signup away? The login stays but reaches nothing.':
+    '拒绝这个注册？账号会保留，但无法访问任何内容。',
+  'This month so far. Open a profile for the videos, links and shoots behind the numbers.':
+    '本月至今。打开人员资料可查看数字背后的视频、链接和拍摄。',
+  'Open profile': '查看资料',
+  'Remove login': '移除登录',
+  'Take away {name}’s login': '移除 {name} 的登录',
+  '{name} keeps their place and history, but can no longer sign in to the staff portal.':
+    '{name} 仍保留在看板上和工作记录中，但无法再登录员工门户。',
+  'Approved. They can sign in now.': '已批准，现在可以登录了。',
+  'Turned away.': '已拒绝。',
+  'Login removed.': '已移除登录。',
+  'That account is not waiting for approval.': '这个账号不在待审批状态。',
+  'That person already has a login, or is no longer on the board.':
+    '此人已有登录账号，或已不在看板上。',
+  'Name is required (max 40 chars).': '请填写名字（最多 40 字）。',
+  'Invalid person type.': '人员类型无效。',
+  'That person has no login.': '此人没有登录账号。',
+
+  // ---- Tracker calendar -------------------------------------------------------
+  Shoot: '拍摄',
+  Post: '发布',
+  'Going out': '今日发布',
 };

@@ -70,6 +70,8 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
     creatorsRes,
     assignRes,
     statsRes,
+    shootsRes,
+    postsRes,
   ] = await Promise.all([
     admin
       .from('tracker_member')
@@ -80,13 +82,13 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
       .order('created_at'),
     admin
       .from('tracker_task')
-      .select('id, title, done, sort_order')
+      .select('id, title, done, sort_order, assignee_id')
       .eq('done', false)
       .order('sort_order')
       .order('created_at'),
     admin
       .from('tracker_task')
-      .select('id, title, done, sort_order')
+      .select('id, title, done, sort_order, assignee_id')
       .eq('done', true)
       .order('completed_at', { ascending: false })
       .limit(DONE_TASKS_SHOWN),
@@ -112,6 +114,25 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
         'creator_id, handler_id, editor_id, scheduled_posting, sort_order',
       ),
     admin.rpc('tracker_creator_month_stats', { p_from: from, p_to: to }),
+    // The staff portal's shoots and video posting slots, same window as the
+    // events so the calendar and the spotlight can show them.
+    admin
+      .from('tracker_shoot')
+      .select('id, shoot_date, start_time, title, status, member:tracker_member(name)')
+      .gte('shoot_date', eventsFrom)
+      .lt('shoot_date', eventsTo)
+      .neq('status', 'cancelled')
+      .order('shoot_date')
+      .order('start_time'),
+    admin
+      .from('tracker_video')
+      .select(
+        'id, post_date, post_time, title, posted_at, creator:creator(display_name), handler:tracker_member!tracker_video_handler_id_fkey(name)',
+      )
+      .gte('post_date', eventsFrom)
+      .lt('post_date', eventsTo)
+      .order('post_date')
+      .order('post_time'),
   ]);
 
   const members = must<
@@ -128,6 +149,7 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
     title: string;
     done: boolean;
     sort_order: number;
+    assignee_id: string | null;
   };
   const tasks = [
     ...must<TaskRow[]>(openTasksRes, 'tasks'),
@@ -140,6 +162,31 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
   if (noteRes.error)
     throw new Error(`tracker: remarks: ${noteRes.error.message}`);
   const creatorRows = must<CreatorRow[]>(creatorsRes, 'creators');
+  // PostgREST types an embedded to-one as object or array depending on how
+  // it reads the FK; take either.
+  const first = <T,>(v: T | T[] | null | undefined): T | null =>
+    Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
+  const shootRows = must<
+    {
+      id: string;
+      shoot_date: string;
+      start_time: string | null;
+      title: string;
+      status: string;
+      member: { name: string } | { name: string }[] | null;
+    }[]
+  >(shootsRes, 'shoots');
+  const postRows = must<
+    {
+      id: string;
+      post_date: string;
+      post_time: string | null;
+      title: string;
+      posted_at: string | null;
+      creator: { display_name: string } | { display_name: string }[] | null;
+      handler: { name: string } | { name: string }[] | null;
+    }[]
+  >(postsRes, 'posting slots');
   const assignments = must<AssignmentRow[]>(assignRes, 'assignments');
   const stats = must<StatsRow[]>(statsRes, 'month stats');
 
@@ -186,11 +233,29 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
       title: t.title,
       done: t.done,
       sortOrder: t.sort_order,
+      assigneeId: t.assignee_id,
     })),
     events: events.map((e) => ({
       id: e.id,
       date: e.event_date,
       title: e.title,
+    })),
+    shoots: shootRows.map((r) => ({
+      id: r.id,
+      date: r.shoot_date,
+      time: r.start_time ? r.start_time.slice(0, 5) : null,
+      title: r.title,
+      person: first(r.member)?.name ?? '—',
+      status: r.status === 'done' ? 'done' : 'planned',
+    })),
+    posts: postRows.map((r) => ({
+      id: r.id,
+      date: r.post_date,
+      time: r.post_time ? r.post_time.slice(0, 5) : null,
+      title: r.title,
+      account: first(r.creator)?.display_name ?? null,
+      person: first(r.handler)?.name ?? null,
+      posted: r.posted_at !== null,
     })),
     creators,
     remarks: noteRes.data?.body ?? '',

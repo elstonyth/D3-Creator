@@ -16,9 +16,8 @@
  */
 
 import { getSupabaseAdmin } from '@d3/database';
-import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { isUuid } from '@gitroom/frontend/lib/ids';
-import { requireStaff } from './staff-context';
+import { asActor } from './actor';
 import { rowToShoot, SHOOT_COLS, type ShootRow } from './shoot-rows';
 import {
   isShootStatus,
@@ -34,36 +33,13 @@ export interface ShootResult {
   shoot?: Shoot;
 }
 
-interface Actor {
-  userId: string;
-  /** The staff member's own person; null for an admin, who may act for anyone. */
-  memberId: string | null;
-}
-
-async function actor(): Promise<Actor> {
-  const auth = await getAuthContext();
-  if (auth?.role === 'admin') return { userId: auth.userId, memberId: null };
-  const staff = await requireStaff();
-  return { userId: staff.userId, memberId: staff.memberId };
-}
-
-async function run(
-  fn: (a: Actor) => Promise<ShootResult>,
-): Promise<ShootResult> {
-  try {
-    return await fn(await actor());
-  } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : 'Failed.' };
-  }
-}
-
 const NOT_YOURS = 'That shoot is not yours, or it is already gone.';
 
 export async function addShoot(
   input: unknown,
   memberId?: string,
 ): Promise<ShootResult> {
-  return run(async (a) => {
+  return asActor(async (a): Promise<ShootResult> => {
     const p = parseShootInput(input);
     if (!p.ok) return p;
     const admin = getSupabaseAdmin();
@@ -106,7 +82,7 @@ export async function updateShoot(
   id: string,
   input: unknown,
 ): Promise<ShootResult> {
-  return run(async (a) => {
+  return asActor(async (a): Promise<ShootResult> => {
     if (!isUuid(id)) return { ok: false, message: 'Invalid shoot.' };
     const p = parseShootInput(input);
     if (!p.ok) return p;
@@ -139,7 +115,7 @@ export async function setShootStatus(
   status: string,
   videosShot: unknown,
 ): Promise<ShootResult> {
-  return run(async (a) => {
+  return asActor(async (a): Promise<ShootResult> => {
     if (!isUuid(id)) return { ok: false, message: 'Invalid shoot.' };
     if (!isShootStatus(status))
       return { ok: false, message: 'Invalid status.' };
@@ -162,7 +138,7 @@ export async function setShootStatus(
 }
 
 export async function deleteShoot(id: string): Promise<ShootResult> {
-  return run(async (a) => {
+  return asActor(async (a): Promise<ShootResult> => {
     if (!isUuid(id)) return { ok: false, message: 'Invalid shoot.' };
     let q = getSupabaseAdmin().from('tracker_shoot').delete().eq('id', id);
     if (a.memberId) q = q.eq('member_id', a.memberId);

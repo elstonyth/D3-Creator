@@ -1,5 +1,5 @@
 -- Staff portal (staff.d3creator.com): staff accounts, their shoot schedule,
--- and a record of every account handover.
+-- tasks and video jobs given to them, and a record of every account handover.
 --
 -- Staff sign up on their own host. The signup trigger gives them
 -- 'staff_pending', which reaches nothing (not the Studio, not member classes,
@@ -139,10 +139,53 @@ create trigger tracker_assignment_log
   after insert or update on public.tracker_assignment
   for each row execute function public.log_tracker_assignment();
 
--- 5. Lock down --------------------------------------------------------------
+-- 5. Tasks for a person --------------------------------------------------
 
-revoke all on table public.tracker_shoot, public.tracker_assignment_log
+-- A job task can be given to someone; they see it in the staff portal and
+-- tick it off there. Unassigned tasks stay the admin's own list.
+alter table public.tracker_task
+  add column assignee_id uuid references public.tracker_member (id) on delete set null;
+
+create index tracker_task_assignee_idx on public.tracker_task (assignee_id)
+  where assignee_id is not null;
+
+-- 6. Video jobs -------------------------------------------------------------
+
+-- One video for one account, through two hands: the editor cuts it and
+-- clicks Done with a link to the cut; the handler schedules the post and
+-- clicks Done with a link to the live post. The two Done stamps are what the
+-- console counts per person per month. Either hand can be empty (an account
+-- nobody edits, or a video posted by whoever edited it).
+create table public.tracker_video (
+  id          uuid primary key default gen_random_uuid(),
+  creator_id  uuid references public.creator (id) on delete set null,
+  title       text not null check (char_length(title) between 1 and 200),
+  note        text check (char_length(note) <= 1000),
+  editor_id   uuid references public.tracker_member (id) on delete restrict,
+  handler_id  uuid references public.tracker_member (id) on delete restrict,
+  edited_at   timestamptz,
+  edit_link   text check (char_length(edit_link) <= 500),
+  post_date   date,
+  post_time   time,
+  posted_at   timestamptz,
+  post_link   text check (char_length(post_link) <= 500),
+  created_by  uuid references auth.users (id) on delete set null,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+create index tracker_video_editor_idx  on public.tracker_video (editor_id, edited_at);
+create index tracker_video_handler_idx on public.tracker_video (handler_id, posted_at);
+create index tracker_video_created_idx on public.tracker_video (created_at desc);
+
+create trigger tracker_video_updated_at before update on public.tracker_video
+  for each row execute function public.set_updated_at();
+
+-- 7. Lock down --------------------------------------------------------------
+
+revoke all on table public.tracker_shoot, public.tracker_assignment_log, public.tracker_video
   from anon, authenticated;
 alter table public.tracker_shoot          enable row level security;
 alter table public.tracker_assignment_log enable row level security;
+alter table public.tracker_video          enable row level security;
 revoke execute on function public.log_tracker_assignment() from public, anon, authenticated;

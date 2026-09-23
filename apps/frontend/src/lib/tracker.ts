@@ -26,6 +26,8 @@ export interface TrackerTask {
   title: string;
   done: boolean;
   sortOrder: number;
+  /** The person it was given to (they see it in the staff portal), or null. */
+  assigneeId: string | null;
 }
 
 export interface TrackerEvent {
@@ -33,6 +35,30 @@ export interface TrackerEvent {
   /** `YYYY-MM-DD` */
   date: string;
   title: string;
+}
+
+/** A staff member's shoot, as the calendar shows it (read-only here). */
+export interface TrackerShoot {
+  id: string;
+  /** `YYYY-MM-DD` */
+  date: string;
+  time: string | null;
+  title: string;
+  person: string;
+  status: 'planned' | 'done' | 'cancelled';
+}
+
+/** A video job's posting slot, as the calendar shows it (read-only here). */
+export interface TrackerPost {
+  id: string;
+  /** `YYYY-MM-DD` */
+  date: string;
+  time: string | null;
+  title: string;
+  account: string | null;
+  /** The handler posting it. */
+  person: string | null;
+  posted: boolean;
 }
 
 export interface TrackerCreator {
@@ -61,6 +87,9 @@ export interface TrackerData {
   members: TrackerMember[];
   tasks: TrackerTask[];
   events: TrackerEvent[];
+  /** Shoots and posting slots in the same window as `events`. */
+  shoots: TrackerShoot[];
+  posts: TrackerPost[];
   creators: TrackerCreator[];
   remarks: string;
 }

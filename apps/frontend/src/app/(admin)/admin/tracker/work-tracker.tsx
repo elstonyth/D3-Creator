@@ -36,11 +36,15 @@ import {
   reorder,
   type TrackerData,
   type TrackerEvent,
+  type TrackerMember,
+  type TrackerPost,
+  type TrackerShoot,
   type TrackerTask,
 } from '@gitroom/frontend/lib/tracker';
 import {
   addEvent,
   addTask,
+  assignTask,
   deleteEvent,
   deleteTask,
   reorderTasks,
@@ -122,6 +126,39 @@ export function WorkTracker({
   }
 
   const eventsOn = (key: string) => events.filter((e) => e.date === key);
+  const shootsOn = (key: string) =>
+    initial.shoots.filter((s) => s.date === key);
+  const postsOn = (key: string) => initial.posts.filter((p) => p.date === key);
+  // Everything on a day, for the spotlight: events first (they are the
+  // owner's), then shoots and posting slots by time, untimed last.
+  const agendaOn = (key: string) => {
+    const timed = [
+      ...shootsOn(key).map((s) => ({
+        id: `s-${s.id}`,
+        time: s.time,
+        label: [s.time, t('Shoot'), s.person, s.title]
+          .filter(Boolean)
+          .join(' · '),
+      })),
+      ...postsOn(key).map((p) => ({
+        id: `p-${p.id}`,
+        time: p.time,
+        label: [p.time, t('Post'), p.account, p.title]
+          .filter(Boolean)
+          .join(' · '),
+      })),
+    ].sort((a, b) =>
+      (a.time ?? '99:99') < (b.time ?? '99:99')
+        ? -1
+        : (a.time ?? '99:99') > (b.time ?? '99:99')
+          ? 1
+          : 0,
+    );
+    return [
+      ...eventsOn(key).map((e) => ({ id: `e-${e.id}`, label: e.title })),
+      ...timed,
+    ];
+  };
 
   return (
     <div className={cn(s.scene, 'min-h-screen')}>
@@ -167,7 +204,7 @@ export function WorkTracker({
           className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6"
         >
           {[today, tomorrow].map((key, i) => {
-            const list = eventsOn(key);
+            const list = agendaOn(key);
             const isToday = i === 0;
             return (
               <GlassPanel
@@ -219,7 +256,7 @@ export function WorkTracker({
                                 isToday ? 'bg-brand' : 'bg-fg-muted',
                               )}
                             />
-                            <span className="truncate">{e.title}</span>
+                            <span className="truncate">{e.label}</span>
                           </li>
                         ))}
                         {list.length > 4 ? (
@@ -301,7 +338,11 @@ export function WorkTracker({
                       dateKey={key}
                       isToday={key === today}
                       isSelected={key === selected}
-                      count={eventsOn(key).length}
+                      count={
+                        eventsOn(key).length +
+                        shootsOn(key).length +
+                        postsOn(key).length
+                      }
                       onPick={() => setSelected(key)}
                     />
                   ),
@@ -309,7 +350,12 @@ export function WorkTracker({
             </div>
           </GlassPanel>
 
-          <TasksPanel tasks={tasks} setTasks={setTasks} onFail={fail} />
+          <TasksPanel
+            tasks={tasks}
+            setTasks={setTasks}
+            members={initial.members}
+            onFail={fail}
+          />
         </section>
 
         {/* Events for day · Remarks */}
@@ -322,6 +368,8 @@ export function WorkTracker({
               day: 'numeric',
             })}
             events={eventsOn(selected)}
+            shoots={shootsOn(selected)}
+            posts={postsOn(selected)}
             setEvents={setEvents}
             onFail={fail}
           />
@@ -420,10 +468,13 @@ function DayCell({
 function TasksPanel({
   tasks,
   setTasks,
+  members,
   onFail,
 }: {
   tasks: TrackerTask[];
   setTasks: (f: (prev: TrackerTask[]) => TrackerTask[]) => void;
+  /** Who a task can be given to; they see it in the staff portal. */
+  members: TrackerMember[];
   onFail: (r: ActionResult, rollback: () => void) => void;
 }) {
   const { t } = useI18n();
@@ -448,6 +499,7 @@ function TasksPanel({
       title,
       done: false,
       sortOrder: 1e9,
+      assigneeId: null,
     };
     setDraft('');
     setTasks((p) => [...p, temp]);
@@ -473,6 +525,25 @@ function TasksPanel({
       onFail(r, () =>
         setTasks((p) =>
           p.map((x) => (x.id === task.id ? { ...x, done: !next } : x)),
+        ),
+      );
+  }
+
+  async function assign(task: TrackerTask, assigneeId: string | null) {
+    if (isTemp(task.id) || task.assigneeId === assigneeId) return;
+    const prev = task.assigneeId;
+    setTasks((p) =>
+      p.map((x) => (x.id === task.id ? { ...x, assigneeId } : x)),
+    );
+    const r = await assignTask(task.id, assigneeId);
+    if (!r.ok)
+      onFail(r, () =>
+        setTasks((p) =>
+          p.map((x) =>
+            x.id === task.id && x.assigneeId === assigneeId
+              ? { ...x, assigneeId: prev }
+              : x,
+          ),
         ),
       );
   }
@@ -631,6 +702,8 @@ function TasksPanel({
                 onToggle={() => toggle(task)}
                 onRemove={() => remove(task)}
                 onRename={(title) => rename(task, title)}
+                members={members}
+                onAssign={(id) => assign(task, id)}
                 onEditingChange={(on) =>
                   setEditingId((cur) =>
                     on ? task.id : cur === task.id ? null : cur,
@@ -667,6 +740,8 @@ function TaskRow({
   onRemove,
   onRename,
   onEditingChange,
+  members,
+  onAssign,
 }: {
   task: TrackerTask;
   onToggle: () => void;
@@ -674,6 +749,9 @@ function TaskRow({
   /** Open tasks only; a finished task keeps its title. */
   onRename?: (title: string) => void;
   onEditingChange?: (editing: boolean) => void;
+  /** Open tasks only: who it is given to. */
+  members?: TrackerMember[];
+  onAssign?: (memberId: string | null) => void;
 }) {
   const { t } = useI18n();
   return (
@@ -723,6 +801,24 @@ function TaskRow({
           {task.title}
         </span>
       )}
+      {members && onAssign ? (
+        <select
+          value={task.assigneeId ?? ''}
+          onChange={(e) => onAssign(e.target.value || null)}
+          aria-label={t('Give {title} to', { title: task.title })}
+          className={cn(
+            s.field,
+            'h-8 w-[5.5rem] shrink-0 px-2 text-caption sm:w-24',
+          )}
+        >
+          <option value="">{t('Anyone')}</option>
+          {members.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+            </option>
+          ))}
+        </select>
+      ) : null}
       <button
         type="button"
         onClick={onRemove}
@@ -741,12 +837,17 @@ function EventsPanel({
   dateKey,
   label,
   events,
+  shoots,
+  posts,
   setEvents,
   onFail,
 }: {
   dateKey: string;
   label: string;
   events: TrackerEvent[];
+  /** The staff portal's shoots and posting slots that day (read-only here). */
+  shoots: TrackerShoot[];
+  posts: TrackerPost[];
   setEvents: (f: (prev: TrackerEvent[]) => TrackerEvent[]) => void;
   onFail: (r: ActionResult, rollback: () => void) => void;
 }) {
@@ -872,7 +973,91 @@ function EventsPanel({
           ))}
         </ul>
       )}
+
+      {shoots.length > 0 ? (
+        <DayList
+          title={t('Shoots')}
+          items={shoots.map((x) => ({
+            id: x.id,
+            time: x.time,
+            main: x.title,
+            meta: x.person,
+            muted: x.status === 'done',
+            badge: x.status === 'done' ? t('Done') : null,
+          }))}
+        />
+      ) : null}
+      {posts.length > 0 ? (
+        <DayList
+          title={t('Going out')}
+          items={posts.map((x) => ({
+            id: x.id,
+            time: x.time,
+            main: x.title,
+            meta: [x.account, x.person].filter(Boolean).join(' · '),
+            muted: x.posted,
+            badge: x.posted ? t('Done') : null,
+          }))}
+        />
+      ) : null}
     </GlassPanel>
+  );
+}
+
+/** A read-only list under the day's events: shoots, or posting slots. */
+function DayList({
+  title,
+  items,
+}: {
+  title: string;
+  items: {
+    id: string;
+    time: string | null;
+    main: string;
+    meta: string;
+    muted: boolean;
+    badge: string | null;
+  }[];
+}) {
+  return (
+    <div className="mt-5">
+      <p className="mb-2 text-micro uppercase tracking-[0.14em] text-fg-subtle">
+        {title}
+      </p>
+      <ul className="space-y-2">
+        {items.map((x) => (
+          <li
+            key={x.id}
+            className={cn(s.inset, 'flex items-start gap-3 px-4 py-2.5')}
+          >
+            <span className="w-11 shrink-0 pt-0.5 text-caption tnum text-fg-muted">
+              {x.time ?? '—'}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span
+                className={
+                  x.muted
+                    ? 'block break-words text-body text-fg-muted'
+                    : 'block break-words text-body text-fg'
+                }
+              >
+                {x.main}
+              </span>
+              {x.meta ? (
+                <span className="block text-caption text-fg-subtle">
+                  {x.meta}
+                </span>
+              ) : null}
+            </span>
+            {x.badge ? (
+              <span className="shrink-0 text-caption text-fg-muted">
+                {x.badge}
+              </span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

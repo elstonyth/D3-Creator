@@ -1,0 +1,242 @@
+'use server';
+
+/**
+ * Video job mutations.
+ *
+ * The admin creates, changes and deletes jobs. Staff only move their own
+ * step: the editor clicks Done (with the link to the cut) or takes it back;
+ * the handler sets the posting day and clicks Done (with the link to the
+ * live post) or takes it back. A staff member's person comes from their
+ * session, and every staff write is filtered by it — as the job's editor or
+ * as its handler — so someone else's job simply matches nothing.
+ */
+
+import { getSupabaseAdmin } from '@d3/database';
+import { isUuid } from '@gitroom/frontend/lib/ids';
+import { isDateKey } from '@gitroom/frontend/lib/tracker';
+import { asActor, type Actor } from './actor';
+import { isTimeKey } from './shoots';
+import { rowToVideo, VIDEO_COLS, type VideoRow } from './video-rows';
+import { parseLink, parseVideoInput, type Video } from './videos';
+
+export interface VideoResult {
+  ok: boolean;
+  message?: string;
+  video?: Video;
+}
+
+const NOT_YOURS = 'That video is not yours to change, or it has moved on.';
+const ADMIN_ONLY = 'Only an admin can do that.';
+
+function one(res: {
+  data: unknown[] | null;
+  error: { message: string } | null;
+}): VideoResult {
+  if (res.error) return { ok: false, message: res.error.message };
+  if (!res.data || res.data.length === 0)
+    return { ok: false, message: NOT_YOURS };
+  return { ok: true, video: rowToVideo(res.data[0] as VideoRow) };
+}
+
+/** The people named on a job must be on the board (not archived). */
+async function onBoard(ids: (string | null)[]): Promise<boolean> {
+  const wanted = ids.filter((x): x is string => x !== null);
+  if (wanted.length === 0) return true;
+  const { data, error } = await getSupabaseAdmin()
+    .from('tracker_member')
+    .select('id')
+    .in('id', wanted)
+    .is('archived_at', null);
+  if (error) throw new Error(error.message);
+  return new Set((data ?? []).map((r) => r.id)).size === new Set(wanted).size;
+}
+
+function adminOnly(a: Actor): VideoResult | null {
+  return a.memberId === null ? null : { ok: false, message: ADMIN_ONLY };
+}
+
+// ---- admin -----------------------------------------------------------------
+
+export async function createVideo(input: unknown): Promise<VideoResult> {
+  return asActor(async (a): Promise<VideoResult> => {
+    const refused = adminOnly(a);
+    if (refused) return refused;
+    const p = parseVideoInput(input);
+    if (!p.ok) return p;
+    const v = p.value;
+    if (!(await onBoard([v.editorId, v.handlerId])))
+      return { ok: false, message: 'That person is not on the board.' };
+    const { data, error } = await getSupabaseAdmin()
+      .from('tracker_video')
+      .insert({
+        creator_id: v.creatorId,
+        title: v.title,
+        note: v.note,
+        editor_id: v.editorId,
+        handler_id: v.handlerId,
+        post_date: v.postDate,
+        post_time: v.postTime,
+        created_by: a.userId,
+      })
+      .select(VIDEO_COLS)
+      .single();
+    if (error) return { ok: false, message: error.message };
+    return { ok: true, video: rowToVideo(data as VideoRow) };
+  });
+}
+
+export async function updateVideo(
+  id: string,
+  input: unknown,
+): Promise<VideoResult> {
+  return asActor(async (a): Promise<VideoResult> => {
+    const refused = adminOnly(a);
+    if (refused) return refused;
+    if (!isUuid(id)) return { ok: false, message: 'Invalid video.' };
+    const p = parseVideoInput(input);
+    if (!p.ok) return p;
+    const v = p.value;
+    if (!(await onBoard([v.editorId, v.handlerId])))
+      return { ok: false, message: 'That person is not on the board.' };
+    return one(
+      await getSupabaseAdmin()
+        .from('tracker_video')
+        .update({
+          creator_id: v.creatorId,
+          title: v.title,
+          note: v.note,
+          editor_id: v.editorId,
+          handler_id: v.handlerId,
+          post_date: v.postDate,
+          post_time: v.postTime,
+        })
+        .eq('id', id)
+        .select(VIDEO_COLS),
+    );
+  });
+}
+
+export async function deleteVideo(id: string): Promise<VideoResult> {
+  return asActor(async (a): Promise<VideoResult> => {
+    const refused = adminOnly(a);
+    if (refused) return refused;
+    if (!isUuid(id)) return { ok: false, message: 'Invalid video.' };
+    const { data, error } = await getSupabaseAdmin()
+      .from('tracker_video')
+      .delete()
+      .eq('id', id)
+      .select('id');
+    if (error) return { ok: false, message: error.message };
+    if (!data || data.length === 0)
+      return { ok: false, message: 'That video is already gone.' };
+    return { ok: true };
+  });
+}
+
+// ---- the editor's step -------------------------------------------------------
+
+/** The editor's Done: the cut is ready, here is the link to it. */
+export async function finishEdit(
+  id: string,
+  link: string,
+): Promise<VideoResult> {
+  return asActor(async (a): Promise<VideoResult> => {
+    if (!isUuid(id)) return { ok: false, message: 'Invalid video.' };
+    const l = parseLink(link);
+    if (!l)
+      return {
+        ok: false,
+        message: 'Paste the link to the edited video (starting with https://).',
+      };
+    let q = getSupabaseAdmin()
+      .from('tracker_video')
+      .update({ edited_at: new Date().toISOString(), edit_link: l })
+      .eq('id', id)
+      .is('posted_at', null)
+      .not('editor_id', 'is', null);
+    if (a.memberId) q = q.eq('editor_id', a.memberId);
+    return one(await q.select(VIDEO_COLS));
+  });
+}
+
+/** Take the editor's Done back — only while the video is not out yet. */
+export async function undoEdit(id: string): Promise<VideoResult> {
+  return asActor(async (a): Promise<VideoResult> => {
+    if (!isUuid(id)) return { ok: false, message: 'Invalid video.' };
+    let q = getSupabaseAdmin()
+      .from('tracker_video')
+      .update({ edited_at: null, edit_link: null })
+      .eq('id', id)
+      .is('posted_at', null);
+    if (a.memberId) q = q.eq('editor_id', a.memberId);
+    return one(await q.select(VIDEO_COLS));
+  });
+}
+
+// ---- the handler's step ------------------------------------------------------
+
+/** When the video goes out. Blank day clears it; a time needs a day. */
+export async function schedulePost(
+  id: string,
+  date: string,
+  time: string,
+): Promise<VideoResult> {
+  return asActor(async (a): Promise<VideoResult> => {
+    if (!isUuid(id)) return { ok: false, message: 'Invalid video.' };
+    const day = date ? date : null;
+    const at = time ? time : null;
+    if (day !== null && !isDateKey(day))
+      return { ok: false, message: 'Pick a posting day.' };
+    if (at !== null && !isTimeKey(at))
+      return { ok: false, message: 'Time must look like 19:30.' };
+    if (at !== null && day === null)
+      return { ok: false, message: 'A posting time needs a day.' };
+    let q = getSupabaseAdmin()
+      .from('tracker_video')
+      .update({ post_date: day, post_time: at })
+      .eq('id', id)
+      .is('posted_at', null);
+    if (a.memberId) q = q.eq('handler_id', a.memberId);
+    return one(await q.select(VIDEO_COLS));
+  });
+}
+
+/**
+ * The handler's Done: it is live, here is the link to the post. Only once
+ * the editor is done (or there is no editor).
+ */
+export async function finishPost(
+  id: string,
+  link: string,
+): Promise<VideoResult> {
+  return asActor(async (a): Promise<VideoResult> => {
+    if (!isUuid(id)) return { ok: false, message: 'Invalid video.' };
+    const l = parseLink(link);
+    if (!l)
+      return {
+        ok: false,
+        message: 'Paste the link to the live post (starting with https://).',
+      };
+    let q = getSupabaseAdmin()
+      .from('tracker_video')
+      .update({ posted_at: new Date().toISOString(), post_link: l })
+      .eq('id', id)
+      .is('posted_at', null)
+      .or('editor_id.is.null,edited_at.not.is.null');
+    if (a.memberId) q = q.eq('handler_id', a.memberId);
+    return one(await q.select(VIDEO_COLS));
+  });
+}
+
+/** Take the handler's Done back. */
+export async function undoPost(id: string): Promise<VideoResult> {
+  return asActor(async (a): Promise<VideoResult> => {
+    if (!isUuid(id)) return { ok: false, message: 'Invalid video.' };
+    let q = getSupabaseAdmin()
+      .from('tracker_video')
+      .update({ posted_at: null, post_link: null })
+      .eq('id', id);
+    if (a.memberId) q = q.eq('handler_id', a.memberId);
+    return one(await q.select(VIDEO_COLS));
+  });
+}

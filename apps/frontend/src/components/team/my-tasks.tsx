@@ -1,0 +1,103 @@
+'use client';
+
+/**
+ * The job tasks an admin gave this person, ticked off here. A tick is saved
+ * straight away and put back (with the reason) if the server refuses it.
+ */
+
+import { useState } from 'react';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
+import { Alert } from '@gitroom/frontend/components/ui/alert';
+import { setMyTaskDone } from '@gitroom/frontend/lib/team/task-actions';
+import type { MyTask } from '@gitroom/frontend/lib/team/load';
+
+export function MyTasks({ tasks: initialTasks }: { tasks: MyTask[] }) {
+  const { t } = useI18n();
+  const [tasks, setTasks] = useState(initialTasks);
+  const [error, setError] = useState<string | null>(null);
+  const open = tasks.filter((x) => !x.done);
+  const done = tasks.filter((x) => x.done);
+
+  async function toggle(task: MyTask) {
+    const next = !task.done;
+    setError(null);
+    setTasks((p) =>
+      p.map((x) => (x.id === task.id ? { ...x, done: next } : x)),
+    );
+    const r = await setMyTaskDone(task.id, next);
+    if (!r.ok) {
+      setError(r.message ?? 'Could not save. Try again.');
+      // Only this tick, and only if nothing changed it since.
+      setTasks((p) =>
+        p.map((x) =>
+          x.id === task.id && x.done === next ? { ...x, done: !next } : x,
+        ),
+      );
+    }
+  }
+
+  return (
+    <section aria-label={t('Tasks from the admin')}>
+      <h2 className="mb-3 flex items-baseline justify-between gap-2 text-heading text-fg">
+        {t('Tasks from the admin')}
+        <span className="text-caption tnum text-fg-subtle">
+          {t('{open} open · {done} done', {
+            open: open.length,
+            done: done.length,
+          })}
+        </span>
+      </h2>
+      {error ? (
+        <div className="mb-3">
+          <Alert tone="danger">{t(error)}</Alert>
+        </div>
+      ) : null}
+      {tasks.length === 0 ? (
+        <p className="rounded-2xl border border-line bg-surface p-4 text-body-sm text-fg-muted">
+          {t('No tasks for you right now.')}
+        </p>
+      ) : (
+        <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
+          {[...open, ...done].map((task) => (
+            <li key={task.id} className="flex items-center gap-3 px-4 py-3">
+              <button
+                type="button"
+                role="checkbox"
+                aria-checked={task.done}
+                aria-label={task.title}
+                onClick={() => toggle(task)}
+                className={
+                  task.done
+                    ? 'flex h-5 w-5 shrink-0 items-center justify-center rounded border border-fg-muted bg-fg-muted text-canvas focus-visible:outline-none focus-visible:shadow-focusRing'
+                    : 'flex h-5 w-5 shrink-0 items-center justify-center rounded border border-line-strong hover:border-fg-muted focus-visible:outline-none focus-visible:shadow-focusRing'
+                }
+              >
+                {task.done ? (
+                  <svg viewBox="0 0 12 12" className="h-3 w-3" aria-hidden>
+                    <path
+                      d="m2.5 6.2 2.2 2.2 4.8-4.9"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : null}
+              </button>
+              <span
+                className={
+                  task.done
+                    ? 'min-w-0 flex-1 break-words text-body text-fg-muted line-through'
+                    : 'min-w-0 flex-1 break-words text-body text-fg'
+                }
+              >
+                {task.title}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
