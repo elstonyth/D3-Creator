@@ -69,6 +69,14 @@ export function isStaffHost(host: string | null | undefined): boolean {
   return hostInfo(host).area === 'staff';
 }
 
+/** Which sign-in look a host gets (components/auth/auth-shell.tsx). */
+export function authVariant(
+  host: string | null | undefined,
+): 'default' | 'admin' | 'staff' {
+  const { area } = hostInfo(host);
+  return area === 'public' ? 'default' : area;
+}
+
 /** `path` is `prefix` or sits below it — `/admin/x` yes, `/administrator` no. */
 export function under(path: string, prefix: string): boolean {
   return path === prefix || path.startsWith(`${prefix}/`);

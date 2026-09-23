@@ -16,10 +16,23 @@ import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
  * Where a confirmed new account lands. The four-question form on /studio/chat
  * is the first-run capture surface (PRD 2 §6), so this is the one destination
  * that starts the product rather than parking the user in a video library.
+ * A staff signup lands on the staff portal's root, which shows the waiting
+ * page until an admin approves it.
  */
 const AFTER_CONFIRM = '/studio/chat';
+const STAFF_AFTER_CONFIRM = '/';
 
-export function SignUpForm() {
+export function SignUpForm({
+  portal,
+}: {
+  /**
+   * 'staff' on staff.d3creator.com: the account is created as
+   * staff_pending (the signup trigger reads this metadata; it can only lower
+   * access) and an admin approves it on the Team page.
+   */
+  portal?: 'staff';
+} = {}) {
+  const afterConfirm = portal ? STAFF_AFTER_CONFIRM : AFTER_CONFIRM;
   const { t } = useI18n();
   const router = useRouter();
   const emailId = useId();
@@ -45,7 +58,8 @@ export function SignUpForm() {
         // signed out.
         emailRedirectTo: `${
           window.location.origin
-        }/auth/callback?redirectTo=${encodeURIComponent(AFTER_CONFIRM)}`,
+        }/auth/callback?redirectTo=${encodeURIComponent(afterConfirm)}`,
+        data: portal ? { portal } : undefined,
       },
     });
 
@@ -94,7 +108,7 @@ export function SignUpForm() {
     }
 
     // Confirmation off: straight in.
-    router.push(AFTER_CONFIRM);
+    router.push(afterConfirm);
     router.refresh();
     return true;
   }
@@ -177,10 +191,15 @@ export function SignUpForm() {
       <div className="space-y-5">
         <Alert tone="success" title={t('Check your email.')}>
           <span className="break-words text-fg">
-            {t(
-              'If {email} is new, a confirmation link is on its way — open it and you land straight in the Studio.',
-              { email: sentTo }
-            )}
+            {portal
+              ? t(
+                  'If {email} is new, a confirmation link is on its way. Open it, and an admin approves your account before you see the team’s work.',
+                  { email: sentTo }
+                )
+              : t(
+                  'If {email} is new, a confirmation link is on its way — open it and you land straight in the Studio.',
+                  { email: sentTo }
+                )}
           </span>
         </Alert>
 
