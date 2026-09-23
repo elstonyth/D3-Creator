@@ -23,10 +23,11 @@ import type {
   TrackerMember,
 } from '@gitroom/frontend/lib/tracker';
 import { StaffingBoard } from './staffing-board';
-import { addMember, removeMember } from './actions';
+import { addMember, placeCards, removeMember } from './actions';
 
 jest.mock('./actions', () => ({
   addMember: jest.fn(async () => ({ ok: true, id: 'x' })),
+  placeCards: jest.fn(async () => ({ ok: true })),
   removeMember: jest.fn(async () => ({ ok: true })),
   setAssignment: jest.fn(async () => ({ ok: true })),
 }));
@@ -75,12 +76,14 @@ function card(
     videos: 4,
     posts: 8,
     views: 1000,
+    sortOrder: n,
   };
 }
 
 function renderBoard(
   members: TrackerMember[] = [KEE],
   creators: TrackerCreator[] = [],
+  onFail = jest.fn(),
 ) {
   return render(
     <StaffingBoard
@@ -88,9 +91,16 @@ function renderBoard(
       monthLabel="September 2026"
       members={members}
       creators={creators}
-      onFail={jest.fn()}
+      onFail={onFail}
     />,
   );
+}
+
+/** Card names in the order KEE's column shows them. */
+function keeOrder() {
+  return within(screen.getByRole('region', { name: 'KEE' }))
+    .getAllByRole('article')
+    .map((a) => a.querySelector('p')?.textContent);
 }
 
 function optionNames(select: HTMLElement) {
@@ -198,5 +208,41 @@ describe('StaffingBoard editors', () => {
       '',
     );
     expect(screen.queryByText('ALI')).toBeNull();
+  });
+});
+
+describe('StaffingBoard card order', () => {
+  beforeEach(() => jest.clearAllMocks());
+  const A = card(1, 'Amy', KEE.id, null);
+  const B = card(2, 'Bob', KEE.id, null);
+
+  it('moves a card up and saves the column order', async () => {
+    renderBoard([KEE], [A, B]);
+    expect(keeOrder()).toEqual(['Amy', 'Bob']);
+    expect(
+      (screen.getByRole('button', { name: 'Move Amy up' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Bob up' }));
+
+    expect(keeOrder()).toEqual(['Bob', 'Amy']);
+    await waitFor(() =>
+      expect(placeCards).toHaveBeenCalledWith(KEE.id, [B.id, A.id]),
+    );
+  });
+
+  it('puts the order back when saving fails', async () => {
+    (placeCards as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      message: 'nope',
+    });
+    const onFail = jest.fn((_r, rollback: () => void) => rollback());
+    renderBoard([KEE], [A, B], onFail);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Amy down' }));
+
+    await waitFor(() => expect(onFail).toHaveBeenCalled());
+    expect(keeOrder()).toEqual(['Amy', 'Bob']);
   });
 });

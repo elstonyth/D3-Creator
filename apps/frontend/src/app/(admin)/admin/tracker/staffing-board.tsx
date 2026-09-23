@@ -12,11 +12,13 @@
  * per account, never per video. Month output (videos / views) comes from the
  * scraped snapshots and follows the calendar's month.
  *
- * Every card also carries a handler select, because HTML5 drag-and-drop does
- * not exist on touch screens and the board is used from phones.
+ * Dropping a card on another card puts it in front of that card, so the
+ * order inside a column is the team's to set. Every card also carries a
+ * handler select and up/down arrows, because HTML5 drag-and-drop does not
+ * exist on touch screens and the board is used from phones.
  */
 
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState, type DragEvent, type FormEvent } from 'react';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { cn } from '@gitroom/frontend/lib/utils';
 // clsx where a custom font-size token sits next to a text colour (see
@@ -28,13 +30,15 @@ import {
   PLATFORM_ICONS,
   type PlatformKey,
 } from '@gitroom/frontend/components/ui/platform-icons';
-import type {
-  MemberKind,
-  TrackerCreator,
-  TrackerMember,
+import {
+  placeCard,
+  type MemberKind,
+  type TrackerCreator,
+  type TrackerMember,
 } from '@gitroom/frontend/lib/tracker';
 import {
   addMember,
+  placeCards,
   removeMember,
   setAssignment,
   type ActionResult,
@@ -79,6 +83,8 @@ export function StaffingBoard({
   const [creators, setCreators] = useState(initialCreators);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<string | null>(null);
+  // The card a dragged card would land in front of.
+  const [overCard, setOverCard] = useState<string | null>(null);
   // Which add form is open: a handler's sits in the header, an editor's in
   // the editor row.
   const [adding, setAdding] = useState<MemberKind | null>(null);
@@ -271,12 +277,46 @@ export function StaffingBoard({
       });
   }
 
-  function dropOn(colId: string) {
-    if (!dragId) return;
-    const id = dragId;
+  // Card `id` goes into column `colId` in front of `beforeId` (last when
+  // null), and that column's whole order is saved. A failure puts the card
+  // back in its old column and restores the previous order, leaving any
+  // other edit made meanwhile alone.
+  async function place(id: string, colId: string, beforeId: string | null) {
+    const handlerId = colId === UNASSIGNED ? null : colId;
+    const before = creators.find((c) => c.id === id);
+    if (!before || isTemp(handlerId)) return;
+    const next = placeCard(creators, id, handlerId, beforeId);
+    if (next === creators) return;
+    const wasAt = new Map(creators.map((c, i) => [c.id, i]));
+    setCreators(next);
+    const ids = next.filter((c) => columnOf(c) === colId).map((c) => c.id);
+    const r = await placeCards(handlerId, ids);
+    if (!r.ok)
+      onFail(r, () =>
+        setCreators((p) =>
+          p
+            .map((c) =>
+              c.id === id && c.handlerId === handlerId
+                ? { ...c, handlerId: before.handlerId }
+                : c,
+            )
+            .sort(
+              (a, b) => (wasAt.get(a.id) ?? 1e9) - (wasAt.get(b.id) ?? 1e9),
+            ),
+        ),
+      );
+  }
+
+  function endDrag() {
     setDragId(null);
     setOverCol(null);
-    void assignHandler(id, colId === UNASSIGNED ? null : colId);
+    setOverCard(null);
+  }
+
+  function dropOn(colId: string, beforeId: string | null) {
+    const id = dragId;
+    endDrag();
+    if (id && id !== beforeId) void place(id, colId, beforeId);
   }
 
   return (
@@ -292,6 +332,12 @@ export function StaffingBoard({
               {
                 month: monthLabel,
               },
+            )}
+          </p>
+          <p className="mt-1 text-caption text-fg-subtle">
+            {t(
+              'Videos = different videos posted in {month}. The same clip on several platforms counts once.',
+              { month: monthLabel },
             )}
           </p>
         </div>
@@ -476,7 +522,7 @@ export function StaffingBoard({
               }}
               onDrop={(e) => {
                 e.preventDefault();
-                dropOn(col.id);
+                dropOn(col.id, null);
               }}
               className={cn(
                 s.inset,
@@ -555,7 +601,7 @@ export function StaffingBoard({
                       : t('Every account has a handler.')}
                   </p>
                 ) : (
-                  cards.map((c) => (
+                  cards.map((c, i) => (
                     <CreatorCard
                       key={c.id}
                       creator={c}
@@ -563,11 +609,45 @@ export function StaffingBoard({
                       editors={editors}
                       month={month}
                       dragging={dragId === c.id}
+                      dropBefore={
+                        overCard === c.id && dragId !== null && dragId !== c.id
+                      }
                       onDragStart={() => setDragId(c.id)}
-                      onDragEnd={() => {
-                        setDragId(null);
-                        setOverCol(null);
+                      onDragEnd={endDrag}
+                      onDragOverCard={(e) => {
+                        if (dragId === null) return;
+                        // Never let the column see it: over a card, the drop
+                        // means "in front of this card", not "last".
+                        e.stopPropagation();
+                        if (dragId === c.id) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (overCard !== c.id) setOverCard(c.id);
+                        if (overCol !== col.id) setOverCol(col.id);
                       }}
+                      onDragLeaveCard={(e) => {
+                        if (
+                          !e.currentTarget.contains(
+                            e.relatedTarget as Node | null,
+                          )
+                        )
+                          setOverCard((o) => (o === c.id ? null : o));
+                      }}
+                      onDropOnCard={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        dropOn(col.id, c.id);
+                      }}
+                      onUp={
+                        i > 0
+                          ? () => place(c.id, col.id, cards[i - 1].id)
+                          : undefined
+                      }
+                      onDown={
+                        i < cards.length - 1
+                          ? () => place(c.id, col.id, cards[i + 2]?.id ?? null)
+                          : undefined
+                      }
                       onHandler={(id) => assignHandler(c.id, id)}
                       onEditor={(id) => assignEditor(c.id, id)}
                       onToggleScheduled={() => toggleScheduled(c.id)}
@@ -637,6 +717,21 @@ function ConfirmRemove({
   );
 }
 
+function ArrowIcon({ dir }: { dir: 'up' | 'down' }) {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden className="h-3.5 w-3.5">
+      <path
+        d={dir === 'up' ? 'M8 13V3M4 7l4-4 4 4' : 'M8 3v10M4 9l4 4 4-4'}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function CrossIcon() {
   return (
     <svg viewBox="0 0 16 16" aria-hidden className="h-3.5 w-3.5">
@@ -657,8 +752,14 @@ function CreatorCard({
   editors,
   month,
   dragging,
+  dropBefore,
   onDragStart,
   onDragEnd,
+  onDragOverCard,
+  onDragLeaveCard,
+  onDropOnCard,
+  onUp,
+  onDown,
   onHandler,
   onEditor,
   onToggleScheduled,
@@ -668,8 +769,15 @@ function CreatorCard({
   editors: TrackerMember[];
   month: string;
   dragging: boolean;
+  dropBefore: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
+  onDragOverCard: (e: DragEvent<HTMLElement>) => void;
+  onDragLeaveCard: (e: DragEvent<HTMLElement>) => void;
+  onDropOnCard: (e: DragEvent<HTMLElement>) => void;
+  /** Undefined at the top / bottom of the column. */
+  onUp?: () => void;
+  onDown?: () => void;
   onHandler: (id: string | null) => void;
   onEditor: (id: string | null) => void;
   onToggleScheduled: () => void;
@@ -688,11 +796,15 @@ function CreatorCard({
         onDragStart();
       }}
       onDragEnd={onDragEnd}
+      onDragOver={onDragOverCard}
+      onDragLeave={onDragLeaveCard}
+      onDrop={onDropOnCard}
       className={cn(
         s.inset,
         s.insetHover,
         'cursor-grab select-none p-3 active:cursor-grabbing',
         dragging && s.dragging,
+        dropBefore && s.dropBefore,
       )}
     >
       <div className="flex items-center gap-3">
@@ -798,17 +910,45 @@ function CreatorCard({
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-3">
-        <span className="text-caption text-fg-muted">
-          {t('Scheduled posting')}
-        </span>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={creator.scheduledPosting}
-          aria-label={t('Scheduled posting')}
-          onClick={onToggleScheduled}
-          className={s.switch}
-        />
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onUp}
+            disabled={!onUp}
+            aria-label={t('Move {name} up', { name: creator.name })}
+            className={clsx(
+              s.pill,
+              'flex h-7 w-7 items-center justify-center text-fg-muted disabled:opacity-30',
+            )}
+          >
+            <ArrowIcon dir="up" />
+          </button>
+          <button
+            type="button"
+            onClick={onDown}
+            disabled={!onDown}
+            aria-label={t('Move {name} down', { name: creator.name })}
+            className={clsx(
+              s.pill,
+              'flex h-7 w-7 items-center justify-center text-fg-muted disabled:opacity-30',
+            )}
+          >
+            <ArrowIcon dir="down" />
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-caption text-fg-muted">
+            {t('Scheduled posting')}
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={creator.scheduledPosting}
+            aria-label={t('Scheduled posting')}
+            onClick={onToggleScheduled}
+            className={s.switch}
+          />
+        </div>
       </div>
     </article>
   );

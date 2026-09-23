@@ -29,6 +29,7 @@ interface AssignmentRow {
   handler_id: string | null;
   editor_id: string | null;
   scheduled_posting: boolean;
+  sort_order: number;
 }
 
 interface StatsRow {
@@ -105,7 +106,9 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
       .order('display_name'),
     admin
       .from('tracker_assignment')
-      .select('creator_id, handler_id, editor_id, scheduled_posting'),
+      .select(
+        'creator_id, handler_id, editor_id, scheduled_posting, sort_order',
+      ),
     admin.rpc('tracker_creator_month_stats', { p_from: from, p_to: to }),
   ]);
 
@@ -157,11 +160,14 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
         handlerId: a?.handler_id ?? null,
         editorId: a?.editor_id ?? null,
         scheduledPosting: a?.scheduled_posting ?? false,
+        sortOrder: a?.sort_order ?? 0,
         videos: s?.videos ?? 0,
         posts: s?.posts ?? 0,
         views: Number(s?.views ?? 0),
       };
-    });
+    })
+    // Stable: cards the team never ordered keep the database's name order.
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 
   return {
     month,

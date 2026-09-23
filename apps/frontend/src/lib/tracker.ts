@@ -43,6 +43,8 @@ export interface TrackerCreator {
   handlerId: string | null;
   editorId: string | null;
   scheduledPosting: boolean;
+  /** Position within its handler's column (`tracker_assignment.sort_order`). */
+  sortOrder: number;
   /** Distinct videos published in the selected month (cross-platform copies collapsed). */
   videos: number;
   /** Every platform copy published in the selected month. */
@@ -147,4 +149,29 @@ export function reorder<T>(list: T[], from: number, to: number): T[] {
   const [moved] = next.splice(from, 1);
   next.splice(to, 0, moved);
   return next;
+}
+
+type Placeable = { id: string; handlerId: string | null };
+
+/**
+ * Put card `id` in column `handlerId`, just before card `beforeId` — or last
+ * when `beforeId` is null or not on the board. The board draws each column as
+ * the list filtered by handler, so list order is column order. The same array
+ * comes back when nothing moves.
+ */
+export function placeCard<T extends Placeable>(
+  list: T[],
+  id: string,
+  handlerId: string | null,
+  beforeId: string | null,
+): T[] {
+  const from = list.findIndex((x) => x.id === id);
+  if (from === -1 || id === beforeId) return list;
+  const next = list.filter((_, i) => i !== from);
+  const at = beforeId === null ? -1 : next.findIndex((x) => x.id === beforeId);
+  next.splice(at === -1 ? next.length : at, 0, { ...list[from], handlerId });
+  const unchanged =
+    list[from].handlerId === handlerId &&
+    next.every((x, i) => x.id === list[i].id);
+  return unchanged ? list : next;
 }

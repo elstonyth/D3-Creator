@@ -78,6 +78,7 @@ export default async function TrackerPreviewPage() {
     handlerId: handler === null ? null : members[handler].id,
     editorId: editor === null ? null : members[editor].id,
     scheduledPosting: scheduled,
+    sortOrder: n,
     videos,
     posts: videos * 2,
     views,

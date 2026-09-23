@@ -437,4 +437,8 @@ export const adminZh: Record<string, string> = {
   Editor: '剪辑',
   Nobody: '无',
   'Scheduled posting': '定时发布',
+  'Move {name} up': '上移 {name}',
+  'Move {name} down': '下移 {name}',
+  'Videos = different videos posted in {month}. The same clip on several platforms counts once.':
+    '视频数 = {month} 发布的不同视频数量；同一条视频发在多个平台只算一次。',
 };

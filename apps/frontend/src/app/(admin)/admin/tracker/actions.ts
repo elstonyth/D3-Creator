@@ -225,6 +225,39 @@ export async function setAssignment(
   });
 }
 
+/**
+ * One column's full order: every id lands in `handlerId` (null = unassigned)
+ * with its index as sort_order. One upsert; merge-duplicates writes only the
+ * columns sent, so each card keeps its editor and posting flag.
+ */
+export async function placeCards(
+  handlerId: string | null,
+  creatorIds: string[],
+): Promise<ActionResult> {
+  return guarded(async () => {
+    if (handlerId !== null && !isUuid(handlerId))
+      return { ok: false, message: 'Invalid person.' };
+    if (
+      !Array.isArray(creatorIds) ||
+      creatorIds.length === 0 ||
+      creatorIds.length > 500 ||
+      !creatorIds.every(isUuid)
+    )
+      return { ok: false, message: 'Invalid order.' };
+    const { error } = await getSupabaseAdmin()
+      .from('tracker_assignment')
+      .upsert(
+        creatorIds.map((id, i) => ({
+          creator_id: id,
+          handler_id: handlerId,
+          sort_order: i,
+        })),
+        { onConflict: 'creator_id' },
+      );
+    return error ? { ok: false, message: error.message } : { ok: true };
+  });
+}
+
 export async function addMember(
   name: string,
   role: string,

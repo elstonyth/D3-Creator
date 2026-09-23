@@ -6,6 +6,7 @@ import {
   isMonthKey,
   monthGrid,
   monthRange,
+  placeCard,
   reorder,
 } from './tracker';
 
@@ -66,5 +67,39 @@ describe('tracker date helpers', () => {
     expect(reorder(a, 1, 1)).toBe(a);
     expect(reorder(a, 5, 0)).toBe(a);
     expect(a).toEqual(['a', 'b', 'c', 'd']);
+  });
+});
+
+describe('card placement', () => {
+  const c = (id: string, handlerId: string | null) => ({ id, handlerId });
+  // Board order: column k = a, c, d; column z = b.
+  const L = [c('a', 'k'), c('b', 'z'), c('c', 'k'), c('d', 'k')];
+  const ids = (l: { id: string }[]) => l.map((x) => x.id).join('');
+
+  it('drops before a card and takes its column', () => {
+    const r = placeCard(L, 'b', 'k', 'c');
+    expect(ids(r)).toBe('abcd');
+    expect(r[1].handlerId).toBe('k');
+    expect(L[1].handlerId).toBe('z'); // not mutated
+  });
+
+  it('reorders inside a column', () => {
+    expect(ids(placeCard(L, 'd', 'k', 'a'))).toBe('dabc');
+  });
+
+  it('goes last when there is nothing to drop before', () => {
+    expect(ids(placeCard(L, 'a', 'k', null))).toBe('bcda');
+    expect(ids(placeCard(L, 'a', 'k', 'gone'))).toBe('bcda');
+    expect(placeCard(L, 'b', null, null)[3]).toEqual({
+      id: 'b',
+      handlerId: null,
+    });
+  });
+
+  it('returns the same list when nothing moves', () => {
+    expect(placeCard(L, 'c', 'k', 'd')).toBe(L);
+    expect(placeCard(L, 'c', 'k', 'c')).toBe(L);
+    expect(placeCard(L, 'd', 'k', null)).toBe(L);
+    expect(placeCard(L, 'x', 'k', null)).toBe(L);
   });
 });
