@@ -158,7 +158,7 @@ describe('StaffingBoard editors', () => {
     expect(screen.queryByRole('heading', { name: 'ALI' })).toBeNull();
     const row = within(screen.getByRole('region', { name: 'Editors' }));
     expect(row.getByText('ALI')).toBeTruthy();
-    expect(row.getByText('Edits 1 accounts · 4 videos')).toBeTruthy();
+    expect(row.getByText('Edits 1 account · 4 videos')).toBeTruthy();
   });
 
   it('offers editors in the Editor select and handlers only as handlers', () => {

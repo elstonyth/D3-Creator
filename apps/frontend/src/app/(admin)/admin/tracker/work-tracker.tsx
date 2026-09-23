@@ -102,16 +102,13 @@ export function WorkTracker({
     return () => window.clearTimeout(id);
   }, [toast]);
 
-  const fail = useCallback(
-    (r: ActionResult, rollback: () => void) => {
-      rollback();
-      setToast({
-        id: Date.now(),
-        message: r.message ?? t('Could not save. Try again.'),
-      });
-    },
-    [t],
-  );
+  const fail = useCallback((r: ActionResult, rollback: () => void) => {
+    rollback();
+    setToast({
+      id: Date.now(),
+      message: r.message ?? 'Could not save. Try again.',
+    });
+  }, []);
 
   function gotoMonth(delta: number) {
     startNav(() => router.push(`?month=${addMonths(month, delta)}`));
@@ -391,13 +388,13 @@ export function WorkTracker({
       </div>
 
       {toast ? (
-        <GlassPanel
-          role="status"
-          lens
-          className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 px-5 py-3 text-body-sm"
-        >
-          {toast.message}
-        </GlassPanel>
+        // Pinned by this wrapper: the glass sets its own inline
+        // `position: relative`, which beats a `fixed` class on it.
+        <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2">
+          <GlassPanel role="status" lens className="px-5 py-3 text-body-sm">
+            {t(toast.message)}
+          </GlassPanel>
+        </div>
       ) : null}
     </div>
   );

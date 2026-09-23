@@ -429,6 +429,17 @@ export const adminZh: Record<string, string> = {
   Videos: '视频',
   'Edits {count} accounts · {videos} videos':
     '剪辑 {count} 个账号 · {videos} 条视频',
+  'Edits 1 account · {videos} videos': '剪辑 1 个账号 · {videos} 条视频',
+  // The tracker's refusals (shown in its toast through t()).
+  'Task needs a title (max 200 chars).': '任务需要标题（最多 200 字）。',
+  'Event needs a title (max 200 chars).': '事件需要标题（最多 200 字）。',
+  'Invalid order.': '顺序无效。',
+  'Invalid date.': '日期无效。',
+  'Invalid event.': '事件无效。',
+  'Invalid creator.': '账号无效。',
+  'Remarks are limited to 20,000 characters.': '备注最多 20,000 字。',
+  'That person is already gone.': '此人已不在看板上。',
+  'Failed.': '操作失败。',
   'Drop an account here.': '把账号拖到这里。',
   'Every account has a handler.': '所有账号都已分配负责人。',
   videos: '条视频',
