@@ -240,6 +240,23 @@ Added the same day, from the user's description of how the team works:
   (`finishedBy` / `doneCounts`, Malaysia-time month windows). The Team page
   shows the counts; a person's profile lists the videos behind them.
 
+## Revision: after review
+
+- **Credit is stamped.** `tracker_video.edited_by` / `posted_by` are set by a
+  trigger from the job's people when a Done appears, cleared when it is taken
+  back, and never written by the app. Counts read the stamps, so reassigning
+  a job or archiving a person never moves finished work.
+- **A job with no handler** is scheduled and posted by its editor.
+- **Counted months are the admin's.** Staff take back only their own Done and
+  only from this month, and add or change shoots only from this month on.
+  Example: on 1 Oct a staff member cannot mark a 30 Sep shoot done; the admin
+  can.
+- **Removing a person** turns their login off, gives their accounts and open
+  tasks back to nobody, and archives them last (every step repeatable). Video
+  jobs and shoots stay as they are, marked "(left)", for the admin to hand on.
+- **Accounts in a month** are the ones held when the month ended (open
+  question for the owner: someone archived on the 28th shows none that month).
+
 ## Testing and preview
 
 - Unit: `portal-host`, `portal-routing` (every host × role × path class),
