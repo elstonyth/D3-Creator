@@ -46,8 +46,11 @@ import {
   reorderTasks,
   saveRemarks,
   setTaskDone,
+  updateEvent,
+  updateTask,
   type ActionResult,
 } from './actions';
+import { EditableTitle } from './editable-title';
 import { GlassPanel } from './glass-panel';
 import { StaffingBoard } from './staffing-board';
 import s from './tracker.module.scss';
@@ -95,16 +98,13 @@ export function WorkTracker({
     return () => window.clearTimeout(id);
   }, [toast]);
 
-  const fail = useCallback(
-    (r: ActionResult, rollback: () => void) => {
-      rollback();
-      setToast({
-        id: Date.now(),
-        message: r.message ?? t('Could not save. Try again.'),
-      });
-    },
-    [t],
-  );
+  const fail = useCallback((r: ActionResult, rollback: () => void) => {
+    rollback();
+    setToast({
+      id: Date.now(),
+      message: r.message ?? 'Could not save. Try again.',
+    });
+  }, []);
 
   function gotoMonth(delta: number) {
     startNav(() => router.push(`?month=${addMonths(month, delta)}`));
@@ -328,7 +328,6 @@ export function WorkTracker({
         {/* Staffing */}
         <section className="mt-4 md:mt-6">
           <StaffingBoard
-            month={month}
             monthLabel={fmtDate(`${month}-01`, tag, {
               month: 'long',
               year: 'numeric',
@@ -341,13 +340,13 @@ export function WorkTracker({
       </div>
 
       {toast ? (
-        <GlassPanel
-          role="status"
-          lens
-          className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 px-5 py-3 text-body-sm"
-        >
-          {toast.message}
-        </GlassPanel>
+        // Pinned by this wrapper: the glass sets its own inline
+        // `position: relative`, which beats a `fixed` class on it.
+        <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2">
+          <GlassPanel role="status" lens className="px-5 py-3 text-body-sm">
+            {t(toast.message)}
+          </GlassPanel>
+        </div>
       ) : null}
     </div>
   );
@@ -429,6 +428,9 @@ function TasksPanel({
   const [draft, setDraft] = useState('');
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
+  // The row being renamed is not draggable: selecting text in its input
+  // would otherwise pick up the whole row.
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const open = tasks.filter((x) => !x.done);
   const done = tasks.filter((x) => x.done);
@@ -468,6 +470,21 @@ function TasksPanel({
       onFail(r, () =>
         setTasks((p) =>
           p.map((x) => (x.id === task.id ? { ...x, done: !next } : x)),
+        ),
+      );
+  }
+
+  async function rename(task: TrackerTask, title: string) {
+    if (isTemp(task.id)) return;
+    const prev = task.title;
+    setTasks((p) => p.map((x) => (x.id === task.id ? { ...x, title } : x)));
+    const r = await updateTask(task.id, title);
+    if (!r.ok)
+      onFail(r, () =>
+        setTasks((p) =>
+          p.map((x) =>
+            x.id === task.id && x.title === title ? { ...x, title: prev } : x,
+          ),
         ),
       );
   }
@@ -535,6 +552,9 @@ function TasksPanel({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           maxLength={200}
+          // Chrome would otherwise offer every task ever typed here in a
+          // popup under the field.
+          autoComplete="off"
           placeholder={t('What needs to be done?')}
           className={cn(s.field, 'h-11 flex-1 px-4 text-body')}
         />
@@ -561,7 +581,7 @@ function TasksPanel({
           {open.map((task, i) => (
             <li
               key={task.id}
-              draggable
+              draggable={editingId !== task.id}
               onDragStart={(e) => {
                 setDragFrom(i);
                 e.dataTransfer.effectAllowed = 'move';
@@ -607,6 +627,12 @@ function TasksPanel({
                 task={task}
                 onToggle={() => toggle(task)}
                 onRemove={() => remove(task)}
+                onRename={(title) => rename(task, title)}
+                onEditingChange={(on) =>
+                  setEditingId((cur) =>
+                    on ? task.id : cur === task.id ? null : cur,
+                  )
+                }
               />
             </li>
           ))}
@@ -636,10 +662,15 @@ function TaskRow({
   task,
   onToggle,
   onRemove,
+  onRename,
+  onEditingChange,
 }: {
   task: TrackerTask;
   onToggle: () => void;
   onRemove: () => void;
+  /** Open tasks only; a finished task keeps its title. */
+  onRename?: (title: string) => void;
+  onEditingChange?: (editing: boolean) => void;
 }) {
   const { t } = useI18n();
   return (
@@ -670,14 +701,25 @@ function TaskRow({
           </svg>
         ) : null}
       </button>
-      <span
-        className={clsx(
-          'min-w-0 flex-1 truncate text-body',
-          task.done ? 'line-through text-fg-muted' : 'text-fg',
-        )}
-      >
-        {task.title}
-      </span>
+      {onRename ? (
+        <EditableTitle
+          value={task.title}
+          onSave={onRename}
+          onEditingChange={onEditingChange}
+          editLabel={t('Edit task')}
+          inputLabel={t('Task title')}
+          className="min-w-0 flex-1 truncate text-body text-fg"
+        />
+      ) : (
+        <span
+          className={clsx(
+            'min-w-0 flex-1 truncate text-body',
+            task.done ? 'line-through text-fg-muted' : 'text-fg',
+          )}
+        >
+          {task.title}
+        </span>
+      )}
       <button
         type="button"
         onClick={onRemove}
@@ -724,6 +766,21 @@ function EventsPanel({
     setEvents((p) => p.map((x) => (x.id === tempId ? { ...x, id: r.id! } : x)));
   }
 
+  async function rename(ev: TrackerEvent, title: string) {
+    if (ev.id.startsWith('temp-')) return;
+    const prev = ev.title;
+    setEvents((p) => p.map((x) => (x.id === ev.id ? { ...x, title } : x)));
+    const r = await updateEvent(ev.id, title);
+    if (!r.ok)
+      onFail(r, () =>
+        setEvents((p) =>
+          p.map((x) =>
+            x.id === ev.id && x.title === title ? { ...x, title: prev } : x,
+          ),
+        ),
+      );
+  }
+
   async function remove(ev: TrackerEvent) {
     if (ev.id.startsWith('temp-')) return;
     // The same-day neighbour that followed it, so a rollback lands it back in
@@ -761,6 +818,7 @@ function EventsPanel({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           maxLength={200}
+          autoComplete="off"
           placeholder={t('Add an important event…')}
           className={cn(s.field, 'h-11 flex-1 px-4 text-body')}
         />
@@ -792,9 +850,13 @@ function EventsPanel({
                 aria-hidden
                 className="h-2 w-2 shrink-0 rounded-full bg-brand"
               />
-              <span className="min-w-0 flex-1 text-body text-fg">
-                {ev.title}
-              </span>
+              <EditableTitle
+                value={ev.title}
+                onSave={(title) => rename(ev, title)}
+                editLabel={t('Edit event')}
+                inputLabel={t('Event title')}
+                className="min-w-0 flex-1 break-words text-body text-fg"
+              />
               <button
                 type="button"
                 onClick={() => remove(ev)}

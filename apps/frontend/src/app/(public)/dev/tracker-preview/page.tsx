@@ -36,19 +36,29 @@ export default async function TrackerPreviewPage() {
       id: 'aaaaaaaa-0000-4000-8000-000000000001',
       name: 'KEE',
       role: 'Trader',
+      kind: 'handler' as const,
       sortOrder: 0,
     },
     {
       id: 'aaaaaaaa-0000-4000-8000-000000000002',
       name: 'ZUWEI',
       role: 'Trader',
+      kind: 'handler' as const,
       sortOrder: 1,
     },
     {
       id: 'aaaaaaaa-0000-4000-8000-000000000003',
       name: 'HOWEN',
       role: 'Trader',
+      kind: 'handler' as const,
       sortOrder: 2,
+    },
+    {
+      id: 'aaaaaaaa-0000-4000-8000-000000000004',
+      name: 'MEI',
+      role: 'Editor',
+      kind: 'editor' as const,
+      sortOrder: 3,
     },
   ];
   const creator = (
@@ -68,6 +78,7 @@ export default async function TrackerPreviewPage() {
     handlerId: handler === null ? null : members[handler].id,
     editorId: editor === null ? null : members[editor].id,
     scheduledPosting: scheduled,
+    sortOrder: n,
     videos,
     posts: videos * 2,
     views,
@@ -161,7 +172,7 @@ export default async function TrackerPreviewPage() {
         9,
         412000,
         1,
-        null,
+        3,
       ),
       creator(
         5,

@@ -29,6 +29,7 @@ interface AssignmentRow {
   handler_id: string | null;
   editor_id: string | null;
   scheduled_posting: boolean;
+  sort_order: number;
 }
 
 interface StatsRow {
@@ -72,7 +73,7 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
   ] = await Promise.all([
     admin
       .from('tracker_member')
-      .select('id, name, role, sort_order')
+      .select('id, name, role, kind, sort_order')
       .order('sort_order')
       .order('created_at'),
     admin
@@ -105,14 +106,27 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
       .order('display_name'),
     admin
       .from('tracker_assignment')
-      .select('creator_id, handler_id, editor_id, scheduled_posting'),
+      .select(
+        'creator_id, handler_id, editor_id, scheduled_posting, sort_order',
+      ),
     admin.rpc('tracker_creator_month_stats', { p_from: from, p_to: to }),
   ]);
 
   const members = must<
-    { id: string; name: string; role: string; sort_order: number }[]
+    {
+      id: string;
+      name: string;
+      role: string;
+      kind: string;
+      sort_order: number;
+    }[]
   >(membersRes, 'members');
-  type TaskRow = { id: string; title: string; done: boolean; sort_order: number };
+  type TaskRow = {
+    id: string;
+    title: string;
+    done: boolean;
+    sort_order: number;
+  };
   const tasks = [
     ...must<TaskRow[]>(openTasksRes, 'tasks'),
     ...must<TaskRow[]>(doneTasksRes, 'done tasks'),
@@ -146,11 +160,14 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
         handlerId: a?.handler_id ?? null,
         editorId: a?.editor_id ?? null,
         scheduledPosting: a?.scheduled_posting ?? false,
+        sortOrder: a?.sort_order ?? 0,
         videos: s?.videos ?? 0,
         posts: s?.posts ?? 0,
         views: Number(s?.views ?? 0),
       };
-    });
+    })
+    // Stable: cards the team never ordered keep the database's name order.
+    .sort((a, b) => a.sortOrder - b.sortOrder);
 
   return {
     month,
@@ -159,6 +176,7 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
       id: m.id,
       name: m.name,
       role: m.role,
+      kind: m.kind === 'editor' ? 'editor' : 'handler',
       sortOrder: m.sort_order,
     })),
     tasks: tasks.map((t) => ({

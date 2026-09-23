@@ -11,7 +11,7 @@ import { revalidatePath } from 'next/cache';
 import { getSupabaseAdmin } from '@d3/database';
 import { requireAdmin } from '@gitroom/frontend/lib/auth';
 import { isUuid } from '@gitroom/frontend/lib/ids';
-import { isDateKey } from '@gitroom/frontend/lib/tracker';
+import { isDateKey, type MemberKind } from '@gitroom/frontend/lib/tracker';
 
 export interface ActionResult {
   ok: boolean;
@@ -60,6 +60,23 @@ export async function addTask(title: string): Promise<ActionResult> {
       .single();
     if (error) return { ok: false, message: error.message };
     return { ok: true, id: data.id };
+  });
+}
+
+export async function updateTask(
+  id: string,
+  title: string,
+): Promise<ActionResult> {
+  return guarded(async () => {
+    if (!isUuid(id)) return { ok: false, message: 'Invalid task.' };
+    const t = cleanTitle(title);
+    if (!t)
+      return { ok: false, message: 'Task needs a title (max 200 chars).' };
+    const { error } = await getSupabaseAdmin()
+      .from('tracker_task')
+      .update({ title: t })
+      .eq('id', id);
+    return error ? { ok: false, message: error.message } : { ok: true };
   });
 }
 
@@ -129,6 +146,23 @@ export async function addEvent(
   });
 }
 
+export async function updateEvent(
+  id: string,
+  title: string,
+): Promise<ActionResult> {
+  return guarded(async () => {
+    if (!isUuid(id)) return { ok: false, message: 'Invalid event.' };
+    const t = cleanTitle(title);
+    if (!t)
+      return { ok: false, message: 'Event needs a title (max 200 chars).' };
+    const { error } = await getSupabaseAdmin()
+      .from('tracker_event')
+      .update({ title: t })
+      .eq('id', id);
+    return error ? { ok: false, message: error.message } : { ok: true };
+  });
+}
+
 export async function deleteEvent(id: string): Promise<ActionResult> {
   return guarded(async () => {
     if (!isUuid(id)) return { ok: false, message: 'Invalid event.' };
@@ -191,13 +225,69 @@ export async function setAssignment(
   });
 }
 
+/**
+ * One column's full order: index in `creatorIds` becomes sort_order. Only the
+ * cards in `movedIds` — the ones that arrived in this column — have their
+ * handler written. The rest keep whatever handler the database holds, so a
+ * tab that has not seen a handover made elsewhere cannot undo it by
+ * reordering. Merge-duplicates writes only the columns sent, so every card
+ * keeps its editor and posting flag.
+ */
+export async function placeCards(
+  handlerId: string | null,
+  creatorIds: string[],
+  movedIds: string[],
+): Promise<ActionResult> {
+  return guarded(async () => {
+    if (handlerId !== null && !isUuid(handlerId))
+      return { ok: false, message: 'Invalid person.' };
+    if (
+      !Array.isArray(creatorIds) ||
+      creatorIds.length === 0 ||
+      creatorIds.length > 500 ||
+      !creatorIds.every(isUuid) ||
+      new Set(creatorIds).size !== creatorIds.length ||
+      !Array.isArray(movedIds) ||
+      !movedIds.every((id) => creatorIds.includes(id))
+    )
+      return { ok: false, message: 'Invalid order.' };
+    const admin = getSupabaseAdmin();
+    const moved = new Set(movedIds);
+    // The cards that stayed put first, the handovers last. If the handover
+    // write fails, none of it is saved — exactly what the board's rollback
+    // shows. A failed order write only misorders cards until the next load.
+    const rest = creatorIds.flatMap((id, i) =>
+      moved.has(id) ? [] : [{ creator_id: id, sort_order: i }],
+    );
+    if (rest.length > 0) {
+      const { error } = await admin
+        .from('tracker_assignment')
+        .upsert(rest, { onConflict: 'creator_id' });
+      if (error) return { ok: false, message: error.message };
+    }
+    if (moved.size === 0) return { ok: true };
+    const { error } = await admin.from('tracker_assignment').upsert(
+      creatorIds.flatMap((id, i) =>
+        moved.has(id)
+          ? [{ creator_id: id, handler_id: handlerId, sort_order: i }]
+          : [],
+      ),
+      { onConflict: 'creator_id' },
+    );
+    return error ? { ok: false, message: error.message } : { ok: true };
+  });
+}
+
 export async function addMember(
   name: string,
   role: string,
+  kind: MemberKind,
 ): Promise<ActionResult> {
   return guarded(async () => {
+    if (kind !== 'handler' && kind !== 'editor')
+      return { ok: false, message: 'Invalid person type.' };
     const n = cleanTitle(name, 40);
-    const r = cleanTitle(role, 40) ?? 'Trader';
+    const r = cleanTitle(role, 40) ?? (kind === 'editor' ? 'Editor' : 'Trader');
     if (!n) return { ok: false, message: 'Name is required (max 40 chars).' };
     const admin = getSupabaseAdmin();
     const { data: last } = await admin
@@ -208,7 +298,12 @@ export async function addMember(
       .maybeSingle();
     const { data, error } = await admin
       .from('tracker_member')
-      .insert({ name: n, role: r, sort_order: (last?.sort_order ?? -1) + 1 })
+      .insert({
+        name: n,
+        role: r,
+        kind,
+        sort_order: (last?.sort_order ?? -1) + 1,
+      })
       .select('id')
       .single();
     if (error) return { ok: false, message: error.message };
