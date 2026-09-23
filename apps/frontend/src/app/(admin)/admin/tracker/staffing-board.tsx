@@ -21,6 +21,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -149,17 +150,40 @@ export function StaffingBoard({
   const latest = useRef(initialCreators);
   const confirmed = useRef(initialCreators);
   const saving = useRef(false);
+  // The columns as they are now: a save queued behind another must see a
+  // column added in between.
+  const columnsNow = useRef(columnIds);
   const [placeTick, setPlaceTick] = useState(0);
 
   useEffect(() => {
     latest.current = creators;
+  }, [creators]);
+  useEffect(() => {
+    columnsNow.current = columnIds;
+  }, [columnIds]);
+
+  // A card moved with its own arrow is re-inserted into the page, which drops
+  // keyboard focus. Hand it back to that arrow, or to the other one if the
+  // card reached the end of its column.
+  const refocus = useRef<{ id: string; dir: 'up' | 'down' } | null>(null);
+  useLayoutEffect(() => {
+    const r = refocus.current;
+    if (!r) return;
+    refocus.current = null;
+    const arrow = (dir: 'up' | 'down') =>
+      document.querySelector<HTMLButtonElement>(`[data-move="${dir}:${r.id}"]`);
+    const same = arrow(r.dir);
+    (same && !same.disabled
+      ? same
+      : arrow(r.dir === 'up' ? 'down' : 'up')
+    )?.focus();
   }, [creators]);
 
   const flushPlacement = useCallback(
     async function run(): Promise<void> {
       if (saving.current) return;
       const now = latest.current;
-      const work = placementChanges(confirmed.current, now, columnIds);
+      const work = placementChanges(confirmed.current, now, columnsNow.current);
       if (work.length === 0) return;
       saving.current = true;
       // ponytail: columns save one by one; if a later one fails after an
@@ -179,7 +203,7 @@ export function StaffingBoard({
       saving.current = false;
       if (latest.current !== now) void run();
     },
-    [columnIds, onFail],
+    [onFail],
   );
 
   // After the render that applied a move (so `latest` holds it).
@@ -445,10 +469,14 @@ export function StaffingBoard({
             >
               <span className="text-label">{m.name}</span>
               <span className="text-fg-subtle">
-                {t('Edits {count} accounts · {videos} videos', {
-                  count: st.edits,
-                  videos: st.editedVideos,
-                })}
+                {st.edits === 1
+                  ? t('Edits 1 account · {videos} videos', {
+                      videos: st.editedVideos,
+                    })
+                  : t('Edits {count} accounts · {videos} videos', {
+                      count: st.edits,
+                      videos: st.editedVideos,
+                    })}
               </span>
               <button
                 type="button"
@@ -610,10 +638,14 @@ export function StaffingBoard({
                 </dl>
                 {ed ? (
                   <p className="mt-1.5 text-caption text-fg-subtle">
-                    {t('Edits {count} accounts · {videos} videos', {
-                      count: ed.edits,
-                      videos: ed.editedVideos,
-                    })}
+                    {ed.edits === 1
+                      ? t('Edits 1 account · {videos} videos', {
+                          videos: ed.editedVideos,
+                        })
+                      : t('Edits {count} accounts · {videos} videos', {
+                          count: ed.edits,
+                          videos: ed.editedVideos,
+                        })}
                   </p>
                 ) : null}
               </header>
@@ -664,12 +696,18 @@ export function StaffingBoard({
                       }}
                       onUp={
                         i > 0
-                          ? () => place(c.id, col.id, cards[i - 1].id)
+                          ? () => {
+                              refocus.current = { id: c.id, dir: 'up' };
+                              place(c.id, col.id, cards[i - 1].id);
+                            }
                           : undefined
                       }
                       onDown={
                         i < cards.length - 1
-                          ? () => place(c.id, col.id, cards[i + 2]?.id ?? null)
+                          ? () => {
+                              refocus.current = { id: c.id, dir: 'down' };
+                              place(c.id, col.id, cards[i + 2]?.id ?? null);
+                            }
                           : undefined
                       }
                       // The select hands the card over and puts it last
@@ -877,6 +915,7 @@ function CreatorCard({
             type="button"
             onClick={onUp}
             disabled={!onUp}
+            data-move={`up:${creator.id}`}
             aria-label={t('Move {name} up', { name: creator.name })}
             className={clsx(
               s.pill,
@@ -889,6 +928,7 @@ function CreatorCard({
             type="button"
             onClick={onDown}
             disabled={!onDown}
+            data-move={`down:${creator.id}`}
             aria-label={t('Move {name} down', { name: creator.name })}
             className={clsx(
               s.pill,

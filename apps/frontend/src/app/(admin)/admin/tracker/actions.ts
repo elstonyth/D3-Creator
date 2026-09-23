@@ -253,25 +253,27 @@ export async function placeCards(
       return { ok: false, message: 'Invalid order.' };
     const admin = getSupabaseAdmin();
     const moved = new Set(movedIds);
-    // The handovers first: they are the change that matters.
-    if (moved.size > 0) {
-      const { error } = await admin.from('tracker_assignment').upsert(
-        creatorIds.flatMap((id, i) =>
-          moved.has(id)
-            ? [{ creator_id: id, handler_id: handlerId, sort_order: i }]
-            : [],
-        ),
-        { onConflict: 'creator_id' },
-      );
-      if (error) return { ok: false, message: error.message };
-    }
+    // The cards that stayed put first, the handovers last. If the handover
+    // write fails, none of it is saved — exactly what the board's rollback
+    // shows. A failed order write only misorders cards until the next load.
     const rest = creatorIds.flatMap((id, i) =>
       moved.has(id) ? [] : [{ creator_id: id, sort_order: i }],
     );
-    if (rest.length === 0) return { ok: true };
-    const { error } = await admin
-      .from('tracker_assignment')
-      .upsert(rest, { onConflict: 'creator_id' });
+    if (rest.length > 0) {
+      const { error } = await admin
+        .from('tracker_assignment')
+        .upsert(rest, { onConflict: 'creator_id' });
+      if (error) return { ok: false, message: error.message };
+    }
+    if (moved.size === 0) return { ok: true };
+    const { error } = await admin.from('tracker_assignment').upsert(
+      creatorIds.flatMap((id, i) =>
+        moved.has(id)
+          ? [{ creator_id: id, handler_id: handlerId, sort_order: i }]
+          : [],
+      ),
+      { onConflict: 'creator_id' },
+    );
     return error ? { ok: false, message: error.message } : { ok: true };
   });
 }
