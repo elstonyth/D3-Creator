@@ -10,10 +10,14 @@
 
 export const TRACKER_TZ_OFFSET = '+08:00';
 
+/** A handler owns a column on the staffing board; an editor only cuts video. */
+export type MemberKind = 'handler' | 'editor';
+
 export interface TrackerMember {
   id: string;
   name: string;
   role: string;
+  kind: MemberKind;
   sortOrder: number;
 }
 

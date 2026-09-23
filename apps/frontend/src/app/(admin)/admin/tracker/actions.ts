@@ -11,7 +11,7 @@ import { revalidatePath } from 'next/cache';
 import { getSupabaseAdmin } from '@d3/database';
 import { requireAdmin } from '@gitroom/frontend/lib/auth';
 import { isUuid } from '@gitroom/frontend/lib/ids';
-import { isDateKey } from '@gitroom/frontend/lib/tracker';
+import { isDateKey, type MemberKind } from '@gitroom/frontend/lib/tracker';
 
 export interface ActionResult {
   ok: boolean;
@@ -228,10 +228,13 @@ export async function setAssignment(
 export async function addMember(
   name: string,
   role: string,
+  kind: MemberKind,
 ): Promise<ActionResult> {
   return guarded(async () => {
+    if (kind !== 'handler' && kind !== 'editor')
+      return { ok: false, message: 'Invalid person type.' };
     const n = cleanTitle(name, 40);
-    const r = cleanTitle(role, 40) ?? 'Trader';
+    const r = cleanTitle(role, 40) ?? (kind === 'editor' ? 'Editor' : 'Trader');
     if (!n) return { ok: false, message: 'Name is required (max 40 chars).' };
     const admin = getSupabaseAdmin();
     const { data: last } = await admin
@@ -242,7 +245,12 @@ export async function addMember(
       .maybeSingle();
     const { data, error } = await admin
       .from('tracker_member')
-      .insert({ name: n, role: r, sort_order: (last?.sort_order ?? -1) + 1 })
+      .insert({
+        name: n,
+        role: r,
+        kind,
+        sort_order: (last?.sort_order ?? -1) + 1,
+      })
       .select('id')
       .single();
     if (error) return { ok: false, message: error.message };

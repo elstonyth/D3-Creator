@@ -416,7 +416,13 @@ export const adminZh: Record<string, string> = {
     '把账号拖到负责人身上即可分配。数据统计月份：{month}。',
   Unassigned: '未分配',
   Cancel: '取消',
-  '+ Add person': '+ 添加人员',
+  '+ Add handler': '+ 添加负责人',
+  '+ Add editor': '+ 添加剪辑',
+  Editors: '剪辑人员',
+  Handlers: '负责人',
+  'No editors yet.': '还没有剪辑人员。',
+  'Remove {name}? Accounts they edit go back to Nobody.':
+    '移除 {name}？其剪辑的账号将改为“无”。',
   'Remove {name}? Their accounts move to Unassigned.':
     '移除 {name}？其负责的账号将变为未分配。',
   'Remove {name}': '移除 {name}',

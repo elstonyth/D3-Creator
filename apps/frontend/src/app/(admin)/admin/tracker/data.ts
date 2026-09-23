@@ -72,7 +72,7 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
   ] = await Promise.all([
     admin
       .from('tracker_member')
-      .select('id, name, role, sort_order')
+      .select('id, name, role, kind, sort_order')
       .order('sort_order')
       .order('created_at'),
     admin
@@ -110,9 +110,20 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
   ]);
 
   const members = must<
-    { id: string; name: string; role: string; sort_order: number }[]
+    {
+      id: string;
+      name: string;
+      role: string;
+      kind: string;
+      sort_order: number;
+    }[]
   >(membersRes, 'members');
-  type TaskRow = { id: string; title: string; done: boolean; sort_order: number };
+  type TaskRow = {
+    id: string;
+    title: string;
+    done: boolean;
+    sort_order: number;
+  };
   const tasks = [
     ...must<TaskRow[]>(openTasksRes, 'tasks'),
     ...must<TaskRow[]>(doneTasksRes, 'done tasks'),
@@ -159,6 +170,7 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
       id: m.id,
       name: m.name,
       role: m.role,
+      kind: m.kind === 'editor' ? 'editor' : 'handler',
       sortOrder: m.sort_order,
     })),
     tasks: tasks.map((t) => ({
