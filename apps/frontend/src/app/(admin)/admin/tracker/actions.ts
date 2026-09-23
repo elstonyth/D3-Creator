@@ -63,6 +63,23 @@ export async function addTask(title: string): Promise<ActionResult> {
   });
 }
 
+export async function updateTask(
+  id: string,
+  title: string,
+): Promise<ActionResult> {
+  return guarded(async () => {
+    if (!isUuid(id)) return { ok: false, message: 'Invalid task.' };
+    const t = cleanTitle(title);
+    if (!t)
+      return { ok: false, message: 'Task needs a title (max 200 chars).' };
+    const { error } = await getSupabaseAdmin()
+      .from('tracker_task')
+      .update({ title: t })
+      .eq('id', id);
+    return error ? { ok: false, message: error.message } : { ok: true };
+  });
+}
+
 export async function setTaskDone(
   id: string,
   done: boolean,
@@ -126,6 +143,23 @@ export async function addEvent(
       .single();
     if (error) return { ok: false, message: error.message };
     return { ok: true, id: data.id };
+  });
+}
+
+export async function updateEvent(
+  id: string,
+  title: string,
+): Promise<ActionResult> {
+  return guarded(async () => {
+    if (!isUuid(id)) return { ok: false, message: 'Invalid event.' };
+    const t = cleanTitle(title);
+    if (!t)
+      return { ok: false, message: 'Event needs a title (max 200 chars).' };
+    const { error } = await getSupabaseAdmin()
+      .from('tracker_event')
+      .update({ title: t })
+      .eq('id', id);
+    return error ? { ok: false, message: error.message } : { ok: true };
   });
 }
 

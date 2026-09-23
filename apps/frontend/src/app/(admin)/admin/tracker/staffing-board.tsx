@@ -275,6 +275,7 @@ export function StaffingBoard({
               onChange={(e) => setDraftName(e.target.value)}
               maxLength={40}
               autoFocus
+              autoComplete="off"
               placeholder={t('Name')}
               aria-label={t('Name')}
               className={cn(s.field, 'h-10 w-36 px-3 text-body-sm')}
@@ -283,6 +284,7 @@ export function StaffingBoard({
               value={draftRole}
               onChange={(e) => setDraftRole(e.target.value)}
               maxLength={40}
+              autoComplete="off"
               placeholder={t('Role')}
               aria-label={t('Role')}
               className={cn(s.field, 'h-10 w-28 px-3 text-body-sm')}
