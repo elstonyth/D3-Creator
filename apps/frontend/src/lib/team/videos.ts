@@ -3,9 +3,10 @@
  *
  * The admin gives a video to the account's editor and handler (filled in
  * from the staffing board). The editor clicks Done with a link to the cut;
- * the handler sets when it goes out and clicks Done with a link to the live
- * post. Each Done is stamped, and those stamps are what the console counts
- * per person per month.
+ * the handler — or, on a job with no handler, the editor — sets when it goes
+ * out and clicks Done with a link to the live post. The database stamps each
+ * Done with when and whom it counts for (editedBy / postedBy), and those
+ * stamps are what the console counts per person per month.
  *
  * Pure: shared by the video board (client), the pages and the actions.
  */
@@ -21,14 +22,16 @@ export interface Video {
   note: string | null;
   editorId: string | null;
   handlerId: string | null;
-  /** When the editor clicked Done (ISO). */
+  /** When the editor clicked Done (ISO), and whose edit it counts as. */
   editedAt: string | null;
+  editedBy: string | null;
   editLink: string | null;
   /** When it is meant to go out, `YYYY-MM-DD` / `HH:MM`. */
   postDate: string | null;
   postTime: string | null;
-  /** When the handler clicked Done (ISO). */
+  /** When the post was marked Done (ISO), and whose post it counts as. */
   postedAt: string | null;
+  postedBy: string | null;
   postLink: string | null;
   createdAt: string;
 }
@@ -40,6 +43,13 @@ export function videoStage(v: Video): VideoStage {
   if (v.postedAt) return 'done';
   if (v.editorId && !v.editedAt) return 'editing';
   return 'posting';
+}
+
+/** Who schedules and posts it: the handler, or the editor if it has none. */
+export function posterOf(
+  v: Pick<Video, 'handlerId' | 'editorId'>,
+): string | null {
+  return v.handlerId ?? v.editorId;
 }
 
 export const LINK_MAX = 500;
@@ -131,9 +141,10 @@ export function parseVideoInput(v: unknown): Parsed<VideoInput> {
 }
 
 /**
- * The videos a person finished in [from, to): edits they clicked Done on as
- * the editor, and posts they clicked Done on as the handler. Instants are
- * compared as instants, whatever offset each string carries.
+ * The videos a person finished in [from, to): the edits and the posts whose
+ * Done was stamped with them. By the stamp, not the job's people now, so a
+ * job reassigned after its Done keeps its credit. Instants are compared as
+ * instants, whatever offset each string carries.
  */
 export function finishedBy(
   videos: Video[],
@@ -149,8 +160,8 @@ export function finishedBy(
     return t >= start && t < end;
   };
   return {
-    edited: videos.filter((v) => v.editorId === memberId && inside(v.editedAt)),
-    posted: videos.filter((v) => v.handlerId === memberId && inside(v.postedAt)),
+    edited: videos.filter((v) => v.editedBy === memberId && inside(v.editedAt)),
+    posted: videos.filter((v) => v.postedBy === memberId && inside(v.postedAt)),
   };
 }
 

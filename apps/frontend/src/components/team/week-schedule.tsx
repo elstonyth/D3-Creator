@@ -9,6 +9,9 @@
  * Saves wait for the server rather than guessing: a shoot needs its real id
  * and the server's validation, and each save is a single small write, so the
  * form simply stays open with the reason when one is refused.
+ *
+ * Staff work from this month on; earlier shoots are read-only to them (the
+ * server enforces it too), because a counted month is changed by an admin.
  */
 
 import { useMemo, useState, type FormEvent } from 'react';
@@ -81,7 +84,8 @@ export function WeekSchedule({
   const [filter, setFilter] = useState('all');
   const [open, setOpen] = useState<Open>(null);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // A refusal, and what it belongs to: a shoot's id, or `add:<day>`.
+  const [error, setError] = useState<{ at: string; text: string } | null>(null);
 
   const nameOf = useMemo(
     () => new Map(people.map((p) => [p.id, p.name])),
@@ -92,29 +96,51 @@ export function WeekSchedule({
     [accounts],
   );
   const onBoard = useMemo(() => people.filter((p) => !p.archived), [people]);
+  const archived = useMemo(
+    () => new Set(people.filter((p) => p.archived).map((p) => p.id)),
+    [people],
+  );
+  const personName = (id: string) => {
+    const name = nameOf.get(id) ?? '—';
+    return archived.has(id) ? t('{name} (left)', { name }) : name;
+  };
 
   const days = weekDays(start);
   const shown = shoots.filter((s) => filter === 'all' || s.memberId === filter);
-  const canEdit = (s: Shoot) => isAdmin || s.memberId === meId;
+  // First day of this month: staff change nothing dated before it.
+  const monthStart = `${today.slice(0, 7)}-01`;
+  const canEdit = (s: Shoot) =>
+    isAdmin || (s.memberId === meId && s.date >= monthStart);
   const weekHref = (monday: string) => `${basePath}?week=${monday}`;
   const thisWeek = weekStart(today);
 
-  // One save at a time; a refusal stays on screen with the form still open.
+  /**
+   * One save. A refusal is shown where it belongs, the form still open.
+   * `started` is the form it came from: only that form closes when it
+   * succeeds, so a slow one-click change never closes a form opened since.
+   */
   async function save(
+    at: string,
     call: () => Promise<ShootResult>,
     apply: (r: ShootResult) => void,
+    started: Open = null,
   ) {
     setSaving(true);
     setError(null);
     const r = await call();
     setSaving(false);
     if (!r.ok) {
-      setError(r.message ?? 'Could not save. Try again.');
+      setError({ at, text: r.message ?? 'Could not save. Try again.' });
       return;
     }
     apply(r);
-    setOpen(null);
+    if (started) setOpen((cur) => (cur === started ? null : cur));
   }
+  const errorAt = (at: string) => (error?.at === at ? t(error.text) : null);
+  const close = () => {
+    setOpen(null);
+    setError(null);
+  };
 
   const input = (d: ShootDraft) => ({
     date: d.date,
@@ -127,25 +153,34 @@ export function WeekSchedule({
   const replace = (next: Shoot) =>
     setShoots((p) => sortShoots(p.map((x) => (x.id === next.id ? next : x))));
 
-  const add = (d: ShootDraft) =>
+  const add = (day: string, d: ShootDraft) =>
     save(
+      `add:${day}`,
       () => addShoot(input(d), isAdmin ? d.memberId : undefined),
       (r) => setShoots((p) => sortShoots([...p, r.shoot!])),
+      open,
     );
   const edit = (s: Shoot, d: ShootDraft) =>
     save(
+      s.id,
       () => updateShoot(s.id, input(d)),
       (r) => replace(r.shoot!),
+      open,
     );
+  // Done comes from its small form; Cancel shoot and Reopen are one click.
   const status = (s: Shoot, next: ShootStatus, videosShot: string | null) =>
     save(
+      s.id,
       () => setShootStatus(s.id, next, videosShot),
       (r) => replace(r.shoot!),
+      next === 'done' ? open : null,
     );
   const remove = (s: Shoot) =>
     save(
+      s.id,
       () => deleteShoot(s.id),
       () => setShoots((p) => p.filter((x) => x.id !== s.id)),
+      open,
     );
 
   const end = addDays(start, 6);
@@ -225,13 +260,12 @@ export function WeekSchedule({
         )}
       </div>
 
-      {error ? <Alert tone="danger">{t(error)}</Alert> : null}
-
       <div className="grid items-start gap-3 lg:grid-cols-2">
         {days.map((day) => {
           const list = shown.filter((s) => s.date === day);
           const isToday = day === today;
           const adding = open?.kind === 'add' && open.date === day;
+          const canAdd = isAdmin || day >= monthStart;
           return (
             <section
               key={day}
@@ -254,7 +288,7 @@ export function WeekSchedule({
                   </span>
                   {isToday ? <Pill>{t('Today')}</Pill> : null}
                 </h3>
-                {adding ? null : (
+                {adding || !canAdd ? null : (
                   <Button
                     size="sm"
                     variant="outline"
@@ -277,9 +311,11 @@ export function WeekSchedule({
                     initial={draftOf(null, day, filter === 'all' ? '' : filter)}
                     accounts={accounts}
                     people={isAdmin ? onBoard : undefined}
+                    minDate={isAdmin ? undefined : monthStart}
                     saving={saving}
-                    onSave={add}
-                    onCancel={() => setOpen(null)}
+                    error={errorAt(`add:${day}`)}
+                    onSave={(d) => add(day, d)}
+                    onCancel={close}
                   />
                 </div>
               ) : null}
@@ -296,16 +332,18 @@ export function WeekSchedule({
                         <ShootForm
                           initial={draftOf(s, s.date)}
                           accounts={accounts}
+                          minDate={isAdmin ? undefined : monthStart}
                           saving={saving}
+                          error={errorAt(s.id)}
                           onSave={(d) => edit(s, d)}
-                          onCancel={() => setOpen(null)}
+                          onCancel={close}
                         />
                       </li>
                     ) : (
                       <ShootItem
                         key={s.id}
                         shoot={s}
-                        person={nameOf.get(s.memberId) ?? '—'}
+                        person={personName(s.memberId)}
                         account={
                           s.creatorId
                             ? (accountOf.get(s.creatorId) ?? null)
@@ -319,11 +357,12 @@ export function WeekSchedule({
                             : null
                         }
                         saving={saving}
+                        error={errorAt(s.id)}
                         onOpen={(kind) => {
                           setError(null);
                           setOpen({ kind, id: s.id });
                         }}
-                        onClose={() => setOpen(null)}
+                        onClose={close}
                         onStatus={(next, shot) => status(s, next, shot)}
                         onDelete={() => remove(s)}
                       />
@@ -347,6 +386,7 @@ function ShootItem({
   editable,
   open,
   saving,
+  error,
   onOpen,
   onClose,
   onStatus,
@@ -359,19 +399,22 @@ function ShootItem({
   editable: boolean;
   open: 'add' | 'edit' | 'done' | 'delete' | null;
   saving: boolean;
+  /** Why the last save on this shoot was refused. */
+  error: string | null;
   onOpen: (kind: 'edit' | 'done' | 'delete') => void;
   onClose: () => void;
   onStatus: (next: ShootStatus, videosShot: string | null) => void;
   onDelete: () => void;
 }) {
   const { t } = useI18n();
-  const [shot, setShot] = useState(
+  // Starts from what was shot, else what was planned.
+  const saved =
     s.videosShot == null
       ? s.videosPlanned == null
         ? ''
         : String(s.videosPlanned)
-      : String(s.videosShot),
-  );
+      : String(s.videosShot);
+  const [shot, setShot] = useState(saved);
   const cancelled = s.status === 'cancelled';
   const meta = [
     showPerson ? person : null,
@@ -452,27 +495,35 @@ function ShootItem({
           <Button type="button" size="sm" variant="ghost" onClick={onClose}>
             {t('Cancel')}
           </Button>
+          {error ? (
+            <div className="w-full">
+              <Alert tone="danger">{error}</Alert>
+            </div>
+          ) : null}
         </form>
       ) : editable && open === 'delete' ? (
-        <div
-          role="group"
-          aria-label={t('Delete {title}', { title: s.title })}
-          className="mt-3 flex flex-wrap items-center gap-2 text-caption text-fg"
-        >
-          <span className="min-w-0 flex-1">
-            {t('Delete this shoot for good?')}
-          </span>
-          <Button
-            size="sm"
-            variant="danger"
-            loading={saving}
-            onClick={onDelete}
+        <div className="mt-3 space-y-2">
+          <div
+            role="group"
+            aria-label={t('Delete {title}', { title: s.title })}
+            className="flex flex-wrap items-center gap-2 text-caption text-fg"
           >
-            {t('Delete')}
-          </Button>
-          <Button size="sm" variant="ghost" onClick={onClose}>
-            {t('Keep')}
-          </Button>
+            <span className="min-w-0 flex-1">
+              {t('Delete this shoot for good?')}
+            </span>
+            <Button
+              size="sm"
+              variant="danger"
+              loading={saving}
+              onClick={onDelete}
+            >
+              {t('Delete')}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={onClose} autoFocus>
+              {t('Keep')}
+            </Button>
+          </div>
+          {error ? <Alert tone="danger">{error}</Alert> : null}
         </div>
       ) : editable ? (
         <div className="mt-2 flex flex-wrap justify-end gap-1">
@@ -491,8 +542,12 @@ function ShootItem({
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => onOpen('done')}
-                aria-label={t('Mark {title} done', { title: s.title })}
+                onClick={() => {
+                  // Start from what is saved, not an abandoned draft.
+                  setShot(saved);
+                  onOpen('done');
+                }}
+                aria-label={t('Done: {title}', { title: s.title })}
               >
                 {t('Done')}
               </Button>
@@ -501,7 +556,7 @@ function ShootItem({
                 variant="ghost"
                 disabled={saving}
                 onClick={() => onStatus('cancelled', null)}
-                aria-label={t('Cancel {title}', { title: s.title })}
+                aria-label={t('Cancel shoot: {title}', { title: s.title })}
               >
                 {t('Cancel shoot')}
               </Button>
@@ -525,6 +580,12 @@ function ShootItem({
           >
             {t('Delete')}
           </Button>
+          {/* A one-click change (Cancel shoot, Reopen) that was refused. */}
+          {error ? (
+            <div className="w-full">
+              <Alert tone="danger">{error}</Alert>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </li>

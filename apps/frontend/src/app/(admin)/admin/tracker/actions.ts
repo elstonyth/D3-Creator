@@ -345,9 +345,13 @@ export async function addMember(
 
 /**
  * Take a person off the board. They are archived, never deleted: their
- * shoots and handovers keep a name. Their accounts fall back to Unassigned /
- * Nobody (recorded in the handover log as this admin's change), and a staff
- * login linked to them is switched off.
+ * shoots, videos and handovers keep a name. A staff login linked to them is
+ * switched off, their accounts fall back to Unassigned / Nobody (recorded in
+ * the handover log as this admin's change), and their open tasks go back to
+ * nobody. Video jobs and shoots stay as they are for the admin to hand on.
+ *
+ * Every step can be repeated, and archiving comes last: if a step fails the
+ * person is still on the board, and removing them again finishes the job.
  */
 export async function removeMember(id: string): Promise<ActionResult> {
   return guarded(async (me) => {
@@ -362,27 +366,7 @@ export async function removeMember(id: string): Promise<ActionResult> {
     if (findErr) return { ok: false, message: findErr.message };
     if (!person) return { ok: false, message: 'That person is already gone.' };
 
-    // Archive first: if a later step fails the board still hides them, and a
-    // card left pointing at them reads as unassigned.
-    const { error: archiveErr } = await admin
-      .from('tracker_member')
-      .update({ archived_at: new Date().toISOString(), user_id: null })
-      .eq('id', id);
-    if (archiveErr) return { ok: false, message: archiveErr.message };
-
-    const [handled, edited] = await Promise.all([
-      admin
-        .from('tracker_assignment')
-        .update({ handler_id: null, updated_by: me.userId })
-        .eq('handler_id', id),
-      admin
-        .from('tracker_assignment')
-        .update({ editor_id: null, updated_by: me.userId })
-        .eq('editor_id', id),
-    ]);
-    const clearErr = handled.error ?? edited.error;
-    if (clearErr) return { ok: false, message: clearErr.message };
-
+    // Access first: whatever fails below, the login already reaches nothing.
     if (person.user_id) {
       const { error: roleErr } = await admin
         .from('user_role')
@@ -391,6 +375,32 @@ export async function removeMember(id: string): Promise<ActionResult> {
         .in('role', ['staff', 'staff_pending']);
       if (roleErr) return { ok: false, message: roleErr.message };
     }
-    return { ok: true };
+
+    const cleared = await Promise.all([
+      admin
+        .from('tracker_assignment')
+        .update({ handler_id: null, updated_by: me.userId })
+        .eq('handler_id', id),
+      admin
+        .from('tracker_assignment')
+        .update({ editor_id: null, updated_by: me.userId })
+        .eq('editor_id', id),
+      // Nobody would ever see them; done ones keep the name as a record.
+      admin
+        .from('tracker_task')
+        .update({ assignee_id: null })
+        .eq('assignee_id', id)
+        .eq('done', false),
+    ]);
+    const clearErr = cleared.find((r) => r.error)?.error;
+    if (clearErr) return { ok: false, message: clearErr.message };
+
+    const { error: archiveErr } = await admin
+      .from('tracker_member')
+      .update({ archived_at: new Date().toISOString(), user_id: null })
+      .eq('id', id);
+    return archiveErr
+      ? { ok: false, message: archiveErr.message }
+      : { ok: true };
   });
 }

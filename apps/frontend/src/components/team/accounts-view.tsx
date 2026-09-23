@@ -9,6 +9,7 @@ import { formatCompact } from '@gitroom/frontend/lib/creator-metrics';
 import { ImageWithFallback } from '@gitroom/frontend/components/ui/image-with-fallback';
 import {
   PLATFORM_ICONS,
+  PLATFORM_LABELS,
   type PlatformKey,
 } from '@gitroom/frontend/components/ui/platform-icons';
 import type { AccountMonth } from '@gitroom/frontend/lib/team/load';
@@ -96,7 +97,17 @@ async function AccountList({
                     const key = platformKey(p);
                     if (!key) return null;
                     const Icon = PLATFORM_ICONS[key];
-                    return <Icon key={p} size={12} aria-label={p} />;
+                    // The icons are aria-hidden by default; these carry
+                    // meaning, so they are named images here.
+                    return (
+                      <Icon
+                        key={p}
+                        size={12}
+                        role="img"
+                        aria-hidden={false}
+                        aria-label={PLATFORM_LABELS[key]}
+                      />
+                    );
                   })}
                 </div>
                 <p className="mt-1.5 text-caption tnum text-fg-muted">

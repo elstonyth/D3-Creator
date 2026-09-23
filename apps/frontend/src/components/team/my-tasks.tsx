@@ -59,41 +59,47 @@ export function MyTasks({ tasks: initialTasks }: { tasks: MyTask[] }) {
       ) : (
         <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
           {[...open, ...done].map((task) => (
-            <li key={task.id} className="flex items-center gap-3 px-4 py-3">
+            <li key={task.id}>
+              {/* The whole row is the checkbox: a big target, named by its
+                  title. */}
               <button
                 type="button"
                 role="checkbox"
                 aria-checked={task.done}
-                aria-label={task.title}
                 onClick={() => toggle(task)}
-                className={
-                  task.done
-                    ? 'flex h-5 w-5 shrink-0 items-center justify-center rounded border border-fg-muted bg-fg-muted text-canvas focus-visible:outline-none focus-visible:shadow-focusRing'
-                    : 'flex h-5 w-5 shrink-0 items-center justify-center rounded border border-line-strong hover:border-fg-muted focus-visible:outline-none focus-visible:shadow-focusRing'
-                }
+                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-white/[0.04] focus-visible:outline-none focus-visible:shadow-focusRing"
               >
-                {task.done ? (
-                  <svg viewBox="0 0 12 12" className="h-3 w-3" aria-hidden>
-                    <path
-                      d="m2.5 6.2 2.2 2.2 4.8-4.9"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                ) : null}
+                <span
+                  aria-hidden
+                  className={
+                    task.done
+                      ? 'flex h-5 w-5 shrink-0 items-center justify-center rounded border border-fg-muted bg-fg-muted text-canvas'
+                      : 'flex h-5 w-5 shrink-0 items-center justify-center rounded border border-line-strong'
+                  }
+                >
+                  {task.done ? (
+                    <svg viewBox="0 0 12 12" className="h-3 w-3" aria-hidden>
+                      <path
+                        d="m2.5 6.2 2.2 2.2 4.8-4.9"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  ) : null}
+                </span>
+                <span
+                  className={
+                    task.done
+                      ? 'min-w-0 flex-1 break-words text-body text-fg-muted line-through'
+                      : 'min-w-0 flex-1 break-words text-body text-fg'
+                  }
+                >
+                  {task.title}
+                </span>
               </button>
-              <span
-                className={
-                  task.done
-                    ? 'min-w-0 flex-1 break-words text-body text-fg-muted line-through'
-                    : 'min-w-0 flex-1 break-words text-body text-fg'
-                }
-              >
-                {task.title}
-              </span>
             </li>
           ))}
         </ul>

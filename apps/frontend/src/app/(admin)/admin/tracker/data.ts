@@ -60,6 +60,11 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
   const dayAfterTomorrow = addDays(today, 2);
   const eventsTo =
     dayAfterTomorrow > nextMonthStart ? dayAfterTomorrow : nextMonthStart;
+  // Shoots and posting slots are many more rows than events, so they read the
+  // two windows themselves rather than the span between them: a month far
+  // from today must not push today's rows past the cap.
+  const windows = (col: string) =>
+    `and(${col}.gte.${monthStart},${col}.lt.${nextMonthStart}),and(${col}.gte.${today},${col}.lt.${dayAfterTomorrow})`;
 
   const [
     membersRes,
@@ -114,13 +119,14 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
         'creator_id, handler_id, editor_id, scheduled_posting, sort_order',
       ),
     admin.rpc('tracker_creator_month_stats', { p_from: from, p_to: to }),
-    // The staff portal's shoots and video posting slots, same window as the
-    // events so the calendar and the spotlight can show them.
+    // The staff portal's shoots and video posting slots, for the calendar
+    // and the spotlight.
     admin
       .from('tracker_shoot')
-      .select('id, shoot_date, start_time, title, status, member:tracker_member(name)')
-      .gte('shoot_date', eventsFrom)
-      .lt('shoot_date', eventsTo)
+      .select(
+        'id, shoot_date, start_time, title, status, member:tracker_member(name)',
+      )
+      .or(windows('shoot_date'))
       .neq('status', 'cancelled')
       .order('shoot_date')
       .order('start_time'),
@@ -129,8 +135,7 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
       .select(
         'id, post_date, post_time, title, posted_at, creator:creator(display_name), handler:tracker_member!tracker_video_handler_id_fkey(name)',
       )
-      .gte('post_date', eventsFrom)
-      .lt('post_date', eventsTo)
+      .or(windows('post_date'))
       .order('post_date')
       .order('post_time'),
   ]);
@@ -164,7 +169,7 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
   const creatorRows = must<CreatorRow[]>(creatorsRes, 'creators');
   // PostgREST types an embedded to-one as object or array depending on how
   // it reads the FK; take either.
-  const first = <T,>(v: T | T[] | null | undefined): T | null =>
+  const first = <T>(v: T | T[] | null | undefined): T | null =>
     Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
   const shootRows = must<
     {

@@ -451,7 +451,7 @@ function DayCell({
       </span>
       {count > 0 ? (
         <span
-          aria-label={t('{count} events', { count })}
+          aria-label={t('{count} items', { count })}
           className="absolute bottom-1.5 flex gap-0.5"
         >
           {Array.from({ length: Math.min(count, 3) }).map((_, i) => (
@@ -813,7 +813,7 @@ function TaskRow({
             aria-label={t('Give {title} to', { title: task.title })}
             className={cn(s.field, 'mt-1.5 h-7 max-w-full px-2 text-caption')}
           >
-            <option value="">{t('For: anyone')}</option>
+            <option value="">{t('Not given to anyone')}</option>
             {members.map((m) => (
               <option key={m.id} value={m.id}>
                 {t('For: {name}', { name: m.name })}

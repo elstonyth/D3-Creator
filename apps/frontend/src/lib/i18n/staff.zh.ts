@@ -21,7 +21,10 @@ export const staffZh: Readonly<Record<string, string>> = {
     '请使用你自己的邮箱。新账号需管理员审批后才能查看团队行程。',
   'If {email} is new, a confirmation link is on its way. Open it, and an admin approves your account before you see the team’s work.':
     '如果 {email} 是新邮箱，确认链接已发出。打开链接后，管理员审批通过即可查看团队工作。',
-  'D3 team portal. Creators and members sign in at': 'D3 团队门户。创作者和会员请在此登录：',
+  'D3 team portal. Creators and members sign in at':
+    'D3 团队门户。创作者和会员请在此登录：',
+  '{email} is already registered. If it is your staff account, sign in. If you use it for D3 classes or the Studio, sign up for staff with a different email.':
+    '{email} 已注册。如果这是你的员工账号，请直接登录；如果它是你上 D3 课程或使用 Studio 的账号，请换一个邮箱注册员工账号。',
 
   // ---- Week schedule ------------------------------------------------------
   'Previous week': '上一周',
@@ -34,14 +37,14 @@ export const staffZh: Readonly<Record<string, string>> = {
   '+ Add': '+ 添加',
   'Add a shoot on {day}': '在{day}添加拍摄',
   '{count} videos planned': '计划 {count} 条视频',
-  Done: '已完成',
+  Done: '完成',
   'Done · {count} videos': '已完成 · {count} 条视频',
   Cancelled: '已取消',
   Edit: '编辑',
   'Edit {title}': '编辑 {title}',
-  'Mark {title} done': '标记 {title} 为已完成',
+  'Done: {title}': '完成：{title}',
   'Cancel shoot': '取消拍摄',
-  'Cancel {title}': '取消 {title}',
+  'Cancel shoot: {title}': '取消拍摄：{title}',
   Reopen: '恢复',
   'Reopen {title}': '恢复 {title}',
   'Delete {title}': '删除 {title}',
@@ -66,14 +69,19 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Say where or what you are shooting (up to 200 characters).':
     '请填写拍摄地点或内容（最多 200 字）。',
   'Invalid account.': '账号无效。',
-  'Videos must be a whole number from 0 to 99.': '视频数必须是 0 到 99 的整数。',
+  'Videos must be a whole number from 0 to 99.':
+    '视频数必须是 0 到 99 的整数。',
   'Invalid note.': '备注无效。',
   'Notes are limited to 1,000 characters.': '备注最多 1000 字。',
   'Invalid shoot.': '拍摄记录无效。',
   'Pick a person.': '请选择人员。',
   'That person is not on the board.': '此人不在看板上。',
-  'That shoot is not yours, or it is already gone.':
-    '这条拍摄不是你的，或已被删除。',
+  'You can only change your own shoots, from this month on. Ask an admin.':
+    '只能修改你自己本月起的拍摄。更早的请找管理员。',
+  'That shoot is already gone.': '这条拍摄已被删除。',
+  'Shoots before this month are closed. Ask an admin.':
+    '本月以前的拍摄已结算，请找管理员。',
+  '{name} (left)': '{name}（已离开）',
   'Invalid status.': '状态无效。',
 
   // ---- Staff portal chrome and pages --------------------------------------
@@ -93,11 +101,13 @@ export const staffZh: Readonly<Record<string, string>> = {
   'When and where everyone is shooting this week. Add yours — the team and the admin see it straight away.':
     '本周每个人在哪里、几点拍摄。加上你的行程——团队和管理员马上就能看到。',
   'What you look after': '你负责的账号',
-  'Output for {month}, from the scraped posts.': '{month} 的数据，来自抓取的帖子。',
+  'Output for {month}, from the scraped posts.':
+    '{month} 的数据，来自抓取的帖子。',
   'Your record': '你的工作记录',
   'Every shoot you logged, the videos that came out of them, and the accounts you held that month.':
     '你记录的每次拍摄、产出的视频，以及当月负责的账号。',
-  'Your account is not linked to anyone yet.': '你的账号还没有关联到看板上的人员。',
+  'Your account is not linked to anyone yet.':
+    '你的账号还没有关联到看板上的人员。',
   'An admin links each staff login to a person on the work board. Ask them to link yours on the Team page.':
     '管理员会把每个员工账号关联到工作看板上的人员。请让管理员在团队页为你关联。',
   'Almost there': '就快好了',
@@ -117,7 +127,7 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Tasks from the admin': '管理员交代的任务',
   'No tasks for you right now.': '目前没有你的任务。',
   'Give {title} to': '把「{title}」交给',
-  'For: anyone': '交给：任何人',
+  'Not given to anyone': '未指派',
   'For: {name}': '交给：{name}',
   'That task is not yours, or it is gone.': '这个任务不是你的，或已被删除。',
   'That task is gone.': '这个任务已被删除。',
@@ -143,19 +153,21 @@ export const staffZh: Readonly<Record<string, string>> = {
   'done {day}': '{day} 完成',
   'Edited video': '剪好的视频',
   editing: '剪辑中',
-  'posted {day}': '{day} 发布',
+  'posted {day}': '{day} 已发布',
   'Live post': '已发布的帖子',
   'goes out {day}': '{day} 发布',
   'not scheduled': '未排期',
   'Link to the edited video': '剪好视频的链接',
   'Link to the live post': '已发布帖子的链接',
   'Delete this video job for good?': '确定永久删除这条视频工作？',
-  'Edit done: {title}': '剪辑完成：{title}',
+  'Done editing: {title}': '完成剪辑：{title}',
   'Undo edit': '撤回剪辑完成',
   'Undo edit: {title}': '撤回剪辑完成：{title}',
-  'Schedule {title}': '为「{title}」排期',
+  'Schedule post': '排期',
+  'Schedule post: {title}': '排期：{title}',
   Reschedule: '改期',
-  'Posted: {title}': '已发布：{title}',
+  'Reschedule: {title}': '改期：{title}',
+  'Done posting: {title}': '完成发布：{title}',
   'Undo post: {title}': '撤回发布：{title}',
   Undo: '撤回',
   Change: '修改',
@@ -163,6 +175,8 @@ export const staffZh: Readonly<Record<string, string>> = {
   'That video is not yours to change, or it has moved on.':
     '这条视频不归你改，或已进入下一步。',
   'Only an admin can do that.': '只有管理员可以这样做。',
+  'You can only take back your own Done from this month. Ask an admin.':
+    '只能撤回你自己本月的「完成」。更早的请找管理员。',
   'Paste the link to the edited video (starting with https://).':
     '请贴上剪好视频的链接（以 https:// 开头）。',
   'Paste the link to the live post (starting with https://).':
@@ -172,7 +186,8 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Invalid video.': '视频无效。',
   'That video is already gone.': '这条视频已被删除。',
   'Pick the account the video is for.': '请选择视频所属的账号。',
-  'Say which video this is (up to 200 characters).': '请说明是哪条视频（最多 200 字）。',
+  'Say which video this is (up to 200 characters).':
+    '请说明是哪条视频（最多 200 字）。',
   'Give the video to an editor or a handler.': '请把视频交给一位剪辑或负责人。',
   'Invalid person.': '人员无效。',
 
@@ -199,6 +214,7 @@ export const staffZh: Readonly<Record<string, string>> = {
   handler: '负责人',
   editor: '剪辑',
   nobody: '无人',
+  '{role}: {from} → {to}': '{role}：{from} → {to}',
   'Videos done': '已完成的视频',
   Edited: '已剪辑',
   Posted: '已发布',
@@ -220,7 +236,8 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Waiting for approval': '等待审批',
   'Nobody is waiting. New staff sign up at staff.d3creator.com.':
     '没有待审批的人。新员工在 staff.d3creator.com 注册。',
-  'Signed up {when} as “{name}”, {job}.': '{when} 注册，名字「{name}」，职位：{job}。',
+  'Signed up {when} as “{name}”, {job}.':
+    '{when} 注册，名字「{name}」，职位：{job}。',
   'Approve as': '审批为',
   'New person': '新人员',
   'Someone already on the board': '看板上已有的人员',
@@ -233,6 +250,7 @@ export const staffZh: Readonly<Record<string, string>> = {
     '本月至今。打开人员资料可查看数字背后的视频、链接和拍摄。',
   'Open profile': '查看资料',
   'Remove login': '移除登录',
+  'Remove login: {name}': '移除登录：{name}',
   'Take away {name}’s login': '移除 {name} 的登录',
   '{name} keeps their place and history, but can no longer sign in to the staff portal.':
     '{name} 仍保留在看板上和工作记录中，但无法再登录员工门户。',
@@ -245,9 +263,11 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Name is required (max 40 chars).': '请填写名字（最多 40 字）。',
   'Invalid person type.': '人员类型无效。',
   'That person has no login.': '此人没有登录账号。',
+  'Could not finish approving. Try again.': '审批未完成，请再试一次。',
 
   // ---- Tracker calendar -------------------------------------------------------
   Shoot: '拍摄',
   Post: '发布',
-  'Going out': '今日发布',
+  'Going out': '当天发布',
+  '{count} items': '{count} 项',
 };

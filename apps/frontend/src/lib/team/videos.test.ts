@@ -1,7 +1,9 @@
 import {
   doneCounts,
+  finishedBy,
   parseLink,
   parseVideoInput,
+  posterOf,
   safeHref,
   videoStage,
   type Video,
@@ -9,6 +11,7 @@ import {
 
 const ALI = 'aaaaaaaa-0000-4000-8000-000000000009';
 const KEE = 'aaaaaaaa-0000-4000-8000-000000000001';
+const ZU = 'aaaaaaaa-0000-4000-8000-000000000002';
 const ACC = 'bbbbbbbb-0000-4000-8000-000000000001';
 
 function video(patch: Partial<Video> = {}): Video {
@@ -20,10 +23,12 @@ function video(patch: Partial<Video> = {}): Video {
     editorId: ALI,
     handlerId: KEE,
     editedAt: null,
+    editedBy: null,
     editLink: null,
     postDate: null,
     postTime: null,
     postedAt: null,
+    postedBy: null,
     postLink: null,
     createdAt: '2026-09-20T02:00:00+00:00',
     ...patch,
@@ -131,18 +136,43 @@ describe('doneCounts', () => {
   const from = '2026-09-01T00:00:00+08:00';
   const to = '2026-10-01T00:00:00+08:00';
 
-  it('counts each Done in the month it was clicked, for whoever clicked it', () => {
+  it('counts each Done in the month it was clicked, for whoever it was stamped with', () => {
+    const edit = (at: string) => ({ editedAt: at, editedBy: ALI });
+    const post = (at: string) => ({ postedAt: at, postedBy: KEE });
     const list = [
       video({
         id: 'a',
-        editedAt: '2026-09-05T02:00:00Z',
-        postedAt: '2026-09-06T02:00:00Z',
+        ...edit('2026-09-05T02:00:00Z'),
+        ...post('2026-09-06T02:00:00Z'),
       }),
-      video({ id: 'b', editedAt: '2026-09-30T17:00:00Z' }), // 1 Oct in Malaysia
-      video({ id: 'c', editedAt: '2026-08-31T15:59:00Z' }), // 31 Aug in Malaysia
-      video({ id: 'd', editorId: null, postedAt: '2026-09-10T02:00:00Z' }),
+      video({ id: 'b', ...edit('2026-09-30T17:00:00Z') }), // 1 Oct in Malaysia
+      video({ id: 'c', ...edit('2026-08-31T15:59:00Z') }), // 31 Aug in Malaysia
+      video({ id: 'd', editorId: null, ...post('2026-09-10T02:00:00Z') }),
     ];
     expect(doneCounts(list, ALI, from, to)).toEqual({ edited: 1, posted: 0 });
     expect(doneCounts(list, KEE, from, to)).toEqual({ edited: 0, posted: 2 });
+  });
+
+  it('keeps the credit where it was earned when the job changes hands', () => {
+    // ALI finished the edit, then the admin gave the job to someone else.
+    const moved = video({
+      editorId: ZU,
+      handlerId: ZU,
+      editedAt: '2026-09-05T02:00:00Z',
+      editedBy: ALI,
+      postedAt: '2026-09-06T02:00:00Z',
+      postedBy: KEE,
+    });
+    expect(finishedBy([moved], ALI, from, to).edited).toHaveLength(1);
+    expect(finishedBy([moved], KEE, from, to).posted).toHaveLength(1);
+    expect(doneCounts([moved], ZU, from, to)).toEqual({ edited: 0, posted: 0 });
+  });
+});
+
+describe('posterOf', () => {
+  it('is the handler, or the editor on a job with no handler', () => {
+    expect(posterOf(video())).toBe(KEE);
+    expect(posterOf(video({ handlerId: null }))).toBe(ALI);
+    expect(posterOf(video({ handlerId: null, editorId: null }))).toBeNull();
   });
 });

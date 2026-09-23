@@ -153,9 +153,13 @@ create index tracker_task_assignee_idx on public.tracker_task (assignee_id)
 
 -- One video for one account, through two hands: the editor cuts it and
 -- clicks Done with a link to the cut; the handler schedules the post and
--- clicks Done with a link to the live post. The two Done stamps are what the
--- console counts per person per month. Either hand can be empty (an account
--- nobody edits, or a video posted by whoever edited it).
+-- clicks Done with a link to the live post. Either hand can be empty: an
+-- account nobody edits, or a job with no handler, which its editor posts.
+--
+-- Each Done is stamped with when and with whom it counts for (edited_by,
+-- posted_by). Those stamps are what the console counts per person per month,
+-- so reassigning a job or archiving someone later never moves work they had
+-- already finished.
 create table public.tracker_video (
   id          uuid primary key default gen_random_uuid(),
   creator_id  uuid references public.creator (id) on delete set null,
@@ -164,22 +168,63 @@ create table public.tracker_video (
   editor_id   uuid references public.tracker_member (id) on delete restrict,
   handler_id  uuid references public.tracker_member (id) on delete restrict,
   edited_at   timestamptz,
+  edited_by   uuid references public.tracker_member (id) on delete restrict,
   edit_link   text check (char_length(edit_link) <= 500),
   post_date   date,
   post_time   time,
   posted_at   timestamptz,
+  posted_by   uuid references public.tracker_member (id) on delete restrict,
   post_link   text check (char_length(post_link) <= 500),
   created_by  uuid references auth.users (id) on delete set null,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
 
-create index tracker_video_editor_idx  on public.tracker_video (editor_id, edited_at);
-create index tracker_video_handler_idx on public.tracker_video (handler_id, posted_at);
-create index tracker_video_created_idx on public.tracker_video (created_at desc);
+create index tracker_video_editor_idx    on public.tracker_video (editor_id, edited_at);
+create index tracker_video_handler_idx   on public.tracker_video (handler_id, posted_at);
+create index tracker_video_edited_by_idx on public.tracker_video (edited_by, edited_at);
+create index tracker_video_posted_by_idx on public.tracker_video (posted_by, posted_at);
+create index tracker_video_created_idx   on public.tracker_video (created_at desc);
 
 create trigger tracker_video_updated_at before update on public.tracker_video
   for each row execute function public.set_updated_at();
+
+-- The stamps belong to the database, not the app: set from the job's people
+-- at the moment a Done appears, cleared when it is taken back, and left alone
+-- by every other write.
+create or replace function public.stamp_tracker_video_credit()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.edited_at is null then
+    new.edited_by := null;
+  elsif tg_op = 'INSERT' then
+    new.edited_by := new.editor_id;
+  elsif old.edited_at is null then
+    new.edited_by := new.editor_id;
+  else
+    new.edited_by := old.edited_by;
+  end if;
+
+  if new.posted_at is null then
+    new.posted_by := null;
+  elsif tg_op = 'INSERT' then
+    new.posted_by := coalesce(new.handler_id, new.editor_id);
+  elsif old.posted_at is null then
+    new.posted_by := coalesce(new.handler_id, new.editor_id);
+  else
+    new.posted_by := old.posted_by;
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger tracker_video_credit
+  before insert or update on public.tracker_video
+  for each row execute function public.stamp_tracker_video_credit();
 
 -- 7. Lock down --------------------------------------------------------------
 
@@ -189,3 +234,4 @@ alter table public.tracker_shoot          enable row level security;
 alter table public.tracker_assignment_log enable row level security;
 alter table public.tracker_video          enable row level security;
 revoke execute on function public.log_tracker_assignment() from public, anon, authenticated;
+revoke execute on function public.stamp_tracker_video_credit() from public, anon, authenticated;

@@ -75,7 +75,11 @@ export default async function AdminPersonPage({
     loadShoots(days.from, days.to, id),
     loadRoster(),
     loadAccountsAt(id, month, people),
-    loadVideosDone(new Date(from).toISOString(), new Date(to).toISOString()),
+    loadVideosDone(
+      new Date(from).toISOString(),
+      new Date(to).toISOString(),
+      id,
+    ),
     admin.from('tracker_member').select('user_id').eq('id', id).maybeSingle(),
   ]);
   const userId = login.data?.user_id as string | null | undefined;

@@ -32,7 +32,12 @@ describe('hostRoute', () => {
     // A portal host serves its tree from the root.
     [ADMIN, '/', '', { appPath: '/admin' }],
     [ADMIN, '/tracker', '', { appPath: '/admin/tracker' }],
-    [ADMIN, '/admin/tracker', '?day=1', { redirect: '/tracker?day=1' }],
+    [
+      ADMIN,
+      '/admin/tracker',
+      '?day=1',
+      { redirect: 'https://admin.d3creator.com/tracker?day=1' },
+    ],
     [ADMIN, '/signup', '', { redirect: 'https://www.d3creator.com/signup' }],
     [ADMIN, '/login', '', { appPath: '/login' }],
     [STAFF, '/', '', { appPath: '/staff' }],
@@ -41,9 +46,22 @@ describe('hostRoute', () => {
       STAFF,
       '/staff/history',
       '?month=2026-08',
-      { redirect: '/history?month=2026-08' },
+      { redirect: 'https://staff.d3creator.com/history?month=2026-08' },
     ],
-    [STAFF, '/staff', '', { redirect: '/' }],
+    [STAFF, '/staff', '', { redirect: 'https://staff.d3creator.com/' }],
+    // Never a protocol-relative hop off the host.
+    [
+      STAFF,
+      '/staff//evil.com',
+      '',
+      { redirect: 'https://staff.d3creator.com//evil.com' },
+    ],
+    [
+      DEV_STAFF,
+      '/staff/\evil.com',
+      '',
+      { redirect: 'http://staff.localhost:4200/\evil.com' },
+    ],
     // Staff DO sign up on their own host.
     [STAFF, '/signup', '', { appPath: '/signup' }],
     [DEV_STAFF, '/pending', '', { appPath: '/staff/pending' }],

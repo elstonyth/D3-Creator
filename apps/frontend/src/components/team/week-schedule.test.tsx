@@ -80,11 +80,15 @@ const MINE = shoot(1, KEE, '2026-09-22', '19:30', 'Hotpot shop', {
 });
 const THEIRS = shoot(2, ZUWEI, '2026-09-24', null, 'Furniture shop');
 
-function renderWeek(meId: string | null, shoots = [MINE, THEIRS]) {
+function renderWeek(
+  meId: string | null,
+  shoots = [MINE, THEIRS],
+  { start = '2026-09-21', today = '2026-09-23' } = {},
+) {
   return render(
     <WeekSchedule
-      start="2026-09-21"
-      today="2026-09-23"
+      start={start}
+      today={today}
       shoots={shoots}
       people={people}
       accounts={accounts}
@@ -98,11 +102,13 @@ beforeEach(() => jest.clearAllMocks());
 
 it('lets staff change only their own shoots, and names the others', () => {
   renderWeek(KEE);
+  expect(screen.getByRole('button', { name: 'Edit Hotpot shop' })).toBeTruthy();
   expect(
-    screen.getByRole('button', { name: 'Edit Hotpot shop' }),
-  ).toBeTruthy();
-  expect(screen.queryByRole('button', { name: 'Edit Furniture shop' })).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Delete Furniture shop' })).toBeNull();
+    screen.queryByRole('button', { name: 'Edit Furniture shop' }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole('button', { name: 'Delete Furniture shop' }),
+  ).toBeNull();
   const thursday = screen.getByRole('region', { name: /Thursday/ });
   expect(within(thursday).getByText('ZUWEI')).toBeTruthy();
   // My own shoot does not repeat my name.
@@ -181,9 +187,7 @@ it('marks a shoot done with how many videos came out of it', async () => {
     shoot: { ...MINE, status: 'done', videosShot: 2 },
   });
   renderWeek(KEE);
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Mark Hotpot shop done' }),
-  );
+  fireEvent.click(screen.getByRole('button', { name: 'Done: Hotpot shop' }));
   const box = screen.getByLabelText('Videos shot') as HTMLInputElement;
   expect(box.value).toBe('3'); // starts from the plan
   fireEvent.change(box, { target: { value: '2' } });
@@ -197,10 +201,10 @@ it('marks a shoot done with how many videos came out of it', async () => {
 
 it('lets the admin change anyone and choose the person when adding', () => {
   renderWeek(null);
-  expect(screen.getByRole('button', { name: 'Edit Furniture shop' })).toBeTruthy();
   expect(
-    screen.getByRole('button', { name: 'Edit Hotpot shop' }),
+    screen.getByRole('button', { name: 'Edit Furniture shop' }),
   ).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Edit Hotpot shop' })).toBeTruthy();
   fireEvent.click(
     screen.getByRole('button', { name: 'Add a shoot on Monday' }),
   );
@@ -215,4 +219,40 @@ it('lets the admin change anyone and choose the person when adding', () => {
     target: { value: ZUWEI },
   });
   expect(save.disabled).toBe(false);
+});
+
+it('keeps staff out of last month, which an admin has counted', () => {
+  const lastMonth = shoot(4, KEE, '2026-08-31', '10:00', 'Café visit');
+  const thisMonth = shoot(5, KEE, '2026-09-01', '10:00', 'Hotpot shop');
+  const week = { start: '2026-08-31', today: '2026-09-02' };
+  renderWeek(KEE, [lastMonth, thisMonth], week);
+  expect(screen.queryByRole('button', { name: 'Edit Café visit' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Done: Café visit' })).toBeNull();
+  expect(
+    screen.getByRole('button', { name: 'Done: Hotpot shop' }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole('button', { name: 'Add a shoot on Monday' }),
+  ).toBeNull();
+  expect(
+    screen.getByRole('button', { name: 'Add a shoot on Tuesday' }),
+  ).toBeTruthy();
+});
+
+it('shows a refused one-click change on that shoot', async () => {
+  (setShootStatus as jest.Mock).mockResolvedValue({
+    ok: false,
+    message:
+      'You can only change your own shoots, from this month on. Ask an admin.',
+  });
+  renderWeek(KEE);
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Cancel shoot: Hotpot shop' }),
+    );
+  });
+  const tuesday = screen.getByRole('region', { name: /Tuesday/ });
+  expect(within(tuesday).getByRole('alert').textContent).toContain(
+    'from this month on',
+  );
 });

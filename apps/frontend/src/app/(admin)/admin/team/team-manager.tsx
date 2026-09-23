@@ -5,10 +5,13 @@
  * a new person on the board (named and placed as they asked, editable here)
  * or linked to a person already on it; the team list shows each person's
  * month so far and opens their profile.
+ *
+ * One action at a time. The card that acted stays busy until the refreshed
+ * page arrives, so it cannot be clicked twice; a refusal is shown on it.
  */
 
 import Link from 'next/link';
-import { useState, type FormEvent } from 'react';
+import { useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { Alert } from '@gitroom/frontend/components/ui/alert';
@@ -55,35 +58,45 @@ export function TeamManager({
 }) {
   const { t } = useI18n();
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(
-    null,
-  );
+  const [inFlight, startTransition] = useTransition();
+  // Which action is running, e.g. `approve:<userId>` or `unlink:<memberId>`.
+  const [acting, setActing] = useState<string | null>(null);
+  // A success shows at the top (its card may be gone after the refresh); a
+  // refusal shows on the card it came from.
+  const [message, setMessage] = useState<{
+    at: string;
+    ok: boolean;
+    text: string;
+  } | null>(null);
   const [confirmUnlink, setConfirmUnlink] = useState<string | null>(null);
 
-  async function run(call: () => Promise<TeamResult>, done: string) {
-    setBusy(true);
+  function run(at: string, call: () => Promise<TeamResult>, done: string) {
+    setActing(at);
     setMessage(null);
-    const r = await call();
-    setBusy(false);
-    setMessage(
-      r.ok
-        ? { ok: true, text: done }
-        : { ok: false, text: r.message ?? 'Could not save. Try again.' },
-    );
-    if (r.ok) {
-      setConfirmUnlink(null);
-      router.refresh();
-    }
+    startTransition(async () => {
+      const r = await call();
+      startTransition(() => {
+        if (!r.ok) {
+          setMessage({
+            at,
+            ok: false,
+            text: r.message ?? 'Could not save. Try again.',
+          });
+          return;
+        }
+        setMessage({ at, ok: true, text: done });
+        setConfirmUnlink(null);
+        router.refresh();
+      });
+    });
   }
+  const busy = (at: string) => inFlight && acting === at;
+  const refusal = (...at: string[]) =>
+    message && !message.ok && at.includes(message.at) ? t(message.text) : null;
 
   return (
     <div className="space-y-10">
-      {message ? (
-        <Alert tone={message.ok ? 'success' : 'danger'}>
-          {t(message.text)}
-        </Alert>
-      ) : null}
+      {message?.ok ? <Alert tone="success">{t(message.text)}</Alert> : null}
 
       <section aria-label={t('Waiting for approval')} className="space-y-3">
         <h2 className="text-heading text-fg">
@@ -103,15 +116,23 @@ export function TeamManager({
                 key={p.userId}
                 signup={p}
                 unlinked={unlinked}
-                busy={busy}
+                locked={inFlight}
+                approving={busy(`approve:${p.userId}`)}
+                rejecting={busy(`reject:${p.userId}`)}
+                error={refusal(`approve:${p.userId}`, `reject:${p.userId}`)}
                 onApprove={(target) =>
                   run(
+                    `approve:${p.userId}`,
                     () => approveStaff(p.userId, target),
                     'Approved. They can sign in now.',
                   )
                 }
                 onReject={() =>
-                  run(() => rejectStaff(p.userId), 'Turned away.')
+                  run(
+                    `reject:${p.userId}`,
+                    () => rejectStaff(p.userId),
+                    'Turned away.',
+                  )
                 }
               />
             ))}
@@ -127,92 +148,110 @@ export function TeamManager({
           )}
         </p>
         <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
-          {team.map((m) => (
-            <li key={m.id} className="px-4 py-3">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                <div className="min-w-0 flex-1">
-                  <p className="flex flex-wrap items-center gap-2 text-label text-fg">
-                    {m.name}
-                    <Pill tone="muted">
-                      {m.kind === 'editor' ? t('Editor') : t('Handler')}
-                    </Pill>
-                  </p>
-                  <p className="mt-0.5 break-all text-caption text-fg-subtle">
-                    {m.email ?? t('No login yet')}
-                  </p>
+          {team.map((m) => {
+            const error = refusal(`unlink:${m.id}`);
+            return (
+              <li key={m.id} className="px-4 py-3">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="flex flex-wrap items-center gap-2 text-label text-fg">
+                      {m.name}
+                      <Pill tone="muted">
+                        {m.kind === 'editor' ? t('Editor') : t('Handler')}
+                      </Pill>
+                    </p>
+                    <p className="mt-0.5 break-all text-caption text-fg-subtle">
+                      {m.email ?? t('No login yet')}
+                    </p>
+                  </div>
+                  <dl className="flex gap-5 text-caption">
+                    <div>
+                      <dt className="text-fg-subtle">{t('Edited')}</dt>
+                      <dd className="text-heading tnum text-fg">{m.edited}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-fg-subtle">{t('Posted')}</dt>
+                      <dd className="text-heading tnum text-fg">{m.posted}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-fg-subtle">{t('Shoots')}</dt>
+                      <dd className="text-heading tnum text-fg">
+                        {m.shootsDone}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="flex w-full items-center justify-end gap-1 sm:w-64">
+                    <Link
+                      href={m.profileHref}
+                      className="rounded-md px-3 py-1.5 text-label text-fg hover:bg-white/[0.04] focus-visible:outline-none focus-visible:shadow-focusRing"
+                    >
+                      {t('Open profile')} →
+                    </Link>
+                    {m.email ? (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={inFlight}
+                        onClick={() => {
+                          setMessage(null);
+                          setConfirmUnlink(m.id);
+                        }}
+                        aria-label={t('Remove login: {name}', {
+                          name: m.name,
+                        })}
+                      >
+                        {t('Remove login')}
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
-                <dl className="flex gap-5 text-caption">
-                  <div>
-                    <dt className="text-fg-subtle">{t('Edited')}</dt>
-                    <dd className="text-heading tnum text-fg">{m.edited}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-fg-subtle">{t('Posted')}</dt>
-                    <dd className="text-heading tnum text-fg">{m.posted}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-fg-subtle">{t('Shoots')}</dt>
-                    <dd className="text-heading tnum text-fg">
-                      {m.shootsDone}
-                    </dd>
-                  </div>
-                </dl>
-                <div className="flex w-full items-center justify-end gap-1 sm:w-64">
-                  <Link
-                    href={m.profileHref}
-                    className="rounded-md px-3 py-1.5 text-label text-fg hover:bg-white/[0.04] focus-visible:outline-none focus-visible:shadow-focusRing"
+                {confirmUnlink === m.id ? (
+                  <div
+                    role="group"
+                    aria-label={t('Take away {name}’s login', { name: m.name })}
+                    className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-line-strong bg-surface-subtle px-3 py-2 text-caption text-fg"
                   >
-                    {t('Open profile')} →
-                  </Link>
-                  {m.email ? (
+                    <span className="min-w-0 flex-1">
+                      {t(
+                        '{name} keeps their place and history, but can no longer sign in to the staff portal.',
+                        {
+                          name: m.name,
+                        },
+                      )}
+                    </span>
                     <Button
                       size="sm"
-                      variant="ghost"
-                      onClick={() => setConfirmUnlink(m.id)}
-                      aria-label={t('Take away {name}’s login', {
-                        name: m.name,
-                      })}
+                      variant="danger"
+                      loading={busy(`unlink:${m.id}`)}
+                      disabled={inFlight}
+                      onClick={() =>
+                        run(
+                          `unlink:${m.id}`,
+                          () => unlinkStaff(m.id),
+                          'Login removed.',
+                        )
+                      }
                     >
                       {t('Remove login')}
                     </Button>
-                  ) : null}
-                </div>
-              </div>
-              {confirmUnlink === m.id ? (
-                <div
-                  role="group"
-                  aria-label={t('Take away {name}’s login', { name: m.name })}
-                  className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-line-strong bg-surface-subtle px-3 py-2 text-caption text-fg"
-                >
-                  <span className="min-w-0 flex-1">
-                    {t(
-                      '{name} keeps their place and history, but can no longer sign in to the staff portal.',
-                      {
-                        name: m.name,
-                      },
-                    )}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    loading={busy}
-                    onClick={() =>
-                      run(() => unlinkStaff(m.id), 'Login removed.')
-                    }
-                  >
-                    {t('Remove login')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setConfirmUnlink(null)}
-                  >
-                    {t('Keep')}
-                  </Button>
-                </div>
-              ) : null}
-            </li>
-          ))}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setConfirmUnlink(null)}
+                      autoFocus
+                    >
+                      {t('Keep')}
+                    </Button>
+                  </div>
+                ) : null}
+                {error ? (
+                  <div className="mt-3">
+                    <Alert tone="danger">{error}</Alert>
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       </section>
     </div>
@@ -222,13 +261,21 @@ export function TeamManager({
 function PendingCard({
   signup: p,
   unlinked,
-  busy,
+  locked,
+  approving,
+  rejecting: turningAway,
+  error,
   onApprove,
   onReject,
 }: {
   signup: PendingSignup;
   unlinked: { id: string; name: string }[];
-  busy: boolean;
+  /** Some action is running: nothing else may start. */
+  locked: boolean;
+  approving: boolean;
+  rejecting: boolean;
+  /** Why this card's last action was refused. */
+  error: string | null;
   onApprove: (
     target: { memberId: string } | { name: string; kind: MemberKind },
   ) => void;
@@ -244,7 +291,7 @@ function PendingCard({
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (!ready) return;
+    if (!ready || locked) return;
     onApprove(mode === 'new' ? { name, kind } : { memberId });
   }
 
@@ -327,6 +374,8 @@ function PendingCard({
           </Field>
         )}
 
+        {error ? <Alert tone="danger">{error}</Alert> : null}
+
         {rejecting ? (
           <div className="flex flex-wrap items-center gap-2 text-caption text-fg">
             <span className="min-w-0 flex-1">
@@ -336,7 +385,8 @@ function PendingCard({
               type="button"
               size="sm"
               variant="danger"
-              loading={busy}
+              loading={turningAway}
+              disabled={locked}
               onClick={onReject}
             >
               {t('Turn away')}
@@ -346,6 +396,7 @@ function PendingCard({
               size="sm"
               variant="ghost"
               onClick={() => setRejecting(false)}
+              autoFocus
             >
               {t('Keep')}
             </Button>
@@ -356,11 +407,20 @@ function PendingCard({
               type="button"
               size="sm"
               variant="ghost"
+              disabled={locked}
               onClick={() => setRejecting(true)}
             >
               {t('Turn away')}
             </Button>
-            <Button type="submit" size="sm" loading={busy} disabled={!ready}>
+            {/* Not yellow: with several signups waiting, the page would have
+                one per card. */}
+            <Button
+              type="submit"
+              size="sm"
+              variant="secondary"
+              loading={approving}
+              disabled={!ready || locked}
+            >
               {t('Approve')}
             </Button>
           </div>

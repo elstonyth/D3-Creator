@@ -162,10 +162,17 @@ export function SignUpForm({
       <div className="space-y-5">
         <Alert tone="info" title={t('You already have an account.')}>
           <span className="break-words text-fg">
-            {t(
-              '{email} is already registered, so there is no new link to send. Sign in with your password, or reset it if it has slipped your mind.',
-              { email: taken }
-            )}
+            {/* On the staff host, a member or creator login would sign in to
+                the public site, not the portal: say so. */}
+            {portal
+              ? t(
+                  '{email} is already registered. If it is your staff account, sign in. If you use it for D3 classes or the Studio, sign up for staff with a different email.',
+                  { email: taken },
+                )
+              : t(
+                  '{email} is already registered, so there is no new link to send. Sign in with your password, or reset it if it has slipped your mind.',
+                  { email: taken },
+                )}
           </span>
         </Alert>
 
@@ -206,11 +213,11 @@ export function SignUpForm({
             {portal
               ? t(
                   'If {email} is new, a confirmation link is on its way. Open it, and an admin approves your account before you see the team’s work.',
-                  { email: sentTo }
+                  { email: sentTo },
                 )
               : t(
                   'If {email} is new, a confirmation link is on its way — open it and you land straight in the Studio.',
-                  { email: sentTo }
+                  { email: sentTo },
                 )}
           </span>
         </Alert>

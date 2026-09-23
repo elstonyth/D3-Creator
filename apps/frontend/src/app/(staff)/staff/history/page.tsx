@@ -55,7 +55,7 @@ export default async function StaffHistoryPage({ searchParams }: PageProps) {
       loadShoots(from, to, staff.memberId),
       loadRoster(),
       loadAccountsAt(staff.memberId, month, people),
-      loadVideosDone(start, end),
+      loadVideosDone(start, end, staff.memberId),
     ]);
     const mine = finishedBy(videos, staff.memberId, start, end);
     const accountName = new Map(roster.map((a) => [a.id, a.name]));

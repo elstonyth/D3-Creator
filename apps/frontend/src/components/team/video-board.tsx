@@ -6,8 +6,8 @@
  * ones; a staff member sees the jobs they edit or post and moves only their
  * own step — Done with a link, or taking it back.
  *
- * Saves wait for the server (each is one small write) and keep the step open
- * with the reason when refused.
+ * Saves wait for the server (each is one small write). A refusal is shown on
+ * the job it belongs to, with its step still open.
  */
 
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
@@ -19,6 +19,7 @@ import { Pill } from './pill';
 import { Button } from '@gitroom/frontend/components/ui/button';
 import { Field, Input, Select } from '@gitroom/frontend/components/ui/input';
 import {
+  posterOf,
   safeHref,
   videoStage,
   type Video,
@@ -84,14 +85,12 @@ export function VideoBoard({
   const [videos, setVideos] = useState(initialVideos);
   const [open, setOpen] = useState<Open>(null);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // A refusal, and the job ('new' for the new-job form) it belongs to.
+  const [error, setError] = useState<{ at: string; text: string } | null>(null);
   // Admin filter: 'all', or a person (as editor or handler).
   const [person, setPerson] = useState('all');
 
-  const nameOf = useMemo(
-    () => new Map(people.map((p) => [p.id, p.name])),
-    [people],
-  );
+  const byId = useMemo(() => new Map(people.map((p) => [p.id, p])), [people]);
   const accountOf = useMemo(
     () => new Map(accounts.map((a) => [a.id, a.name])),
     [accounts],
@@ -105,6 +104,21 @@ export function VideoBoard({
     ...onBoard.filter((p) => p.kind === 'handler'),
     ...onBoard.filter((p) => p.kind === 'editor'),
   ];
+  const left = (name: string) => t('{name} (left)', { name });
+  const nameOf = (id: string | null): string | null => {
+    if (!id) return null;
+    if (id === meId) return t('You');
+    const p = byId.get(id);
+    if (!p) return '—';
+    return p.archived ? left(p.name) : p.name;
+  };
+  // A job may still name someone who has left; keep them pickable on it.
+  const withCurrent = (list: Person[], id: string | null) => {
+    const p = id ? byId.get(id) : undefined;
+    return !p || list.some((x) => x.id === p.id)
+      ? list
+      : [...list, { ...p, name: left(p.name) }];
+  };
 
   const shown = videos.filter(
     (v) => person === 'all' || v.editorId === person || v.handlerId === person,
@@ -125,24 +139,35 @@ export function VideoBoard({
     return list;
   };
 
+  /**
+   * One save. `started` is the form it came from: only that form closes when
+   * it succeeds, so a slow one-click step never closes a form opened since.
+   */
   async function save(
+    at: string,
     call: () => Promise<VideoResult>,
     apply: (r: VideoResult) => void,
+    started: Open = null,
   ) {
     setSaving(true);
     setError(null);
     const r = await call();
     setSaving(false);
     if (!r.ok) {
-      setError(r.message ?? 'Could not save. Try again.');
+      setError({ at, text: r.message ?? 'Could not save. Try again.' });
       return;
     }
     apply(r);
-    setOpen(null);
+    if (started) setOpen((cur) => (cur === started ? null : cur));
   }
   const replace = (r: VideoResult) =>
     setVideos((p) => p.map((x) => (x.id === r.video!.id ? r.video! : x)));
   const draftInput = (d: VideoDraft) => ({ ...d });
+  const errorAt = (at: string) => (error?.at === at ? t(error.text) : null);
+  const close = () => {
+    setOpen(null);
+    setError(null);
+  };
 
   const title = {
     editing: t('Being edited'),
@@ -178,6 +203,8 @@ export function VideoBoard({
           </div>
           {open?.kind === 'new' ? null : (
             <Button
+              // One yellow per view: an open form's own submit has it then.
+              variant={open ? 'secondary' : 'primary'}
               onClick={() => {
                 setError(null);
                 setOpen({ kind: 'new' });
@@ -189,8 +216,6 @@ export function VideoBoard({
         </div>
       ) : null}
 
-      {error ? <Alert tone="danger">{t(error)}</Alert> : null}
-
       {isAdmin && open?.kind === 'new' ? (
         <VideoForm
           initial={videoDraftOf(null)}
@@ -199,13 +224,16 @@ export function VideoBoard({
           handlers={handlerPicks}
           assignments={assignments}
           saving={saving}
+          error={errorAt('new')}
           onSave={(d) =>
             save(
+              'new',
               () => createVideo(draftInput(d)),
               (r) => setVideos((p) => [r.video!, ...p]),
+              open,
             )
           }
-          onCancel={() => setOpen(null)}
+          onCancel={close}
         />
       ) : null}
 
@@ -232,17 +260,20 @@ export function VideoBoard({
                         <VideoForm
                           initial={videoDraftOf(v)}
                           accounts={accounts}
-                          editors={editorPicks}
-                          handlers={handlerPicks}
+                          editors={withCurrent(editorPicks, v.editorId)}
+                          handlers={withCurrent(handlerPicks, v.handlerId)}
                           assignments={assignments}
                           saving={saving}
+                          error={errorAt(v.id)}
                           onSave={(d) =>
                             save(
+                              v.id,
                               () => updateVideo(v.id, draftInput(d)),
                               replace,
+                              open,
                             )
                           }
-                          onCancel={() => setOpen(null)}
+                          onCancel={close}
                         />
                       </li>
                     ) : (
@@ -254,22 +285,19 @@ export function VideoBoard({
                             ? (accountOf.get(v.creatorId) ?? '—')
                             : '—'
                         }
-                        editor={
-                          v.editorId
-                            ? v.editorId === meId
-                              ? t('You')
-                              : (nameOf.get(v.editorId) ?? '—')
-                            : null
-                        }
-                        handler={
-                          v.handlerId
-                            ? v.handlerId === meId
-                              ? t('You')
-                              : (nameOf.get(v.handlerId) ?? '—')
-                            : null
-                        }
+                        // A finished step names who it counts for.
+                        editor={nameOf(
+                          v.editedAt ? (v.editedBy ?? v.editorId) : v.editorId,
+                        )}
+                        handler={nameOf(
+                          v.postedAt
+                            ? (v.postedBy ?? v.handlerId)
+                            : v.handlerId,
+                        )}
                         canEdit={isAdmin || v.editorId === meId}
-                        canPost={isAdmin || v.handlerId === meId}
+                        canPost={isAdmin || posterOf(v) === meId}
+                        canUndoEdit={isAdmin || v.editedBy === meId}
+                        canUndoPost={isAdmin || v.postedBy === meId}
                         isAdmin={isAdmin}
                         tag={tag}
                         open={
@@ -278,27 +306,49 @@ export function VideoBoard({
                             : null
                         }
                         saving={saving}
+                        error={errorAt(v.id)}
                         onOpen={(kind) => {
                           setError(null);
                           setOpen({ kind, id: v.id });
                         }}
-                        onClose={() => setOpen(null)}
+                        onClose={close}
                         onEditDone={(link) =>
-                          save(() => finishEdit(v.id, link), replace)
+                          save(
+                            v.id,
+                            () => finishEdit(v.id, link),
+                            replace,
+                            open,
+                          )
                         }
-                        onUndoEdit={() => save(() => undoEdit(v.id), replace)}
+                        onUndoEdit={() =>
+                          save(v.id, () => undoEdit(v.id), replace)
+                        }
                         onSchedule={(day, time) =>
-                          save(() => schedulePost(v.id, day, time), replace)
+                          save(
+                            v.id,
+                            () => schedulePost(v.id, day, time),
+                            replace,
+                            open,
+                          )
                         }
                         onPostDone={(link) =>
-                          save(() => finishPost(v.id, link), replace)
+                          save(
+                            v.id,
+                            () => finishPost(v.id, link),
+                            replace,
+                            open,
+                          )
                         }
-                        onUndoPost={() => save(() => undoPost(v.id), replace)}
+                        onUndoPost={() =>
+                          save(v.id, () => undoPost(v.id), replace)
+                        }
                         onDelete={() =>
                           save(
+                            v.id,
                             () => deleteVideo(v.id),
                             () =>
                               setVideos((p) => p.filter((x) => x.id !== v.id)),
+                            open,
                           )
                         }
                       />
@@ -342,10 +392,13 @@ function VideoCard({
   handler,
   canEdit,
   canPost,
+  canUndoEdit,
+  canUndoPost,
   isAdmin,
   tag,
   open,
   saving,
+  error,
   onOpen,
   onClose,
   onEditDone,
@@ -361,10 +414,14 @@ function VideoCard({
   handler: string | null;
   canEdit: boolean;
   canPost: boolean;
+  canUndoEdit: boolean;
+  canUndoPost: boolean;
   isAdmin: boolean;
   tag: 'en' | 'zh-CN';
   open: Step | 'new' | null;
   saving: boolean;
+  /** Why the last save on this job was refused. */
+  error: string | null;
   onOpen: (kind: Step) => void;
   onClose: () => void;
   onEditDone: (link: string) => void;
@@ -456,6 +513,7 @@ function VideoCard({
               required
             />
           </Field>
+          {error ? <Alert tone="danger">{error}</Alert> : null}
           <div className="flex justify-end gap-2">
             <Button type="button" size="sm" variant="ghost" onClick={onClose}>
               {t('Cancel')}
@@ -483,6 +541,7 @@ function VideoCard({
               required
             />
           </Field>
+          {error ? <Alert tone="danger">{error}</Alert> : null}
           <div className="flex justify-end gap-2">
             <Button type="button" size="sm" variant="ghost" onClick={onClose}>
               {t('Cancel')}
@@ -504,6 +563,7 @@ function VideoCard({
                 type="date"
                 value={day}
                 onChange={(e) => setDay(e.target.value)}
+                autoFocus
               />
             </Field>
             <Field label={t('Time')} htmlFor={`pt-${v.id}`} optional>
@@ -515,6 +575,7 @@ function VideoCard({
               />
             </Field>
           </div>
+          {error ? <Alert tone="danger">{error}</Alert> : null}
           <div className="flex justify-end gap-2">
             <Button type="button" size="sm" variant="ghost" onClick={onClose}>
               {t('Cancel')}
@@ -525,112 +586,130 @@ function VideoCard({
           </div>
         </form>
       ) : open === 'delete' && isAdmin ? (
-        <div
-          role="group"
-          aria-label={t('Delete {title}', { title: v.title })}
-          className="mt-3 flex flex-wrap items-center gap-2 text-caption text-fg"
-        >
-          <span className="min-w-0 flex-1">
-            {t('Delete this video job for good?')}
-          </span>
-          <Button
-            size="sm"
-            variant="danger"
-            loading={saving}
-            onClick={onDelete}
+        <div className="mt-3 space-y-2">
+          <div
+            role="group"
+            aria-label={t('Delete {title}', { title: v.title })}
+            className="flex flex-wrap items-center gap-2 text-caption text-fg"
           >
-            {t('Delete')}
-          </Button>
-          <Button size="sm" variant="ghost" onClick={onClose}>
-            {t('Keep')}
-          </Button>
+            <span className="min-w-0 flex-1">
+              {t('Delete this video job for good?')}
+            </span>
+            <Button
+              size="sm"
+              variant="danger"
+              loading={saving}
+              onClick={onDelete}
+            >
+              {t('Delete')}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={onClose} autoFocus>
+              {t('Keep')}
+            </Button>
+          </div>
+          {error ? <Alert tone="danger">{error}</Alert> : null}
         </div>
       ) : (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-          <div className="flex flex-wrap items-center gap-1">
-          {stage === 'done' ? (
-            <Pill>{t('Done')}</Pill>
-          ) : null}
-          {stage === 'editing' && canEdit ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => {
-                setLink(v.editLink ?? '');
-                onOpen('editDone');
-              }}
-              aria-label={t('Edit done: {title}', { title: v.title })}
-            >
-              {t('Done')}
-            </Button>
-          ) : null}
-          {stage === 'posting' && v.editedAt && canEdit ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={saving}
-              onClick={onUndoEdit}
-              aria-label={t('Undo edit: {title}', { title: v.title })}
-            >
-              {t('Undo edit')}
-            </Button>
-          ) : null}
-          {stage === 'posting' && canPost ? (
-            <>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => onOpen('schedule')}
-                aria-label={t('Schedule {title}', { title: v.title })}
-              >
-                {v.postDate ? t('Reschedule') : t('Schedule')}
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  setLink(v.postLink ?? '');
-                  onOpen('postDone');
-                }}
-                aria-label={t('Posted: {title}', { title: v.title })}
-              >
-                {t('Done')}
-              </Button>
-            </>
-          ) : null}
-          {stage === 'done' && canPost ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={saving}
-              onClick={onUndoPost}
-              aria-label={t('Undo post: {title}', { title: v.title })}
-            >
-              {t('Undo')}
-            </Button>
-          ) : null}
+        <>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+            <div className="flex flex-wrap items-center gap-1">
+              {stage === 'done' ? <Pill>{t('Done')}</Pill> : null}
+              {stage === 'editing' && canEdit ? (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setLink(v.editLink ?? '');
+                    onOpen('editDone');
+                  }}
+                  aria-label={t('Done editing: {title}', { title: v.title })}
+                >
+                  {t('Done')}
+                </Button>
+              ) : null}
+              {stage === 'posting' && v.editedAt && canUndoEdit ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={saving}
+                  onClick={onUndoEdit}
+                  aria-label={t('Undo edit: {title}', { title: v.title })}
+                >
+                  {t('Undo edit')}
+                </Button>
+              ) : null}
+              {stage === 'posting' && canPost ? (
+                <>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      // Start from what is saved, not an abandoned draft.
+                      setDay(v.postDate ?? '');
+                      setTime(v.postTime ?? '');
+                      onOpen('schedule');
+                    }}
+                    aria-label={
+                      v.postDate
+                        ? t('Reschedule: {title}', { title: v.title })
+                        : t('Schedule post: {title}', { title: v.title })
+                    }
+                  >
+                    {v.postDate ? t('Reschedule') : t('Schedule post')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      setLink(v.postLink ?? '');
+                      onOpen('postDone');
+                    }}
+                    aria-label={t('Done posting: {title}', { title: v.title })}
+                  >
+                    {t('Done')}
+                  </Button>
+                </>
+              ) : null}
+              {stage === 'done' && canUndoPost ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={saving}
+                  onClick={onUndoPost}
+                  aria-label={t('Undo post: {title}', { title: v.title })}
+                >
+                  {t('Undo')}
+                </Button>
+              ) : null}
+            </div>
+            {isAdmin ? (
+              <div className="ml-auto flex items-center gap-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onOpen('edit')}
+                  aria-label={t('Change {title}', { title: v.title })}
+                >
+                  {t('Change')}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => onOpen('delete')}
+                  aria-label={t('Delete {title}', { title: v.title })}
+                >
+                  {t('Delete')}
+                </Button>
+              </div>
+            ) : null}
           </div>
-          {isAdmin ? (
-            <div className="ml-auto flex items-center gap-1">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => onOpen('edit')}
-                aria-label={t('Change {title}', { title: v.title })}
-              >
-                {t('Change')}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => onOpen('delete')}
-                aria-label={t('Delete {title}', { title: v.title })}
-              >
-                {t('Delete')}
-              </Button>
+          {/* A one-click step (Undo) that was refused says why here. */}
+          {error ? (
+            <div className="mt-2">
+              <Alert tone="danger">{error}</Alert>
             </div>
           ) : null}
-        </div>
+        </>
       )}
     </li>
   );

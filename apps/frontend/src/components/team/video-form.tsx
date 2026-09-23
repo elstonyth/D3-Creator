@@ -8,6 +8,7 @@
 
 import { useId, useState, type FormEvent } from 'react';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
+import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { Button } from '@gitroom/frontend/components/ui/button';
 import { Field, Input, Select } from '@gitroom/frontend/components/ui/input';
 import type { Video } from '@gitroom/frontend/lib/team/videos';
@@ -41,6 +42,7 @@ export function VideoForm({
   handlers,
   assignments,
   saving,
+  error,
   onSave,
   onCancel,
 }: {
@@ -55,6 +57,8 @@ export function VideoForm({
     { handlerId: string | null; editorId: string | null }
   >;
   saving: boolean;
+  /** Why the last save was refused, shown in the form. */
+  error?: string | null;
   onSave: (d: VideoDraft) => void;
   onCancel: () => void;
 }) {
@@ -165,6 +169,7 @@ export function VideoForm({
           autoComplete="off"
         />
       </Field>
+      {error ? <Alert tone="danger">{error}</Alert> : null}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           {t('Cancel')}

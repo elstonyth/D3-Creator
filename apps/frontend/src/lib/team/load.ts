@@ -4,8 +4,8 @@
  * gate (the (staff) / (admin) layouts, requireStaff / requireAdmin).
  *
  * Reads are windowed — a week of shoots, a month of history — and the
- * handover log is paged, so PostgREST's 1000-row cap never truncates
- * silently.
+ * handover log and the video lists are paged, so PostgREST's 1000-row cap
+ * never truncates silently.
  */
 
 import { getSupabaseAdmin } from '@d3/database';
@@ -249,47 +249,62 @@ export function monthDays(month: string): { from: string; to: string } {
 
 // ---- video jobs and tasks ----------------------------------------------------
 
-/** Enough for a team of this size; the pages say so if a list is cut. */
-const VIDEO_LIMIT = 500;
+/**
+ * Every video matching all of `ors` (each one or() filter; several are
+ * ANDed), newest first. Paged, so PostgREST's 1000-row cap never cuts it.
+ */
+async function videosWhere(ors: string[], what: string): Promise<Video[]> {
+  const res = await fetchAllRows<VideoRow>((a, b) => {
+    let q = getSupabaseAdmin().from('tracker_video').select(VIDEO_COLS);
+    for (const f of ors) q = q.or(f);
+    return q
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(a, b);
+  });
+  if (res.error) throw new Error(`team: ${what}: ${res.error.message}`);
+  return res.rows.map(rowToVideo);
+}
 
 /**
  * Video jobs still in hand (not posted), plus those finished — edited or
- * posted — since `since` (an ISO instant). Everyone's, or one person's as
- * editor or handler.
+ * posted — since `since` (an ISO instant). Everyone's, or the ones a person
+ * edits or posts.
  */
 export async function loadVideos(
   since: string,
   memberId?: string,
 ): Promise<Video[]> {
-  let q = getSupabaseAdmin()
-    .from('tracker_video')
-    .select(VIDEO_COLS)
-    // Values quoted: a timestamp's ':' and '.' are reserved in or().
-    .or(
+  return videosWhere(
+    [
+      // Values quoted: a timestamp's ':' and '.' are reserved in or().
       `posted_at.is.null,posted_at.gte."${since}",edited_at.gte."${since}"`,
-    );
-  if (memberId) q = q.or(`editor_id.eq.${memberId},handler_id.eq.${memberId}`);
-  const rows = must<VideoRow[]>(
-    await q.order('created_at', { ascending: false }).limit(VIDEO_LIMIT),
+      ...(memberId
+        ? [`editor_id.eq.${memberId},handler_id.eq.${memberId}`]
+        : []),
+    ],
     'videos',
   );
-  return rows.map(rowToVideo);
 }
 
-/** Videos whose edit or post was clicked Done in [from, to) — for counting. */
-export async function loadVideosDone(from: string, to: string): Promise<Video[]> {
-  const rows = must<VideoRow[]>(
-    await getSupabaseAdmin()
-      .from('tracker_video')
-      .select(VIDEO_COLS)
-      .or(
-        `and(edited_at.gte."${from}",edited_at.lt."${to}"),and(posted_at.gte."${from}",posted_at.lt."${to}")`,
-      )
-      .order('created_at', { ascending: false })
-      .limit(VIDEO_LIMIT),
+/**
+ * Videos whose edit or post was marked Done in [from, to) — for counting.
+ * Everyone's, or only those with a Done stamped with one person.
+ */
+export async function loadVideosDone(
+  from: string,
+  to: string,
+  memberId?: string,
+): Promise<Video[]> {
+  return videosWhere(
+    [
+      `and(edited_at.gte."${from}",edited_at.lt."${to}"),and(posted_at.gte."${from}",posted_at.lt."${to}")`,
+      ...(memberId
+        ? [`edited_by.eq.${memberId},posted_by.eq.${memberId}`]
+        : []),
+    ],
     'videos done',
   );
-  return rows.map(rowToVideo);
 }
 
 /** Who handles and edits each account today, for filling in a new job. */
@@ -297,7 +312,11 @@ export async function loadAssignments(): Promise<
   Record<string, { handlerId: string | null; editorId: string | null }>
 > {
   const rows = must<
-    { creator_id: string; handler_id: string | null; editor_id: string | null }[]
+    {
+      creator_id: string;
+      handler_id: string | null;
+      editor_id: string | null;
+    }[]
   >(
     await getSupabaseAdmin()
       .from('tracker_assignment')
@@ -337,5 +356,8 @@ export async function loadMyTasks(memberId: string): Promise<MyTask[]> {
       .order('completed_at', { ascending: false })
       .limit(10),
   ]);
-  return [...must<MyTask[]>(open, 'my tasks'), ...must<MyTask[]>(done, 'my done tasks')];
+  return [
+    ...must<MyTask[]>(open, 'my tasks'),
+    ...must<MyTask[]>(done, 'my done tasks'),
+  ];
 }

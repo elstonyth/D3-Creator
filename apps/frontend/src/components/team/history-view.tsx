@@ -211,8 +211,11 @@ export async function HistoryView({
                 </span>
                 <span className="text-fg">{h.creatorName}</span>
                 <span className="text-fg-muted">
-                  {h.field === 'handler' ? t('handler') : t('editor')}:{' '}
-                  {h.from ?? t('nobody')} → {h.to ?? t('nobody')}
+                  {t('{role}: {from} → {to}', {
+                    role: h.field === 'handler' ? t('handler') : t('editor'),
+                    from: h.from ?? t('nobody'),
+                    to: h.to ?? t('nobody'),
+                  })}
                 </span>
               </li>
             ))}

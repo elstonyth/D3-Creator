@@ -7,7 +7,8 @@
  * person when adding one. A staff member only ever writes their own: the
  * person comes from their session (requireStaff), never from the browser,
  * and every update or delete is filtered by it, so an id belonging to
- * someone else simply matches nothing.
+ * someone else simply matches nothing. Staff also stay inside this month and
+ * later: a month that has been counted is changed only by an admin.
  *
  * Every input is validated here (parseShootInput) as well as by the table,
  * so a refusal reads as a sentence. No revalidatePath: the pages are
@@ -17,6 +18,7 @@
 
 import { getSupabaseAdmin } from '@d3/database';
 import { isUuid } from '@gitroom/frontend/lib/ids';
+import { todayKey } from '@gitroom/frontend/lib/tracker';
 import { asActor } from './actor';
 import { rowToShoot, SHOOT_COLS, type ShootRow } from './shoot-rows';
 import {
@@ -33,7 +35,13 @@ export interface ShootResult {
   shoot?: Shoot;
 }
 
-const NOT_YOURS = 'That shoot is not yours, or it is already gone.';
+const NOT_YOURS =
+  'You can only change your own shoots, from this month on. Ask an admin.';
+const GONE = 'That shoot is already gone.';
+const CLOSED = 'Shoots before this month are closed. Ask an admin.';
+
+/** First day of this month in the tracker's time zone, `YYYY-MM-DD`. */
+const monthStart = () => `${todayKey().slice(0, 7)}-01`;
 
 export async function addShoot(
   input: unknown,
@@ -58,6 +66,8 @@ export async function addShoot(
         return { ok: false, message: 'That person is not on the board.' };
     }
     const v = p.value;
+    if (a.memberId && v.date < monthStart())
+      return { ok: false, message: CLOSED };
     const { data, error } = await admin
       .from('tracker_shoot')
       .insert({
@@ -87,6 +97,8 @@ export async function updateShoot(
     const p = parseShootInput(input);
     if (!p.ok) return p;
     const v = p.value;
+    if (a.memberId && v.date < monthStart())
+      return { ok: false, message: CLOSED };
     let q = getSupabaseAdmin()
       .from('tracker_shoot')
       .update({
@@ -98,10 +110,12 @@ export async function updateShoot(
         note: v.note,
       })
       .eq('id', id);
-    if (a.memberId) q = q.eq('member_id', a.memberId);
+    if (a.memberId)
+      q = q.eq('member_id', a.memberId).gte('shoot_date', monthStart());
     const { data, error } = await q.select(SHOOT_COLS);
     if (error) return { ok: false, message: error.message };
-    if (!data || data.length === 0) return { ok: false, message: NOT_YOURS };
+    if (!data || data.length === 0)
+      return { ok: false, message: a.memberId ? NOT_YOURS : GONE };
     return { ok: true, shoot: rowToShoot(data[0] as ShootRow) };
   });
 }
@@ -129,10 +143,12 @@ export async function setShootStatus(
       .from('tracker_shoot')
       .update({ status, videos_shot: shot })
       .eq('id', id);
-    if (a.memberId) q = q.eq('member_id', a.memberId);
+    if (a.memberId)
+      q = q.eq('member_id', a.memberId).gte('shoot_date', monthStart());
     const { data, error } = await q.select(SHOOT_COLS);
     if (error) return { ok: false, message: error.message };
-    if (!data || data.length === 0) return { ok: false, message: NOT_YOURS };
+    if (!data || data.length === 0)
+      return { ok: false, message: a.memberId ? NOT_YOURS : GONE };
     return { ok: true, shoot: rowToShoot(data[0] as ShootRow) };
   });
 }
@@ -141,10 +157,12 @@ export async function deleteShoot(id: string): Promise<ShootResult> {
   return asActor(async (a): Promise<ShootResult> => {
     if (!isUuid(id)) return { ok: false, message: 'Invalid shoot.' };
     let q = getSupabaseAdmin().from('tracker_shoot').delete().eq('id', id);
-    if (a.memberId) q = q.eq('member_id', a.memberId);
+    if (a.memberId)
+      q = q.eq('member_id', a.memberId).gte('shoot_date', monthStart());
     const { data, error } = await q.select('id');
     if (error) return { ok: false, message: error.message };
-    if (!data || data.length === 0) return { ok: false, message: NOT_YOURS };
+    if (!data || data.length === 0)
+      return { ok: false, message: a.memberId ? NOT_YOURS : GONE };
     return { ok: true };
   });
 }

@@ -4,7 +4,9 @@
  * Staff approvals. A staff login is only useful once it is linked to a
  * person on the work board, so approving does both — link (or create) the
  * person, then flip staff_pending to staff — and undoes the link if the flip
- * does not happen, so the two halves never disagree.
+ * does not happen, so the two halves never disagree. A link left behind by an
+ * approval that failed half-way is cleared on the next try, so approving
+ * again always works.
  */
 
 import { revalidatePath } from 'next/cache';
@@ -50,6 +52,13 @@ export async function approveStaff(
     if (roleReadErr) return { ok: false, message: roleReadErr.message };
     if (row?.role !== 'staff_pending')
       return { ok: false, message: NOT_WAITING };
+    // Still waiting, so any person linked to this login is left over from an
+    // attempt that failed after linking.
+    const { error: staleErr } = await admin
+      .from('tracker_member')
+      .update({ user_id: null })
+      .eq('user_id', userId);
+    if (staleErr) return { ok: false, message: staleErr.message };
 
     let memberId: string;
     let created = false;
@@ -108,13 +117,15 @@ export async function approveStaff(
       .select('user_id');
     if (roleErr || !flipped || flipped.length === 0) {
       // Take the link back so the board never names a login that is not staff.
-      if (created)
-        await admin.from('tracker_member').delete().eq('id', memberId);
-      else
-        await admin
-          .from('tracker_member')
-          .update({ user_id: null })
-          .eq('id', memberId);
+      const undo = created
+        ? await admin.from('tracker_member').delete().eq('id', memberId)
+        : await admin
+            .from('tracker_member')
+            .update({ user_id: null })
+            .eq('id', memberId);
+      // A link the undo could not take back is cleared by the next try.
+      if (undo.error)
+        return { ok: false, message: 'Could not finish approving. Try again.' };
       return { ok: false, message: roleErr?.message ?? NOT_WAITING };
     }
     return { ok: true };

@@ -49,10 +49,12 @@ export function hostRoute(
     }
     return { appPath: path };
   }
-  // A link that still spells the prefix lands on the clean URL.
+  // A link that still spells the prefix lands on the clean URL — spelled out
+  // in full, so a path like /staff//evil.com can never become a
+  // protocol-relative redirect off this host. Portal hosts always have a site.
   const prefix = PORTAL_PREFIX[area];
   if (under(path, prefix))
-    return { redirect: stripPrefix(path, prefix) + search };
+    return { redirect: site![area] + stripPrefix(path, prefix) + search };
   // Nobody signs up on the console host; that form belongs to the public
   // site. (Staff do sign up on theirs.)
   if (area === 'admin' && path === '/signup' && site)

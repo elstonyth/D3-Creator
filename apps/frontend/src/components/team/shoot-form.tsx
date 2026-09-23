@@ -10,6 +10,7 @@
 
 import { useId, useState, type FormEvent } from 'react';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
+import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { Button } from '@gitroom/frontend/components/ui/button';
 import { Field, Input, Select } from '@gitroom/frontend/components/ui/input';
 import type { Shoot } from '@gitroom/frontend/lib/team/shoots';
@@ -46,7 +47,9 @@ export function ShootForm({
   initial,
   accounts,
   people,
+  minDate,
   saving,
+  error,
   onSave,
   onCancel,
 }: {
@@ -54,7 +57,11 @@ export function ShootForm({
   accounts: { id: string; name: string }[];
   /** Given only to an admin adding a shoot: whose it is. */
   people?: { id: string; name: string }[];
+  /** Earliest day that can be picked (staff: the first of this month). */
+  minDate?: string;
   saving: boolean;
+  /** Why the last save was refused, shown in the form. */
+  error?: string | null;
   onSave: (draft: ShootDraft) => void;
   onCancel: () => void;
 }) {
@@ -99,6 +106,7 @@ export function ShootForm({
             type="date"
             value={d.date}
             onChange={(e) => set({ date: e.target.value })}
+            min={minDate}
             required
           />
         </Field>
@@ -163,6 +171,8 @@ export function ShootForm({
           autoComplete="off"
         />
       </Field>
+
+      {error ? <Alert tone="danger">{error}</Alert> : null}
 
       <div className="flex justify-end gap-2">
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
