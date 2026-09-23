@@ -59,7 +59,7 @@
     "prettier": "^2.6.2",
     "sharp": "^0.33.4",
     "supabase": "^2.101.0",
-    "ts-jest": "^29.1.0",
+    "ts-jest": "^29.4.12",
     "ts-node": "10.9.2",
     "tsx": "^4.22.3",
     "typescript": "5.9.3"
