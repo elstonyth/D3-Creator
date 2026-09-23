@@ -29,7 +29,11 @@ const PROD: Site = {
 };
 
 // Chrome resolves *.localhost to loopback, so both portals are testable in
-// dev without touching the hosts file.
+// dev without touching the hosts file. One dev-only gap: Next's dev server
+// builds request.url from localhost:4200 whatever the Host header says, and
+// relativises any redirect to that origin — so a hop from a portal host back
+// to the public site (admin.localhost:4200/signup, a member on a portal)
+// loops in dev. Production hosts differ, so it never happens there.
 const DEV: Site = {
   public: 'http://localhost:4200',
   admin: 'http://admin.localhost:4200',

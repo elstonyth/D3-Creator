@@ -12,7 +12,7 @@ import { useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { Alert } from '@gitroom/frontend/components/ui/alert';
-import { Badge } from '@gitroom/frontend/components/ui/badge';
+import { Pill } from '@gitroom/frontend/components/team/pill';
 import { Button } from '@gitroom/frontend/components/ui/button';
 import { Field, Input, Select } from '@gitroom/frontend/components/ui/input';
 import type { MemberKind } from '@gitroom/frontend/lib/tracker';
@@ -133,9 +133,9 @@ export function TeamManager({
                 <div className="min-w-0 flex-1">
                   <p className="flex flex-wrap items-center gap-2 text-label text-fg">
                     {m.name}
-                    <Badge tone="muted">
+                    <Pill tone="muted">
                       {m.kind === 'editor' ? t('Editor') : t('Handler')}
-                    </Badge>
+                    </Pill>
                   </p>
                   <p className="mt-0.5 break-all text-caption text-fg-subtle">
                     {m.email ?? t('No login yet')}
@@ -157,7 +157,7 @@ export function TeamManager({
                     </dd>
                   </div>
                 </dl>
-                <div className="flex items-center gap-1">
+                <div className="flex w-full items-center justify-end gap-1 sm:w-64">
                   <Link
                     href={m.profileHref}
                     className="rounded-md px-3 py-1.5 text-label text-fg hover:bg-white/[0.04] focus-visible:outline-none focus-visible:shadow-focusRing"

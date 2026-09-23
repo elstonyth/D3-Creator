@@ -782,43 +782,46 @@ function TaskRow({
           </svg>
         ) : null}
       </button>
-      {onRename ? (
-        <EditableTitle
-          value={task.title}
-          onSave={onRename}
-          onEditingChange={onEditingChange}
-          editLabel={t('Edit task')}
-          inputLabel={t('Task title')}
-          className="min-w-0 flex-1 truncate text-body text-fg"
-        />
-      ) : (
-        <span
-          className={clsx(
-            'min-w-0 flex-1 truncate text-body',
-            task.done ? 'line-through text-fg-muted' : 'text-fg',
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-center gap-1">
+          {onRename ? (
+            <EditableTitle
+              value={task.title}
+              onSave={onRename}
+              onEditingChange={onEditingChange}
+              editLabel={t('Edit task')}
+              inputLabel={t('Task title')}
+              className="min-w-0 flex-1 truncate text-body text-fg"
+            />
+          ) : (
+            <span
+              className={clsx(
+                'min-w-0 flex-1 truncate text-body',
+                task.done ? 'line-through text-fg-muted' : 'text-fg',
+              )}
+            >
+              {task.title}
+            </span>
           )}
-        >
-          {task.title}
-        </span>
-      )}
-      {members && onAssign ? (
-        <select
-          value={task.assigneeId ?? ''}
-          onChange={(e) => onAssign(e.target.value || null)}
-          aria-label={t('Give {title} to', { title: task.title })}
-          className={cn(
-            s.field,
-            'h-8 w-[5.5rem] shrink-0 px-2 text-caption sm:w-24',
-          )}
-        >
-          <option value="">{t('Anyone')}</option>
-          {members.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
-        </select>
-      ) : null}
+        </div>
+        {/* Under the title rather than beside it: the owner's tasks are long
+            and a select in the row would cut them to a few words. */}
+        {members && onAssign ? (
+          <select
+            value={task.assigneeId ?? ''}
+            onChange={(e) => onAssign(e.target.value || null)}
+            aria-label={t('Give {title} to', { title: task.title })}
+            className={cn(s.field, 'mt-1.5 h-7 max-w-full px-2 text-caption')}
+          >
+            <option value="">{t('For: anyone')}</option>
+            {members.map((m) => (
+              <option key={m.id} value={m.id}>
+                {t('For: {name}', { name: m.name })}
+              </option>
+            ))}
+          </select>
+        ) : null}
+      </div>
       <button
         type="button"
         onClick={onRemove}

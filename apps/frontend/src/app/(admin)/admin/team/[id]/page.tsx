@@ -21,7 +21,7 @@ import {
   monthDays,
 } from '@gitroom/frontend/lib/team/load';
 import { finishedBy } from '@gitroom/frontend/lib/team/videos';
-import { Badge } from '@gitroom/frontend/components/ui/badge';
+import { Pill } from '@gitroom/frontend/components/team/pill';
 import { Container, Section } from '@gitroom/frontend/components/ui/section';
 import { HistoryView } from '@gitroom/frontend/components/team/history-view';
 import { PersonVideos } from '@gitroom/frontend/components/team/person-videos';
@@ -103,23 +103,17 @@ export default async function AdminPersonPage({
           </Link>
           <h1 className="mt-3 flex flex-wrap items-center gap-3 text-display-2 text-fg">
             {person.name}
-            <Badge tone="muted">
+            <Pill tone="muted">
               {person.kind === 'editor' ? t('Editor') : t('Handler')}
-            </Badge>
+            </Pill>
             {person.archived ? (
-              <Badge tone="muted">{t('Left the board')}</Badge>
+              <Pill tone="muted">{t('Left the board')}</Pill>
             ) : null}
           </h1>
           <p className="mt-3 break-all text-body text-fg-muted">
             {email ?? t('No login yet')}
           </p>
         </header>
-
-        <PersonVideos
-          edited={edited}
-          posted={posted}
-          accountName={accountName}
-        />
 
         <HistoryView
           month={month}
@@ -128,7 +122,13 @@ export default async function AdminPersonPage({
           shoots={shoots}
           accountName={accountName}
           {...accounts}
-        />
+        >
+          <PersonVideos
+            edited={edited}
+            posted={posted}
+            accountName={accountName}
+          />
+        </HistoryView>
       </Section>
     </Container>
   );

@@ -6,11 +6,12 @@
  */
 
 import Link from 'next/link';
+import type { ReactNode } from 'react';
 import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
 import { formatCompact } from '@gitroom/frontend/lib/creator-metrics';
 import { addMonths, dateKeyAt } from '@gitroom/frontend/lib/tracker';
-import { Badge } from '@gitroom/frontend/components/ui/badge';
+import { Pill } from './pill';
 import { Stat, StatRow } from '@gitroom/frontend/components/ui/stat';
 import type { Shoot } from '@gitroom/frontend/lib/team/shoots';
 import type { AccountMonth, Handover } from '@gitroom/frontend/lib/team/load';
@@ -35,6 +36,7 @@ export async function HistoryView({
   handled,
   edited,
   handovers,
+  children,
 }: {
   /** `YYYY-MM` on screen. */
   month: string;
@@ -47,6 +49,8 @@ export async function HistoryView({
   handled: AccountMonth[];
   edited: AccountMonth[];
   handovers: Handover[];
+  /** Month-scoped extras shown under the totals (the person's videos). */
+  children?: ReactNode;
 }) {
   const { t, locale } = await getI18n();
   const tag = localeTag(locale);
@@ -110,6 +114,8 @@ export async function HistoryView({
         />
       </StatRow>
 
+      {children}
+
       <section aria-label={t('Shoots')}>
         <h2 className="mb-3 text-heading text-fg">{t('Shoots')}</h2>
         {shoots.length === 0 ? (
@@ -154,21 +160,21 @@ export async function HistoryView({
                           ) : null}
                         </span>
                         {s.status === 'done' ? (
-                          <Badge className="shrink-0">
+                          <Pill className="shrink-0">
                             {s.videosShot != null
                               ? t('Done · {count} videos', {
                                   count: s.videosShot,
                                 })
                               : t('Done')}
-                          </Badge>
+                          </Pill>
                         ) : s.status === 'cancelled' ? (
-                          <Badge tone="muted" className="shrink-0">
+                          <Pill tone="muted" className="shrink-0">
                             {t('Cancelled')}
-                          </Badge>
+                          </Pill>
                         ) : (
-                          <Badge tone="muted" className="shrink-0">
+                          <Pill tone="muted" className="shrink-0">
                             {t('Planned')}
-                          </Badge>
+                          </Pill>
                         )}
                       </li>
                     ))}

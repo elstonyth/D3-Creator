@@ -15,7 +15,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
 import { Alert } from '@gitroom/frontend/components/ui/alert';
-import { Badge } from '@gitroom/frontend/components/ui/badge';
+import { Pill } from './pill';
 import { Button, ButtonLink } from '@gitroom/frontend/components/ui/button';
 import { Field, Input, Select } from '@gitroom/frontend/components/ui/input';
 import { addDays } from '@gitroom/frontend/lib/tracker';
@@ -227,7 +227,7 @@ export function WeekSchedule({
 
       {error ? <Alert tone="danger">{t(error)}</Alert> : null}
 
-      <div className="grid gap-3 lg:grid-cols-2">
+      <div className="grid items-start gap-3 lg:grid-cols-2">
         {days.map((day) => {
           const list = shown.filter((s) => s.date === day);
           const isToday = day === today;
@@ -252,7 +252,7 @@ export function WeekSchedule({
                   <span className="tnum text-fg-muted">
                     {fmt(day, tag, { day: 'numeric', month: 'short' })}
                   </span>
-                  {isToday ? <Badge>{t('Today')}</Badge> : null}
+                  {isToday ? <Pill>{t('Today')}</Pill> : null}
                 </h3>
                 {adding ? null : (
                   <Button
@@ -414,15 +414,15 @@ function ShootItem({
           ) : null}
         </div>
         {s.status === 'done' ? (
-          <Badge className="shrink-0">
+          <Pill className="shrink-0">
             {s.videosShot != null
               ? t('Done · {count} videos', { count: s.videosShot })
               : t('Done')}
-          </Badge>
+          </Pill>
         ) : cancelled ? (
-          <Badge tone="muted" className="shrink-0">
+          <Pill tone="muted" className="shrink-0">
             {t('Cancelled')}
-          </Badge>
+          </Pill>
         ) : null}
       </div>
 

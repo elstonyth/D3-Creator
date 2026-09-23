@@ -60,21 +60,20 @@ export default async function StaffHistoryPage({ searchParams }: PageProps) {
     const mine = finishedBy(videos, staff.memberId, start, end);
     const accountName = new Map(roster.map((a) => [a.id, a.name]));
     body = (
-      <div className="space-y-10">
+      <HistoryView
+        month={month}
+        thisMonth={thisMonth}
+        monthHref={(m) => `${base}?month=${m}`}
+        shoots={shoots}
+        accountName={accountName}
+        {...accounts}
+      >
         <PersonVideos
           edited={mine.edited}
           posted={mine.posted}
           accountName={accountName}
         />
-        <HistoryView
-          month={month}
-          thisMonth={thisMonth}
-          monthHref={(m) => `${base}?month=${m}`}
-          shoots={shoots}
-          accountName={accountName}
-          {...accounts}
-        />
-      </div>
+      </HistoryView>
     );
   }
 

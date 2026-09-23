@@ -117,6 +117,8 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Tasks from the admin': '管理员交代的任务',
   'No tasks for you right now.': '目前没有你的任务。',
   'Give {title} to': '把「{title}」交给',
+  'For: anyone': '交给：任何人',
+  'For: {name}': '交给：{name}',
   'That task is not yours, or it is gone.': '这个任务不是你的，或已被删除。',
   'That task is gone.': '这个任务已被删除。',
   'Invalid task.': '任务无效。',

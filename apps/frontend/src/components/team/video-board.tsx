@@ -15,7 +15,7 @@ import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
 import { dateKeyAt } from '@gitroom/frontend/lib/tracker';
 import { Alert } from '@gitroom/frontend/components/ui/alert';
-import { Badge } from '@gitroom/frontend/components/ui/badge';
+import { Pill } from './pill';
 import { Button } from '@gitroom/frontend/components/ui/button';
 import { Field, Input, Select } from '@gitroom/frontend/components/ui/input';
 import {
@@ -209,7 +209,7 @@ export function VideoBoard({
         />
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-3">
+      <div className="grid items-start gap-5 lg:grid-cols-3">
         {STAGES.map((stage) => {
           const list = byStage(stage);
           return (
@@ -546,9 +546,10 @@ function VideoCard({
           </Button>
         </div>
       ) : (
-        <div className="mt-3 flex flex-wrap items-center justify-end gap-1">
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <div className="flex flex-wrap items-center gap-1">
           {stage === 'done' ? (
-            <Badge className="mr-auto">{t('Done')}</Badge>
+            <Pill>{t('Done')}</Pill>
           ) : null}
           {stage === 'editing' && canEdit ? (
             <Button
@@ -608,8 +609,9 @@ function VideoCard({
               {t('Undo')}
             </Button>
           ) : null}
+          </div>
           {isAdmin ? (
-            <>
+            <div className="ml-auto flex items-center gap-1">
               <Button
                 size="sm"
                 variant="ghost"
@@ -626,7 +628,7 @@ function VideoCard({
               >
                 {t('Delete')}
               </Button>
-            </>
+            </div>
           ) : null}
         </div>
       )}
