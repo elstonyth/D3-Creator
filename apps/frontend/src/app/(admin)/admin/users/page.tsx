@@ -59,7 +59,7 @@ export default async function AdminUsersPage() {
           <div className="flex gap-3">
             <dt className="w-16 shrink-0 text-fg">{t('Admin')}</dt>
             <dd className="text-fg-muted">
-              {t('This console, and everything below.')}
+              {t('This console only — not the Studio or the class library.')}
             </dd>
           </div>
           <div className="flex gap-3">
@@ -74,6 +74,14 @@ export default async function AdminUsersPage() {
             <dt className="w-16 shrink-0 text-fg">{t('Member')}</dt>
             <dd className="text-fg-muted">
               {t('Online classes and Studio tools.')}
+            </dd>
+          </div>
+          <div className="flex gap-3">
+            <dt className="w-16 shrink-0 text-fg">{t('Staff')}</dt>
+            <dd className="text-fg-muted">
+              {t(
+                'The staff portal on staff.d3creator.com. Approved on the Team page.',
+              )}
             </dd>
           </div>
           <div className="flex gap-3">

@@ -233,7 +233,8 @@ export const adminZh: Record<string, string> = {
   'A role decides what a signed-in account can reach. Changing one takes effect on their next request — it does not sign them out.':
     '角色决定登录账号的访问权限。更改将在用户下次请求时生效，不会将其退出登录。',
   Admin: '管理员',
-  'This console, and everything below.': '可访问此控制台及以下所有功能。',
+  'This console only — not the Studio or the class library.':
+    '仅限此控制台——不含 Studio 和课程库。',
   'Member access, plus the /me dashboard for their own profiles.':
     '拥有会员权限，并可访问自己主页的 /me 数据看板。',
   Member: '会员',

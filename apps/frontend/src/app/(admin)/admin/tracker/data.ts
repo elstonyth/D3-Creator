@@ -74,6 +74,8 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
     admin
       .from('tracker_member')
       .select('id, name, role, kind, sort_order')
+      // Archived people keep their history but leave the board.
+      .is('archived_at', null)
       .order('sort_order')
       .order('created_at'),
     admin

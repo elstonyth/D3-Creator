@@ -134,6 +134,17 @@ export function monthGrid(monthKey: string): (string | null)[][] {
   return rows;
 }
 
+/**
+ * One line of user text for a title-like column: whitespace collapsed,
+ * trimmed, 1..`max` characters — or null when it does not fit. Actions check
+ * this before the table's own constraint so a refusal reads as a sentence.
+ */
+export function cleanTitle(v: unknown, max = 200): string | null {
+  if (typeof v !== 'string') return null;
+  const s = v.replace(/\s+/g, ' ').trim();
+  return s.length >= 1 && s.length <= max ? s : null;
+}
+
 /** Move the item at `from` to `to`, returning a new array. */
 export function reorder<T>(list: T[], from: number, to: number): T[] {
   if (
