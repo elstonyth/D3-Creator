@@ -2,7 +2,7 @@ import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { headers } from 'next/headers';
-import { isAdminHost } from '@gitroom/frontend/lib/admin-host';
+import { isAdminHost } from '@gitroom/frontend/lib/portal-host';
 
 import { AuthShell } from '@gitroom/frontend/components/auth/auth-shell';
 import { SignInForm } from '@gitroom/frontend/components/auth/sign-in-form';
@@ -43,7 +43,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const { redirectTo, notice } = await searchParams;
   const message = notice ? NOTICES[notice] : undefined;
   // admin.d3creator.com gets its own look so staff and creators cannot
-  // mistake one sign-in for the other (lib/admin-host.ts).
+  // mistake one sign-in for the other (lib/portal-host.ts).
   const admin = isAdminHost((await headers()).get('host'));
 
   return (

@@ -10,7 +10,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Analytics } from '@vercel/analytics/next';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
-import { isAdminHost } from '@gitroom/frontend/lib/admin-host';
+import { isAdminHost } from '@gitroom/frontend/lib/portal-host';
 import { SignOutButton } from '@gitroom/frontend/components/auth/signout-button';
 import NavLink from '@gitroom/frontend/components/ui/nav-link';
 import MobileNav from '@gitroom/frontend/components/ui/mobile-nav';
