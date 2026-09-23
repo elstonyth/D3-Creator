@@ -175,3 +175,53 @@ export function placeCard<T extends Placeable>(
     next.every((x, i) => x.id === list[i].id);
   return unchanged ? list : next;
 }
+
+export interface PlacementChange {
+  /** The column (null = unassigned). */
+  handlerId: string | null;
+  /** Every card in the column, in order: index = sort_order. */
+  ids: string[];
+  /** Cards that arrived in the column: the only ones whose handler is written. */
+  moved: string[];
+}
+
+/**
+ * What to save to take the board from `base` (the placement the server last
+ * accepted) to `now`: each column whose order changed or that gained a card.
+ * A column that only lost one is left alone — the cards it keeps did not
+ * move relative to each other. A handler that is not in `columns` (a person
+ * since removed) counts as unassigned, as it does on screen.
+ */
+export function placementChanges<T extends Placeable>(
+  base: T[],
+  now: T[],
+  columns: ReadonlySet<string>,
+): PlacementChange[] {
+  const col = (h: string | null) => (h !== null && columns.has(h) ? h : null);
+  const baseHandler = new Map(base.map((x) => [x.id, x.handlerId]));
+  const out: PlacementChange[] = [];
+  for (const key of new Set(now.map((x) => col(x.handlerId)))) {
+    const cards = now.filter((x) => col(x.handlerId) === key);
+    const ids = cards.map((x) => x.id);
+    const moved = cards
+      .filter((x) => baseHandler.get(x.id) !== x.handlerId)
+      .map((x) => x.id);
+    const inColumn = new Set(ids);
+    const before = base.filter((x) => inColumn.has(x.id)).map((x) => x.id);
+    if (moved.length > 0 || before.join() !== ids.join())
+      out.push({ handlerId: key, ids, moved });
+  }
+  return out;
+}
+
+/** `current` with `base`'s order and handlers, every other field kept. */
+export function restorePlacement<T extends Placeable>(
+  current: T[],
+  base: T[],
+): T[] {
+  const byId = new Map(current.map((x) => [x.id, x]));
+  return base.map((b) => {
+    const x = byId.get(b.id);
+    return x ? { ...x, handlerId: b.handlerId } : b;
+  });
+}

@@ -226,13 +226,17 @@ export async function setAssignment(
 }
 
 /**
- * One column's full order: every id lands in `handlerId` (null = unassigned)
- * with its index as sort_order. One upsert; merge-duplicates writes only the
- * columns sent, so each card keeps its editor and posting flag.
+ * One column's full order: index in `creatorIds` becomes sort_order. Only the
+ * cards in `movedIds` — the ones that arrived in this column — have their
+ * handler written. The rest keep whatever handler the database holds, so a
+ * tab that has not seen a handover made elsewhere cannot undo it by
+ * reordering. Merge-duplicates writes only the columns sent, so every card
+ * keeps its editor and posting flag.
  */
 export async function placeCards(
   handlerId: string | null,
   creatorIds: string[],
+  movedIds: string[],
 ): Promise<ActionResult> {
   return guarded(async () => {
     if (handlerId !== null && !isUuid(handlerId))
@@ -241,19 +245,33 @@ export async function placeCards(
       !Array.isArray(creatorIds) ||
       creatorIds.length === 0 ||
       creatorIds.length > 500 ||
-      !creatorIds.every(isUuid)
+      !creatorIds.every(isUuid) ||
+      new Set(creatorIds).size !== creatorIds.length ||
+      !Array.isArray(movedIds) ||
+      !movedIds.every((id) => creatorIds.includes(id))
     )
       return { ok: false, message: 'Invalid order.' };
-    const { error } = await getSupabaseAdmin()
-      .from('tracker_assignment')
-      .upsert(
-        creatorIds.map((id, i) => ({
-          creator_id: id,
-          handler_id: handlerId,
-          sort_order: i,
-        })),
+    const admin = getSupabaseAdmin();
+    const moved = new Set(movedIds);
+    // The handovers first: they are the change that matters.
+    if (moved.size > 0) {
+      const { error } = await admin.from('tracker_assignment').upsert(
+        creatorIds.flatMap((id, i) =>
+          moved.has(id)
+            ? [{ creator_id: id, handler_id: handlerId, sort_order: i }]
+            : [],
+        ),
         { onConflict: 'creator_id' },
       );
+      if (error) return { ok: false, message: error.message };
+    }
+    const rest = creatorIds.flatMap((id, i) =>
+      moved.has(id) ? [] : [{ creator_id: id, sort_order: i }],
+    );
+    if (rest.length === 0) return { ok: true };
+    const { error } = await admin
+      .from('tracker_assignment')
+      .upsert(rest, { onConflict: 'creator_id' });
     return error ? { ok: false, message: error.message } : { ok: true };
   });
 }

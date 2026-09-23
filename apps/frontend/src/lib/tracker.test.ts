@@ -7,7 +7,9 @@ import {
   monthGrid,
   monthRange,
   placeCard,
+  placementChanges,
   reorder,
+  restorePlacement,
 } from './tracker';
 
 describe('tracker date helpers', () => {
@@ -101,5 +103,56 @@ describe('card placement', () => {
     expect(placeCard(L, 'c', 'k', 'c')).toBe(L);
     expect(placeCard(L, 'd', 'k', null)).toBe(L);
     expect(placeCard(L, 'x', 'k', null)).toBe(L);
+  });
+});
+
+describe('placement saves', () => {
+  const c = (id: string, handlerId: string | null, extra = '') => ({
+    id,
+    handlerId,
+    extra,
+  });
+  const cols = new Set(['k', 'z']);
+
+  it('saves a column whose order changed, with nothing moved in', () => {
+    const base = [c('a', 'k'), c('b', 'z'), c('c', 'k')];
+    const now = [c('c', 'k'), c('b', 'z'), c('a', 'k')];
+    expect(placementChanges(base, now, cols)).toEqual([
+      { handlerId: 'k', ids: ['c', 'a'], moved: [] },
+    ]);
+  });
+
+  it('saves the column a card arrived in, not the one it left', () => {
+    const base = [c('a', 'k'), c('b', 'z'), c('c', 'k')];
+    const now = [c('a', 'k'), c('b', 'k'), c('c', 'k')];
+    expect(placementChanges(base, now, cols)).toEqual([
+      { handlerId: 'k', ids: ['a', 'b', 'c'], moved: ['b'] },
+    ]);
+  });
+
+  it('has nothing to save when only other fields changed', () => {
+    const base = [c('a', 'k'), c('b', null)];
+    const now = [c('a', 'k', 'edited'), c('b', null)];
+    expect(placementChanges(base, now, cols)).toEqual([]);
+  });
+
+  it('treats a handler that is not a column as unassigned', () => {
+    const base = [c('a', 'gone'), c('b', null)];
+    const now = [c('a', null), c('b', null)];
+    expect(placementChanges(base, now, cols)).toEqual([
+      { handlerId: null, ids: ['a', 'b'], moved: ['a'] },
+    ]);
+    // Displayed in the same place already: only the stored handler differs.
+    expect(placementChanges(base, base, cols)).toEqual([]);
+  });
+
+  it('puts back order and handlers, keeping every other edit', () => {
+    const base = [c('a', 'k'), c('b', 'z'), c('c', 'k')];
+    const current = [c('c', 'z', 'edited'), c('b', 'z'), c('a', 'k')];
+    expect(restorePlacement(current, base)).toEqual([
+      c('a', 'k'),
+      c('b', 'z'),
+      c('c', 'k', 'edited'),
+    ]);
   });
 });

@@ -6,7 +6,7 @@
  * saved when the tidied text is blank or unchanged.
  */
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '@gitroom/frontend/lib/utils';
 import s from './tracker.module.scss';
 
@@ -35,6 +35,16 @@ export function EditableTitle({
   // Enter closes the input, and unmounting a focused input can fire blur
   // after it: finish exactly once.
   const closed = useRef(false);
+  // A keyboard close hands focus back to the pencil instead of dropping it
+  // on <body>; a blur means the user already went somewhere else.
+  const pencil = useRef<HTMLButtonElement>(null);
+  const refocus = useRef(false);
+
+  useEffect(() => {
+    if (editing || !refocus.current) return;
+    refocus.current = false;
+    pencil.current?.focus();
+  }, [editing]);
 
   function open() {
     closed.current = false;
@@ -57,6 +67,7 @@ export function EditableTitle({
       <>
         <span className={className}>{value}</span>
         <button
+          ref={pencil}
           type="button"
           onClick={open}
           aria-label={editLabel}
@@ -77,11 +88,16 @@ export function EditableTitle({
       maxLength={200}
       onChange={(e) => setDraft(e.target.value)}
       onKeyDown={(e) => {
+        // Enter also confirms a candidate in a Chinese (or any IME) input
+        // method; that Enter belongs to the IME, not to the form.
+        if (e.nativeEvent.isComposing || e.keyCode === 229) return;
         if (e.key === 'Enter') {
           e.preventDefault();
+          refocus.current = true;
           close(true);
         } else if (e.key === 'Escape') {
           e.preventDefault();
+          refocus.current = true;
           close(false);
         }
       }}

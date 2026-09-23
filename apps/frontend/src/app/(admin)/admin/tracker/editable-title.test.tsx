@@ -80,4 +80,21 @@ describe('EditableTitle', () => {
     fireEvent.keyDown(again, { key: 'Enter' });
     expect(onSave).toHaveBeenCalledWith('Second edit');
   });
+
+  it('leaves an input-method Enter to the input method', () => {
+    const { input, onSave } = setup();
+    fireEvent.change(input, { target: { value: '做火锅' } });
+    fireEvent.keyDown(input, { key: 'Enter', isComposing: true });
+    fireEvent.keyDown(input, { key: 'Enter', keyCode: 229 });
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByRole('textbox', { name: 'Task title' })).toBeTruthy();
+  });
+
+  it('hands focus back to the pencil after Enter or Escape', () => {
+    const { input } = setup();
+    fireEvent.keyDown(input, { key: 'Escape' });
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Edit task' }),
+    );
+  });
 });

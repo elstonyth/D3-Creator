@@ -11,6 +11,7 @@
  */
 
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -49,6 +50,14 @@ const KEE: TrackerMember = {
   role: 'Trader',
   kind: 'handler',
   sortOrder: 0,
+};
+
+const ZUWEI: TrackerMember = {
+  id: 'aaaaaaaa-0000-4000-8000-000000000002',
+  name: 'ZUWEI',
+  role: 'Trader',
+  kind: 'handler',
+  sortOrder: 1,
 };
 
 const ALI: TrackerMember = {
@@ -214,6 +223,17 @@ describe('StaffingBoard card order', () => {
   beforeEach(() => jest.clearAllMocks());
   const A = card(1, 'Amy', KEE.id, null);
   const B = card(2, 'Bob', KEE.id, null);
+  const C = card(3, 'Cat', KEE.id, null);
+
+  /** A placeCards call the test settles by hand. */
+  function holdNextSave() {
+    let settle!: (r: { ok: boolean; message?: string }) => void;
+    (placeCards as jest.Mock).mockImplementationOnce(
+      () => new Promise((r) => (settle = r)),
+    );
+    return (r: { ok: boolean; message?: string }) =>
+      act(async () => settle(r));
+  }
 
   it('moves a card up and saves the column order', async () => {
     renderBoard([KEE], [A, B]);
@@ -227,21 +247,55 @@ describe('StaffingBoard card order', () => {
 
     expect(keeOrder()).toEqual(['Bob', 'Amy']);
     await waitFor(() =>
-      expect(placeCards).toHaveBeenCalledWith(KEE.id, [B.id, A.id]),
+      expect(placeCards).toHaveBeenCalledWith(KEE.id, [B.id, A.id], []),
     );
   });
 
-  it('puts the order back when saving fails', async () => {
-    (placeCards as jest.Mock).mockResolvedValueOnce({
-      ok: false,
-      message: 'nope',
-    });
+  it('queues a quick second move and then saves the newest order', async () => {
+    const settle = holdNextSave();
+    renderBoard([KEE], [A, B, C]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Cat up' }));
+    await waitFor(() => expect(placeCards).toHaveBeenCalledTimes(1));
+    expect(placeCards).toHaveBeenLastCalledWith(KEE.id, [A.id, C.id, B.id], []);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Cat up' }));
+    expect(keeOrder()).toEqual(['Cat', 'Amy', 'Bob']);
+    await act(() => new Promise((r) => setTimeout(r, 20)));
+    expect(placeCards).toHaveBeenCalledTimes(1); // waits for the first
+
+    await settle({ ok: true });
+    await waitFor(() => expect(placeCards).toHaveBeenCalledTimes(2));
+    expect(placeCards).toHaveBeenLastCalledWith(KEE.id, [C.id, A.id, B.id], []);
+  });
+
+  it('a failed save puts back the last order the server accepted', async () => {
+    const settle = holdNextSave();
     const onFail = jest.fn((_r, rollback: () => void) => rollback());
-    renderBoard([KEE], [A, B], onFail);
+    renderBoard([KEE], [A, B, C], onFail);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Move Amy down' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move Cat up' }));
+    await waitFor(() => expect(placeCards).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Move Cat up' }));
 
+    await settle({ ok: false, message: 'Not authorized.' });
     await waitFor(() => expect(onFail).toHaveBeenCalled());
-    expect(keeOrder()).toEqual(['Amy', 'Bob']);
+    expect(keeOrder()).toEqual(['Amy', 'Bob', 'Cat']);
+    expect(placeCards).toHaveBeenCalledTimes(1);
+  });
+
+  it('the handler select hands a card over and puts it last there', async () => {
+    const Z = card(4, 'Zed', ZUWEI.id, null);
+    renderBoard([KEE, ZUWEI], [A, Z]);
+    const amy = screen
+      .getAllByRole('article')
+      .find((a) => a.querySelector('p')?.textContent === 'Amy')!;
+    fireEvent.change(within(amy).getByLabelText('Handler'), {
+      target: { value: ZUWEI.id },
+    });
+    await waitFor(() =>
+      expect(placeCards).toHaveBeenCalledWith(ZUWEI.id, [Z.id, A.id], [A.id]),
+    );
+    expect(placeCards).toHaveBeenCalledTimes(1); // KEE only lost a card
   });
 });

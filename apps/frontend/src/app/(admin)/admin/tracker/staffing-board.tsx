@@ -18,7 +18,15 @@
  * exist on touch screens and the board is used from phones.
  */
 
-import { useMemo, useState, type DragEvent, type FormEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type FormEvent,
+} from 'react';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { cn } from '@gitroom/frontend/lib/utils';
 // clsx where a custom font-size token sits next to a text colour (see
@@ -32,6 +40,8 @@ import {
 } from '@gitroom/frontend/components/ui/platform-icons';
 import {
   placeCard,
+  placementChanges,
+  restorePlacement,
   type MemberKind,
   type TrackerCreator,
   type TrackerMember,
@@ -116,13 +126,68 @@ export function StaffingBoard({
     [handlers, t],
   );
 
+  const columnIds = useMemo(
+    () => new Set(handlers.map((m) => m.id)),
+    [handlers],
+  );
+
   // The column a card sits in. A handler id that is not a column (a person
   // since removed, or an editor) reads as unassigned rather than vanishing.
-  const columnOf = useMemo(() => {
-    const ids = new Set(handlers.map((m) => m.id));
-    return (c: TrackerCreator) =>
-      c.handlerId !== null && ids.has(c.handlerId) ? c.handlerId : UNASSIGNED;
-  }, [handlers]);
+  const columnOf = useCallback(
+    (c: TrackerCreator) =>
+      c.handlerId !== null && columnIds.has(c.handlerId)
+        ? c.handlerId
+        : UNASSIGNED,
+    [columnIds],
+  );
+
+  // Card placement (column + order) saves one at a time, always from the
+  // newest board, like the remarks pad: quick moves queue behind the save in
+  // flight instead of racing it. A failed save puts back the placement the
+  // server last accepted — never a per-move snapshot, which two overlapping
+  // moves would interleave.
+  const latest = useRef(initialCreators);
+  const confirmed = useRef(initialCreators);
+  const saving = useRef(false);
+  const [placeTick, setPlaceTick] = useState(0);
+
+  useEffect(() => {
+    latest.current = creators;
+  }, [creators]);
+
+  const flushPlacement = useCallback(
+    async function run(): Promise<void> {
+      if (saving.current) return;
+      const now = latest.current;
+      const work = placementChanges(confirmed.current, now, columnIds);
+      if (work.length === 0) return;
+      saving.current = true;
+      // ponytail: columns save one by one; if a later one fails after an
+      // earlier one landed, the screen rewinds both until the next reload.
+      // Two columns in one save needs two moves inside one save's latency.
+      for (const w of work) {
+        const r = await placeCards(w.handlerId, w.ids, w.moved);
+        if (!r.ok) {
+          saving.current = false;
+          onFail(r, () =>
+            setCreators((p) => restorePlacement(p, confirmed.current)),
+          );
+          return;
+        }
+      }
+      confirmed.current = now;
+      saving.current = false;
+      if (latest.current !== now) void run();
+    },
+    [columnIds, onFail],
+  );
+
+  // After the render that applied a move (so `latest` holds it).
+  useEffect(() => {
+    if (placeTick === 0) return;
+    const id = window.setTimeout(() => void flushPlacement(), 0);
+    return () => window.clearTimeout(id);
+  }, [placeTick, flushPlacement]);
 
   const stats = useMemo(() => {
     const handled = new Map<string, HandledStats>();
@@ -155,23 +220,6 @@ export function StaffingBoard({
 
   // Rollbacks undo only the value this call set, and only if it is still in
   // place — a later edit to the same card must not be reverted with it.
-  async function assignHandler(creatorId: string, handlerId: string | null) {
-    const before = creators.find((c) => c.id === creatorId);
-    if (!before || before.handlerId === handlerId || isTemp(handlerId)) return;
-    patch(creatorId, { handlerId });
-    const r = await setAssignment(creatorId, { handlerId });
-    if (!r.ok)
-      onFail(r, () =>
-        setCreators((p) =>
-          p.map((c) =>
-            c.id === creatorId && c.handlerId === handlerId
-              ? { ...c, handlerId: before.handlerId }
-              : c,
-          ),
-        ),
-      );
-  }
-
   async function assignEditor(creatorId: string, editorId: string | null) {
     const before = creators.find((c) => c.id === creatorId);
     if (!before || before.editorId === editorId || isTemp(editorId)) return;
@@ -276,33 +324,12 @@ export function StaffingBoard({
   }
 
   // Card `id` goes into column `colId` in front of `beforeId` (last when
-  // null), and that column's whole order is saved. A failure puts the card
-  // back in its old column and restores the previous order, leaving any
-  // other edit made meanwhile alone.
-  async function place(id: string, colId: string, beforeId: string | null) {
+  // null). The save follows on its own (flushPlacement).
+  function place(id: string, colId: string, beforeId: string | null) {
     const handlerId = colId === UNASSIGNED ? null : colId;
-    const before = creators.find((c) => c.id === id);
-    if (!before || isTemp(handlerId)) return;
-    const next = placeCard(creators, id, handlerId, beforeId);
-    if (next === creators) return;
-    const wasAt = new Map(creators.map((c, i) => [c.id, i]));
-    setCreators(next);
-    const ids = next.filter((c) => columnOf(c) === colId).map((c) => c.id);
-    const r = await placeCards(handlerId, ids);
-    if (!r.ok)
-      onFail(r, () =>
-        setCreators((p) =>
-          p
-            .map((c) =>
-              c.id === id && c.handlerId === handlerId
-                ? { ...c, handlerId: before.handlerId }
-                : c,
-            )
-            .sort(
-              (a, b) => (wasAt.get(a.id) ?? 1e9) - (wasAt.get(b.id) ?? 1e9),
-            ),
-        ),
-      );
+    if (isTemp(handlerId)) return;
+    setCreators((p) => placeCard(p, id, handlerId, beforeId));
+    setPlaceTick((n) => n + 1);
   }
 
   function endDrag() {
@@ -314,7 +341,7 @@ export function StaffingBoard({
   function dropOn(colId: string, beforeId: string | null) {
     const id = dragId;
     endDrag();
-    if (id && id !== beforeId) void place(id, colId, beforeId);
+    if (id && id !== beforeId) place(id, colId, beforeId);
   }
 
   return (
@@ -645,7 +672,9 @@ export function StaffingBoard({
                           ? () => place(c.id, col.id, cards[i + 2]?.id ?? null)
                           : undefined
                       }
-                      onHandler={(id) => assignHandler(c.id, id)}
+                      // The select hands the card over and puts it last
+                      // in its new column, the same as dropping it there.
+                      onHandler={(id) => place(c.id, id ?? UNASSIGNED, null)}
                       onEditor={(id) => assignEditor(c.id, id)}
                       onToggleScheduled={() => toggleScheduled(c.id)}
                     />
