@@ -2,11 +2,15 @@
 
 /**
  * Staff approvals. A staff login is only useful once it is linked to a
- * person on the work board, so approving does both — link (or create) the
- * person, then flip staff_pending to staff — and undoes the link if the flip
- * does not happen, so the two halves never disagree. A link left behind by an
- * approval that failed half-way is cleared on the next try, so approving
- * again always works.
+ * person on the work board. Approving flips staff_pending to staff first, as
+ * a conditional write, so of two approvals of one signup (two tabs, two
+ * admins) exactly one goes on; then it links an existing person or creates
+ * one. tracker_member.user_id is unique, so two links for one login can't
+ * both land either.
+ *
+ * "Waiting" is a staff_pending login, or a staff login linked to nobody (an
+ * approval whose link step failed). The Team page lists both, and both can
+ * be approved or turned away, so no half-done approval is ever stuck.
  */
 
 import { revalidatePath } from 'next/cache';
@@ -37,98 +41,122 @@ export type ApproveTarget =
   | { memberId: string }
   | { name: string; kind: MemberKind };
 
+/** The login's role if it is waiting (see above), else null. */
+async function waiting(
+  userId: string,
+): Promise<'staff_pending' | 'staff' | null> {
+  const admin = getSupabaseAdmin();
+  const [roleRes, linkRes] = await Promise.all([
+    admin.from('user_role').select('role').eq('user_id', userId).maybeSingle(),
+    admin.from('tracker_member').select('id').eq('user_id', userId).limit(1),
+  ]);
+  if (roleRes.error) throw new Error(roleRes.error.message);
+  if (linkRes.error) throw new Error(linkRes.error.message);
+  const role = roleRes.data?.role;
+  if (role === 'staff_pending') return role;
+  if (role === 'staff' && (linkRes.data ?? []).length === 0) return role;
+  return null;
+}
+
+/** Link the login to someone already on the board, or to a new person. */
+async function link(
+  userId: string,
+  person: { memberId: string } | { name: string; kind: MemberKind },
+): Promise<TeamResult> {
+  const admin = getSupabaseAdmin();
+  if ('memberId' in person) {
+    const { data, error } = await admin
+      .from('tracker_member')
+      .update({ user_id: userId })
+      .eq('id', person.memberId)
+      .is('user_id', null)
+      .is('archived_at', null)
+      .select('id');
+    if (error) return { ok: false, message: linkError(error) };
+    if (!data || data.length === 0)
+      return {
+        ok: false,
+        message:
+          'That person already has a login, or is no longer on the board.',
+      };
+    return { ok: true };
+  }
+  const { data: last } = await admin
+    .from('tracker_member')
+    .select('sort_order')
+    .order('sort_order', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const { error } = await admin.from('tracker_member').insert({
+    name: person.name,
+    kind: person.kind,
+    role: person.kind === 'editor' ? 'Editor' : 'Trader',
+    user_id: userId,
+    sort_order: (last?.sort_order ?? -1) + 1,
+  });
+  return error ? { ok: false, message: linkError(error) } : { ok: true };
+}
+
+// A second approval racing the first loses on the unique login column.
+const linkError = (e: { code?: string; message: string }) =>
+  e.code === '23505' ? 'That login is already linked to someone.' : e.message;
+
 export async function approveStaff(
   userId: string,
   target: ApproveTarget,
 ): Promise<TeamResult> {
   return guarded(async () => {
     if (!isUuid(userId)) return { ok: false, message: 'Invalid account.' };
-    const admin = getSupabaseAdmin();
-    const { data: row, error: roleReadErr } = await admin
-      .from('user_role')
-      .select('role')
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (roleReadErr) return { ok: false, message: roleReadErr.message };
-    if (row?.role !== 'staff_pending')
-      return { ok: false, message: NOT_WAITING };
-    // Still waiting, so any person linked to this login is left over from an
-    // attempt that failed after linking.
-    const { error: staleErr } = await admin
-      .from('tracker_member')
-      .update({ user_id: null })
-      .eq('user_id', userId);
-    if (staleErr) return { ok: false, message: staleErr.message };
-
-    let memberId: string;
-    let created = false;
+    // What the admin chose is checked before anything is written.
+    let person: { memberId: string } | { name: string; kind: MemberKind };
     if (target && 'memberId' in target) {
       if (!isUuid(target.memberId))
         return { ok: false, message: 'Invalid person.' };
-      const { data, error } = await admin
-        .from('tracker_member')
-        .update({ user_id: userId })
-        .eq('id', target.memberId)
-        .is('user_id', null)
-        .is('archived_at', null)
-        .select('id');
-      if (error) return { ok: false, message: error.message };
-      if (!data || data.length === 0)
-        return {
-          ok: false,
-          message:
-            'That person already has a login, or is no longer on the board.',
-        };
-      memberId = target.memberId;
+      person = { memberId: target.memberId };
     } else {
       const name = cleanTitle(target?.name, 40);
       if (!name)
         return { ok: false, message: 'Name is required (max 40 chars).' };
-      const kind = target.kind;
+      const kind = target?.kind;
       if (kind !== 'handler' && kind !== 'editor')
         return { ok: false, message: 'Invalid person type.' };
-      const { data: last } = await admin
-        .from('tracker_member')
-        .select('sort_order')
-        .order('sort_order', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const { data, error } = await admin
-        .from('tracker_member')
-        .insert({
-          name,
-          kind,
-          role: kind === 'editor' ? 'Editor' : 'Trader',
-          user_id: userId,
-          sort_order: (last?.sort_order ?? -1) + 1,
-        })
-        .select('id')
-        .single();
-      if (error) return { ok: false, message: error.message };
-      memberId = data.id;
-      created = true;
+      person = { name, kind };
     }
 
-    const { data: flipped, error: roleErr } = await admin
-      .from('user_role')
-      .update({ role: 'staff' })
-      .eq('user_id', userId)
-      .eq('role', 'staff_pending')
-      .select('user_id');
-    if (roleErr || !flipped || flipped.length === 0) {
-      // Take the link back so the board never names a login that is not staff.
-      const undo = created
-        ? await admin.from('tracker_member').delete().eq('id', memberId)
-        : await admin
-            .from('tracker_member')
-            .update({ user_id: null })
-            .eq('id', memberId);
-      // A link the undo could not take back is cleared by the next try.
-      if (undo.error)
-        return { ok: false, message: 'Could not finish approving. Try again.' };
-      return { ok: false, message: roleErr?.message ?? NOT_WAITING };
+    const admin = getSupabaseAdmin();
+    // Only an address its owner confirmed: otherwise anyone could sign up
+    // with a colleague's email and name and be approved as them.
+    const { data: account, error: accountErr } =
+      await admin.auth.admin.getUserById(userId);
+    if (accountErr) return { ok: false, message: accountErr.message };
+    if (!account.user?.email_confirmed_at)
+      return { ok: false, message: 'They have not confirmed their email yet.' };
+
+    const was = await waiting(userId);
+    if (!was) return { ok: false, message: NOT_WAITING };
+    if (was === 'staff_pending') {
+      const { data: flipped, error } = await admin
+        .from('user_role')
+        .update({ role: 'staff' })
+        .eq('user_id', userId)
+        .eq('role', 'staff_pending')
+        .select('user_id');
+      if (error) return { ok: false, message: error.message };
+      if (!flipped || flipped.length === 0)
+        return { ok: false, message: NOT_WAITING };
     }
-    return { ok: true };
+
+    const linked = await link(userId, person);
+    if (!linked.ok && was === 'staff_pending') {
+      // Back in the queue as it was. Should even this fail, the login is
+      // staff and linked to nobody, which the Team page lists as waiting.
+      await admin
+        .from('user_role')
+        .update({ role: 'staff_pending' })
+        .eq('user_id', userId)
+        .eq('role', 'staff');
+    }
+    return linked;
   });
 }
 
@@ -136,11 +164,13 @@ export async function approveStaff(
 export async function rejectStaff(userId: string): Promise<TeamResult> {
   return guarded(async () => {
     if (!isUuid(userId)) return { ok: false, message: 'Invalid account.' };
+    const was = await waiting(userId);
+    if (!was) return { ok: false, message: NOT_WAITING };
     const { data, error } = await getSupabaseAdmin()
       .from('user_role')
       .update({ role: 'none' })
       .eq('user_id', userId)
-      .eq('role', 'staff_pending')
+      .eq('role', was)
       .select('user_id');
     if (error) return { ok: false, message: error.message };
     if (!data || data.length === 0) return { ok: false, message: NOT_WAITING };

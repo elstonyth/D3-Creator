@@ -58,9 +58,9 @@ describe('hostRoute', () => {
     ],
     [
       DEV_STAFF,
-      '/staff/\evil.com',
+      '/staff/\\evil.com',
       '',
-      { redirect: 'http://staff.localhost:4200/\evil.com' },
+      { redirect: 'http://staff.localhost:4200/\\evil.com' },
     ],
     // Staff DO sign up on their own host.
     [STAFF, '/signup', '', { appPath: '/signup' }],
@@ -122,6 +122,19 @@ describe('accessRoute', () => {
       '/administrator',
     ])
       expect(go(DEV, p, null)).toEqual(serve);
+  });
+
+  it('lets every role finish a password reset on the host it started on', () => {
+    for (const host of [STAFF, ADMIN, DEV])
+      for (const role of [
+        'member',
+        'creator',
+        'none',
+        'staff',
+        'staff_pending',
+        'admin',
+      ] as const)
+        expect(go(host, '/reset-password', role)).toEqual(serve);
   });
 
   it('keeps the removed /me/profiles pointing at the dashboard', () => {

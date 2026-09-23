@@ -136,6 +136,9 @@ export function accessRoute({
 
   // Signed-in users do not sit on (or re-submit) sign-in / sign-up.
   if (AUTH_PAGES.has(appPath)) return home;
+  // A reset is finished wherever it started, whatever the role and host:
+  // the emailed link lands on the host that sent it.
+  if (appPath === RESET_PATH) return serve;
 
   // Each portal host is for its own people only.
   if (area === 'admin' && role !== 'admin') return home;
@@ -143,13 +146,11 @@ export function accessRoute({
 
   // Admins are managers: the console and nothing else — not the Studio, not
   // the public pages.
-  if (role === 'admin')
-    return isAdminRoute || appPath === RESET_PATH ? serve : home;
+  if (role === 'admin') return isAdminRoute ? serve : home;
 
   // Staff accounts are internal: the staff portal and nothing else. A
   // pending account sees only the waiting page; an approved one never does.
   if (isStaff) {
-    if (appPath === RESET_PATH) return serve;
     if (!isStaffRoute) return home;
     const onPending = appPath === `${PORTAL_PREFIX.staff}/pending`;
     return (role === 'staff_pending') === onPending ? serve : home;

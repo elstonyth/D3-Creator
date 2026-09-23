@@ -263,6 +263,12 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Name is required (max 40 chars).': '请填写名字（最多 40 字）。',
   'Invalid person type.': '人员类型无效。',
   'That person has no login.': '此人没有登录账号。',
+  'That login is already linked to someone.': '这个账号已关联到其他人。',
+  'They have not confirmed their email yet.': '对方还没有确认邮箱。',
+  'Approved before, but not linked to anyone yet.':
+    '之前已批准，但还没有关联到任何人。',
+  'Their email is not confirmed yet. Approve once they open the link we sent.':
+    '对方的邮箱还没有确认。等对方打开确认邮件后再审批。',
   'Could not finish approving. Try again.': '审批未完成，请再试一次。',
 
   // ---- Tracker calendar -------------------------------------------------------

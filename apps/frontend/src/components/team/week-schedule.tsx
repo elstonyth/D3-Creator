@@ -15,6 +15,7 @@
  */
 
 import { useMemo, useState, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
 import { Alert } from '@gitroom/frontend/components/ui/alert';
@@ -77,6 +78,7 @@ export function WeekSchedule({
   basePath,
 }: WeekScheduleProps) {
   const { t, locale } = useI18n();
+  const router = useRouter();
   const tag = localeTag(locale);
   const isAdmin = meId === null;
   const [shoots, setShoots] = useState(initialShoots);
@@ -127,14 +129,25 @@ export function WeekSchedule({
   ) {
     setSaving(true);
     setError(null);
-    const r = await call();
-    setSaving(false);
+    let r: ShootResult;
+    try {
+      r = await call();
+    } catch {
+      // A dropped connection or a stale deploy: a refusal, not a frozen board.
+      r = { ok: false, message: 'Could not save. Try again.' };
+    } finally {
+      setSaving(false);
+    }
     if (!r.ok) {
       setError({ at, text: r.message ?? 'Could not save. Try again.' });
       return;
     }
     apply(r);
     if (started) setOpen((cur) => (cur === started ? null : cur));
+    // These actions don't revalidate the page (the board keeps its own
+    // state); drop the router's cached copy so Back/Forward can't bring back
+    // the page as it was before this save.
+    router.refresh();
   }
   const errorAt = (at: string) => (error?.at === at ? t(error.text) : null);
   const close = () => {

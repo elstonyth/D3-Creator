@@ -40,7 +40,10 @@ export default async function AdminTeamPage() {
     : '/admin/team';
 
   const [pendingRes, linkedRes, people, videos, shoots] = await Promise.all([
-    admin.from('user_role').select('user_id').eq('role', 'staff_pending'),
+    admin
+      .from('user_role')
+      .select('user_id, role')
+      .in('role', ['staff_pending', 'staff']),
     admin
       .from('tracker_member')
       .select('id, user_id')
@@ -53,12 +56,18 @@ export default async function AdminTeamPage() {
   if (pendingRes.error) throw pendingRes.error;
   if (linkedRes.error) throw linkedRes.error;
 
+  // Waiting: a pending signup, or a staff login linked to nobody (an
+  // approval whose link step failed) — both can be approved or turned away.
+  const linkedLogins = new Set(
+    (linkedRes.data ?? []).map((r) => r.user_id as string),
+  );
+  const waitingRows = (pendingRes.data ?? []).filter(
+    (r) => r.role === 'staff_pending' || !linkedLogins.has(r.user_id as string),
+  );
+
   // Emails and signup details live in auth.users (not exposed via PostgREST).
   // A handful of staff: one admin-API call each.
-  const ids = [
-    ...(pendingRes.data ?? []).map((r) => r.user_id as string),
-    ...(linkedRes.data ?? []).map((r) => r.user_id as string),
-  ];
+  const ids = [...waitingRows.map((r) => r.user_id as string), ...linkedLogins];
   const users = new Map(
     (
       await Promise.all(ids.map((id) => admin.auth.admin.getUserById(id)))
@@ -70,7 +79,7 @@ export default async function AdminTeamPage() {
     (linkedRes.data ?? []).map((r) => [r.id as string, r.user_id as string]),
   );
 
-  const pending: PendingSignup[] = (pendingRes.data ?? []).flatMap((r) => {
+  const pending: PendingSignup[] = waitingRows.flatMap((r) => {
     const u = users.get(r.user_id as string);
     if (!u) return [];
     const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
@@ -81,6 +90,8 @@ export default async function AdminTeamPage() {
         name: typeof meta.display_name === 'string' ? meta.display_name : '',
         kind: meta.staff_kind === 'editor' ? 'editor' : 'handler',
         signedUpAt: u.created_at,
+        confirmed: Boolean(u.email_confirmed_at),
+        approved: r.role === 'staff',
       },
     ];
   });

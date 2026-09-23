@@ -263,7 +263,10 @@ async function videosWhere(ors: string[], what: string): Promise<Video[]> {
       .range(a, b);
   });
   if (res.error) throw new Error(`team: ${what}: ${res.error.message}`);
-  return res.rows.map(rowToVideo);
+  // ponytail: offset paging. A Done landing between two pages of a result
+  // over 1000 rows can shift a row onto both (dropped here) or neither (back
+  // on the next load); keyset paging if a month ever passes 1000 videos.
+  return [...new Map(res.rows.map((r) => [r.id, r])).values()].map(rowToVideo);
 }
 
 /**

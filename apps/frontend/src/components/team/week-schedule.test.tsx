@@ -44,6 +44,9 @@ jest.mock('next/link', () => ({
   ),
 }));
 
+const refresh = jest.fn();
+jest.mock('next/navigation', () => ({ useRouter: () => ({ refresh }) }));
+
 const KEE = 'aaaaaaaa-0000-4000-8000-000000000001';
 const ZUWEI = 'aaaaaaaa-0000-4000-8000-000000000002';
 const people = [
@@ -255,4 +258,24 @@ it('shows a refused one-click change on that shoot', async () => {
   expect(within(tuesday).getByRole('alert').textContent).toContain(
     'from this month on',
   );
+});
+
+it('frees the week and says why when an action throws', async () => {
+  (setShootStatus as jest.Mock).mockRejectedValue(
+    new TypeError('Failed to fetch'),
+  );
+  renderWeek(KEE);
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Cancel shoot: Hotpot shop' }),
+    );
+  });
+  const tuesday = screen.getByRole('region', { name: /Tuesday/ });
+  expect(within(tuesday).getByRole('alert').textContent).toContain(
+    'Could not save. Try again.',
+  );
+  const cancel = screen.getByRole('button', {
+    name: 'Cancel shoot: Hotpot shop',
+  }) as HTMLButtonElement;
+  expect(cancel.disabled).toBe(false);
 });

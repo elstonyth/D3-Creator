@@ -5,6 +5,7 @@
 
 import { getSupabaseAdmin } from '@d3/database';
 import { resolveMediaUrl } from '@gitroom/frontend/lib/media-url';
+import { fetchAllRows } from '@gitroom/frontend/lib/queries';
 import {
   addDays,
   addMonths,
@@ -30,6 +31,30 @@ interface AssignmentRow {
   editor_id: string | null;
   scheduled_posting: boolean;
   sort_order: number;
+}
+
+/** An embedded to-one, which PostgREST types as an object or an array. */
+type One<T> = T | T[] | null;
+
+interface ShootRow {
+  id: string;
+  shoot_date: string;
+  start_time: string | null;
+  title: string;
+  status: string;
+  member: One<{ name: string }>;
+}
+
+interface PostRow {
+  id: string;
+  post_date: string;
+  post_time: string | null;
+  title: string;
+  posted_at: string | null;
+  creator: One<{ display_name: string }>;
+  handler: One<{ name: string }>;
+  editor: One<{ name: string }>;
+  poster: One<{ name: string }>;
 }
 
 interface StatsRow {
@@ -60,9 +85,9 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
   const dayAfterTomorrow = addDays(today, 2);
   const eventsTo =
     dayAfterTomorrow > nextMonthStart ? dayAfterTomorrow : nextMonthStart;
-  // Shoots and posting slots are many more rows than events, so they read the
-  // two windows themselves rather than the span between them: a month far
-  // from today must not push today's rows past the cap.
+  // Shoots and posting slots are many more rows than events: they read the
+  // two windows rather than the span between them, and are paged in a total
+  // order, so neither a far month nor a busy one can cut today's rows.
   const windows = (col: string) =>
     `and(${col}.gte.${monthStart},${col}.lt.${nextMonthStart}),and(${col}.gte.${today},${col}.lt.${dayAfterTomorrow})`;
 
@@ -121,23 +146,31 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
     admin.rpc('tracker_creator_month_stats', { p_from: from, p_to: to }),
     // The staff portal's shoots and video posting slots, for the calendar
     // and the spotlight.
-    admin
-      .from('tracker_shoot')
-      .select(
-        'id, shoot_date, start_time, title, status, member:tracker_member(name)',
-      )
-      .or(windows('shoot_date'))
-      .neq('status', 'cancelled')
-      .order('shoot_date')
-      .order('start_time'),
-    admin
-      .from('tracker_video')
-      .select(
-        'id, post_date, post_time, title, posted_at, creator:creator(display_name), handler:tracker_member!tracker_video_handler_id_fkey(name)',
-      )
-      .or(windows('post_date'))
-      .order('post_date')
-      .order('post_time'),
+    fetchAllRows<ShootRow>((a, b) =>
+      admin
+        .from('tracker_shoot')
+        .select(
+          'id, shoot_date, start_time, title, status, member:tracker_member(name)',
+        )
+        .or(windows('shoot_date'))
+        .neq('status', 'cancelled')
+        .order('shoot_date')
+        .order('start_time')
+        .order('id')
+        .range(a, b),
+    ),
+    fetchAllRows<PostRow>((a, b) =>
+      admin
+        .from('tracker_video')
+        .select(
+          'id, post_date, post_time, title, posted_at, creator:creator(display_name), handler:tracker_member!tracker_video_handler_id_fkey(name), editor:tracker_member!tracker_video_editor_id_fkey(name), poster:tracker_member!tracker_video_posted_by_fkey(name)',
+        )
+        .or(windows('post_date'))
+        .order('post_date')
+        .order('post_time')
+        .order('id')
+        .range(a, b),
+    ),
   ]);
 
   const members = must<
@@ -171,27 +204,12 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
   // it reads the FK; take either.
   const first = <T>(v: T | T[] | null | undefined): T | null =>
     Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
-  const shootRows = must<
-    {
-      id: string;
-      shoot_date: string;
-      start_time: string | null;
-      title: string;
-      status: string;
-      member: { name: string } | { name: string }[] | null;
-    }[]
-  >(shootsRes, 'shoots');
-  const postRows = must<
-    {
-      id: string;
-      post_date: string;
-      post_time: string | null;
-      title: string;
-      posted_at: string | null;
-      creator: { display_name: string } | { display_name: string }[] | null;
-      handler: { name: string } | { name: string }[] | null;
-    }[]
-  >(postsRes, 'posting slots');
+  if (shootsRes.error)
+    throw new Error(`tracker: shoots: ${shootsRes.error.message}`);
+  if (postsRes.error)
+    throw new Error(`tracker: posting slots: ${postsRes.error.message}`);
+  const shootRows = shootsRes.rows;
+  const postRows = postsRes.rows;
   const assignments = must<AssignmentRow[]>(assignRes, 'assignments');
   const stats = must<StatsRow[]>(statsRes, 'month stats');
 
@@ -259,7 +277,13 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
       time: r.post_time ? r.post_time.slice(0, 5) : null,
       title: r.title,
       account: first(r.creator)?.display_name ?? null,
-      person: first(r.handler)?.name ?? null,
+      // Who posts it: once out, whoever it was stamped with; before, the
+      // handler, or the editor on a job with no handler.
+      person:
+        (r.posted_at ? first(r.poster)?.name : null) ??
+        first(r.handler)?.name ??
+        first(r.editor)?.name ??
+        null,
       posted: r.posted_at !== null,
     })),
     creators,

@@ -278,6 +278,8 @@ export default async function StaffPreviewPage({
               name: 'SK',
               kind: 'handler',
               signedUpAt: ago(0),
+              confirmed: true,
+              approved: false,
             },
             {
               userId: 'ffffffff-0000-4000-8000-000000000002',
@@ -285,6 +287,8 @@ export default async function StaffPreviewPage({
               name: 'ALI',
               kind: 'editor',
               signedUpAt: ago(1),
+              confirmed: false,
+              approved: false,
             },
           ]}
           team={[

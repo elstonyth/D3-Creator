@@ -29,6 +29,9 @@ jest.mock('@gitroom/frontend/lib/team/video-actions', () => ({
   undoPost: jest.fn(),
 }));
 
+const refresh = jest.fn();
+jest.mock('next/navigation', () => ({ useRouter: () => ({ refresh }) }));
+
 const KEE = 'aaaaaaaa-0000-4000-8000-000000000001';
 const ALI = 'aaaaaaaa-0000-4000-8000-000000000009';
 const ACC = 'bbbbbbbb-0000-4000-8000-000000000001';
@@ -264,4 +267,40 @@ it('shows a refused Undo on its own job', async () => {
   );
   const editing = screen.getByRole('region', { name: 'Being edited' });
   expect(within(editing).queryByRole('alert')).toBeNull();
+});
+
+it('says why when the connection drops, and frees the board again', async () => {
+  (finishPost as jest.Mock).mockRejectedValue(new TypeError('Failed to fetch'));
+  renderBoard(KEE);
+  fireEvent.click(screen.getByRole('button', { name: 'Done posting: Reel 2' }));
+  fireEvent.change(screen.getByLabelText('Link to the live post'), {
+    target: { value: 'https://instagram.com/p/1' },
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+  });
+  expect(screen.getByRole('alert').textContent).toContain(
+    'Could not save. Try again.',
+  );
+  const done = screen.getByRole('button', {
+    name: 'Done',
+  }) as HTMLButtonElement;
+  expect(done.disabled).toBe(false);
+  expect(refresh).not.toHaveBeenCalled();
+});
+
+it('refreshes the page after a save, so Back shows it', async () => {
+  (finishEdit as jest.Mock).mockResolvedValue({
+    ok: true,
+    video: { ...TO_EDIT, editedAt: '2026-09-23T02:00:00Z', editedBy: ALI },
+  });
+  renderBoard(ALI);
+  fireEvent.click(screen.getByRole('button', { name: 'Done editing: Reel 1' }));
+  fireEvent.change(screen.getByLabelText('Link to the edited video'), {
+    target: { value: 'https://drive.google.com/cut' },
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+  });
+  expect(refresh).toHaveBeenCalledTimes(1);
 });

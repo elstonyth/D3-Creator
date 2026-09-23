@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { setMyTaskDone } from '@gitroom/frontend/lib/team/task-actions';
@@ -13,6 +14,7 @@ import type { MyTask } from '@gitroom/frontend/lib/team/load';
 
 export function MyTasks({ tasks: initialTasks }: { tasks: MyTask[] }) {
   const { t } = useI18n();
+  const router = useRouter();
   const [tasks, setTasks] = useState(initialTasks);
   const [error, setError] = useState<string | null>(null);
   const open = tasks.filter((x) => !x.done);
@@ -24,16 +26,25 @@ export function MyTasks({ tasks: initialTasks }: { tasks: MyTask[] }) {
     setTasks((p) =>
       p.map((x) => (x.id === task.id ? { ...x, done: next } : x)),
     );
-    const r = await setMyTaskDone(task.id, next);
-    if (!r.ok) {
-      setError(r.message ?? 'Could not save. Try again.');
-      // Only this tick, and only if nothing changed it since.
-      setTasks((p) =>
-        p.map((x) =>
-          x.id === task.id && x.done === next ? { ...x, done: !next } : x,
-        ),
-      );
+    let r: { ok: boolean; message?: string };
+    try {
+      r = await setMyTaskDone(task.id, next);
+    } catch {
+      // A dropped connection or a stale deploy: put the tick back and say so.
+      r = { ok: false, message: 'Could not save. Try again.' };
     }
+    if (r.ok) {
+      // Drop the router's cached page so Back/Forward shows the tick.
+      router.refresh();
+      return;
+    }
+    setError(r.message ?? 'Could not save. Try again.');
+    // Only this tick, and only if nothing changed it since.
+    setTasks((p) =>
+      p.map((x) =>
+        x.id === task.id && x.done === next ? { ...x, done: !next } : x,
+      ),
+    );
   }
 
   return (
@@ -58,7 +69,9 @@ export function MyTasks({ tasks: initialTasks }: { tasks: MyTask[] }) {
         </p>
       ) : (
         <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
-          {[...open, ...done].map((task) => (
+          {/* In the order they came, ticked or not: a row that jumped to
+              the done group would take keyboard focus with it. */}
+          {tasks.map((task) => (
             <li key={task.id}>
               {/* The whole row is the checkbox: a big target, named by its
                   title. */}

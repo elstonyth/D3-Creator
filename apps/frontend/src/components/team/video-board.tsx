@@ -11,6 +11,7 @@
  */
 
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
 import { dateKeyAt } from '@gitroom/frontend/lib/tracker';
@@ -80,6 +81,7 @@ export function VideoBoard({
   assignments = {},
 }: VideoBoardProps) {
   const { t, locale } = useI18n();
+  const router = useRouter();
   const tag = localeTag(locale);
   const isAdmin = meId === null;
   const [videos, setVideos] = useState(initialVideos);
@@ -151,14 +153,25 @@ export function VideoBoard({
   ) {
     setSaving(true);
     setError(null);
-    const r = await call();
-    setSaving(false);
+    let r: VideoResult;
+    try {
+      r = await call();
+    } catch {
+      // A dropped connection or a stale deploy: a refusal, not a frozen board.
+      r = { ok: false, message: 'Could not save. Try again.' };
+    } finally {
+      setSaving(false);
+    }
     if (!r.ok) {
       setError({ at, text: r.message ?? 'Could not save. Try again.' });
       return;
     }
     apply(r);
     if (started) setOpen((cur) => (cur === started ? null : cur));
+    // These actions don't revalidate the page (the board keeps its own
+    // state); drop the router's cached copy so Back/Forward can't bring back
+    // the page as it was before this save.
+    router.refresh();
   }
   const replace = (r: VideoResult) =>
     setVideos((p) => p.map((x) => (x.id === r.video!.id ? r.video! : x)));

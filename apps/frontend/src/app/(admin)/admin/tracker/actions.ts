@@ -11,6 +11,7 @@ import { revalidatePath } from 'next/cache';
 import { getSupabaseAdmin } from '@d3/database';
 import { requireAdmin, type AuthContext } from '@gitroom/frontend/lib/auth';
 import { isUuid } from '@gitroom/frontend/lib/ids';
+import { onBoard } from '@gitroom/frontend/lib/team/on-board';
 import {
   cleanTitle,
   isDateKey,
@@ -24,6 +25,9 @@ export interface ActionResult {
 }
 
 const PAGE = '/admin/tracker';
+// A tab opened before someone was removed still offers them; the server
+// refuses rather than handing work to a person who has left.
+const NOT_ON_BOARD = 'That person is not on the board.';
 
 // `me` is the signed-in admin; writes to tracker_assignment record them as
 // `updated_by`, which the handover log trigger copies onto every change.
@@ -91,6 +95,8 @@ export async function assignTask(
     if (!isUuid(id)) return { ok: false, message: 'Invalid task.' };
     if (assigneeId !== null && !isUuid(assigneeId))
       return { ok: false, message: 'Invalid person.' };
+    if (!(await onBoard([assigneeId])))
+      return { ok: false, message: NOT_ON_BOARD };
     const { data, error } = await getSupabaseAdmin()
       .from('tracker_task')
       .update({ assignee_id: assigneeId })
@@ -244,6 +250,8 @@ export async function setAssignment(
     }
     if ('scheduledPosting' in patch)
       row.scheduled_posting = Boolean(patch.scheduledPosting);
+    if (!(await onBoard([patch.handlerId ?? null, patch.editorId ?? null])))
+      return { ok: false, message: NOT_ON_BOARD };
     const { error } = await getSupabaseAdmin()
       .from('tracker_assignment')
       .upsert(row, { onConflict: 'creator_id' });
@@ -277,6 +285,8 @@ export async function placeCards(
       !movedIds.every((id) => creatorIds.includes(id))
     )
       return { ok: false, message: 'Invalid order.' };
+    if (!(await onBoard([handlerId])))
+      return { ok: false, message: NOT_ON_BOARD };
     const admin = getSupabaseAdmin();
     const moved = new Set(movedIds);
     // The cards that stayed put first, the handovers last. If the handover

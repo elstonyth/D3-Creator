@@ -18,6 +18,7 @@ import { getSupabaseAdmin } from '@d3/database';
 import { isUuid } from '@gitroom/frontend/lib/ids';
 import { isDateKey, monthRange, todayKey } from '@gitroom/frontend/lib/tracker';
 import { asActor, type Actor } from './actor';
+import { onBoard } from './on-board';
 import { isTimeKey } from './shoots';
 import { rowToVideo, VIDEO_COLS, type VideoRow } from './video-rows';
 import { parseLink, parseVideoInput, type Video } from './videos';
@@ -44,19 +45,6 @@ function one(
   if (res.error) return { ok: false, message: res.error.message };
   if (!res.data || res.data.length === 0) return { ok: false, message: miss };
   return { ok: true, video: rowToVideo(res.data[0] as VideoRow) };
-}
-
-/** The people named on a job must be on the board (not archived). */
-async function onBoard(ids: (string | null)[]): Promise<boolean> {
-  const wanted = ids.filter((x): x is string => x !== null);
-  if (wanted.length === 0) return true;
-  const { data, error } = await getSupabaseAdmin()
-    .from('tracker_member')
-    .select('id')
-    .in('id', wanted)
-    .is('archived_at', null);
-  if (error) throw new Error(error.message);
-  return new Set((data ?? []).map((r) => r.id)).size === new Set(wanted).size;
 }
 
 function adminOnly(a: Actor): VideoResult | null {

@@ -89,6 +89,7 @@ export function WorkTracker({
     initialDay ?? (today.startsWith(month) ? today : `${month}-01`),
   );
   const [tasks, setTasks] = useState(initial.tasks);
+  const [members, setMembers] = useState(initial.members);
   const [events, setEvents] = useState(initial.events);
   // Keyed per failure so a repeat of the same message restarts the timer.
   const [toast, setToast] = useState<{ id: number; message: string } | null>(
@@ -350,7 +351,7 @@ export function WorkTracker({
           <TasksPanel
             tasks={tasks}
             setTasks={setTasks}
-            members={initial.members}
+            members={members}
             onFail={fail}
           />
         </section>
@@ -380,7 +381,8 @@ export function WorkTracker({
               month: 'long',
               year: 'numeric',
             })}
-            members={initial.members}
+            members={members}
+            setMembers={setMembers}
             creators={initial.creators}
             onFail={fail}
           />
@@ -805,17 +807,26 @@ function TaskRow({
             and a select in the row would cut them to a few words. */}
         {members && onAssign ? (
           <select
-            value={task.assigneeId ?? ''}
+            // Someone removed on the board reads as nobody, as the server
+            // has already made it.
+            value={
+              members.some((m) => m.id === task.assigneeId)
+                ? (task.assigneeId ?? '')
+                : ''
+            }
             onChange={(e) => onAssign(e.target.value || null)}
             aria-label={t('Give {title} to', { title: task.title })}
             className={cn(s.field, 'mt-1.5 h-7 max-w-full px-2 text-caption')}
           >
             <option value="">{t('Not given to anyone')}</option>
-            {members.map((m) => (
-              <option key={m.id} value={m.id}>
-                {t('For: {name}', { name: m.name })}
-              </option>
-            ))}
+            {/* Not someone still being added: they have no id yet. */}
+            {members
+              .filter((m) => !m.id.startsWith('temp-'))
+              .map((m) => (
+                <option key={m.id} value={m.id}>
+                  {t('For: {name}', { name: m.name })}
+                </option>
+              ))}
           </select>
         ) : null}
       </div>

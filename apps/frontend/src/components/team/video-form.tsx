@@ -95,6 +95,7 @@ export function VideoForm({
             value={d.creatorId}
             onChange={(e) => pickAccount(e.target.value)}
             required
+            autoFocus
           >
             <option value="">{t('Choose…')}</option>
             {accounts.map((a) => (

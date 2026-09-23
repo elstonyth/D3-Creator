@@ -18,7 +18,7 @@ import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { Pill } from '@gitroom/frontend/components/team/pill';
 import { Button } from '@gitroom/frontend/components/ui/button';
 import { Field, Input, Select } from '@gitroom/frontend/components/ui/input';
-import type { MemberKind } from '@gitroom/frontend/lib/tracker';
+import { dateKeyAt, type MemberKind } from '@gitroom/frontend/lib/tracker';
 import {
   approveStaff,
   rejectStaff,
@@ -33,6 +33,10 @@ export interface PendingSignup {
   name: string;
   kind: MemberKind;
   signedUpAt: string;
+  /** Only a confirmed email can be approved. */
+  confirmed: boolean;
+  /** Approved before, but the link to a person never landed. */
+  approved: boolean;
 }
 
 export interface TeamRow {
@@ -74,7 +78,13 @@ export function TeamManager({
     setActing(at);
     setMessage(null);
     startTransition(async () => {
-      const r = await call();
+      let r: TeamResult;
+      try {
+        r = await call();
+      } catch {
+        // A dropped connection or a stale deploy: a refusal, not a crash.
+        r = { ok: false, message: 'Could not save. Try again.' };
+      }
       startTransition(() => {
         if (!r.ok) {
           setMessage({
@@ -291,7 +301,7 @@ function PendingCard({
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (!ready || locked) return;
+    if (!ready || locked || !p.confirmed) return;
     onApprove(mode === 'new' ? { name, kind } : { memberId });
   }
 
@@ -300,11 +310,23 @@ function PendingCard({
       <p className="break-all text-label text-fg">{p.email}</p>
       <p className="mt-0.5 text-caption text-fg-subtle">
         {t('Signed up {when} as “{name}”, {job}.', {
-          when: p.signedUpAt.slice(0, 10),
+          when: dateKeyAt(new Date(p.signedUpAt)),
           name: p.name || '—',
           job: p.kind === 'editor' ? t('editor') : t('handler'),
         })}
       </p>
+      {p.approved ? (
+        <p className="mt-1 text-caption text-fg-muted">
+          {t('Approved before, but not linked to anyone yet.')}
+        </p>
+      ) : null}
+      {!p.confirmed ? (
+        <p className="mt-1 text-caption text-fg-muted">
+          {t(
+            'Their email is not confirmed yet. Approve once they open the link we sent.',
+          )}
+        </p>
+      ) : null}
 
       <form onSubmit={submit} className="mt-3 space-y-3">
         <div
@@ -419,7 +441,7 @@ function PendingCard({
               size="sm"
               variant="secondary"
               loading={approving}
-              disabled={!ready || locked}
+              disabled={!ready || locked || !p.confirmed}
             >
               {t('Approve')}
             </Button>
