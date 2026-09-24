@@ -3,6 +3,7 @@ import { publicZh } from './i18n/public.zh';
 import { studioZh } from './i18n/studio.zh';
 import { adminZh } from './i18n/admin.zh';
 import { authZh } from './i18n/auth.zh';
+import { staffZh } from './i18n/staff.zh';
 
 export type Locale = 'en' | 'zh';
 export const LOCALE_COOKIE = 'd3-locale';
@@ -19,6 +20,7 @@ export const chineseMessages: Readonly<Record<string, string>> = {
   ...studioZh,
   ...adminZh,
   ...authZh,
+  ...staffZh,
 };
 
 export function parseLocale(value: unknown): Locale {

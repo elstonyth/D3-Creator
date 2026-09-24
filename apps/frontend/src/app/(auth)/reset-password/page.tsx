@@ -1,5 +1,7 @@
 import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
+import { authVariant } from '@gitroom/frontend/lib/portal-host';
 
 import { AuthShell } from '@gitroom/frontend/components/auth/auth-shell';
 import { ResetPasswordForm } from '@gitroom/frontend/components/auth/reset-password-form';
@@ -21,6 +23,7 @@ export default async function ResetPasswordPage() {
   const { t } = await getI18n();
   return (
     <AuthShell
+      variant={authVariant((await headers()).get('host'))}
       heading={t("Set a new password")}
       subheading={t("The last step of the reset you started by email.")}
     >

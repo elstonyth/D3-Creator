@@ -1,23 +1,27 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import {
-  adminOriginFor,
-  publicOriginFor,
-  stripAdminPrefix,
-  toAdminPath,
-} from '@gitroom/frontend/lib/admin-host';
+  accessRoute,
+  hostRoute,
+  type Role,
+} from '@gitroom/frontend/lib/portal-routing';
 
-const ADMIN_PREFIXES = ['/admin'];
-const CREATOR_PREFIXES = ['/me', '/onboarding'];
-const STUDIO_PREFIXES = ['/studio'];
-// Logged-in users are redirected off these to their role home — keeps an
-// authenticated user from sitting on (or re-submitting) login/signup.
+// Signed-in users are redirected off these to their role home. Mirrors the
+// rule in portal-routing.ts; needed here only to keep a failing role lookup
+// from bouncing /login -> /login forever.
 const AUTH_PAGES = new Set(['/login', '/signup', '/forgot-password']);
-// NOT an auth page: /reset-password is reached WITH a session, because
-// /auth/callback exchanges the emailed code before redirecting here. Putting it
-// in AUTH_PAGES would bounce every user off the page the link exists to reach.
-const RESET_PATH = '/reset-password';
 
+/**
+ * The middleware. It does the I/O — refresh the Supabase session, read the
+ * caller's role — and hands every decision to lib/portal-routing.ts, where
+ * each host × role × path rule is table-tested:
+ *
+ * - www.d3creator.com: the public site; /admin/* and /staff/* hop to their
+ *   own hosts.
+ * - admin.d3creator.com: the console, admins only.
+ * - staff.d3creator.com: the staff portal, staff only (pending accounts see
+ *   only the waiting page).
+ */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
 
@@ -53,44 +57,24 @@ export async function proxy(request: NextRequest) {
   // Redirects must carry any refreshed session cookies from `response`, or the
   // browser keeps the old (already-rotated, now-dead) refresh token and the
   // user is logged out on their next request.
-  const redirect = (url: URL) => {
-    const r = NextResponse.redirect(url);
+  const redirect = (to: string) => {
+    const r = NextResponse.redirect(new URL(to, request.url));
     for (const c of response.cookies.getAll()) r.cookies.set(c);
     return r;
   };
 
-  const host = request.headers.get('host') ?? '';
-  const publicOrigin = publicOriginFor(host);
-  const isAdminHost = publicOrigin !== undefined;
-  const adminOrigin = adminOriginFor(host);
+  const host = request.headers.get('host');
   const rawPath = request.nextUrl.pathname;
   const search = request.nextUrl.search;
 
-  // The console lives on admin.d3creator.com (lib/admin-host.ts). Public host:
-  // send /admin/* across. Admin host: /admin/* is served from the root, so a
-  // link that still says /admin/tracker lands on /tracker.
-  if (adminOrigin && (rawPath === '/admin' || rawPath.startsWith('/admin/'))) {
-    return redirect(new URL(stripAdminPrefix(rawPath) + search, adminOrigin));
-  }
-  if (isAdminHost && (rawPath === '/admin' || rawPath.startsWith('/admin/'))) {
-    return redirect(new URL(stripAdminPrefix(rawPath) + search, request.url));
-  }
-  // Nobody signs up on the console host; the form belongs to the public site.
-  // (Signing IN there with a non-admin account is harmless: the role gate
-  // below sends that session straight back to the public site.)
-  if (publicOrigin && rawPath === '/signup') {
-    return redirect(new URL('/signup', publicOrigin));
-  }
+  const routed = hostRoute(host, rawPath, search);
+  if ('redirect' in routed) return redirect(routed.redirect);
+  const { appPath } = routed;
 
-  // Everything below reasons about the app-tree path; on the admin host that
-  // is the rewritten one (`/tracker` -> `/admin/tracker`).
-  const pathname = isAdminHost ? toAdminPath(rawPath) : rawPath;
-  // A redirect target inside the console, spelled for the current host.
-  const consolePath = (p: string) => (isAdminHost ? stripAdminPrefix(p) : p);
-  // The response that finally serves the page — a rewrite on the admin host.
+  // The response that finally serves the page — a rewrite on a portal host.
   const serve = () => {
-    if (pathname === rawPath) return response;
-    const r = NextResponse.rewrite(new URL(pathname + search, request.url), {
+    if (appPath === rawPath) return response;
+    const r = NextResponse.rewrite(new URL(appPath + search, request.url), {
       request,
     });
     for (const c of response.cookies.getAll()) r.cookies.set(c);
@@ -100,117 +84,40 @@ export async function proxy(request: NextRequest) {
   // API routes authenticate themselves (handlers call getUser) and must never
   // be redirected — a 3xx would corrupt fetch/JSON callers. Bail after the
   // session refresh above.
-  if (pathname.startsWith('/api')) return response;
+  if (appPath.startsWith('/api')) return response;
 
-  // /me/profiles is removed in Phase 3 — creators no longer self-manage
-  // accounts. Send stale links to the dashboard (authed creators; anon falls
-  // through to the creator-route -> /login rule below).
-  if (pathname === '/me/profiles') {
-    return redirect(new URL('/me', request.url));
-  }
+  let role: Role | null = null;
+  if (user) {
+    // Only signed-in requests pay for this lookup; anonymous traffic (the bulk
+    // of public-page load) never reaches it.
+    const { data: roleRow, error: roleErr } = await supabase
+      .from('user_role')
+      .select('role')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-  const isAuthPage = AUTH_PAGES.has(pathname);
-  const isAdminRoute = ADMIN_PREFIXES.some((p) => pathname.startsWith(p));
-  const isCreatorRoute = CREATOR_PREFIXES.some((p) => pathname.startsWith(p));
-  const isStudioRoute = STUDIO_PREFIXES.some((p) => pathname.startsWith(p));
-
-  if (!user) {
-    if (isAdminRoute || isCreatorRoute || isStudioRoute) {
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('redirectTo', rawPath);
-      return redirect(loginUrl);
+    // Distinguish "no row" (legitimate — fresh user) from "DB/network error".
+    // On a real error we fail closed: kick to /login with a generic flag rather
+    // than silently treating the user as a default-role creator.
+    if (roleErr) {
+      console.error('[proxy] role lookup failed', {
+        roleErr: roleErr.message,
+        userId: user.id,
+      });
+      // Don't redirect to /login when we're already on it: /login re-runs this
+      // same lookup, so redirecting on a persistent error would bounce
+      // /login -> /login forever (ERR_TOO_MANY_REDIRECTS) and lock the user
+      // out entirely. Serve the auth page instead so they can still see it.
+      if (AUTH_PAGES.has(appPath)) return serve();
+      return redirect('/login?error=session_lookup_failed');
     }
-    return serve();
+    // A missing row reads as 'creator' (fail-open for the public site); it
+    // grants nothing on either portal.
+    role = (roleRow?.role as Role | undefined) ?? 'creator';
   }
 
-  // A logged-in user always needs their role resolved now: admins are confined
-  // to /admin/* and bounced off every public + auth route, so the old "public
-  // routes skip the lookup" shortcut no longer holds for authenticated
-  // requests. Anonymous traffic — the bulk of public-page load — already
-  // returned above, so this DB roundtrip is paid only by signed-in users.
-  // Only the role is needed for routing now — there is no onboarding gate.
-  // Creators self-provision on first profile-add, so a signed-in creator goes
-  // straight to /me. Anonymous traffic (the bulk of public-page load) already
-  // returned above, so this DB roundtrip is paid only by signed-in users.
-  const { data: roleRow, error: roleErr } = await supabase
-    .from('user_role')
-    .select('role')
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  // Distinguish "no row" (legitimate — fresh user) from "DB/network error".
-  // On a real error we fail closed: kick to /login with a generic flag rather
-  // than silently treating the user as a default-role creator.
-  if (roleErr) {
-    console.error('[proxy] role lookup failed', {
-      roleErr: roleErr.message,
-      userId: user.id,
-    });
-    // Don't redirect to /login when we're already on it: /login re-runs this
-    // same lookup, so redirecting on a persistent error would bounce
-    // /login -> /login forever (ERR_TOO_MANY_REDIRECTS) and lock the user out
-    // entirely. Serve the auth page instead so they can still see the error.
-    if (isAuthPage) return serve();
-    const failUrl = new URL('/login', request.url);
-    failUrl.searchParams.set('error', 'session_lookup_failed');
-    return redirect(failUrl);
-  }
-  const role =
-    (roleRow?.role as 'admin' | 'creator' | 'member' | 'none' | undefined) ??
-    'creator';
-  // A non-admin's home is on the public site; on the admin host that is a
-  // cross-origin hop, because their session cookies belong to this host only
-  // and there is nothing for them here.
-  const home =
-    role === 'admin'
-      ? new URL(consolePath('/admin'), request.url)
-      : new URL(
-          role === 'creator' ? '/me' : '/classes',
-          publicOrigin ?? request.url,
-        );
-
-  // Logged-in users shouldn't sit on login/signup.
-  if (isAuthPage) {
-    return redirect(home);
-  }
-
-  // The console host is for admins only. Any other role goes home on the
-  // public site whatever it asked for — including the passthrough paths
-  // (/me, /studio, /onboarding) that the role gates below would otherwise
-  // happily serve on this origin.
-  if (isAdminHost && role !== 'admin') {
-    return redirect(home);
-  }
-
-  // Confine admins to the admin surface: ANY non-admin route — public (home,
-  // showcase) AND creator routes (/me, /onboarding) — bounces to /admin.
-  // Admins are managers; they never go through the creator flow.
-  // (auth pages + /api were handled above.)
-  // Studio is the one exemption: admins reach /studio/* (PRD 3 §5.5).
-  // /reset-password joins Studio as an exemption: an admin following their own
-  // reset link would otherwise be bounced to /admin with the password unchanged
-  // and no way to finish.
-  if (
-    role === 'admin' &&
-    !isAdminRoute &&
-    !isStudioRoute &&
-    pathname !== RESET_PATH
-  ) {
-    return redirect(home);
-  }
-
-  // Admin-only routes for non-admins — members and creators go to their home.
-  if (isAdminRoute && role !== 'admin') {
-    return redirect(home);
-  }
-
-  // Creator dashboard is for creators (+ admins, handled above). Members/none
-  // have no creator data — send them to the classes library instead.
-  if (isCreatorRoute && role !== 'creator') {
-    return redirect(new URL('/classes', publicOrigin ?? request.url));
-  }
-
-  return serve();
+  const access = accessRoute({ host, appPath, rawPath, role });
+  return 'redirect' in access ? redirect(access.redirect) : serve();
 }
 
 export const config = {

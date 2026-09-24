@@ -3,6 +3,9 @@ import { withSentryConfig } from '@sentry/nextjs';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Next 16.3+ writes AGENTS.md and CLAUDE.md into this directory when `next dev`
+  // is started by a coding agent. This repo is public; keep them out.
+  agentRules: false,
   experimental: {
     proxyTimeout: 90_000,
   },
