@@ -145,3 +145,36 @@ it('switches to the taken screen when a RESEND finds the address confirmed', asy
   await screen.findByRole('button', { name: /create account/i });
   expect(screen.queryByText('Check your email.')).toBeNull();
 });
+
+it('asks for a staff account only from the staff portal, and confirms back there', async () => {
+  signUp.mockResolvedValue(NEW_ACCOUNT);
+  render(<SignUpForm portal="staff" />);
+  fireEvent.change(screen.getByLabelText('Your name on the board'), {
+    target: { value: '  KEE ' },
+  });
+  fireEvent.change(screen.getByLabelText('Your job'), {
+    target: { value: 'editor' },
+  });
+  submit('kee@example.com');
+
+  await screen.findByText('Check your email.');
+  const options = signUp.mock.calls[0][0].options;
+  expect(options.data).toEqual({
+    portal: 'staff',
+    display_name: 'KEE',
+    staff_kind: 'editor',
+  });
+  expect(options.emailRedirectTo).toMatch(/\/auth\/callback\?redirectTo=%2F$/);
+  expect(screen.getByText(/an admin approves/i)).toBeTruthy();
+});
+
+it('never marks a public signup as staff', async () => {
+  signUp.mockResolvedValue(NEW_ACCOUNT);
+  render(<SignUpForm />);
+  submit('new@example.com');
+
+  await screen.findByText('Check your email.');
+  const options = signUp.mock.calls[0][0].options;
+  expect(options.data).toBeUndefined();
+  expect(options.emailRedirectTo).toMatch(/redirectTo=%2Fstudio%2Fchat$/);
+});

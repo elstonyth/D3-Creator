@@ -6,7 +6,10 @@ import {
   isMonthKey,
   monthGrid,
   monthRange,
+  placeCard,
+  placementChanges,
   reorder,
+  restorePlacement,
 } from './tracker';
 
 describe('tracker date helpers', () => {
@@ -66,5 +69,90 @@ describe('tracker date helpers', () => {
     expect(reorder(a, 1, 1)).toBe(a);
     expect(reorder(a, 5, 0)).toBe(a);
     expect(a).toEqual(['a', 'b', 'c', 'd']);
+  });
+});
+
+describe('card placement', () => {
+  const c = (id: string, handlerId: string | null) => ({ id, handlerId });
+  // Board order: column k = a, c, d; column z = b.
+  const L = [c('a', 'k'), c('b', 'z'), c('c', 'k'), c('d', 'k')];
+  const ids = (l: { id: string }[]) => l.map((x) => x.id).join('');
+
+  it('drops before a card and takes its column', () => {
+    const r = placeCard(L, 'b', 'k', 'c');
+    expect(ids(r)).toBe('abcd');
+    expect(r[1].handlerId).toBe('k');
+    expect(L[1].handlerId).toBe('z'); // not mutated
+  });
+
+  it('reorders inside a column', () => {
+    expect(ids(placeCard(L, 'd', 'k', 'a'))).toBe('dabc');
+  });
+
+  it('goes last when there is nothing to drop before', () => {
+    expect(ids(placeCard(L, 'a', 'k', null))).toBe('bcda');
+    expect(ids(placeCard(L, 'a', 'k', 'gone'))).toBe('bcda');
+    expect(placeCard(L, 'b', null, null)[3]).toEqual({
+      id: 'b',
+      handlerId: null,
+    });
+  });
+
+  it('returns the same list when nothing moves', () => {
+    expect(placeCard(L, 'c', 'k', 'd')).toBe(L);
+    expect(placeCard(L, 'c', 'k', 'c')).toBe(L);
+    expect(placeCard(L, 'd', 'k', null)).toBe(L);
+    expect(placeCard(L, 'x', 'k', null)).toBe(L);
+  });
+});
+
+describe('placement saves', () => {
+  const c = (id: string, handlerId: string | null, extra = '') => ({
+    id,
+    handlerId,
+    extra,
+  });
+  const cols = new Set(['k', 'z']);
+
+  it('saves a column whose order changed, with nothing moved in', () => {
+    const base = [c('a', 'k'), c('b', 'z'), c('c', 'k')];
+    const now = [c('c', 'k'), c('b', 'z'), c('a', 'k')];
+    expect(placementChanges(base, now, cols)).toEqual([
+      { handlerId: 'k', ids: ['c', 'a'], moved: [] },
+    ]);
+  });
+
+  it('saves the column a card arrived in, not the one it left', () => {
+    const base = [c('a', 'k'), c('b', 'z'), c('c', 'k')];
+    const now = [c('a', 'k'), c('b', 'k'), c('c', 'k')];
+    expect(placementChanges(base, now, cols)).toEqual([
+      { handlerId: 'k', ids: ['a', 'b', 'c'], moved: ['b'] },
+    ]);
+  });
+
+  it('has nothing to save when only other fields changed', () => {
+    const base = [c('a', 'k'), c('b', null)];
+    const now = [c('a', 'k', 'edited'), c('b', null)];
+    expect(placementChanges(base, now, cols)).toEqual([]);
+  });
+
+  it('treats a handler that is not a column as unassigned', () => {
+    const base = [c('a', 'gone'), c('b', null)];
+    const now = [c('a', null), c('b', null)];
+    expect(placementChanges(base, now, cols)).toEqual([
+      { handlerId: null, ids: ['a', 'b'], moved: ['a'] },
+    ]);
+    // Displayed in the same place already: only the stored handler differs.
+    expect(placementChanges(base, base, cols)).toEqual([]);
+  });
+
+  it('puts back order and handlers, keeping every other edit', () => {
+    const base = [c('a', 'k'), c('b', 'z'), c('c', 'k')];
+    const current = [c('c', 'z', 'edited'), c('b', 'z'), c('a', 'k')];
+    expect(restorePlacement(current, base)).toEqual([
+      c('a', 'k'),
+      c('b', 'z'),
+      c('c', 'k', 'edited'),
+    ]);
   });
 });
