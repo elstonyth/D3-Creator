@@ -10,10 +10,14 @@
 
 export const TRACKER_TZ_OFFSET = '+08:00';
 
+/** A handler owns a column on the staffing board; an editor only cuts video. */
+export type MemberKind = 'handler' | 'editor';
+
 export interface TrackerMember {
   id: string;
   name: string;
   role: string;
+  kind: MemberKind;
   sortOrder: number;
 }
 
@@ -22,6 +26,8 @@ export interface TrackerTask {
   title: string;
   done: boolean;
   sortOrder: number;
+  /** The person it was given to (they see it in the staff portal), or null. */
+  assigneeId: string | null;
 }
 
 export interface TrackerEvent {
@@ -29,6 +35,30 @@ export interface TrackerEvent {
   /** `YYYY-MM-DD` */
   date: string;
   title: string;
+}
+
+/** A staff member's shoot, as the calendar shows it (read-only here). */
+export interface TrackerShoot {
+  id: string;
+  /** `YYYY-MM-DD` */
+  date: string;
+  time: string | null;
+  title: string;
+  person: string;
+  status: 'planned' | 'done' | 'cancelled';
+}
+
+/** A video job's posting slot, as the calendar shows it (read-only here). */
+export interface TrackerPost {
+  id: string;
+  /** `YYYY-MM-DD` */
+  date: string;
+  time: string | null;
+  title: string;
+  account: string | null;
+  /** The handler posting it. */
+  person: string | null;
+  posted: boolean;
 }
 
 export interface TrackerCreator {
@@ -39,6 +69,8 @@ export interface TrackerCreator {
   handlerId: string | null;
   editorId: string | null;
   scheduledPosting: boolean;
+  /** Position within its handler's column (`tracker_assignment.sort_order`). */
+  sortOrder: number;
   /** Distinct videos published in the selected month (cross-platform copies collapsed). */
   videos: number;
   /** Every platform copy published in the selected month. */
@@ -55,6 +87,9 @@ export interface TrackerData {
   members: TrackerMember[];
   tasks: TrackerTask[];
   events: TrackerEvent[];
+  /** Shoots and posting slots in the same window as `events`. */
+  shoots: TrackerShoot[];
+  posts: TrackerPost[];
   creators: TrackerCreator[];
   remarks: string;
 }
@@ -128,6 +163,17 @@ export function monthGrid(monthKey: string): (string | null)[][] {
   return rows;
 }
 
+/**
+ * One line of user text for a title-like column: whitespace collapsed,
+ * trimmed, 1..`max` characters — or null when it does not fit. Actions check
+ * this before the table's own constraint so a refusal reads as a sentence.
+ */
+export function cleanTitle(v: unknown, max = 200): string | null {
+  if (typeof v !== 'string') return null;
+  const s = v.replace(/\s+/g, ' ').trim();
+  return s.length >= 1 && s.length <= max ? s : null;
+}
+
 /** Move the item at `from` to `to`, returning a new array. */
 export function reorder<T>(list: T[], from: number, to: number): T[] {
   if (
@@ -143,4 +189,79 @@ export function reorder<T>(list: T[], from: number, to: number): T[] {
   const [moved] = next.splice(from, 1);
   next.splice(to, 0, moved);
   return next;
+}
+
+type Placeable = { id: string; handlerId: string | null };
+
+/**
+ * Put card `id` in column `handlerId`, just before card `beforeId` — or last
+ * when `beforeId` is null or not on the board. The board draws each column as
+ * the list filtered by handler, so list order is column order. The same array
+ * comes back when nothing moves.
+ */
+export function placeCard<T extends Placeable>(
+  list: T[],
+  id: string,
+  handlerId: string | null,
+  beforeId: string | null,
+): T[] {
+  const from = list.findIndex((x) => x.id === id);
+  if (from === -1 || id === beforeId) return list;
+  const next = list.filter((_, i) => i !== from);
+  const at = beforeId === null ? -1 : next.findIndex((x) => x.id === beforeId);
+  next.splice(at === -1 ? next.length : at, 0, { ...list[from], handlerId });
+  const unchanged =
+    list[from].handlerId === handlerId &&
+    next.every((x, i) => x.id === list[i].id);
+  return unchanged ? list : next;
+}
+
+export interface PlacementChange {
+  /** The column (null = unassigned). */
+  handlerId: string | null;
+  /** Every card in the column, in order: index = sort_order. */
+  ids: string[];
+  /** Cards that arrived in the column: the only ones whose handler is written. */
+  moved: string[];
+}
+
+/**
+ * What to save to take the board from `base` (the placement the server last
+ * accepted) to `now`: each column whose order changed or that gained a card.
+ * A column that only lost one is left alone — the cards it keeps did not
+ * move relative to each other. A handler that is not in `columns` (a person
+ * since removed) counts as unassigned, as it does on screen.
+ */
+export function placementChanges<T extends Placeable>(
+  base: T[],
+  now: T[],
+  columns: ReadonlySet<string>,
+): PlacementChange[] {
+  const col = (h: string | null) => (h !== null && columns.has(h) ? h : null);
+  const baseHandler = new Map(base.map((x) => [x.id, x.handlerId]));
+  const out: PlacementChange[] = [];
+  for (const key of new Set(now.map((x) => col(x.handlerId)))) {
+    const cards = now.filter((x) => col(x.handlerId) === key);
+    const ids = cards.map((x) => x.id);
+    const moved = cards
+      .filter((x) => baseHandler.get(x.id) !== x.handlerId)
+      .map((x) => x.id);
+    const inColumn = new Set(ids);
+    const before = base.filter((x) => inColumn.has(x.id)).map((x) => x.id);
+    if (moved.length > 0 || before.join() !== ids.join())
+      out.push({ handlerId: key, ids, moved });
+  }
+  return out;
+}
+
+/** `current` with `base`'s order and handlers, every other field kept. */
+export function restorePlacement<T extends Placeable>(
+  current: T[],
+  base: T[],
+): T[] {
+  const byId = new Map(current.map((x) => [x.id, x]));
+  return base.map((b) => {
+    const x = byId.get(b.id);
+    return x ? { ...x, handlerId: b.handlerId } : b;
+  });
 }

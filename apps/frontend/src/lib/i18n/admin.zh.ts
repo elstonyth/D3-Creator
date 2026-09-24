@@ -233,7 +233,8 @@ export const adminZh: Record<string, string> = {
   'A role decides what a signed-in account can reach. Changing one takes effect on their next request — it does not sign them out.':
     '角色决定登录账号的访问权限。更改将在用户下次请求时生效，不会将其退出登录。',
   Admin: '管理员',
-  'This console, and everything below.': '可访问此控制台及以下所有功能。',
+  'This console only — not the Studio or the class library.':
+    '仅限此控制台——不含 Studio 和课程库。',
   'Member access, plus the /me dashboard for their own profiles.':
     '拥有会员权限，并可访问自己主页的 /me 数据看板。',
   Member: '会员',
@@ -393,11 +394,14 @@ export const adminZh: Record<string, string> = {
   'No pending tasks. Enjoy the quiet.': '没有待办任务，好好休息。',
   'Drag to reorder': '拖动排序',
   'Delete task': '删除任务',
+  'Edit task': '编辑任务',
+  'Task title': '任务标题',
+  'Edit event': '编辑事件',
+  'Event title': '事件标题',
   'Events for': '当日事件',
   'New event': '新事件',
   'Add an important event…': '添加重要事件…',
   'No events on this day.': '这一天没有事件。',
-  '{count} events': '{count} 个事件',
   'Delete event': '删除事件',
   Remarks: '备注',
   'Saving…': '保存中…',
@@ -412,13 +416,30 @@ export const adminZh: Record<string, string> = {
     '把账号拖到负责人身上即可分配。数据统计月份：{month}。',
   Unassigned: '未分配',
   Cancel: '取消',
-  '+ Add person': '+ 添加人员',
+  '+ Add handler': '+ 添加负责人',
+  '+ Add editor': '+ 添加剪辑',
+  Editors: '剪辑人员',
+  Handlers: '负责人',
+  'No editors yet.': '还没有剪辑人员。',
+  'Remove {name}? Accounts they edit go back to Nobody.':
+    '移除 {name}？其剪辑的账号将改为“无”。',
   'Remove {name}? Their accounts move to Unassigned.':
     '移除 {name}？其负责的账号将变为未分配。',
   'Remove {name}': '移除 {name}',
   Videos: '视频',
   'Edits {count} accounts · {videos} videos':
     '剪辑 {count} 个账号 · {videos} 条视频',
+  'Edits 1 account · {videos} videos': '剪辑 1 个账号 · {videos} 条视频',
+  // The tracker's refusals (shown in its toast through t()).
+  'Task needs a title (max 200 chars).': '任务需要标题（最多 200 字）。',
+  'Event needs a title (max 200 chars).': '事件需要标题（最多 200 字）。',
+  'Invalid order.': '顺序无效。',
+  'Invalid date.': '日期无效。',
+  'Invalid event.': '事件无效。',
+  'Invalid creator.': '账号无效。',
+  'Remarks are limited to 20,000 characters.': '备注最多 20,000 字。',
+  'That person is already gone.': '此人已不在看板上。',
+  'Failed.': '操作失败。',
   'Drop an account here.': '把账号拖到这里。',
   'Every account has a handler.': '所有账号都已分配负责人。',
   videos: '条视频',
@@ -427,4 +448,8 @@ export const adminZh: Record<string, string> = {
   Editor: '剪辑',
   Nobody: '无',
   'Scheduled posting': '定时发布',
+  'Move {name} up': '上移 {name}',
+  'Move {name} down': '下移 {name}',
+  'Videos = different videos posted in {month}. The same clip on several platforms counts once.':
+    '视频数 = {month} 发布的不同视频数量；同一条视频发在多个平台只算一次。',
 };
