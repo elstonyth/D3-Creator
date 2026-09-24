@@ -13,7 +13,14 @@
 import { cache } from 'react';
 import { getSupabaseRoute } from './supabase-route';
 
-export type UserRole = 'admin' | 'creator' | 'member' | 'none';
+export type UserRole =
+  | 'admin'
+  | 'creator'
+  | 'member'
+  | 'none'
+  // Internal accounts from staff.d3creator.com: approved, and awaiting approval.
+  | 'staff'
+  | 'staff_pending';
 
 export interface CreatorLink {
   user_id: string;
@@ -81,13 +88,15 @@ export const getAuthContext = cache(async (): Promise<AuthContext | null> => {
 /**
  * Admin guard for Server Actions / Route Handlers — throws "Not authorized."
  * unless the caller is a verified admin (role === 'admin'). Single source of
- * truth so no admin action can ship without the check (AC-ADMIN-5).
+ * truth so no admin action can ship without the check (AC-ADMIN-5). Returns
+ * the admin's context so a write can record who made it.
  */
-export async function requireAdmin(): Promise<void> {
+export async function requireAdmin(): Promise<AuthContext> {
   const auth = await getAuthContext();
   if (!auth || auth.role !== 'admin') {
     throw new Error('Not authorized.');
   }
+  return auth;
 }
 
 /**
@@ -102,6 +111,11 @@ export function isStudioMember(auth: AuthContext | null): boolean {
   // `hasRoleRow` mirrors public.has_studio_access()'s `exists (select 1 from
   // public.user_role ...)`. Without it a user whose role row is missing passes
   // here on the 'creator' fail-open default, is shown the Studio, and then has
-  // every write refused by RLS as an undiagnosable 500.
-  return auth !== null && auth.hasRoleRow && auth.role !== 'none';
+  // every write refused by RLS as an undiagnosable 500. The role set is the
+  // function's too: staff accounts are internal and never Studio members.
+  return (
+    auth !== null &&
+    auth.hasRoleRow &&
+    (auth.role === 'member' || auth.role === 'creator' || auth.role === 'admin')
+  );
 }

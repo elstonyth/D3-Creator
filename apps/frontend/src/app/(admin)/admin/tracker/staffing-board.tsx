@@ -3,18 +3,33 @@
 /**
  * Personnel & client configuration.
  *
- * One column per person plus an "Unassigned" pool. Each card is one creator
+ * One column per handler plus an "Unassigned" pool. Editors are not columns:
+ * they sit in a row of chips under the header and are offered in every
+ * card's Editor select next to the handlers. Each card is one creator
  * account (an IP); dragging it onto a column sets who handles it. The card's
  * own controls set who edits its videos and whether it is on a posting
  * schedule — the same three facts the team keeps in their heads today, fixed
  * per account, never per video. Month output (videos / views) comes from the
  * scraped snapshots and follows the calendar's month.
  *
- * Every card also carries a handler select, because HTML5 drag-and-drop does
- * not exist on touch screens and the board is used from phones.
+ * Dropping a card on another card puts it in front of that card, so the
+ * order inside a column is the team's to set. Every card also carries a
+ * handler select and up/down arrows, because HTML5 drag-and-drop does not
+ * exist on touch screens and the board is used from phones.
  */
 
-import { useMemo, useState, type FormEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type DragEvent,
+  type FormEvent,
+  type SetStateAction,
+} from 'react';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { cn } from '@gitroom/frontend/lib/utils';
 // clsx where a custom font-size token sits next to a text colour (see
@@ -26,12 +41,17 @@ import {
   PLATFORM_ICONS,
   type PlatformKey,
 } from '@gitroom/frontend/components/ui/platform-icons';
-import type {
-  TrackerCreator,
-  TrackerMember,
+import {
+  placeCard,
+  placementChanges,
+  restorePlacement,
+  type MemberKind,
+  type TrackerCreator,
+  type TrackerMember,
 } from '@gitroom/frontend/lib/tracker';
 import {
   addMember,
+  placeCards,
   removeMember,
   setAssignment,
   type ActionResult,
@@ -47,43 +67,61 @@ function platformKey(p: string): PlatformKey | null {
   return null;
 }
 
-interface ColumnStats {
+interface HandledStats {
   accounts: number;
   videos: number;
   views: number;
+}
+
+interface EditedStats {
   edits: number;
   editedVideos: number;
 }
 
 export function StaffingBoard({
-  month,
   monthLabel,
-  members: initialMembers,
+  members,
+  setMembers,
   creators: initialCreators,
   onFail,
 }: {
-  month: string;
   monthLabel: string;
+  /** The board's people. Held by the page, which shares them with the task
+   *  list, so someone added or removed here is offered (or not) there too. */
   members: TrackerMember[];
+  setMembers: Dispatch<SetStateAction<TrackerMember[]>>;
   creators: TrackerCreator[];
   onFail: (r: ActionResult, rollback: () => void) => void;
 }) {
   const { t, locale } = useI18n();
-  const [members, setMembers] = useState(initialMembers);
   const [creators, setCreators] = useState(initialCreators);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<string | null>(null);
-  const [adding, setAdding] = useState(false);
+  // The card a dragged card would land in front of.
+  const [overCard, setOverCard] = useState<string | null>(null);
+  // Which add form is open: a handler's sits in the header, an editor's in
+  // the editor row.
+  const [adding, setAdding] = useState<MemberKind | null>(null);
   const [draftName, setDraftName] = useState('');
   const [draftRole, setDraftRole] = useState('Trader');
-  // The person whose × was clicked; their column shows an inline confirmation.
+  // The person whose × was clicked; their column (or, for an editor, the
+  // editor row) shows an inline confirmation.
   // Not `window.confirm`: embedded browsers auto-dismiss native dialogs (the
   // Claude desktop pane returns false in 1 ms), which made the button a no-op.
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
 
+  const handlers = useMemo(
+    () => members.filter((m) => m.kind === 'handler'),
+    [members],
+  );
+  const editors = useMemo(
+    () => members.filter((m) => m.kind === 'editor'),
+    [members],
+  );
+
   const columns = useMemo(
     () => [
-      ...members.map((m) => ({
+      ...handlers.map((m) => ({
         id: m.id,
         name: m.name,
         role: m.role,
@@ -91,34 +129,114 @@ export function StaffingBoard({
       })),
       { id: UNASSIGNED, name: t('Unassigned'), role: '', member: null },
     ],
-    [members, t],
+    [handlers, t],
   );
 
+  const columnIds = useMemo(
+    () => new Set(handlers.map((m) => m.id)),
+    [handlers],
+  );
+
+  // The column a card sits in. A handler id that is not a column (a person
+  // since removed, or an editor) reads as unassigned rather than vanishing.
+  const columnOf = useCallback(
+    (c: TrackerCreator) =>
+      c.handlerId !== null && columnIds.has(c.handlerId)
+        ? c.handlerId
+        : UNASSIGNED,
+    [columnIds],
+  );
+
+  // Card placement (column + order) saves one at a time, always from the
+  // newest board, like the remarks pad: quick moves queue behind the save in
+  // flight instead of racing it. A failed save puts back the placement the
+  // server last accepted — never a per-move snapshot, which two overlapping
+  // moves would interleave.
+  const latest = useRef(initialCreators);
+  const confirmed = useRef(initialCreators);
+  const saving = useRef(false);
+  // The columns as they are now: a save queued behind another must see a
+  // column added in between.
+  const columnsNow = useRef(columnIds);
+  const [placeTick, setPlaceTick] = useState(0);
+
+  useEffect(() => {
+    latest.current = creators;
+  }, [creators]);
+  useEffect(() => {
+    columnsNow.current = columnIds;
+  }, [columnIds]);
+
+  // A card moved with its own arrow is re-inserted into the page, which drops
+  // keyboard focus. Hand it back to that arrow, or to the other one if the
+  // card reached the end of its column.
+  const refocus = useRef<{ id: string; dir: 'up' | 'down' } | null>(null);
+  useLayoutEffect(() => {
+    const r = refocus.current;
+    if (!r) return;
+    refocus.current = null;
+    const arrow = (dir: 'up' | 'down') =>
+      document.querySelector<HTMLButtonElement>(`[data-move="${dir}:${r.id}"]`);
+    const same = arrow(r.dir);
+    (same && !same.disabled
+      ? same
+      : arrow(r.dir === 'up' ? 'down' : 'up')
+    )?.focus();
+  }, [creators]);
+
+  const flushPlacement = useCallback(
+    async function run(): Promise<void> {
+      if (saving.current) return;
+      const now = latest.current;
+      const work = placementChanges(confirmed.current, now, columnsNow.current);
+      if (work.length === 0) return;
+      saving.current = true;
+      // ponytail: columns save one by one; if a later one fails after an
+      // earlier one landed, the screen rewinds both until the next reload.
+      // Two columns in one save needs two moves inside one save's latency.
+      for (const w of work) {
+        const r = await placeCards(w.handlerId, w.ids, w.moved);
+        if (!r.ok) {
+          saving.current = false;
+          onFail(r, () =>
+            setCreators((p) => restorePlacement(p, confirmed.current)),
+          );
+          return;
+        }
+      }
+      confirmed.current = now;
+      saving.current = false;
+      if (latest.current !== now) void run();
+    },
+    [onFail],
+  );
+
+  // After the render that applied a move (so `latest` holds it).
+  useEffect(() => {
+    if (placeTick === 0) return;
+    const id = window.setTimeout(() => void flushPlacement(), 0);
+    return () => window.clearTimeout(id);
+  }, [placeTick, flushPlacement]);
+
   const stats = useMemo(() => {
-    const out = new Map<string, ColumnStats>();
+    const handled = new Map<string, HandledStats>();
     for (const c of columns)
-      out.set(c.id, {
-        accounts: 0,
-        videos: 0,
-        views: 0,
-        edits: 0,
-        editedVideos: 0,
-      });
+      handled.set(c.id, { accounts: 0, videos: 0, views: 0 });
+    const edited = new Map<string, EditedStats>();
+    for (const m of members) edited.set(m.id, { edits: 0, editedVideos: 0 });
     for (const c of creators) {
-      const h = out.get(c.handlerId ?? UNASSIGNED) ?? out.get(UNASSIGNED)!;
+      const h = handled.get(columnOf(c))!;
       h.accounts += 1;
       h.videos += c.videos;
       h.views += c.views;
-      if (c.editorId) {
-        const e = out.get(c.editorId);
-        if (e) {
-          e.edits += 1;
-          e.editedVideos += c.videos;
-        }
+      const e = c.editorId ? edited.get(c.editorId) : undefined;
+      if (e) {
+        e.edits += 1;
+        e.editedVideos += c.videos;
       }
     }
-    return out;
-  }, [columns, creators]);
+    return { handled, edited };
+  }, [columns, members, creators, columnOf]);
 
   function patch(creatorId: string, p: Partial<TrackerCreator>) {
     setCreators((prev) =>
@@ -131,23 +249,6 @@ export function StaffingBoard({
 
   // Rollbacks undo only the value this call set, and only if it is still in
   // place — a later edit to the same card must not be reverted with it.
-  async function assignHandler(creatorId: string, handlerId: string | null) {
-    const before = creators.find((c) => c.id === creatorId);
-    if (!before || before.handlerId === handlerId || isTemp(handlerId)) return;
-    patch(creatorId, { handlerId });
-    const r = await setAssignment(creatorId, { handlerId });
-    if (!r.ok)
-      onFail(r, () =>
-        setCreators((p) =>
-          p.map((c) =>
-            c.id === creatorId && c.handlerId === handlerId
-              ? { ...c, handlerId: before.handlerId }
-              : c,
-          ),
-        ),
-      );
-  }
-
   async function assignEditor(creatorId: string, editorId: string | null) {
     const before = creators.find((c) => c.id === creatorId);
     if (!before || before.editorId === editorId || isTemp(editorId)) return;
@@ -183,16 +284,26 @@ export function StaffingBoard({
       );
   }
 
+  function openAdd(kind: MemberKind) {
+    setDraftName('');
+    setDraftRole('Trader');
+    setAdding(kind);
+  }
+
   async function submitMember(e: FormEvent) {
     e.preventDefault();
+    const kind = adding;
     const name = draftName.trim();
-    if (!name) return;
-    const role = draftRole.trim() || 'Trader';
+    if (!kind || !name) return;
+    const role = kind === 'editor' ? 'Editor' : draftRole.trim() || 'Trader';
     const tempId = `temp-${Date.now()}`;
-    setMembers((p) => [...p, { id: tempId, name, role, sortOrder: p.length }]);
+    setMembers((p) => [
+      ...p,
+      { id: tempId, name, role, kind, sortOrder: p.length },
+    ]);
     setDraftName('');
-    setAdding(false);
-    const r = await addMember(name, role);
+    setAdding(null);
+    const r = await addMember(name, role, kind);
     if (!r.ok || !r.id) {
       onFail(r, () => setMembers((p) => p.filter((m) => m.id !== tempId)));
       return;
@@ -241,12 +352,25 @@ export function StaffingBoard({
       });
   }
 
-  function dropOn(colId: string) {
-    if (!dragId) return;
-    const id = dragId;
+  // Card `id` goes into column `colId` in front of `beforeId` (last when
+  // null). The save follows on its own (flushPlacement).
+  function place(id: string, colId: string, beforeId: string | null) {
+    const handlerId = colId === UNASSIGNED ? null : colId;
+    if (isTemp(handlerId)) return;
+    setCreators((p) => placeCard(p, id, handlerId, beforeId));
+    setPlaceTick((n) => n + 1);
+  }
+
+  function endDrag() {
     setDragId(null);
     setOverCol(null);
-    void assignHandler(id, colId === UNASSIGNED ? null : colId);
+    setOverCard(null);
+  }
+
+  function dropOn(colId: string, beforeId: string | null) {
+    const id = dragId;
+    endDrag();
+    if (id && id !== beforeId) place(id, colId, beforeId);
   }
 
   return (
@@ -264,8 +388,14 @@ export function StaffingBoard({
               },
             )}
           </p>
+          <p className="mt-1 text-caption text-fg-subtle">
+            {t(
+              'Videos = different videos posted in {month}. The same clip on several platforms counts once.',
+              { month: monthLabel },
+            )}
+          </p>
         </div>
-        {adding ? (
+        {adding === 'handler' ? (
           <form
             onSubmit={submitMember}
             className="flex flex-wrap items-center gap-2"
@@ -275,6 +405,7 @@ export function StaffingBoard({
               onChange={(e) => setDraftName(e.target.value)}
               maxLength={40}
               autoFocus
+              autoComplete="off"
               placeholder={t('Name')}
               aria-label={t('Name')}
               className={cn(s.field, 'h-10 w-36 px-3 text-body-sm')}
@@ -283,6 +414,7 @@ export function StaffingBoard({
               value={draftRole}
               onChange={(e) => setDraftRole(e.target.value)}
               maxLength={40}
+              autoComplete="off"
               placeholder={t('Role')}
               aria-label={t('Role')}
               className={cn(s.field, 'h-10 w-28 px-3 text-body-sm')}
@@ -300,7 +432,7 @@ export function StaffingBoard({
             </button>
             <button
               type="button"
-              onClick={() => setAdding(false)}
+              onClick={() => setAdding(null)}
               className={clsx(s.pill, 'h-10 px-4 text-label')}
             >
               {t('Cancel')}
@@ -309,22 +441,127 @@ export function StaffingBoard({
         ) : (
           <button
             type="button"
-            onClick={() => setAdding(true)}
+            onClick={() => openAdd('handler')}
             className={clsx(s.pill, 'h-10 px-4 text-label')}
           >
-            {t('+ Add person')}
+            {t('+ Add handler')}
           </button>
         )}
       </div>
+
+      {/* Editors: people who cut video but run no accounts. */}
+      <section
+        aria-label={t('Editors')}
+        className="mb-5 flex flex-wrap items-center gap-2"
+      >
+        <span className="mr-1 text-micro uppercase tracking-[0.14em] text-fg-subtle">
+          {t('Editors')}
+        </span>
+        {editors.length === 0 && adding !== 'editor' ? (
+          <span className="text-caption text-fg-subtle">
+            {t('No editors yet.')}
+          </span>
+        ) : null}
+        {editors.map((m) => {
+          const st = stats.edited.get(m.id)!;
+          return (
+            <span
+              key={m.id}
+              className={clsx(
+                s.pill,
+                'flex items-center gap-2 py-1 pl-3 pr-1 text-caption text-fg',
+              )}
+            >
+              <span className="text-label">{m.name}</span>
+              <span className="text-fg-subtle">
+                {st.edits === 1
+                  ? t('Edits 1 account · {videos} videos', {
+                      videos: st.editedVideos,
+                    })
+                  : t('Edits {count} accounts · {videos} videos', {
+                      count: st.edits,
+                      videos: st.editedVideos,
+                    })}
+              </span>
+              <button
+                type="button"
+                disabled={isTemp(m.id)}
+                onClick={() => setConfirmRemoveId(m.id)}
+                aria-label={t('Remove {name}', { name: m.name })}
+                className="rounded-full p-1 text-fg-subtle transition-colors hover:text-fg"
+              >
+                <CrossIcon />
+              </button>
+            </span>
+          );
+        })}
+        {adding === 'editor' ? (
+          <form
+            onSubmit={submitMember}
+            className="flex flex-wrap items-center gap-2"
+          >
+            <input
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              maxLength={40}
+              autoFocus
+              autoComplete="off"
+              placeholder={t('Name')}
+              aria-label={t('Name')}
+              className={cn(s.field, 'h-9 w-36 px-3 text-body-sm')}
+            />
+            <button
+              type="submit"
+              disabled={!draftName.trim()}
+              className={cn(
+                s.pill,
+                s.pillBrand,
+                'h-9 px-4 text-label disabled:opacity-40',
+              )}
+            >
+              {t('Add')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdding(null)}
+              className={clsx(s.pill, 'h-9 px-4 text-label')}
+            >
+              {t('Cancel')}
+            </button>
+          </form>
+        ) : (
+          <button
+            type="button"
+            onClick={() => openAdd('editor')}
+            className={clsx(s.pill, 'h-9 px-4 text-label')}
+          >
+            {t('+ Add editor')}
+          </button>
+        )}
+        {editors.map((m) =>
+          confirmRemoveId === m.id ? (
+            <ConfirmRemove
+              key={m.id}
+              name={m.name}
+              message={t(
+                'Remove {name}? Accounts they edit go back to Nobody.',
+                { name: m.name },
+              )}
+              onConfirm={() => remove(m)}
+              onCancel={() => setConfirmRemoveId(null)}
+              className="basis-full"
+            />
+          ) : null,
+        )}
+      </section>
 
       {/* Columns fit the panel and wrap onto new rows when they run out of
           room — the board never scrolls sideways. */}
       <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(240px,1fr))]">
         {columns.map((col) => {
-          const st = stats.get(col.id)!;
-          const cards = creators.filter(
-            (c) => (c.handlerId ?? UNASSIGNED) === col.id,
-          );
+          const st = stats.handled.get(col.id)!;
+          const ed = col.member ? stats.edited.get(col.member.id) : undefined;
+          const cards = creators.filter((c) => columnOf(c) === col.id);
           const isOver = overCol === col.id && dragId !== null;
           return (
             <section
@@ -343,7 +580,7 @@ export function StaffingBoard({
               }}
               onDrop={(e) => {
                 e.preventDefault();
-                dropOn(col.id);
+                dropOn(col.id, null);
               }}
               className={cn(
                 s.inset,
@@ -376,53 +613,22 @@ export function StaffingBoard({
                         aria-label={t('Remove {name}', { name: col.name })}
                         className="rounded-full p-1 text-fg-subtle transition-colors hover:text-fg"
                       >
-                        <svg
-                          viewBox="0 0 16 16"
-                          aria-hidden
-                          className="h-3.5 w-3.5"
-                        >
-                          <path
-                            d="m4 4 8 8M12 4l-8 8"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.75"
-                            strokeLinecap="round"
-                          />
-                        </svg>
+                        <CrossIcon />
                       </button>
                     </div>
                   ) : null}
                 </div>
                 {col.member && confirmRemoveId === col.member.id ? (
-                  <div
-                    role="group"
-                    aria-label={t('Remove {name}', { name: col.name })}
-                    className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-brand/30 bg-brand/10 px-3 py-2 text-caption text-fg"
-                  >
-                    <span className="min-w-0 flex-1">
-                      {t('Remove {name}? Their accounts move to Unassigned.', {
-                        name: col.name,
-                      })}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => remove(col.member!)}
-                      className={clsx(
-                        s.pill,
-                        s.pillBrand,
-                        'h-8 px-3 text-caption',
-                      )}
-                    >
-                      {t('Remove')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmRemoveId(null)}
-                      className={clsx(s.pill, 'h-8 px-3 text-caption')}
-                    >
-                      {t('Cancel')}
-                    </button>
-                  </div>
+                  <ConfirmRemove
+                    name={col.name}
+                    message={t(
+                      'Remove {name}? Their accounts move to Unassigned.',
+                      { name: col.name },
+                    )}
+                    onConfirm={() => remove(col.member!)}
+                    onCancel={() => setConfirmRemoveId(null)}
+                    className="mt-2"
+                  />
                 ) : null}
                 <dl className="mt-2 grid grid-cols-3 gap-2">
                   <Stat label={t('Accounts')} value={String(st.accounts)} />
@@ -435,12 +641,16 @@ export function StaffingBoard({
                     value={formatCompact(st.views, locale)}
                   />
                 </dl>
-                {col.member ? (
+                {ed ? (
                   <p className="mt-1.5 text-caption text-fg-subtle">
-                    {t('Edits {count} accounts · {videos} videos', {
-                      count: st.edits,
-                      videos: st.editedVideos,
-                    })}
+                    {ed.edits === 1
+                      ? t('Edits 1 account · {videos} videos', {
+                          videos: ed.editedVideos,
+                        })
+                      : t('Edits {count} accounts · {videos} videos', {
+                          count: ed.edits,
+                          videos: ed.editedVideos,
+                        })}
                   </p>
                 ) : null}
               </header>
@@ -453,19 +663,61 @@ export function StaffingBoard({
                       : t('Every account has a handler.')}
                   </p>
                 ) : (
-                  cards.map((c) => (
+                  cards.map((c, i) => (
                     <CreatorCard
                       key={c.id}
                       creator={c}
-                      members={members}
-                      month={month}
+                      handlers={handlers}
+                      editors={editors}
                       dragging={dragId === c.id}
+                      dropBefore={
+                        overCard === c.id && dragId !== null && dragId !== c.id
+                      }
                       onDragStart={() => setDragId(c.id)}
-                      onDragEnd={() => {
-                        setDragId(null);
-                        setOverCol(null);
+                      onDragEnd={endDrag}
+                      onDragOverCard={(e) => {
+                        if (dragId === null) return;
+                        // Never let the column see it: over a card, the drop
+                        // means "in front of this card", not "last".
+                        e.stopPropagation();
+                        if (dragId === c.id) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        if (overCard !== c.id) setOverCard(c.id);
+                        if (overCol !== col.id) setOverCol(col.id);
                       }}
-                      onHandler={(id) => assignHandler(c.id, id)}
+                      onDragLeaveCard={(e) => {
+                        if (
+                          !e.currentTarget.contains(
+                            e.relatedTarget as Node | null,
+                          )
+                        )
+                          setOverCard((o) => (o === c.id ? null : o));
+                      }}
+                      onDropOnCard={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        dropOn(col.id, c.id);
+                      }}
+                      onUp={
+                        i > 0
+                          ? () => {
+                              refocus.current = { id: c.id, dir: 'up' };
+                              place(c.id, col.id, cards[i - 1].id);
+                            }
+                          : undefined
+                      }
+                      onDown={
+                        i < cards.length - 1
+                          ? () => {
+                              refocus.current = { id: c.id, dir: 'down' };
+                              place(c.id, col.id, cards[i + 2]?.id ?? null);
+                            }
+                          : undefined
+                      }
+                      // The select hands the card over and puts it last
+                      // in its new column, the same as dropping it there.
+                      onHandler={(id) => place(c.id, id ?? UNASSIGNED, null)}
                       onEditor={(id) => assignEditor(c.id, id)}
                       onToggleScheduled={() => toggleScheduled(c.id)}
                     />
@@ -491,23 +743,108 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** The inline "are you sure" strip — never `window.confirm` (see above). */
+function ConfirmRemove({
+  name,
+  message,
+  onConfirm,
+  onCancel,
+  className,
+}: {
+  name: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  className?: string;
+}) {
+  const { t } = useI18n();
+  return (
+    <div
+      role="group"
+      aria-label={t('Remove {name}', { name })}
+      className={clsx(
+        'flex flex-wrap items-center gap-2 rounded-xl border border-brand/30 bg-brand/10 px-3 py-2 text-caption text-fg',
+        className,
+      )}
+    >
+      <span className="min-w-0 flex-1">{message}</span>
+      <button
+        type="button"
+        onClick={onConfirm}
+        className={clsx(s.pill, s.pillBrand, 'h-8 px-3 text-caption')}
+      >
+        {t('Remove')}
+      </button>
+      <button
+        type="button"
+        onClick={onCancel}
+        className={clsx(s.pill, 'h-8 px-3 text-caption')}
+      >
+        {t('Cancel')}
+      </button>
+    </div>
+  );
+}
+
+function ArrowIcon({ dir }: { dir: 'up' | 'down' }) {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden className="h-3.5 w-3.5">
+      <path
+        d={dir === 'up' ? 'M8 13V3M4 7l4-4 4 4' : 'M8 3v10M4 9l4 4 4-4'}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CrossIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden className="h-3.5 w-3.5">
+      <path
+        d="m4 4 8 8M12 4l-8 8"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function CreatorCard({
   creator,
-  members,
-  month,
+  handlers,
+  editors,
   dragging,
+  dropBefore,
   onDragStart,
   onDragEnd,
+  onDragOverCard,
+  onDragLeaveCard,
+  onDropOnCard,
+  onUp,
+  onDown,
   onHandler,
   onEditor,
   onToggleScheduled,
 }: {
   creator: TrackerCreator;
-  members: TrackerMember[];
-  month: string;
+  handlers: TrackerMember[];
+  editors: TrackerMember[];
   dragging: boolean;
+  dropBefore: boolean;
   onDragStart: () => void;
   onDragEnd: () => void;
+  onDragOverCard: (e: DragEvent<HTMLElement>) => void;
+  onDragLeaveCard: (e: DragEvent<HTMLElement>) => void;
+  onDropOnCard: (e: DragEvent<HTMLElement>) => void;
+  /** Undefined at the top / bottom of the column. */
+  onUp?: () => void;
+  onDown?: () => void;
   onHandler: (id: string | null) => void;
   onEditor: (id: string | null) => void;
   onToggleScheduled: () => void;
@@ -526,11 +863,15 @@ function CreatorCard({
         onDragStart();
       }}
       onDragEnd={onDragEnd}
+      onDragOver={onDragOverCard}
+      onDragLeave={onDragLeaveCard}
+      onDrop={onDropOnCard}
       className={cn(
         s.inset,
         s.insetHover,
         'cursor-grab select-none p-3 active:cursor-grabbing',
         dragging && s.dragging,
+        dropBefore && s.dropBefore,
       )}
     >
       <div className="flex items-center gap-3">
@@ -574,7 +915,34 @@ function CreatorCard({
             posts: creator.posts,
           })}
         </span>
-        <span className="text-fg-subtle">{month}</span>
+        <span className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={onUp}
+            disabled={!onUp}
+            data-move={`up:${creator.id}`}
+            aria-label={t('Move {name} up', { name: creator.name })}
+            className={clsx(
+              s.pill,
+              'flex h-7 w-7 items-center justify-center text-fg-muted disabled:opacity-30',
+            )}
+          >
+            <ArrowIcon dir="up" />
+          </button>
+          <button
+            type="button"
+            onClick={onDown}
+            disabled={!onDown}
+            data-move={`down:${creator.id}`}
+            aria-label={t('Move {name} down', { name: creator.name })}
+            className={clsx(
+              s.pill,
+              'flex h-7 w-7 items-center justify-center text-fg-muted disabled:opacity-30',
+            )}
+          >
+            <ArrowIcon dir="down" />
+          </button>
+        </span>
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
@@ -589,7 +957,7 @@ function CreatorCard({
             className={cn(s.field, 'mt-1 h-9 w-full px-2.5 text-body-sm')}
           >
             <option value="">{t('Unassigned')}</option>
-            {members.map((m) => (
+            {handlers.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.name}
               </option>
@@ -607,11 +975,30 @@ function CreatorCard({
             className={cn(s.field, 'mt-1 h-9 w-full px-2.5 text-body-sm')}
           >
             <option value="">{t('Nobody')}</option>
-            {members.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
+            {editors.length > 0 ? (
+              <>
+                <optgroup label={t('Editors')}>
+                  {editors.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label={t('Handlers')}>
+                  {handlers.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </optgroup>
+              </>
+            ) : (
+              handlers.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))
+            )}
           </select>
         </label>
       </div>

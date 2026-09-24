@@ -8,7 +8,7 @@ import { useId, useState, type FormEvent } from 'react';
 import { PasswordField } from '@gitroom/frontend/components/auth/password-field';
 import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { Button, ButtonLink } from '@gitroom/frontend/components/ui/button';
-import { Field, Input } from '@gitroom/frontend/components/ui/input';
+import { Field, Input, Select } from '@gitroom/frontend/components/ui/input';
 import { signUpErrorMessage } from '@gitroom/frontend/lib/auth-errors';
 import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
 
@@ -16,14 +16,33 @@ import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
  * Where a confirmed new account lands. The four-question form on /studio/chat
  * is the first-run capture surface (PRD 2 §6), so this is the one destination
  * that starts the product rather than parking the user in a video library.
+ * A staff signup lands on the staff portal's root, which shows the waiting
+ * page until an admin approves it.
  */
 const AFTER_CONFIRM = '/studio/chat';
+const STAFF_AFTER_CONFIRM = '/';
 
-export function SignUpForm() {
+export function SignUpForm({
+  portal,
+}: {
+  /**
+   * 'staff' on staff.d3creator.com: the account is created as
+   * staff_pending (the signup trigger reads this metadata; it can only lower
+   * access) and an admin approves it on the Team page.
+   */
+  portal?: 'staff';
+} = {}) {
+  const afterConfirm = portal ? STAFF_AFTER_CONFIRM : AFTER_CONFIRM;
   const { t } = useI18n();
   const router = useRouter();
   const emailId = useId();
+  const nameId = useId();
+  const kindId = useId();
   const [email, setEmail] = useState('');
+  // Staff only: how the team knows them, and which row of the board they
+  // belong in. A suggestion for the admin, who confirms both on approval.
+  const [displayName, setDisplayName] = useState('');
+  const [kind, setKind] = useState<'handler' | 'editor'>('handler');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -45,7 +64,14 @@ export function SignUpForm() {
         // signed out.
         emailRedirectTo: `${
           window.location.origin
-        }/auth/callback?redirectTo=${encodeURIComponent(AFTER_CONFIRM)}`,
+        }/auth/callback?redirectTo=${encodeURIComponent(afterConfirm)}`,
+        data: portal
+          ? {
+              portal,
+              display_name: displayName.trim().slice(0, 40),
+              staff_kind: kind,
+            }
+          : undefined,
       },
     });
 
@@ -94,7 +120,7 @@ export function SignUpForm() {
     }
 
     // Confirmation off: straight in.
-    router.push(AFTER_CONFIRM);
+    router.push(afterConfirm);
     router.refresh();
     return true;
   }
@@ -136,10 +162,17 @@ export function SignUpForm() {
       <div className="space-y-5">
         <Alert tone="info" title={t('You already have an account.')}>
           <span className="break-words text-fg">
-            {t(
-              '{email} is already registered, so there is no new link to send. Sign in with your password, or reset it if it has slipped your mind.',
-              { email: taken }
-            )}
+            {/* On the staff host, a member or creator login would sign in to
+                the public site, not the portal: say so. */}
+            {portal
+              ? t(
+                  '{email} is already registered. If it is your staff account, sign in. If you use it for D3 classes or the Studio, sign up for staff with a different email.',
+                  { email: taken },
+                )
+              : t(
+                  '{email} is already registered, so there is no new link to send. Sign in with your password, or reset it if it has slipped your mind.',
+                  { email: taken },
+                )}
           </span>
         </Alert>
 
@@ -177,10 +210,15 @@ export function SignUpForm() {
       <div className="space-y-5">
         <Alert tone="success" title={t('Check your email.')}>
           <span className="break-words text-fg">
-            {t(
-              'If {email} is new, a confirmation link is on its way — open it and you land straight in the Studio.',
-              { email: sentTo }
-            )}
+            {portal
+              ? t(
+                  'If {email} is new, a confirmation link is on its way. Open it, and an admin approves your account before you see the team’s work.',
+                  { email: sentTo },
+                )
+              : t(
+                  'If {email} is new, a confirmation link is on its way — open it and you land straight in the Studio.',
+                  { email: sentTo },
+                )}
           </span>
         </Alert>
 
@@ -241,6 +279,39 @@ export function SignUpForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {portal ? (
+        <>
+          <Field
+            label={t('Your name on the board')}
+            htmlFor={nameId}
+            hint={t('How the team knows you, e.g. KEE.')}
+          >
+            <Input
+              id={nameId}
+              required
+              maxLength={40}
+              autoComplete="nickname"
+              autoFocus
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              disabled={pending}
+            />
+          </Field>
+          <Field label={t('Your job')} htmlFor={kindId}>
+            <Select
+              id={kindId}
+              value={kind}
+              onChange={(e) =>
+                setKind(e.target.value === 'editor' ? 'editor' : 'handler')
+              }
+              disabled={pending}
+            >
+              <option value="handler">{t('Handler — runs accounts')}</option>
+              <option value="editor">{t('Editor — cuts videos')}</option>
+            </Select>
+          </Field>
+        </>
+      ) : null}
       <Field label={t('Email')} htmlFor={emailId}>
         <Input
           id={emailId}
@@ -248,7 +319,7 @@ export function SignUpForm() {
           required
           maxLength={254}
           autoComplete="email"
-          autoFocus
+          autoFocus={!portal}
           placeholder="you@email.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}

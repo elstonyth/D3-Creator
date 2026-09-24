@@ -37,10 +37,13 @@ export async function setUserRole(
     }
 
     const admin = getSupabaseAdmin();
+    // Staff logins change on the Team page, where approving also links them
+    // to a person; flipping the role here would leave that half undone.
     const { data, error } = await admin
       .from('user_role')
       .update({ role })
       .eq('user_id', userId)
+      .not('role', 'in', '(staff,staff_pending)')
       .select('user_id');
     if (error)
       return {
