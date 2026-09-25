@@ -320,6 +320,20 @@ describe('StaffingBoard card order', () => {
     expect(placeCards).toHaveBeenCalledTimes(1);
   });
 
+  it('a thrown save rolls back and still saves the next move', async () => {
+    // A dropped connection: the call throws instead of returning a refusal.
+    (placeCards as jest.Mock).mockRejectedValueOnce(new Error('network'));
+    const onFail = jest.fn((_r, rollback: () => void) => rollback());
+    renderBoard([KEE], [A, B, C], onFail);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Cat up' }));
+    await waitFor(() => expect(onFail).toHaveBeenCalled());
+    expect(keeOrder()).toEqual(['Amy', 'Bob', 'Cat']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Cat up' }));
+    await waitFor(() => expect(placeCards).toHaveBeenCalledTimes(2));
+  });
+
   it('the handler select hands a card over and puts it last there', async () => {
     const Z = card(4, 'Zed', ZUWEI.id, null);
     renderBoard([KEE, ZUWEI], [A, Z]);

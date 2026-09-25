@@ -58,6 +58,7 @@ import {
   type ActionResult,
 } from './actions';
 import { GlassPanel } from './glass-panel';
+import { safeCall } from './safe-call';
 import s from './tracker.module.scss';
 
 const UNASSIGNED = '__unassigned__';
@@ -203,7 +204,7 @@ export function StaffingBoard({
       // earlier one landed, the screen rewinds both until the next reload.
       // Two columns in one save needs two moves inside one save's latency.
       for (const w of work) {
-        const r = await placeCards(w.handlerId, w.ids, w.moved);
+        const r = await safeCall(() => placeCards(w.handlerId, w.ids, w.moved));
         if (!r.ok) {
           saving.current = false;
           onFail(r, () =>
@@ -261,7 +262,7 @@ export function StaffingBoard({
     const before = creators.find((c) => c.id === creatorId);
     if (!before || before.editorId === editorId || isTemp(editorId)) return;
     patch(creatorId, { editorId });
-    const r = await setAssignment(creatorId, { editorId });
+    const r = await safeCall(() => setAssignment(creatorId, { editorId }));
     if (!r.ok)
       onFail(r, () =>
         setCreators((p) =>
@@ -279,7 +280,9 @@ export function StaffingBoard({
     if (!before) return;
     const next = !before.scheduledPosting;
     patch(creatorId, { scheduledPosting: next });
-    const r = await setAssignment(creatorId, { scheduledPosting: next });
+    const r = await safeCall(() =>
+      setAssignment(creatorId, { scheduledPosting: next }),
+    );
     if (!r.ok)
       onFail(r, () =>
         setCreators((p) =>
@@ -311,7 +314,7 @@ export function StaffingBoard({
     ]);
     setDraftName('');
     setAdding(null);
-    const r = await addMember(name, role, kind);
+    const r = await safeCall(() => addMember(name, role, kind));
     if (!r.ok || !r.id) {
       onFail(r, () => setMembers((p) => p.filter((m) => m.id !== tempId)));
       return;
@@ -333,7 +336,7 @@ export function StaffingBoard({
         editorId: c.editorId === member.id ? null : c.editorId,
       })),
     );
-    const r = await removeMember(member.id);
+    const r = await safeCall(() => removeMember(member.id));
     if (!r.ok)
       onFail(r, () => {
         setMembers((p) =>

@@ -106,6 +106,9 @@ export interface TrackerData {
   posts: TrackerPost[];
   creators: TrackerCreator[];
   remarks: string;
+  /** `tracker_note.updated_at` of the loaded remarks; a save names it so an
+   *  older tab cannot overwrite newer text. Null when there is no row. */
+  remarksAt: string | null;
 }
 
 // 2000–2099: a crafted `?month=0000-05` is a year Postgres cannot parse, and

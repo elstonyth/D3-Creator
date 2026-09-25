@@ -56,6 +56,7 @@ import {
 } from './actions';
 import { EditableTitle } from './editable-title';
 import { GlassPanel } from './glass-panel';
+import { safeCall } from './safe-call';
 import { StaffingBoard } from './staffing-board';
 import s from './tracker.module.scss';
 
@@ -371,7 +372,11 @@ export function WorkTracker({
             setEvents={setEvents}
             onFail={fail}
           />
-          <RemarksPanel initial={initial.remarks} onFail={fail} />
+          <RemarksPanel
+            initial={initial.remarks}
+            initialAt={initial.remarksAt}
+            onFail={fail}
+          />
         </section>
 
         {/* Staffing */}
@@ -502,7 +507,7 @@ function TasksPanel({
     };
     setDraft('');
     setTasks((p) => [...p, temp]);
-    const r = await addTask(title);
+    const r = await safeCall(() => addTask(title));
     if (!r.ok || !r.id) {
       onFail(r, () => setTasks((p) => p.filter((x) => x.id !== tempId)));
       return;
@@ -519,7 +524,7 @@ function TasksPanel({
     setTasks((p) =>
       p.map((x) => (x.id === task.id ? { ...x, done: next } : x)),
     );
-    const r = await setTaskDone(task.id, next);
+    const r = await safeCall(() => setTaskDone(task.id, next));
     if (!r.ok)
       onFail(r, () =>
         setTasks((p) =>
@@ -534,7 +539,7 @@ function TasksPanel({
     setTasks((p) =>
       p.map((x) => (x.id === task.id ? { ...x, assigneeId } : x)),
     );
-    const r = await assignTask(task.id, assigneeId);
+    const r = await safeCall(() => assignTask(task.id, assigneeId));
     if (!r.ok)
       onFail(r, () =>
         setTasks((p) =>
@@ -551,7 +556,7 @@ function TasksPanel({
     if (isTemp(task.id)) return;
     const prev = task.title;
     setTasks((p) => p.map((x) => (x.id === task.id ? { ...x, title } : x)));
-    const r = await updateTask(task.id, title);
+    const r = await safeCall(() => updateTask(task.id, title));
     if (!r.ok)
       onFail(r, () =>
         setTasks((p) =>
@@ -566,7 +571,7 @@ function TasksPanel({
     if (isTemp(task.id)) return;
     const at = tasks.findIndex((x) => x.id === task.id);
     setTasks((p) => p.filter((x) => x.id !== task.id));
-    const r = await deleteTask(task.id);
+    const r = await safeCall(() => deleteTask(task.id));
     // Put back just this item, where it was — never a whole stale snapshot.
     if (!r.ok)
       onFail(r, () =>
@@ -589,7 +594,7 @@ function TasksPanel({
     setTasks((p) => [...reordered, ...p.filter((x) => x.done)]);
     // Only open tasks carry an order; finished ones sit in their own list.
     const ids = reordered.filter((x) => !isTemp(x.id)).map((x) => x.id);
-    void reorderTasks(ids).then((r) => {
+    void safeCall(() => reorderTasks(ids)).then((r) => {
       if (!r.ok)
         onFail(r, () =>
           setTasks((p) => [
@@ -873,7 +878,7 @@ function EventsPanel({
     const tempId = `temp-${Date.now()}`;
     setDraft('');
     setEvents((p) => [...p, { id: tempId, date: dateKey, title }]);
-    const r = await addEvent(dateKey, title);
+    const r = await safeCall(() => addEvent(dateKey, title));
     if (!r.ok || !r.id) {
       onFail(r, () => setEvents((p) => p.filter((x) => x.id !== tempId)));
       return;
@@ -885,7 +890,7 @@ function EventsPanel({
     if (ev.id.startsWith('temp-')) return;
     const prev = ev.title;
     setEvents((p) => p.map((x) => (x.id === ev.id ? { ...x, title } : x)));
-    const r = await updateEvent(ev.id, title);
+    const r = await safeCall(() => updateEvent(ev.id, title));
     if (!r.ok)
       onFail(r, () =>
         setEvents((p) =>
@@ -902,7 +907,7 @@ function EventsPanel({
     // place rather than at the end of the day's list.
     const after = events[events.findIndex((x) => x.id === ev.id) + 1]?.id;
     setEvents((p) => p.filter((x) => x.id !== ev.id));
-    const r = await deleteEvent(ev.id);
+    const r = await safeCall(() => deleteEvent(ev.id));
     if (!r.ok)
       onFail(r, () =>
         setEvents((p) => {
@@ -1074,39 +1079,50 @@ function DayList({
 
 // ---- remarks ---------------------------------------------------------------
 
-function RemarksPanel({
+export function RemarksPanel({
   initial,
+  initialAt,
   onFail,
 }: {
   initial: string;
+  initialAt: string | null;
   onFail: (r: ActionResult, rollback: () => void) => void;
 }) {
   const { t } = useI18n();
   const id = useId();
   const [value, setValue] = useState(initial);
-  const [state, setState] = useState<'idle' | 'dirty' | 'saving' | 'saved'>(
-    'idle',
-  );
+  const [state, setState] = useState<
+    'idle' | 'dirty' | 'saving' | 'saved' | 'conflict'
+  >('idle');
   const latest = useRef(initial);
   const lastSaved = useRef(initial);
   const inFlight = useRef(false);
+  // The version this screen last loaded or saved; every save names it.
+  const seenAt = useRef(initialAt);
+  // Another device saved first: autosave stops for this page load.
+  const conflicted = useRef(false);
 
   // One save at a time, always of the newest text; a save that lands on
   // already-stale text starts the next one. A failed save never rewinds the
   // textarea — the words stay and the status says so.
   const flush = useCallback(
     async function run(): Promise<void> {
-      if (inFlight.current) return;
+      if (inFlight.current || conflicted.current) return;
       const v = latest.current;
       if (v === lastSaved.current) return;
       inFlight.current = true;
       setState('saving');
-      const r = await saveRemarks(v);
+      const r = await safeCall(() => saveRemarks(v, seenAt.current));
       inFlight.current = false;
       if (r.ok) {
+        if (r.at) seenAt.current = r.at;
         lastSaved.current = v;
         if (latest.current === v) setState('saved');
         else void run();
+      } else if (r.conflict) {
+        conflicted.current = true;
+        setState('conflict');
+        onFail(r, () => {});
       } else {
         setState('dirty');
         onFail(r, () => {});
@@ -1127,13 +1143,15 @@ function RemarksPanel({
   useEffect(() => () => void flush(), [flush]);
 
   const status =
-    state === 'saving'
-      ? t('Saving…')
-      : state === 'saved'
-        ? t('Saved')
-        : state === 'dirty'
-          ? t('Unsaved')
-          : t('Autosaves');
+    state === 'conflict'
+      ? t('Not saved — changed on another device')
+      : state === 'saving'
+        ? t('Saving…')
+        : state === 'saved'
+          ? t('Saved')
+          : state === 'dirty'
+            ? t('Unsaved')
+            : t('Autosaves');
 
   return (
     <GlassPanel className="p-5 sm:p-6 lg:col-span-5">
@@ -1158,7 +1176,8 @@ function RemarksPanel({
         onChange={(e) => {
           setValue(e.target.value);
           latest.current = e.target.value;
-          setState('dirty');
+          // After a conflict the status keeps saying why nothing saves.
+          if (!conflicted.current) setState('dirty');
         }}
         maxLength={20000}
         rows={8}
