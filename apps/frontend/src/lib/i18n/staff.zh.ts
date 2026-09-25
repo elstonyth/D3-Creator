@@ -66,7 +66,6 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Invalid note.': '备注无效。',
   'Notes are limited to 1,000 characters.': '备注最多 1000 字。',
   'Invalid shoot.': '拍摄记录无效。',
-  'That person is not on the board.': '此人不在看板上。',
   'That shoot is already gone.': '这条拍摄已被删除。',
   '{name} (left)': '{name}（已离职）',
   'Invalid status.': '状态无效。',
@@ -97,13 +96,6 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Editor — cuts videos': '剪辑——负责剪视频',
   'Both — runs accounts and cuts videos': '两者都做——运营账号也剪视频',
 
-  // ---- Tasks ----------------------------------------------------------------
-  'Give {title} to': '把「{title}」交给',
-  'Not given to anyone': '未指派',
-  'For: {name}': '交给：{name}',
-  'That task is gone.': '这个任务已被删除。',
-  'Invalid task.': '任务无效。',
-
   // ---- Video jobs -------------------------------------------------------------
   'Video jobs': '视频工作',
   'Videos — D3 Admin': '视频 — D3 管理后台',
@@ -115,7 +107,6 @@ export const staffZh: Readonly<Record<string, string>> = {
   'done {day}': '{day} 完成',
   'Edited video': '剪好的视频',
   editing: '剪辑中',
-  'Live post': '查看帖子',
   'Link to the edited video': '剪好视频的链接',
   'Done editing: {title}': '完成剪辑：{title}',
   'Undo edit': '撤回剪辑完成',
@@ -134,29 +125,15 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Shoots done': '已完成拍摄',
   '{planned} still planned · {cancelled} cancelled':
     '{planned} 个待拍 · {cancelled} 个已取消',
-  'From shoots marked done': '来自已完成的拍摄',
-  'Accounts handled': '负责的账号',
-  'Accounts edited': '剪辑的账号',
-  '{videos} videos · {views} views': '{videos} 条视频 · {views} 播放',
-  '{accounts} accounts · {videos} videos · {views} views':
-    '{accounts} 个账号 · {videos} 条视频 · {views} 播放',
-  'No accounts handled this month.': '本月没有负责的账号。',
-  'No accounts edited this month.': '本月没有剪辑的账号。',
   Shoots: '拍摄',
   'No shoots this month.': '本月没有拍摄。',
   Planned: '计划中',
-  Handovers: '账号交接',
-  'No handovers this month.': '本月没有交接。',
   handler: '负责人',
   editor: '剪辑',
   'handler & editor': '负责人兼剪辑',
-  nobody: '无人',
-  '{role}: {from} → {to}': '{role}：{from} → {to}',
   'Videos done': '已完成的视频',
   Edited: '已剪辑',
-  Posted: '已发布',
   'No edits marked done this month.': '本月没有标记完成的剪辑。',
-  'No posts marked done this month.': '本月没有标记完成的发布。',
   'Profile — D3 Admin': '人员资料 — D3 管理后台',
   'Left the board': '已离开看板',
   'No login yet': '尚无登录账号',
@@ -184,25 +161,16 @@ export const staffZh: Readonly<Record<string, string>> = {
   'This month so far. Open a profile for the videos, links and shoots behind the numbers.':
     '本月至今。打开人员资料可查看数字背后的视频、链接和拍摄。',
   'Open profile': '查看资料',
-  'Remove login': '移除登录',
-  'Remove login: {name}': '移除登录：{name}',
-  'Take away {name}’s login': '移除 {name} 的登录',
-  '{name} keeps their place and history, but can no longer sign in to the staff portal.':
-    '{name} 仍保留在看板上和工作记录中，但无法再登录员工门户。',
   'Approved. They can sign in now.': '已批准，现在可以登录了。',
   'Turned away.': '已拒绝。',
-  'Login removed.': '已移除登录。',
   'Job: {name}': '职位：{name}',
   'Job saved.': '职位已保存。',
-  'Job saved. Their accounts moved to Unassigned.':
-    '职位已保存。其负责的账号已移至“未分配”。',
   'That person is no longer on the board.': '此人已不在看板上。',
   'That account is not waiting for approval.': '这个账号不在待审批状态。',
   'That person already has a login, or is no longer on the board.':
     '此人已有登录账号，或已不在看板上。',
   'Name is required (max 40 chars).': '请填写名字（最多 40 字）。',
   'Invalid person type.': '人员类型无效。',
-  'That person has no login.': '此人没有登录账号。',
   'That login is already linked to someone.': '这个账号已关联到其他人。',
   'They have not confirmed their email yet.': '对方还没有确认邮箱。',
   'Approved before, but not linked to anyone yet.':
@@ -210,18 +178,16 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Their email is not confirmed yet. Approve once they open the link we sent.':
     '对方的邮箱还没有确认。等对方打开确认邮件后再审批。',
   'Could not finish approving. Try again.': '审批未完成，请再试一次。',
-
-  // ---- Tracker calendar -------------------------------------------------------
-  Shoot: '拍摄',
-  Post: '发布',
-  'Going out': '当天发布',
-  '{count} items': '{count} 项',
+  Verified: '已审核',
+  'Passed on to the editors': '已交给剪辑',
+  'Take {name} off the team? Their staff login stops working. Their shoots and finished videos stay in the record.':
+    '要将 {name} 移出团队吗？其员工登录将失效，拍摄和已完成的视频会保留在记录中。',
+  'Removed from the team.': '已移出团队。',
+  'They still have videos to edit or verify. Those must be finished, or passed to someone else, first.':
+    '此人还有待剪辑或待审核的视频，请先完成或交给其他人。',
 
   // ---- Video job notices ------------------------------------------------------
   'Taken back: “{title}”.': '已撤回：“{title}”。',
-
-  // ---- A finished job or shoot, apart from the Done button that finishes it
-  Finished: '已完成',
 
   // ---- Staff sign-up: no job picked for them
   'Choose your job': '请选择职位',
@@ -229,12 +195,6 @@ export const staffZh: Readonly<Record<string, string>> = {
 
   // ---- Waiting page
   Refresh: '刷新',
-
-  // ---- History
-  'Accounts handed over during the month.': '本月交接的账号。',
-
-  // ---- A finished shoot's pill, with its count
-  'Finished · {count} videos': '已完成 · {count} 条视频',
 
   // ---- Staff video flow: shoots passed on, edited, verified ----------------
   'Pass videos': '交出视频',

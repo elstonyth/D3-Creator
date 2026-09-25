@@ -4,10 +4,10 @@ import React, { ReactNode } from 'react';
 
 /**
  * Aceternity "Aurora Background" (ui.aceternity.com/components/aurora-background),
- * as requested for the work tracker. Changes from upstream: the import path;
- * no `<main>` wrapper (the signed-in layouts already render the page's one
- * `<main>`, and a second visible one is invalid HTML); `children` optional so
- * it can be a pure backdrop; and no `background-attachment: fixed` on the
+ * behind the admin and staff sign-in pages. Changes from upstream: the import
+ * path; no `<main>` wrapper (the signed-in layouts already render the page's
+ * one `<main>`, and a second visible one is invalid HTML); `children` optional
+ * so it can be a pure backdrop; and no `background-attachment: fixed` on the
  * animated layer — the caller positions the whole thing `fixed`, and that
  * attachment defeats compositing and breaks under a transform.
  *

@@ -1,18 +1,14 @@
 /**
- * Read-only smoke test: run the staff portal's and the work tracker's real
- * loaders against a live database, so a column, embed or or() filter that
- * the database rejects fails here rather than on the deployed page. Nothing
- * is written. Prints row counts only (no names, no keys).
+ * Read-only smoke test: run the staff portal's and the admin team pages'
+ * real loaders against a live database, so a column, embed or or() filter
+ * that the database rejects fails here rather than on the deployed page.
+ * Nothing is written. Prints row counts only (no names, no keys).
  *
  * Run (bash, repo root, service-role key in .env):
  *   set -a; . ./.env; set +a
  *   npx tsx --tsconfig tsconfig.base.json supabase/tests/staff-portal-smoke.mts
  */
-import { loadTrackerData } from '@gitroom/frontend/app/(admin)/admin/tracker/data';
 import {
-  loadAccountsAt,
-  loadAssignments,
-  loadMyTasks,
   loadPeople,
   loadRoster,
   loadShoots,
@@ -20,9 +16,8 @@ import {
   loadVideosDone,
   monthDays,
 } from '@gitroom/frontend/lib/team/load';
-import { addMonths, monthRange, todayKey } from '@gitroom/frontend/lib/tracker';
+import { addDays, monthRange, todayKey } from '@gitroom/frontend/lib/tracker';
 import { weekStart } from '@gitroom/frontend/lib/team/shoots';
-import { addDays } from '@gitroom/frontend/lib/tracker';
 
 // Counts only: a list's length, or each list inside a result object.
 const size = (v: unknown): string => {
@@ -55,11 +50,7 @@ const people = await loadPeople();
 const someone = people[0]?.id;
 console.log('people on record:', people.length);
 
-await step('tracker, this month', () => loadTrackerData(month));
-// A month far from today: the calendar must read two windows, not one span.
-await step('tracker, a far month', () => loadTrackerData(addMonths(month, -8)));
 await step('roster', () => loadRoster());
-await step('assignments', () => loadAssignments());
 await step('week of shoots', () => loadShoots(monday, addDays(monday, 7)));
 await step('videos, everyone', () => loadVideos(start));
 await step('videos done, everyone', () => loadVideosDone(start, end));
@@ -70,10 +61,6 @@ if (someone) {
   await step('videos, one person', () => loadVideos(start, someone));
   await step('videos done, one person', () =>
     loadVideosDone(start, end, someone),
-  );
-  await step('tasks, one person', () => loadMyTasks(someone));
-  await step('accounts + handovers, one person', () =>
-    loadAccountsAt(someone, month, people),
   );
 }
 

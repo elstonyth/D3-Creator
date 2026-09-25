@@ -4,7 +4,8 @@
  * Staff approvals and the team at a glance. A waiting signup is approved as
  * a new person on the board (named and placed as they asked, editable here)
  * or linked to a person already on it; the team list shows each person's
- * month so far and job (changeable here) and opens their profile.
+ * month so far and job (changeable here), opens their profile, and removes
+ * someone who left.
  *
  * One action at a time. The card that acted stays busy until the refreshed
  * page arrives, so it cannot be clicked twice; a refusal is shown on it.
@@ -25,8 +26,8 @@ import {
 import {
   approveStaff,
   rejectStaff,
+  removePerson,
   setMemberKind,
-  unlinkStaff,
   type TeamResult,
 } from './actions';
 
@@ -48,9 +49,10 @@ export interface TeamRow {
   name: string;
   kind: MemberKind;
   email: string | null;
-  edited: number;
-  posted: number;
+  /** This month: shoots whose videos were passed on, edits, checks. */
   shootsDone: number;
+  edited: number;
+  verified: number;
   profileHref: string;
 }
 
@@ -67,7 +69,7 @@ export function TeamManager({
   const { t } = useI18n();
   const router = useRouter();
   const [inFlight, startTransition] = useTransition();
-  // Which action is running, e.g. `approve:<userId>` or `unlink:<memberId>`.
+  // Which action is running, e.g. `approve:<userId>` or `remove:<memberId>`.
   const [acting, setActing] = useState<string | null>(null);
   // A success shows at the top (its card may be gone after the refresh); a
   // refusal shows on the card it came from.
@@ -76,7 +78,7 @@ export function TeamManager({
     ok: boolean;
     text: string;
   } | null>(null);
-  const [confirmUnlink, setConfirmUnlink] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   // A job change shows at once; a refused one goes back.
   const [jobOf, setJobOf] = useState<Record<string, MemberKind>>({});
 
@@ -107,7 +109,7 @@ export function TeamManager({
           return;
         }
         setMessage({ at, ok: true, text: r.message ?? done });
-        setConfirmUnlink(null);
+        setConfirmRemove(null);
         router.refresh();
       });
     });
@@ -171,7 +173,7 @@ export function TeamManager({
         </p>
         <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
           {team.map((m) => {
-            const error = refusal(`unlink:${m.id}`, `kind:${m.id}`);
+            const error = refusal(`remove:${m.id}`, `kind:${m.id}`);
             return (
               <li key={m.id} className="px-4 py-3">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -208,17 +210,19 @@ export function TeamManager({
                   </div>
                   <dl className="flex gap-5 text-caption">
                     <div>
+                      <dt className="text-fg-subtle">{t('Shoots')}</dt>
+                      <dd className="text-heading tnum text-fg">
+                        {m.shootsDone}
+                      </dd>
+                    </div>
+                    <div>
                       <dt className="text-fg-subtle">{t('Edited')}</dt>
                       <dd className="text-heading tnum text-fg">{m.edited}</dd>
                     </div>
                     <div>
-                      <dt className="text-fg-subtle">{t('Posted')}</dt>
-                      <dd className="text-heading tnum text-fg">{m.posted}</dd>
-                    </div>
-                    <div>
-                      <dt className="text-fg-subtle">{t('Shoots')}</dt>
+                      <dt className="text-fg-subtle">{t('Verified')}</dt>
                       <dd className="text-heading tnum text-fg">
-                        {m.shootsDone}
+                        {m.verified}
                       </dd>
                     </div>
                   </dl>
@@ -229,57 +233,51 @@ export function TeamManager({
                     >
                       {t('Open profile')} →
                     </Link>
-                    {m.email ? (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={inFlight}
-                        onClick={() => {
-                          setMessage(null);
-                          setConfirmUnlink(m.id);
-                        }}
-                        aria-label={t('Remove login: {name}', {
-                          name: m.name,
-                        })}
-                      >
-                        {t('Remove login')}
-                      </Button>
-                    ) : null}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={inFlight}
+                      onClick={() => {
+                        setMessage(null);
+                        setConfirmRemove(m.id);
+                      }}
+                      aria-label={t('Remove {name}', { name: m.name })}
+                    >
+                      {t('Remove')}
+                    </Button>
                   </div>
                 </div>
-                {confirmUnlink === m.id ? (
+                {confirmRemove === m.id ? (
                   <div
                     role="group"
-                    aria-label={t('Take away {name}’s login', { name: m.name })}
+                    aria-label={t('Remove {name}', { name: m.name })}
                     className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-line-strong bg-surface-subtle px-3 py-2 text-caption text-fg"
                   >
                     <span className="min-w-0 flex-1">
                       {t(
-                        '{name} keeps their place and history, but can no longer sign in to the staff portal.',
-                        {
-                          name: m.name,
-                        },
+                        'Take {name} off the team? Their staff login stops working. Their shoots and finished videos stay in the record.',
+                        { name: m.name },
                       )}
                     </span>
                     <Button
                       size="sm"
                       variant="danger"
-                      loading={busy(`unlink:${m.id}`)}
+                      loading={busy(`remove:${m.id}`)}
                       disabled={inFlight}
                       onClick={() =>
                         run(
-                          `unlink:${m.id}`,
-                          () => unlinkStaff(m.id),
-                          'Login removed.',
+                          `remove:${m.id}`,
+                          () => removePerson(m.id),
+                          'Removed from the team.',
                         )
                       }
                     >
-                      {t('Remove login')}
+                      {t('Remove')}
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => setConfirmUnlink(null)}
+                      onClick={() => setConfirmRemove(null)}
                       autoFocus
                     >
                       {t('Keep')}

@@ -1,14 +1,12 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { addDays, todayKey } from '@gitroom/frontend/lib/tracker';
+import { addDays, monthRange, todayKey } from '@gitroom/frontend/lib/tracker';
 import { weekStart, type Shoot } from '@gitroom/frontend/lib/team/shoots';
-import type { Video } from '@gitroom/frontend/lib/team/videos';
-import type { AccountMonth } from '@gitroom/frontend/lib/team/load';
+import { finishedBy, type Video } from '@gitroom/frontend/lib/team/videos';
 import { Container, Section } from '@gitroom/frontend/components/ui/section';
 import { WeekSchedule } from '@gitroom/frontend/components/team/week-schedule';
 import { VideoBoard } from '@gitroom/frontend/components/team/video-board';
-import { MyTasks } from '@gitroom/frontend/components/team/my-tasks';
 import { HistoryView } from '@gitroom/frontend/components/team/history-view';
 import { PersonVideos } from '@gitroom/frontend/components/team/person-videos';
 import { TeamManager } from '@gitroom/frontend/app/(admin)/admin/team/team-manager';
@@ -20,7 +18,14 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-const VIEWS = ['work', 'schedule', 'history', 'admin-videos', 'team'] as const;
+const VIEWS = [
+  'work',
+  'schedule',
+  'admin-videos',
+  'admin-schedule',
+  'team',
+  'person',
+] as const;
 type View = (typeof VIEWS)[number];
 
 const KEE = 'aaaaaaaa-0000-4000-8000-000000000001';
@@ -43,10 +48,12 @@ const accounts = [
 ];
 
 /**
- * Scratch preview of the staff portal and the admin's new pages on sample
- * data, so the screens can be looked at before the migration exists
- * anywhere. Saves go to the real server actions and are refused (no staff
- * session), which also shows the refusal state. Dev only: 404 in production.
+ * Scratch preview of the staff portal and the admin's team pages on sample
+ * data, so the screens can be looked at without a session. The staff views
+ * are signed in as HOWEN, who both shoots and edits, so every list has
+ * something in it. Saves go to the real server actions and are refused (no
+ * staff session), which also shows the refusal state. Dev only: 404 in
+ * production.
  */
 export default async function StaffPreviewPage({
   searchParams,
@@ -80,134 +87,124 @@ export default async function StaffPreviewPage({
     time,
     title,
     creatorId: null,
-    videosPlanned: null,
     videosShot: null,
     status: 'planned',
     note: null,
     ...extra,
   });
   const shoots: Shoot[] = [
-    shoot(1, KEE, 1, '19:30', '火锅店', { videosPlanned: 3 }),
-    shoot(2, KEE, 1, '21:00', '甜品店'),
-    shoot(3, KEE, 1, '22:00', 'Zero Phang', { creatorId: acct(1) }),
-    shoot(4, KEE, 2, '11:30', 'Café visit'),
-    shoot(5, KEE, 2, '14:00', '工厂参观', { creatorId: acct(3) }),
-    shoot(6, KEE, 2, null, '客户 A 拍4支', { videosPlanned: 4 }),
-    shoot(7, ZUWEI, 3, null, '家具店'),
-    shoot(8, ZUWEI, 3, null, '下午 工厂参观'),
-    shoot(9, ZUWEI, 3, null, '晚上 烧烤店 补5支', { videosPlanned: 5 }),
-    shoot(10, HOWEN, 4, '19:30', '海边'),
-    shoot(11, KEE, 0, '10:00', '卖海鲜的Gary', {
+    shoot(1, KEE, 1, '19:30', '火锅店'),
+    shoot(2, KEE, 1, '21:00', '甜品店', { creatorId: acct(2) }),
+    shoot(3, KEE, 2, '11:30', 'Café visit', {
+      status: 'done',
+      videosShot: 3,
+    }),
+    shoot(4, ZUWEI, 3, null, '家具店'),
+    shoot(5, ZUWEI, 3, null, '下午 工厂参观', { status: 'cancelled' }),
+    shoot(6, HOWEN, 0, '10:00', '卖海鲜的Gary', {
+      creatorId: acct(1),
       status: 'done',
       videosShot: 4,
-      videosPlanned: 4,
     }),
+    shoot(7, HOWEN, 2, '14:00', '工厂参观', {
+      creatorId: acct(3),
+      note: 'Bring the gimbal',
+    }),
+    shoot(8, HOWEN, 4, '19:30', '海边', { status: 'cancelled' }),
   ];
 
   const video = (n: number, patch: Partial<Video>): Video => ({
     id: `dddddddd-0000-4000-8000-00000000000${n}`,
     creatorId: acct(1),
+    shootId: null,
     title: `Reel ${n}`,
-    note: null,
     editorId: MEI,
-    handlerId: KEE,
+    handlerId: HOWEN,
     editedAt: null,
     editedBy: null,
     editLink: null,
-    postDate: null,
-    postTime: null,
-    postedAt: null,
-    postedBy: null,
-    postLink: null,
+    verifiedAt: null,
+    verifiedBy: null,
     createdAt: ago(3),
     ...patch,
   });
+  const cut = 'https://drive.google.com/file/d/sample/view';
   const videos: Video[] = [
-    video(1, { title: 'CNY promo — reel 2', creatorId: acct(2) }),
-    video(2, {
-      title: 'Factory tour cut',
-      creatorId: acct(3),
-      handlerId: ZUWEI,
-      note: 'Keep it under 45 seconds',
-    }),
+    // HOWEN edits these: one from KEE's shoot, one from their own.
+    video(1, { title: 'CNY promo — reel 2', editorId: HOWEN, handlerId: KEE }),
+    video(2, { title: 'Gary — fish market', editorId: HOWEN }),
+    // MEI is done; HOWEN passed them on, so verifies them.
     video(3, {
-      title: 'Zero Phang late-night stall',
+      title: 'Gary — late-night stall',
       editedAt: ago(1),
       editedBy: MEI,
-      editLink: 'https://drive.google.com/file/d/sample/view',
-      postDate: addDays(today, 1),
-      postTime: '20:00',
+      editLink: cut,
     }),
     video(4, {
-      title: 'Provisa weekend deal',
-      creatorId: acct(4),
-      editedAt: ago(2),
+      title: 'Gary — the price board',
+      editedAt: ago(1),
       editedBy: MEI,
-      editLink: 'https://drive.google.com/file/d/sample2/view',
     }),
-    video(5, {
+    // Still with MEI.
+    video(5, { title: 'Factory tour cut', creatorId: acct(3) }),
+    // Finished this month by HOWEN: an edit (KEE verifies it) and a check.
+    video(6, {
       title: 'Hotpot opening night',
       creatorId: acct(2),
+      editorId: HOWEN,
+      handlerId: KEE,
+      editedAt: ago(2),
+      editedBy: HOWEN,
+      editLink: cut,
+    }),
+    video(7, {
+      title: 'Provisa weekend deal',
+      creatorId: acct(4),
+      editedAt: ago(3),
+      editedBy: MEI,
+      editLink: cut,
+      verifiedAt: ago(1),
+      verifiedBy: HOWEN,
+    }),
+    // Nothing to do with HOWEN: the admin's board only.
+    video(8, { title: 'Furniture shop', handlerId: ZUWEI, creatorId: null }),
+    video(9, {
+      title: 'Café visit — latte art',
+      handlerId: KEE,
       editedAt: ago(4),
       editedBy: MEI,
-      editLink: 'https://drive.google.com/file/d/sample3/view',
-      postedAt: ago(3),
-      postedBy: KEE,
-      postLink: 'https://www.instagram.com/p/sample/',
+      editLink: cut,
+      verifiedAt: ago(2),
+      verifiedBy: KEE,
     }),
   ];
-
-  const accountMonth = (
-    n: number,
-    videosN: number,
-    views: number,
-  ): AccountMonth => ({
-    id: acct(n),
-    name: accounts[n - 1].name,
-    avatarUrl: null,
-    platforms: ['douyin', 'facebook', 'instagram', 'tiktok'],
-    videos: videosN,
-    posts: videosN * 3,
-    views,
-  });
+  const mine = videos.filter(
+    (v) => v.editorId === HOWEN || v.handlerId === HOWEN,
+  );
+  const { from, to } = monthRange(month);
+  const howenDone = finishedBy(
+    videos,
+    HOWEN,
+    new Date(from).toISOString(),
+    new Date(to).toISOString(),
+  );
+  const accountName = new Map(accounts.map((a) => [a.id, a.name]));
 
   const views: Record<View, { title: string; body: React.ReactNode }> = {
     work: {
-      title: 'Staff · My work (signed in as KEE)',
+      title: 'Staff · My work (signed in as HOWEN)',
       body: (
-        <div className="space-y-10">
-          <MyTasks
-            tasks={[
-              {
-                id: 'eeeeeeee-0000-4000-8000-000000000001',
-                title: 'Confirm Thursday shoot with 老头子',
-                done: false,
-              },
-              {
-                id: 'eeeeeeee-0000-4000-8000-000000000002',
-                title: 'Send Gary the September report',
-                done: false,
-              },
-              {
-                id: 'eeeeeeee-0000-4000-8000-000000000003',
-                title: 'Collect props for the hotpot shoot',
-                done: true,
-              },
-            ]}
-          />
-          <VideoBoard
-            videos={videos.filter(
-              (v) => v.editorId === KEE || v.handlerId === KEE,
-            )}
-            people={people}
-            accounts={accounts}
-            meId={KEE}
-          />
-        </div>
+        <VideoBoard
+          videos={mine}
+          people={people}
+          accounts={accounts}
+          meId={HOWEN}
+          month={month}
+        />
       ),
     },
     schedule: {
-      title: 'Staff · Schedule (signed in as KEE)',
+      title: 'Staff · Schedule (signed in as HOWEN)',
       body: (
         <WeekSchedule
           start={start}
@@ -215,39 +212,9 @@ export default async function StaffPreviewPage({
           shoots={shoots}
           people={people}
           accounts={accounts}
-          meId={KEE}
+          meId={HOWEN}
           basePath="/dev/staff-preview"
         />
-      ),
-    },
-    history: {
-      title: 'Staff · History (KEE)',
-      body: (
-        <HistoryView
-          month={month}
-          thisMonth={month}
-          monthHref={(m) => `/dev/staff-preview?view=history&month=${m}`}
-          shoots={shoots.filter((s) => s.memberId === KEE)}
-          accountName={new Map(accounts.map((a) => [a.id, a.name]))}
-          handled={[accountMonth(1, 31, 891000), accountMonth(2, 12, 1009974)]}
-          edited={[]}
-          handovers={[
-            {
-              creatorId: acct(4),
-              creatorName: 'Provisa小老板',
-              field: 'handler',
-              from: 'KEE',
-              to: 'SK',
-              at: ago(6),
-            },
-          ]}
-        >
-          <PersonVideos
-            edited={[]}
-            posted={videos.filter((v) => v.postedAt)}
-            accountName={new Map(accounts.map((a) => [a.id, a.name]))}
-          />
-        </HistoryView>
       ),
     },
     'admin-videos': {
@@ -258,12 +225,23 @@ export default async function StaffPreviewPage({
           people={people}
           accounts={accounts}
           meId={null}
-          assignments={{
-            [acct(1)]: { handlerId: KEE, editorId: MEI },
-            [acct(2)]: { handlerId: KEE, editorId: MEI },
-            [acct(3)]: { handlerId: ZUWEI, editorId: MEI },
-            [acct(4)]: { handlerId: HOWEN, editorId: null },
-          }}
+          month={month}
+          readOnly
+        />
+      ),
+    },
+    'admin-schedule': {
+      title: 'Admin · Schedule',
+      body: (
+        <WeekSchedule
+          start={start}
+          today={today}
+          shoots={shoots}
+          people={people}
+          accounts={accounts}
+          meId={null}
+          readOnly
+          basePath="/dev/staff-preview"
         />
       ),
     },
@@ -290,15 +268,6 @@ export default async function StaffPreviewPage({
               confirmed: false,
               approved: false,
             },
-            {
-              userId: 'ffffffff-0000-4000-8000-000000000003',
-              email: 'jay.both@example.com',
-              name: 'JAY',
-              kind: 'both',
-              signedUpAt: ago(2),
-              confirmed: true,
-              approved: false,
-            },
           ]}
           team={[
             {
@@ -306,47 +275,64 @@ export default async function StaffPreviewPage({
               name: 'KEE',
               kind: 'handler',
               email: 'kee@example.com',
-              edited: 0,
-              posted: 7,
               shootsDone: 9,
-              profileHref: '#',
+              edited: 0,
+              verified: 7,
+              profileHref: '/dev/staff-preview?view=person',
             },
             {
               id: ZUWEI,
               name: 'ZUWEI',
               kind: 'handler',
               email: null,
-              edited: 0,
-              posted: 4,
               shootsDone: 5,
-              profileHref: '#',
+              edited: 0,
+              verified: 4,
+              profileHref: '/dev/staff-preview?view=person',
             },
             {
               id: HOWEN,
               name: 'HOWEN',
               kind: 'both',
-              email: null,
-              edited: 5,
-              posted: 3,
+              email: 'howen@example.com',
               shootsDone: 2,
-              profileHref: '#',
+              edited: 5,
+              verified: 3,
+              profileHref: '/dev/staff-preview?view=person',
             },
             {
               id: MEI,
               name: 'MEI',
               kind: 'editor',
               email: 'mei@example.com',
-              edited: 14,
-              posted: 0,
               shootsDone: 0,
-              profileHref: '#',
+              edited: 14,
+              verified: 0,
+              profileHref: '/dev/staff-preview?view=person',
             },
           ]}
-          unlinked={[
-            { id: ZUWEI, name: 'ZUWEI' },
-            { id: HOWEN, name: 'HOWEN' },
-          ]}
+          unlinked={[{ id: ZUWEI, name: 'ZUWEI' }]}
         />
+      ),
+    },
+    person: {
+      title: 'Admin · Team · HOWEN',
+      body: (
+        <HistoryView
+          month={month}
+          thisMonth={month}
+          monthHref={() => '/dev/staff-preview?view=person'}
+          shoots={shoots.filter((s) => s.memberId === HOWEN)}
+          accountName={accountName}
+          edited={howenDone.edited.length}
+          verified={howenDone.verified.length}
+        >
+          <PersonVideos
+            edited={howenDone.edited}
+            verified={howenDone.verified}
+            accountName={accountName}
+          />
+        </HistoryView>
       ),
     },
   };

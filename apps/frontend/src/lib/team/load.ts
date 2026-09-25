@@ -3,9 +3,8 @@
  * Videos and Team pages. Service-role; every caller has already passed its
  * own gate (the (staff) / (admin) layouts, requireStaff / requireAdmin).
  *
- * Reads are windowed — a week of shoots, a month of history — and the
- * handover log and the video lists are paged, so PostgREST's 1000-row cap
- * never truncates silently.
+ * Reads are windowed — a week of shoots, a month of history — and the video
+ * lists are paged, so PostgREST's 1000-row cap never truncates silently.
  */
 
 import { getSupabaseAdmin } from '@d3/database';
@@ -13,11 +12,9 @@ import { fetchAllRows } from '@gitroom/frontend/lib/queries';
 import { resolveMediaUrl } from '@gitroom/frontend/lib/media-url';
 import {
   addMonths,
-  monthRange,
   parseMemberKind,
   type MemberKind,
 } from '@gitroom/frontend/lib/tracker';
-import { holderAt, type LogRow } from './attribution';
 import { rowToShoot, SHOOT_COLS, type ShootRow } from './shoot-rows';
 import { sortShoots, type Shoot } from './shoots';
 import { rowToVideo, VIDEO_COLS, type VideoRow } from './video-rows';
@@ -36,23 +33,6 @@ export interface RosterAccount {
   name: string;
   avatarUrl: string | null;
   platforms: string[];
-}
-
-export interface AccountMonth extends RosterAccount {
-  /** Distinct videos published in the month (cross-platform copies collapsed). */
-  videos: number;
-  posts: number;
-  views: number;
-}
-
-export interface Handover {
-  creatorId: string;
-  creatorName: string;
-  field: 'handler' | 'editor';
-  /** Person names; null = nobody. */
-  from: string | null;
-  to: string | null;
-  at: string;
 }
 
 function must<T>(
@@ -130,125 +110,12 @@ export async function loadShoots(
   return sortShoots(rows.map(rowToShoot));
 }
 
-/**
- * The accounts a person handled and edited in `month` — whoever held each
- * account when the month ended, from the handover log — with that month's
- * output, plus the handovers that touched them during the month.
- */
-export async function loadAccountsAt(
-  memberId: string,
-  month: string,
-  people: TeamPerson[],
-): Promise<{
-  handled: AccountMonth[];
-  edited: AccountMonth[];
-  handovers: Handover[];
-}> {
-  const admin = getSupabaseAdmin();
-  const { from, to } = monthRange(month);
-  const [roster, assignRes, statsRes, logRes] = await Promise.all([
-    loadRoster(),
-    admin
-      .from('tracker_assignment')
-      .select('creator_id, handler_id, editor_id'),
-    admin.rpc('tracker_creator_month_stats', { p_from: from, p_to: to }),
-    fetchAllRows<{
-      id: number;
-      creator_id: string;
-      field: LogRow['field'];
-      old_value: string | null;
-      new_value: string | null;
-      changed_at: string;
-    }>((a, b) =>
-      admin
-        .from('tracker_assignment_log')
-        .select('id, creator_id, field, old_value, new_value, changed_at')
-        .in('field', ['handler', 'editor'])
-        .order('id')
-        .range(a, b),
-    ),
-  ]);
-  const assignments = must<
-    {
-      creator_id: string;
-      handler_id: string | null;
-      editor_id: string | null;
-    }[]
-  >(assignRes, 'assignments');
-  const stats = must<
-    {
-      creator_id: string;
-      videos: number;
-      posts: number;
-      views: number | string;
-    }[]
-  >(statsRes, 'month stats');
-  if (logRes.error) throw new Error(`team: log: ${logRes.error.message}`);
-  const log: LogRow[] = logRes.rows.map((r) => ({
-    creatorId: r.creator_id,
-    field: r.field,
-    oldValue: r.old_value,
-    newValue: r.new_value,
-    changedAt: r.changed_at,
-  }));
-
-  const current = new Map(assignments.map((a) => [a.creator_id, a]));
-  const statsBy = new Map(stats.map((s) => [s.creator_id, s]));
-  const withStats = (c: RosterAccount): AccountMonth => {
-    const s = statsBy.get(c.id);
-    return {
-      ...c,
-      videos: s?.videos ?? 0,
-      posts: s?.posts ?? 0,
-      views: Number(s?.views ?? 0),
-    };
-  };
-
-  const handled: AccountMonth[] = [];
-  const edited: AccountMonth[] = [];
-  for (const c of roster) {
-    const now = current.get(c.id);
-    if (
-      holderAt(log, c.id, 'handler', to, now?.handler_id ?? null) === memberId
-    )
-      handled.push(withStats(c));
-    if (holderAt(log, c.id, 'editor', to, now?.editor_id ?? null) === memberId)
-      edited.push(withStats(c));
-  }
-
-  const nameOf = new Map(people.map((p) => [p.id, p.name]));
-  const creatorName = new Map(roster.map((c) => [c.id, c.name]));
-  const start = Date.parse(from);
-  const end = Date.parse(to);
-  const handovers: Handover[] = log
-    .filter((r): r is LogRow & { field: 'handler' | 'editor' } => {
-      const t = Date.parse(r.changedAt);
-      return (
-        (r.field === 'handler' || r.field === 'editor') &&
-        t >= start &&
-        t < end &&
-        (r.oldValue === memberId || r.newValue === memberId)
-      );
-    })
-    .map((r) => ({
-      creatorId: r.creatorId,
-      creatorName: creatorName.get(r.creatorId) ?? '—',
-      field: r.field,
-      from: r.oldValue ? (nameOf.get(r.oldValue) ?? '—') : null,
-      to: r.newValue ? (nameOf.get(r.newValue) ?? '—') : null,
-      at: r.changedAt,
-    }))
-    .reverse(); // newest first
-
-  return { handled, edited, handovers };
-}
-
 /** `YYYY-MM-DD` bounds [first day, first day of next month) for a month key. */
 export function monthDays(month: string): { from: string; to: string } {
   return { from: `${month}-01`, to: `${addMonths(month, 1)}-01` };
 }
 
-// ---- video jobs and tasks ----------------------------------------------------
+// ---- video jobs -------------------------------------------------------------
 
 /**
  * Every video matching all of `ors` (each one or() filter; several are
@@ -310,59 +177,4 @@ export async function loadVideosDone(
     ],
     'videos done',
   );
-}
-
-/** Who handles and edits each account today, for filling in a new job. */
-export async function loadAssignments(): Promise<
-  Record<string, { handlerId: string | null; editorId: string | null }>
-> {
-  const rows = must<
-    {
-      creator_id: string;
-      handler_id: string | null;
-      editor_id: string | null;
-    }[]
-  >(
-    await getSupabaseAdmin()
-      .from('tracker_assignment')
-      .select('creator_id, handler_id, editor_id'),
-    'assignments',
-  );
-  return Object.fromEntries(
-    rows.map((r) => [
-      r.creator_id,
-      { handlerId: r.handler_id, editorId: r.editor_id },
-    ]),
-  );
-}
-
-export interface MyTask {
-  id: string;
-  title: string;
-  done: boolean;
-}
-
-/** Tasks the admin gave this person: all open ones, and the last few done. */
-export async function loadMyTasks(memberId: string): Promise<MyTask[]> {
-  const admin = getSupabaseAdmin();
-  const [open, done] = await Promise.all([
-    admin
-      .from('tracker_task')
-      .select('id, title, done')
-      .eq('assignee_id', memberId)
-      .eq('done', false)
-      .order('sort_order')
-      .order('created_at'),
-    admin
-      .from('tracker_task')
-      .select('id, title, done')
-      .eq('assignee_id', memberId)
-      .eq('done', true)
-      .order('completed_at', { ascending: false })
-      .limit(10),
-  ]);
-  return [
-    ...must<MyTask[]>(open, 'my tasks'),
-    ...must<MyTask[]>(done, 'my done tasks'),
-  ];
 }

@@ -115,11 +115,12 @@ export default async function AdminTeamPage() {
         name: p.name,
         kind: p.kind,
         email: login ? (users.get(login)?.email ?? '—') : null,
-        edited: counts.edited,
-        posted: counts.posted,
+        // Done = its videos were passed on, so the shoot happened.
         shootsDone: shoots.filter(
           (s) => s.memberId === p.id && s.status === 'done',
         ).length,
+        edited: counts.edited,
+        verified: counts.verified,
         profileHref: `${profileBase}/${p.id}`,
       };
     });
