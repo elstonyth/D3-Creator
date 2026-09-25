@@ -3,7 +3,7 @@ import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { getSupabaseRoute } from '@gitroom/frontend/lib/supabase-route';
-import { getAuthContext } from '@gitroom/frontend/lib/auth';
+import { getAuthContext, isStudioMember } from '@gitroom/frontend/lib/auth';
 import { isUuid } from '@gitroom/frontend/lib/ids';
 import {
   buildSeriesNav,
@@ -41,9 +41,11 @@ export default async function ClassPlayerPage({ params }: Props) {
 
   // RLS already hides drafts + (for anon) members-only rows. If a not-logged-in
   // user requested a members-only class, RLS returns null — send them to login
-  // instead of a bare 404 so they can sign in and come back.
+  // instead of a bare 404 so they can sign in and come back. Signed-in
+  // non-members get null too; /classes tells them why, which a 404 would not.
   if (!video) {
     if (!auth) redirect(`/login?redirectTo=/classes/${id}`);
+    if (!isStudioMember(auth)) redirect('/classes');
     notFound();
   }
 
