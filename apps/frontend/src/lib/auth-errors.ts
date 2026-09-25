@@ -86,3 +86,13 @@ export function resetErrorMessage(error: AuthErrorish | null): string {
     'Could not update the password. Try again in a moment.',
   );
 }
+
+/** Sending the reset link. Supabase never reports an unknown address here, so
+ *  saying a send failed reveals nothing about which accounts exist. */
+export function sendResetErrorMessage(error: AuthErrorish | null): string {
+  return pick(
+    RESET_MESSAGES,
+    error,
+    'Could not send the link. Try again in a moment.',
+  );
+}

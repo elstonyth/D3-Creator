@@ -16,7 +16,7 @@ import { useId, useState, type FormEvent, type ReactElement } from 'react';
 import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { Button } from '@gitroom/frontend/components/ui/button';
 import { Field, Input } from '@gitroom/frontend/components/ui/input';
-import { resetErrorMessage } from '@gitroom/frontend/lib/auth-errors';
+import { sendResetErrorMessage } from '@gitroom/frontend/lib/auth-errors';
 import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
 
 export function ForgotPasswordForm(): ReactElement {
@@ -43,17 +43,18 @@ export function ForgotPasswordForm(): ReactElement {
           redirectTo: `${
             window.location.origin
           }/auth/callback?redirectTo=${encodeURIComponent('/reset-password')}`,
-        }
+        },
       );
-      // A rate limit is worth showing; "no such user" is not, and Supabase does
-      // not report it here anyway.
-      if (resetError && resetError.status === 429) {
-        setError(resetErrorMessage(resetError));
+      // Any failure is shown: claiming "check your email" when nothing was sent
+      // strands the user. It is still no enumeration signal — Supabase answers
+      // an unknown address with the same success as a real one.
+      if (resetError) {
+        setError(sendResetErrorMessage(resetError));
         return;
       }
       setSentTo(address);
     } catch {
-      setError(resetErrorMessage(null));
+      setError(sendResetErrorMessage(null));
     } finally {
       setPending(false);
     }
@@ -66,7 +67,7 @@ export function ForgotPasswordForm(): ReactElement {
           <span className="break-words text-fg">
             {t(
               'If {email} has an account, a reset link is on its way. The link works once and expires within the hour.',
-              { email: sentTo }
+              { email: sentTo },
             )}
           </span>
         </Alert>
