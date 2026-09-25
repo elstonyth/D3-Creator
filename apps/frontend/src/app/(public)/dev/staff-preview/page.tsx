@@ -1,12 +1,22 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { addDays, monthRange, todayKey } from '@gitroom/frontend/lib/tracker';
-import { weekStart, type Shoot } from '@gitroom/frontend/lib/team/shoots';
-import { finishedBy, type Video } from '@gitroom/frontend/lib/team/videos';
+import {
+  addDays,
+  isDateKey,
+  isMonthKey,
+  monthRange,
+  todayKey,
+} from '@gitroom/frontend/lib/tracker';
+import type { Shoot } from '@gitroom/frontend/lib/team/shoots';
+import {
+  doneCounts,
+  finishedBy,
+  type Video,
+} from '@gitroom/frontend/lib/team/videos';
 import { Container, Section } from '@gitroom/frontend/components/ui/section';
-import { WeekSchedule } from '@gitroom/frontend/components/team/week-schedule';
-import { VideoBoard } from '@gitroom/frontend/components/team/video-board';
+import { StaffTracker } from '@gitroom/frontend/components/team/staff-tracker';
+import { AdminTracker } from '@gitroom/frontend/components/team/admin-tracker';
 import { HistoryView } from '@gitroom/frontend/components/team/history-view';
 import { PersonVideos } from '@gitroom/frontend/components/team/person-videos';
 import { TeamManager } from '@gitroom/frontend/app/(admin)/admin/team/team-manager';
@@ -18,14 +28,7 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-const VIEWS = [
-  'work',
-  'schedule',
-  'admin-videos',
-  'admin-schedule',
-  'team',
-  'person',
-] as const;
+const VIEWS = ['tracker', 'admin-tracker', 'team', 'person'] as const;
 type View = (typeof VIEWS)[number];
 
 const KEE = 'aaaaaaaa-0000-4000-8000-000000000001';
@@ -48,27 +51,30 @@ const accounts = [
 ];
 
 /**
- * Scratch preview of the staff portal and the admin's team pages on sample
- * data, so the screens can be looked at without a session. The staff views
- * are signed in as HOWEN, who both shoots and edits, so every list has
- * something in it. Saves go to the real server actions and are refused (no
- * staff session), which also shows the refusal state. Dev only: 404 in
+ * Scratch preview of the two Work Trackers and the admin's team pages on
+ * sample data, so the screens can be looked at without a session. The staff
+ * tracker is signed in as HOWEN, who both shoots and edits, so every list
+ * has something in it. Saves go to the real server actions and are refused
+ * (no staff session), which also shows the refusal state. Dev only: 404 in
  * production.
  */
 export default async function StaffPreviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; month?: string; day?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
-  const { view: asked } = await searchParams;
+  const { view: asked, month: askedMonth, day: askedDay } = await searchParams;
   const view: View = (VIEWS as readonly string[]).includes(asked ?? '')
     ? (asked as View)
-    : 'work';
+    : 'tracker';
 
   const today = todayKey();
-  const start = weekStart(today);
   const month = today.slice(0, 7);
+  // The trackers' calendar month; the sample data stays around today.
+  const shown = isMonthKey(askedMonth) ? askedMonth : month;
+  const day =
+    isDateKey(askedDay) && askedDay.startsWith(shown) ? askedDay : null;
   // Sample instants from today's date key (a lib call), not the clock:
   // render bodies stay pure.
   const ago = (days: number) => `${addDays(today, -days)}T04:00:00.000Z`;
@@ -83,7 +89,8 @@ export default async function StaffPreviewPage({
   ): Shoot => ({
     id: `cccccccc-0000-4000-8000-00000000000${n}`,
     memberId,
-    date: addDays(start, offset),
+    // Days from today, so the spotlight cards have something on them.
+    date: addDays(today, offset),
     time,
     title,
     creatorId: null,
@@ -93,24 +100,25 @@ export default async function StaffPreviewPage({
     ...extra,
   });
   const shoots: Shoot[] = [
-    shoot(1, KEE, 1, '19:30', '火锅店'),
+    shoot(1, KEE, 0, '19:30', '火锅店'),
     shoot(2, KEE, 1, '21:00', '甜品店', { creatorId: acct(2) }),
-    shoot(3, KEE, 2, '11:30', 'Café visit', {
+    shoot(3, KEE, -2, '11:30', 'Café visit', {
       status: 'done',
       videosShot: 3,
     }),
-    shoot(4, ZUWEI, 3, null, '家具店'),
+    shoot(4, ZUWEI, 1, null, '家具店'),
     shoot(5, ZUWEI, 3, null, '下午 工厂参观', { status: 'cancelled' }),
-    shoot(6, HOWEN, 0, '10:00', '卖海鲜的Gary', {
+    shoot(6, HOWEN, -1, '10:00', '卖海鲜的Gary', {
       creatorId: acct(1),
       status: 'done',
       videosShot: 4,
     }),
-    shoot(7, HOWEN, 2, '14:00', '工厂参观', {
+    shoot(7, HOWEN, 0, '14:00', '工厂参观', {
       creatorId: acct(3),
       note: 'Bring the gimbal',
     }),
-    shoot(8, HOWEN, 4, '19:30', '海边', { status: 'cancelled' }),
+    shoot(8, HOWEN, 1, '11:30', 'Café visit', { creatorId: acct(4) }),
+    shoot(9, HOWEN, 4, '19:30', '海边', { status: 'cancelled' }),
   ];
 
   const video = (n: number, patch: Partial<Video>): Video => ({
@@ -189,59 +197,49 @@ export default async function StaffPreviewPage({
     new Date(to).toISOString(),
   );
   const accountName = new Map(accounts.map((a) => [a.id, a.name]));
+  const iso = (instant: string) => new Date(instant).toISOString();
 
   const views: Record<View, { title: string; body: React.ReactNode }> = {
-    work: {
-      title: 'Staff · My work (signed in as HOWEN)',
+    tracker: {
+      title: 'Staff · Work Tracker (signed in as HOWEN)',
       body: (
-        <VideoBoard
+        <StaffTracker
+          key={shown}
+          month={shown}
+          today={today}
+          initialDay={day}
+          shoots={shoots.filter((s) => s.memberId === HOWEN)}
           videos={mine}
+          edited={howenDone.edited.length}
+          verified={howenDone.verified.length}
           people={people}
           accounts={accounts}
           meId={HOWEN}
-          month={month}
         />
       ),
     },
-    schedule: {
-      title: 'Staff · Schedule (signed in as HOWEN)',
+    'admin-tracker': {
+      title: 'Admin · Work Tracker',
       body: (
-        <WeekSchedule
-          start={start}
+        <AdminTracker
+          key={shown}
+          month={shown}
           today={today}
+          initialDay={day}
           shoots={shoots}
-          people={people}
-          accounts={accounts}
-          meId={HOWEN}
-          basePath="/dev/staff-preview"
-        />
-      ),
-    },
-    'admin-videos': {
-      title: 'Admin · Videos',
-      body: (
-        <VideoBoard
           videos={videos}
+          done={Object.fromEntries(
+            people.map((p) => [
+              p.id,
+              doneCounts(videos, p.id, iso(from), iso(to)),
+            ]),
+          )}
+          edited={videos.filter((v) => v.editedAt).length}
+          verified={videos.filter((v) => v.verifiedAt).length}
           people={people}
           accounts={accounts}
-          meId={null}
-          month={month}
-          readOnly
-        />
-      ),
-    },
-    'admin-schedule': {
-      title: 'Admin · Schedule',
-      body: (
-        <WeekSchedule
-          start={start}
-          today={today}
-          shoots={shoots}
-          people={people}
-          accounts={accounts}
-          meId={null}
-          readOnly
-          basePath="/dev/staff-preview"
+          // The preview has one sample profile; the id rides along unused.
+          profileBase="/dev/staff-preview?view=person&of="
         />
       ),
     },
@@ -337,25 +335,40 @@ export default async function StaffPreviewPage({
     },
   };
 
+  const banner = (
+    <p className="rounded-2xl border border-brand/40 bg-brand/10 px-5 py-3 text-body-sm text-fg">
+      Sample data — nothing here saves. {views[view].title}.{' '}
+      {VIEWS.map((v) => (
+        <Link
+          key={v}
+          href={`/dev/staff-preview?view=${v}`}
+          className={
+            v === view
+              ? 'mr-3 font-medium underline underline-offset-4'
+              : 'mr-3 text-fg-muted underline underline-offset-4'
+          }
+        >
+          {v}
+        </Link>
+      ))}
+    </p>
+  );
+
+  // The trackers bring their own scene, column and heading.
+  if (view === 'tracker' || view === 'admin-tracker')
+    return (
+      <>
+        <div className="relative z-20 mx-auto mt-6 w-full max-w-[1320px] px-4 sm:px-6 md:px-8">
+          {banner}
+        </div>
+        {views[view].body}
+      </>
+    );
+
   return (
     <Container>
       <Section space="sm" className="space-y-6">
-        <p className="rounded-2xl border border-brand/40 bg-brand/10 px-5 py-3 text-body-sm text-fg">
-          Sample data — nothing here saves.{' '}
-          {VIEWS.map((v) => (
-            <Link
-              key={v}
-              href={`/dev/staff-preview?view=${v}`}
-              className={
-                v === view
-                  ? 'mr-3 font-medium underline underline-offset-4'
-                  : 'mr-3 text-fg-muted underline underline-offset-4'
-              }
-            >
-              {v}
-            </Link>
-          ))}
-        </p>
+        {banner}
         <h1 className="text-section text-fg">{views[view].title}</h1>
         {views[view].body}
       </Section>

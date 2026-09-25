@@ -24,8 +24,7 @@ export const dynamic = 'force-dynamic';
 // `/admin/...` on the public host, `/...` on admin.d3creator.com.
 const NAV = [
   { path: '/', label: 'Overview', exact: true },
-  { path: '/videos', label: 'Videos' },
-  { path: '/schedule', label: 'Schedule' },
+  { path: '/tracker', label: 'Tracker' },
   { path: '/team', label: 'Team' },
   { path: '/profiles', label: 'Accounts' },
   { path: '/classes', label: 'Classes' },

@@ -1,9 +1,9 @@
 /**
- * Server-side reads for the staff portal and the admin console's Schedule,
- * Videos and Team pages. Service-role; every caller has already passed its
- * own gate (the (staff) / (admin) layouts, requireStaff / requireAdmin).
+ * Server-side reads for the Work Trackers (through tracker-data.ts) and the
+ * admin console's Team pages. Service-role; every caller has already passed
+ * its own gate (the (staff) / (admin) layouts, requireStaff / requireAdmin).
  *
- * Reads are windowed — a week of shoots, a month of history — and the video
+ * Reads are windowed — a month of shoots, a month of history — and the video
  * lists are paged, so PostgREST's 1000-row cap never truncates silently.
  */
 

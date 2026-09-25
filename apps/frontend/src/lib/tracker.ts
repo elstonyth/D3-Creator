@@ -78,6 +78,26 @@ export function monthRange(monthKey: string): { from: string; to: string } {
 }
 
 /**
+ * The month laid out as calendar rows, Sunday first. Cells outside the month
+ * are null so the grid keeps its shape. Always 6 rows tall, so the panel
+ * never jumps in height between months.
+ */
+export function monthGrid(monthKey: string): (string | null)[][] {
+  const [y, m] = monthKey.split('-').map(Number);
+  const first = new Date(Date.UTC(y, m - 1, 1));
+  const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const lead = first.getUTCDay();
+  const cells: (string | null)[] = Array.from({ length: lead }, () => null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push(`${monthKey}-${String(d).padStart(2, '0')}`);
+  }
+  while (cells.length < 42) cells.push(null);
+  const rows: (string | null)[][] = [];
+  for (let i = 0; i < 42; i += 7) rows.push(cells.slice(i, i + 7));
+  return rows;
+}
+
+/**
  * One line of user text for a title-like column: whitespace collapsed,
  * trimmed, 1..`max` characters — or null when it does not fit. Actions check
  * this before the table's own constraint so a refusal reads as a sentence.

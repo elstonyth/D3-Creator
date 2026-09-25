@@ -1,6 +1,6 @@
 /**
  * Chinese copy for the staff portal (staff.d3creator.com) and the admin
- * console's Schedule and Team pages. English source strings are the keys.
+ * console's Work Tracker and Team pages. English source strings are the keys.
  */
 export const staffZh: Readonly<Record<string, string>> = {
   // ---- Users page --------------------------------------------------------
@@ -26,16 +26,9 @@ export const staffZh: Readonly<Record<string, string>> = {
   '{email} is already registered. If it is your staff account, sign in. If you use it for D3 classes or the Studio, sign up for staff with a different email.':
     '{email} 已注册。如果这是你的员工账号，请直接登录；如果它是你上 D3 课程或使用 Studio 的账号，请换一个邮箱注册员工账号。',
 
-  // ---- Week schedule ------------------------------------------------------
-  'Previous week': '上一周',
-  'Next week': '下一周',
-  'This week': '本周',
-  'Show whose shoots': '显示谁的行程',
+  // ---- A day's shoots ------------------------------------------------------
   Everyone: '全部人',
-  Mine: '我的',
   'Nothing planned.': '暂无安排。',
-  '+ Add': '+ 添加',
-  'Add a shoot on {day}': '在{day}添加拍摄',
   Done: '完成',
   Cancelled: '已取消',
   'Cancel shoot': '取消拍摄',
@@ -72,12 +65,6 @@ export const staffZh: Readonly<Record<string, string>> = {
 
   // ---- Staff portal chrome and pages --------------------------------------
   'D3 Staff': 'D3 员工门户',
-  'My work': '我的工作',
-  'My work — D3 Staff': '我的工作 — D3 员工门户',
-  Schedule: '行程',
-  'Schedule — D3 Staff': '行程 — D3 员工门户',
-  'Shoot schedule': '拍摄行程',
-  'Hi, {name}': '你好，{name}',
   'Your account is not linked to anyone yet.':
     '你的账号还没有关联到看板上的人员。',
   'An admin links each staff login to a person on the work board. Ask them to link yours on the Team page.':
@@ -97,8 +84,6 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Both — runs accounts and cuts videos': '两者都做——运营账号也剪视频',
 
   // ---- Video jobs -------------------------------------------------------------
-  'Video jobs': '视频工作',
-  'Videos — D3 Admin': '视频 — D3 管理后台',
   'Show whose videos': '显示谁的视频',
   'Being edited': '剪辑中',
   'Done this month': '本月已完成',
@@ -138,8 +123,7 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Left the board': '已离开看板',
   'No login yet': '尚无登录账号',
 
-  // ---- Admin: schedule, team ----------------------------------------------------
-  'Schedule — D3 Admin': '行程 — D3 管理后台',
+  // ---- Admin: team ----------------------------------------------------------------
   Team: '团队',
   'Team — D3 Admin': '团队 — D3 管理后台',
   'The team': '团队成员',
@@ -154,7 +138,7 @@ export const staffZh: Readonly<Record<string, string>> = {
   'New person': '新人员',
   'Someone already on the board': '看板上已有的人员',
   'Name on the board': '看板上的名字',
-  Row: '所在行',
+  Job: '职位',
   'Turn away': '拒绝',
   'Turn this signup away? The login stays but reaches nothing.':
     '拒绝这个注册？账号会保留，但无法访问任何内容。',
@@ -235,10 +219,6 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Removed: “{title}”.': '已移除：“{title}”。',
   'Edit a video, then click Done. Videos you passed on come back here to verify once their editor is done.':
     '剪好视频后点「完成」。你交出的视频在剪辑完成后会回到这里，等你审核。',
-  'Add your shoots for the week. After a shoot, click Pass videos on it and give each video to an editor.':
-    '添加你本周的拍摄。拍完后在该拍摄上点「交出视频」，把每条视频交给一位剪辑。',
-  'See where the team is shooting, this week or the next. Staff fill in their own shoots and pass the videos on to the editors.':
-    '查看团队本周或下周在哪里拍摄。员工自己填写拍摄，并把视频交给剪辑。',
   'Who is editing each video now, and who verifies it next. Staff pass videos on from their shoots; each Done and Verify counts toward their month.':
     '每条视频现在由谁剪辑、接下来由谁审核。员工从拍摄交出视频；每次「完成」和「审核通过」都计入当月工作量。',
   'That shoot is not yours to change, or it has moved on.':
@@ -260,4 +240,44 @@ export const staffZh: Readonly<Record<string, string>> = {
     '只能在审核前撤回你自己本月的「完成」。',
   'You can only take back your own Verify from this month.':
     '只能撤回你自己本月的「审核通过」。',
+
+  // ---- Work trackers (staff home, admin /tracker) ---------------------------
+  'Work Tracker': '工作看板',
+  'Work Tracker — D3 Staff': '工作看板 — D3 员工门户',
+  'Work Tracker — D3 Admin': '工作看板 — D3 管理后台',
+  Work: '工作',
+  Tracker: '看板',
+  'Admin console': '管理控制台',
+  Upcoming: '近期',
+  Tomorrow: '明天',
+  '+{count} more': '还有 {count} 项',
+  Calendar: '日历',
+  Sun: '日',
+  Mon: '一',
+  Tue: '二',
+  Wed: '三',
+  Thu: '四',
+  Fri: '五',
+  Sat: '六',
+  '{count} items': '{count} 项',
+  'Shoots for': '当日拍摄',
+  '+ Add a shoot': '+ 添加拍摄',
+  'This month': '本月',
+  'Videos passed': '已交出视频',
+  'My videos': '我的视频',
+  'Your shoots, the videos you passed on, and what is waiting for you.':
+    '你的拍摄、你交出的视频，以及等你处理的工作。',
+  '{edit} to edit · {verify} to verify': '{edit} 条待剪辑 · {verify} 条待审核',
+  'Everyone’s shoots and videos as staff update them.':
+    '全体员工的拍摄和视频，随员工更新同步显示。',
+  '{editing} being edited · {waiting} waiting to verify':
+    '{editing} 条剪辑中 · {waiting} 条待审核',
+  'Team this month': '团队本月',
+  'Team · {month}': '团队 · {month}',
+  'What each person is editing now and what waits on their check. Numbers are for {month}.':
+    '每个人正在剪辑的视频和等他们审核的视频。数字统计月份：{month}。',
+  'Editing now': '正在剪辑',
+  'Nothing in their hands.': '手上没有视频。',
+  'Nothing waiting on them.': '没有等他们审核的视频。',
+  'not verified yet': '尚未审核',
 };

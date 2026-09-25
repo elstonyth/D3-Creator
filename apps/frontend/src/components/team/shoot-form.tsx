@@ -67,7 +67,7 @@ export function ShootForm({
   return (
     <form
       onSubmit={submit}
-      className="space-y-3 rounded-lg border border-line-strong bg-surface-subtle p-3"
+      className="space-y-3 rounded-[18px] border border-white/10 bg-black/25 p-3"
     >
       <div className="grid grid-cols-2 gap-3">
         <Field label={t('Day')} htmlFor={`${id}-date`}>

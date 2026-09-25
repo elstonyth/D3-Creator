@@ -30,6 +30,8 @@ jest.mock('@gitroom/frontend/lib/team/video-actions', () => ({
 
 const refresh = jest.fn();
 jest.mock('next/navigation', () => ({ useRouter: () => ({ refresh }) }));
+// No CSS in jest; the class names are chrome, not behaviour.
+jest.mock('./tracker.module.scss', () => ({}));
 
 const KEE = 'aaaaaaaa-0000-4000-8000-000000000001';
 const ALI = 'aaaaaaaa-0000-4000-8000-000000000009';
@@ -314,6 +316,37 @@ it('says why when the connection drops, and frees the board again', async () => 
   }) as HTMLButtonElement;
   expect(verify.disabled).toBe(false);
   expect(refresh).not.toHaveBeenCalled();
+});
+
+it('names who verifies each video, and whether it is verified yet', () => {
+  const out = video('Reel 9', {
+    ...EDITED,
+    verifiedAt: '2026-09-22T02:00:00Z',
+    verifiedBy: KEE,
+  });
+  renderBoard(KEE, [TO_EDIT, TO_VERIFY, out]);
+  for (const title of ['Reel 1', 'Reel 2']) {
+    const card = screen.getByText(title).closest('li')!;
+    expect(within(card).getByText(/not verified yet/)).toBeTruthy();
+  }
+  const done = screen.getByText('Reel 9').closest('li')!;
+  expect(within(done).queryByText(/not verified yet/)).toBeNull();
+  expect(within(done).getByText(/verified /)).toBeTruthy();
+});
+
+it('takes the server’s list again when the page is re-read', () => {
+  // A shoot passed on elsewhere on the page adds a video to this list.
+  const { rerender } = renderBoard(KEE, [TO_EDIT]);
+  rerender(
+    <VideoBoard
+      videos={[TO_EDIT, video('Reel 10')]}
+      people={people}
+      accounts={accounts}
+      meId={KEE}
+      month="2026-09"
+    />,
+  );
+  expect(within(region('With the editor')).getByText('Reel 10')).toBeTruthy();
 });
 
 describe('the admin’s view', () => {

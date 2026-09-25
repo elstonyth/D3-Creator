@@ -70,7 +70,7 @@ export function PassVideosForm({
   return (
     <form
       onSubmit={submit}
-      className="mt-3 space-y-3 rounded-lg border border-line-strong bg-surface p-3"
+      className="mt-3 space-y-3 rounded-[18px] border border-white/10 bg-black/25 p-3"
     >
       <p className="text-caption text-fg-muted">
         {t('One row per video: its title, and who edits it.')}

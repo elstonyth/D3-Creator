@@ -30,10 +30,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 // Paths are relative to the portal root: `/staff/...` on the public host in
 // dev, `/...` on staff.d3creator.com.
-const NAV = [
-  { path: '/', label: 'My work', exact: true },
-  { path: '/schedule', label: 'Schedule' },
-];
+const NAV = [{ path: '/', label: 'Work Tracker', exact: true }];
 
 /**
  * The staff portal's own root layout (staff.d3creator.com). The middleware

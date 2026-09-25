@@ -1,10 +1,9 @@
 /** @jest-environment jsdom */
 /**
- * The week schedule's permissions and saves. Staff see the whole team's
- * shoots but change only their own, and pass on the videos from their own
- * shoots; the admin's view shows everything and changes nothing. The server
- * has the final word (the actions re-check), but the screen must not offer
- * what the server would refuse.
+ * A day's shoots under the tracker's calendar: permissions and saves. Staff
+ * change and pass on only their own shoots; the admin's view shows everyone's
+ * and changes nothing. The server has the final word (the actions re-check),
+ * but the screen must not offer what the server would refuse.
  */
 
 import {
@@ -13,8 +12,8 @@ import {
   render,
   screen,
   waitFor,
-  within,
 } from '@testing-library/react';
+import { useState } from 'react';
 
 import type { Shoot } from '@gitroom/frontend/lib/team/shoots';
 import {
@@ -22,7 +21,7 @@ import {
   passVideos,
   setShootStatus,
 } from '@gitroom/frontend/lib/team/shoot-actions';
-import { WeekSchedule } from './week-schedule';
+import { DayShoots } from './day-shoots';
 
 jest.mock('@gitroom/frontend/lib/team/shoot-actions', () => ({
   addShoot: jest.fn(),
@@ -31,24 +30,19 @@ jest.mock('@gitroom/frontend/lib/team/shoot-actions', () => ({
   deleteShoot: jest.fn(),
   passVideos: jest.fn(),
 }));
-jest.mock('next/link', () => ({
-  __esModule: true,
-  default: ({
-    children,
-    href,
-    ...rest
-  }: {
-    children: React.ReactNode;
-    href: string;
-  }) => (
-    <a href={href} {...rest}>
-      {children}
-    </a>
-  ),
-}));
-
 const refresh = jest.fn();
 jest.mock('next/navigation', () => ({ useRouter: () => ({ refresh }) }));
+// The liquid-glass dist is ESM-only; the panel is chrome, not behaviour.
+jest.mock('./glass-panel', () => ({
+  GlassPanel: ({
+    children,
+    className,
+  }: {
+    children?: React.ReactNode;
+    className?: string;
+  }) => <div className={className}>{children}</div>,
+}));
+jest.mock('./tracker.module.scss', () => ({}));
 
 const KEE = 'aaaaaaaa-0000-4000-8000-000000000001';
 const ZUWEI = 'aaaaaaaa-0000-4000-8000-000000000002';
@@ -84,25 +78,35 @@ function shoot(
   };
 }
 
-const MINE = shoot(1, KEE, '2026-09-22', '19:30', 'Hotpot shop');
-const THEIRS = shoot(2, ZUWEI, '2026-09-24', null, 'Furniture shop');
+const DAY = '2026-09-22';
+const MINE = shoot(1, KEE, DAY, '19:30', 'Hotpot shop');
+const THEIRS = shoot(2, ZUWEI, DAY, null, 'Furniture shop');
 
-function renderWeek(
-  meId: string | null,
-  shoots = [MINE, THEIRS],
-  { start = '2026-09-21', today = '2026-09-23', readOnly = false } = {},
-) {
-  return render(
-    <WeekSchedule
-      start={start}
+/** The tracker's part: it owns the list and hands the day its shoots. */
+function Tracker({
+  initial,
+  meId,
+  day = DAY,
+  today = '2026-09-23',
+  readOnly = false,
+}: {
+  initial: Shoot[];
+  meId: string | null;
+  day?: string;
+  today?: string;
+  readOnly?: boolean;
+}) {
+  const [shoots, setShoots] = useState(initial);
+  return (
+    <DayShoots
+      day={day}
       today={today}
-      shoots={shoots}
+      shoots={shoots.filter((s) => s.date === day)}
       people={people}
       accounts={accounts}
       meId={meId}
-      readOnly={readOnly}
-      basePath="/"
-    />,
+      setShoots={readOnly ? undefined : setShoots}
+    />
   );
 }
 
@@ -111,35 +115,24 @@ const button = (name: string) => screen.queryByRole('button', { name });
 beforeEach(() => jest.clearAllMocks());
 
 it('lets staff change only their own shoots, and names the others', () => {
-  renderWeek(KEE);
+  render(<Tracker initial={[MINE, THEIRS]} meId={KEE} />);
   expect(button('Change Hotpot shop')).toBeTruthy();
   expect(button('Pass videos: Hotpot shop')).toBeTruthy();
   expect(button('Change Furniture shop')).toBeNull();
   expect(button('Pass videos: Furniture shop')).toBeNull();
   expect(button('Delete Furniture shop')).toBeNull();
-  const thursday = screen.getByRole('region', { name: /Thursday/ });
-  expect(within(thursday).getByText('ZUWEI')).toBeTruthy();
+  expect(screen.getByText('ZUWEI')).toBeTruthy();
   // My own shoot does not repeat my name.
-  const tuesday = screen.getByRole('region', { name: /Tuesday/ });
-  expect(within(tuesday).queryByText(/KEE/)).toBeNull();
-});
-
-it('filters to my own shoots', () => {
-  renderWeek(KEE);
-  fireEvent.click(screen.getByRole('button', { name: 'Mine' }));
-  expect(screen.queryByText('Furniture shop')).toBeNull();
-  expect(screen.getByText('Hotpot shop')).toBeTruthy();
+  expect(screen.queryByText(/KEE/)).toBeNull();
 });
 
 it('adds a shoot for the day it was opened on', async () => {
   (addShoot as jest.Mock).mockResolvedValue({
     ok: true,
-    shoot: shoot(3, KEE, '2026-09-23', '11:30', 'Café visit'),
+    shoot: shoot(3, KEE, DAY, '11:30', 'Café visit'),
   });
-  renderWeek(KEE);
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Add a shoot on Wednesday' }),
-  );
+  render(<Tracker initial={[MINE]} meId={KEE} />);
+  fireEvent.click(screen.getByRole('button', { name: '+ Add a shoot' }));
   fireEvent.change(screen.getByLabelText(/Time/), {
     target: { value: '11:30' },
   });
@@ -151,13 +144,14 @@ it('adds a shoot for the day it was opened on', async () => {
   await waitFor(() => expect(screen.getByText('Café visit')).toBeTruthy());
   // Staff never choose the person; the server uses theirs.
   expect(addShoot).toHaveBeenCalledWith({
-    date: '2026-09-23',
+    date: DAY,
     time: '11:30',
     title: 'Café visit',
     creatorId: '',
     note: '',
   });
   expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+  expect(refresh).toHaveBeenCalledTimes(1);
 });
 
 it('keeps the form open and says why when the server refuses', async () => {
@@ -165,10 +159,8 @@ it('keeps the form open and says why when the server refuses', async () => {
     ok: false,
     message: 'Time must look like 19:30.',
   });
-  renderWeek(KEE);
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Add a shoot on Wednesday' }),
-  );
+  render(<Tracker initial={[]} meId={KEE} />);
+  fireEvent.click(screen.getByRole('button', { name: '+ Add a shoot' }));
   fireEvent.change(screen.getByLabelText('Where / what'), {
     target: { value: 'Café visit' },
   });
@@ -186,7 +178,7 @@ it('passes a shoot’s videos on, one row per video, to the editors', async () =
     shoot: { ...MINE, status: 'done', videosShot: 2 },
     videos: [],
   });
-  renderWeek(KEE);
+  render(<Tracker initial={[MINE]} meId={KEE} />);
   fireEvent.click(
     screen.getByRole('button', { name: 'Pass videos: Hotpot shop' }),
   );
@@ -221,10 +213,12 @@ it('passes a shoot’s videos on, one row per video, to the editors', async () =
   ]);
   expect(screen.getByText('2 videos passed')).toBeTruthy();
   expect(screen.queryByLabelText('Video 1 title')).toBeNull();
+  // The tracker re-reads the page: the new videos show in its video list.
+  expect(refresh).toHaveBeenCalledTimes(1);
 });
 
 it('keeps each row’s text when a row above it is removed', () => {
-  renderWeek(KEE);
+  render(<Tracker initial={[MINE]} meId={KEE} />);
   fireEvent.click(
     screen.getByRole('button', { name: 'Pass videos: Hotpot shop' }),
   );
@@ -242,14 +236,14 @@ it('keeps each row’s text when a row above it is removed', () => {
 });
 
 it('offers the right steps for each state of my own shoot', () => {
-  const done = shoot(3, KEE, '2026-09-21', null, 'Mall', {
+  const done = shoot(3, KEE, DAY, '10:00', 'Mall', {
     status: 'done',
     videosShot: 4,
   });
-  const cancelled = shoot(4, KEE, '2026-09-25', null, 'Beach', {
+  const cancelled = shoot(4, KEE, DAY, null, 'Beach', {
     status: 'cancelled',
   });
-  renderWeek(KEE, [MINE, done, cancelled]);
+  render(<Tracker initial={[MINE, done, cancelled]} meId={KEE} />);
 
   // Planned: change it, pass its videos on, cancel it, delete it.
   expect(button('Change Hotpot shop')).toBeTruthy();
@@ -275,16 +269,32 @@ it('offers the right steps for each state of my own shoot', () => {
 
 it('keeps last month closed, except for passing its videos on', () => {
   const lastMonth = shoot(4, KEE, '2026-08-31', '10:00', 'Café visit');
-  const thisMonth = shoot(5, KEE, '2026-09-01', '10:00', 'Hotpot shop');
-  const week = { start: '2026-08-31', today: '2026-09-02' };
-  renderWeek(KEE, [lastMonth, thisMonth], week);
+  const { unmount } = render(
+    <Tracker
+      initial={[lastMonth]}
+      meId={KEE}
+      day="2026-08-31"
+      today="2026-09-02"
+    />,
+  );
   expect(button('Pass videos: Café visit')).toBeTruthy();
   expect(button('Change Café visit')).toBeNull();
   expect(button('Cancel shoot: Café visit')).toBeNull();
   expect(button('Delete Café visit')).toBeNull();
+  expect(button('+ Add a shoot')).toBeNull();
+  unmount();
+
+  const thisMonth = shoot(5, KEE, '2026-09-01', '10:00', 'Hotpot shop');
+  render(
+    <Tracker
+      initial={[thisMonth]}
+      meId={KEE}
+      day="2026-09-01"
+      today="2026-09-02"
+    />,
+  );
   expect(button('Change Hotpot shop')).toBeTruthy();
-  expect(button('Add a shoot on Monday')).toBeNull();
-  expect(button('Add a shoot on Tuesday')).toBeTruthy();
+  expect(button('+ Add a shoot')).toBeTruthy();
 });
 
 it('cancels a planned shoot with one click', async () => {
@@ -292,7 +302,7 @@ it('cancels a planned shoot with one click', async () => {
     ok: true,
     shoot: { ...MINE, status: 'cancelled' },
   });
-  renderWeek(KEE);
+  render(<Tracker initial={[MINE]} meId={KEE} />);
   await act(async () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Cancel shoot: Hotpot shop' }),
@@ -307,67 +317,53 @@ it('shows a refused one-click change on that shoot', async () => {
     ok: false,
     message: 'That shoot is not yours to change, or it has moved on.',
   });
-  renderWeek(KEE);
+  render(<Tracker initial={[MINE]} meId={KEE} />);
   await act(async () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Cancel shoot: Hotpot shop' }),
     );
   });
-  const tuesday = screen.getByRole('region', { name: /Tuesday/ });
-  expect(within(tuesday).getByRole('alert').textContent).toContain(
+  const card = screen.getByText('Hotpot shop').closest('li')!;
+  expect(card.querySelector('[role="alert"]')?.textContent).toContain(
     'has moved on',
   );
 });
 
-it('frees the week and says why when an action throws', async () => {
+it('frees the panel and says why when an action throws', async () => {
   (setShootStatus as jest.Mock).mockRejectedValue(
     new TypeError('Failed to fetch'),
   );
-  renderWeek(KEE);
+  render(<Tracker initial={[MINE]} meId={KEE} />);
   await act(async () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Cancel shoot: Hotpot shop' }),
     );
   });
-  const tuesday = screen.getByRole('region', { name: /Tuesday/ });
-  expect(within(tuesday).getByRole('alert').textContent).toContain(
+  expect(screen.getByRole('alert').textContent).toContain(
     'Could not save. Try again.',
   );
   const cancel = screen.getByRole('button', {
     name: 'Cancel shoot: Hotpot shop',
   }) as HTMLButtonElement;
   expect(cancel.disabled).toBe(false);
+  expect(refresh).not.toHaveBeenCalled();
 });
 
 describe('the admin’s view', () => {
   it('shows everyone’s shoots with nothing to press', () => {
-    const done = shoot(3, ZUWEI, '2026-09-21', null, 'Mall', {
+    const done = shoot(3, ZUWEI, DAY, null, 'Mall', {
       status: 'done',
       videosShot: 3,
     });
-    renderWeek(null, [MINE, THEIRS, done], { readOnly: true });
-    // Week links are links and the person filter is a select: any button
-    // here would be a way to change something.
+    render(<Tracker initial={[MINE, THEIRS, done]} meId={null} readOnly />);
     expect(screen.queryAllByRole('button')).toHaveLength(0);
-    const tuesday = screen.getByRole('region', { name: /Tuesday/ });
-    expect(within(tuesday).getByText('KEE')).toBeTruthy();
+    expect(screen.getByText('KEE')).toBeTruthy();
     expect(screen.getByText('3 videos passed')).toBeTruthy();
-    expect(
-      screen.getByRole('link', { name: 'Next week' }).getAttribute('href'),
-    ).toBe('/?week=2026-09-28');
-  });
-
-  it('filters to one person', () => {
-    renderWeek(null, [MINE, THEIRS], { readOnly: true });
-    fireEvent.change(screen.getByLabelText('Show whose shoots'), {
-      target: { value: ZUWEI },
-    });
-    expect(screen.queryByText('Hotpot shop')).toBeNull();
-    expect(screen.getByText('Furniture shop')).toBeTruthy();
+    expect(screen.getAllByText('Planned')).toHaveLength(2);
   });
 
   it('stays read-only even when given a person', () => {
-    renderWeek(KEE, [MINE], { readOnly: true });
+    render(<Tracker initial={[MINE]} meId={KEE} readOnly />);
     expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 });

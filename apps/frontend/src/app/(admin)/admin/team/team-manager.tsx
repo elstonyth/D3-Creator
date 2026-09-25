@@ -401,7 +401,7 @@ function PendingCard({
                 autoComplete="off"
               />
             </Field>
-            <Field label={t('Row')} htmlFor={`k-${p.userId}`}>
+            <Field label={t('Job')} htmlFor={`k-${p.userId}`}>
               <Select
                 id={`k-${p.userId}`}
                 value={kind}

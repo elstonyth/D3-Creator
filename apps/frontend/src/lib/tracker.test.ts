@@ -4,6 +4,7 @@ import {
   dateKeyAt,
   isDateKey,
   isMonthKey,
+  monthGrid,
   monthRange,
 } from './tracker';
 
@@ -38,5 +39,22 @@ describe('tracker date helpers', () => {
       to: '2026-10-01T00:00:00+08:00',
     });
     expect(monthRange('2026-12').to).toBe('2027-01-01T00:00:00+08:00');
+  });
+
+  it('lays the month out Sunday-first in six rows', () => {
+    const grid = monthGrid('2026-09'); // 1 Sep 2026 is a Tuesday
+    expect(grid).toHaveLength(6);
+    expect(grid[0]).toEqual([
+      null,
+      null,
+      '2026-09-01',
+      '2026-09-02',
+      '2026-09-03',
+      '2026-09-04',
+      '2026-09-05',
+    ]);
+    expect(grid[4][3]).toBe('2026-09-30');
+    expect(grid[4][4]).toBeNull();
+    expect(grid[5].every((c) => c === null)).toBe(true);
   });
 });

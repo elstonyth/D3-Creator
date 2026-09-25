@@ -10,8 +10,8 @@
  * boundary a loading.tsx creates is keyed by the child segment below it. At
  * the route-group level that child is always `staff`, the same on every page,
  * so a tap between pages would keep the old page on screen. Here the child
- * changes with the page (`__PAGE__`, `schedule`, `history`, …), so the
- * skeleton shows on every tap.
+ * changes with the page (`__PAGE__`, `pending`), so the skeleton shows on
+ * every tap.
  *
  * Flat blocks, no shimmer sweep — DESIGN.md §5 bans animated gradients.
  */

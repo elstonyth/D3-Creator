@@ -8,16 +8,19 @@
  * waits to be verified, and what was verified this month.
  *
  * Saves wait for the server (each is one small write). A refusal is shown on
- * the video it belongs to, with its step still open.
+ * the video it belongs to, with its step still open. It sits in a work
+ * tracker's glass panel, so its cards take the tracker's inset look.
  */
 
 import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
   type FormEvent,
   type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
@@ -43,6 +46,9 @@ import {
   verifyVideo,
   type VideoResult,
 } from '@gitroom/frontend/lib/team/video-actions';
+import { cn } from '@gitroom/frontend/lib/utils';
+import { Pill } from './pill';
+import s from './tracker.module.scss';
 
 interface Person {
   id: string;
@@ -81,6 +87,10 @@ function fmtDay(key: string, tag: 'en' | 'zh-CN'): string {
   }).format(new Date(`${key}T00:00:00Z`));
 }
 
+// Whether this render is in the browser (false on the server and while
+// hydrating), without a setState in an effect.
+const noSubscribe = () => () => {};
+
 export function VideoBoard({
   videos: initialVideos,
   people,
@@ -95,6 +105,14 @@ export function VideoBoard({
   // Whose steps can be moved here: nobody's on the admin's view.
   const me = readOnly ? null : meId;
   const [videos, setVideos] = useState(initialVideos);
+  // A refresh brings the server's list again (videos just passed on from a
+  // shoot on the same page, a step taken elsewhere): it replaces this copy.
+  // The page hands the same array through until then.
+  const [fromServer, setFromServer] = useState(initialVideos);
+  if (fromServer !== initialVideos) {
+    setFromServer(initialVideos);
+    setVideos(initialVideos);
+  }
   const [open, setOpen] = useState<Open>(null);
   const [saving, setSaving] = useState(false);
   // A refusal, and the video it belongs to.
@@ -104,6 +122,12 @@ export function VideoBoard({
   // What a step just did: its card has usually moved to another list.
   const [notice, setNotice] = useState<{ id: number; text: string } | null>(
     null,
+  );
+
+  const inBrowser = useSyncExternalStore(
+    noSubscribe,
+    () => true,
+    () => false,
   );
 
   // Show it for a few seconds, then clear it.
@@ -228,6 +252,22 @@ export function VideoBoard({
     setError(null);
   };
 
+  const live = (
+    <div
+      role="status"
+      className="pointer-events-none fixed inset-x-4 bottom-5 z-50 flex justify-center"
+    >
+      {notice ? (
+        <p
+          key={notice.id}
+          className="max-w-md break-words rounded-xl border border-line bg-surface px-4 py-3 text-body-sm text-fg shadow-glass"
+        >
+          {notice.text}
+        </p>
+      ) : null}
+    </div>
+  );
+
   return (
     <div className="space-y-5">
       {me === null ? (
@@ -259,14 +299,14 @@ export function VideoBoard({
       >
         {sections.map(({ key, list }) => (
           <section key={key} aria-label={title[key]} className="min-w-0">
-            <h2 className="mb-3 flex items-baseline justify-between gap-2 text-heading text-fg">
+            <h3 className="mb-3 flex items-baseline justify-between gap-2 px-1 text-heading text-fg">
               {title[key]}
               <span className="text-caption tnum text-fg-subtle">
                 {list.length}
               </span>
-            </h2>
+            </h3>
             {list.length === 0 ? (
-              <p className="rounded-2xl border border-line bg-surface p-4 text-body-sm text-fg-muted">
+              <p className="rounded-[18px] border border-dashed border-white/10 px-4 py-6 text-center text-body-sm text-fg-subtle">
                 {empty[key]}
               </p>
             ) : (
@@ -386,20 +426,11 @@ export function VideoBoard({
         ))}
       </div>
 
-      {/* Always there, so a screen reader reads out each notice put in it. */}
-      <div
-        role="status"
-        className="pointer-events-none fixed inset-x-4 bottom-5 z-50 flex justify-center"
-      >
-        {notice ? (
-          <p
-            key={notice.id}
-            className="max-w-md break-words rounded-xl border border-line bg-surface px-4 py-3 text-body-sm text-fg shadow-glass"
-          >
-            {notice.text}
-          </p>
-        ) : null}
-      </div>
+      {/* Always there, so a screen reader reads out each notice put in it.
+          Portalled to the body: the glass panel around the board has a
+          backdrop-filter, which would pin a fixed child to the panel instead
+          of the window. */}
+      {inBrowser ? createPortal(live, document.body) : live}
     </div>
   );
 }
@@ -485,10 +516,24 @@ function VideoCard({
     fn();
   }
 
+  const stage = videoStage(v);
+
   return (
-    <li className="rounded-2xl border border-line bg-surface p-4">
-      <p className="text-caption text-fg-muted">{account}</p>
-      <p className="mt-0.5 break-words text-body text-fg">{v.title}</p>
+    <li className={cn(s.inset, 'p-4')}>
+      <div className="flex items-start justify-between gap-3">
+        <p className="min-w-0 truncate text-caption text-fg-muted">{account}</p>
+        <Pill
+          tone={stage === 'done' ? 'neutral' : 'muted'}
+          className="shrink-0"
+        >
+          {stage === 'done'
+            ? t('Verified')
+            : stage === 'verifying'
+              ? t('Waiting to verify')
+              : t('Being edited')}
+        </Pill>
+      </div>
+      <p className="mt-1 break-words text-body text-fg">{v.title}</p>
 
       <dl className="mt-3 space-y-1.5 text-caption">
         <div className="flex flex-wrap gap-x-2">
@@ -518,7 +563,9 @@ function VideoCard({
                 {' · '}
                 {t('verified {day}', { day: doneOn(v.verifiedAt) })}
               </>
-            ) : null}
+            ) : (
+              <span className="text-fg-muted"> · {t('not verified yet')}</span>
+            )}
           </dd>
         </div>
       </dl>
