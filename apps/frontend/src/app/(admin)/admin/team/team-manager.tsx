@@ -18,7 +18,11 @@ import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { Pill } from '@gitroom/frontend/components/team/pill';
 import { Button } from '@gitroom/frontend/components/ui/button';
 import { Field, Input, Select } from '@gitroom/frontend/components/ui/input';
-import { dateKeyAt, type MemberKind } from '@gitroom/frontend/lib/tracker';
+import {
+  dateKeyAt,
+  parseMemberKind,
+  type MemberKind,
+} from '@gitroom/frontend/lib/tracker';
 import {
   approveStaff,
   rejectStaff,
@@ -167,7 +171,11 @@ export function TeamManager({
                     <p className="flex flex-wrap items-center gap-2 text-label text-fg">
                       {m.name}
                       <Pill tone="muted">
-                        {m.kind === 'editor' ? t('Editor') : t('Handler')}
+                        {m.kind === 'both'
+                          ? t('Handler & editor')
+                          : m.kind === 'editor'
+                            ? t('Editor')
+                            : t('Handler')}
                       </Pill>
                     </p>
                     <p className="mt-0.5 break-all text-caption text-fg-subtle">
@@ -312,7 +320,12 @@ function PendingCard({
         {t('Signed up {when} as “{name}”, {job}.', {
           when: dateKeyAt(new Date(p.signedUpAt)),
           name: p.name || '—',
-          job: p.kind === 'editor' ? t('editor') : t('handler'),
+          job:
+            p.kind === 'both'
+              ? t('handler & editor')
+              : p.kind === 'editor'
+                ? t('editor')
+                : t('handler'),
         })}
       </p>
       {p.approved ? (
@@ -370,12 +383,11 @@ function PendingCard({
               <Select
                 id={`k-${p.userId}`}
                 value={kind}
-                onChange={(e) =>
-                  setKind(e.target.value === 'editor' ? 'editor' : 'handler')
-                }
+                onChange={(e) => setKind(parseMemberKind(e.target.value))}
               >
                 <option value="handler">{t('Handler')}</option>
                 <option value="editor">{t('Editor')}</option>
+                <option value="both">{t('Handler & editor')}</option>
               </Select>
             </Field>
           </div>

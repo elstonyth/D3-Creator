@@ -12,7 +12,10 @@
 import { cache } from 'react';
 import { getSupabaseAdmin } from '@d3/database';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
-import type { MemberKind } from '@gitroom/frontend/lib/tracker';
+import {
+  parseMemberKind,
+  type MemberKind,
+} from '@gitroom/frontend/lib/tracker';
 
 export interface StaffContext {
   userId: string;
@@ -44,7 +47,7 @@ export const getStaffContext = cache(async (): Promise<StaffContext | null> => {
     email: auth.email,
     memberId: data.id,
     name: data.name,
-    kind: data.kind === 'editor' ? 'editor' : 'handler',
+    kind: parseMemberKind(data.kind),
   };
 });
 

@@ -168,6 +168,21 @@ it('asks for a staff account only from the staff portal, and confirms back there
   expect(screen.getByText(/an admin approves/i)).toBeTruthy();
 });
 
+it('lets a staff member sign up for both jobs', async () => {
+  signUp.mockResolvedValue(NEW_ACCOUNT);
+  render(<SignUpForm portal="staff" />);
+  fireEvent.change(screen.getByLabelText('Your name on the board'), {
+    target: { value: 'MEI' },
+  });
+  fireEvent.change(screen.getByLabelText('Your job'), {
+    target: { value: 'both' },
+  });
+  submit('mei@example.com');
+
+  await screen.findByText('Check your email.');
+  expect(signUp.mock.calls[0][0].options.data.staff_kind).toBe('both');
+});
+
 it('never marks a public signup as staff', async () => {
   signUp.mockResolvedValue(NEW_ACCOUNT);
   render(<SignUpForm />);

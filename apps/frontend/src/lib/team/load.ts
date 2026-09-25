@@ -14,6 +14,7 @@ import { resolveMediaUrl } from '@gitroom/frontend/lib/media-url';
 import {
   addMonths,
   monthRange,
+  parseMemberKind,
   type MemberKind,
 } from '@gitroom/frontend/lib/tracker';
 import { holderAt, type LogRow } from './attribution';
@@ -77,7 +78,7 @@ export async function loadPeople(): Promise<TeamPerson[]> {
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
-    kind: r.kind === 'editor' ? 'editor' : 'handler',
+    kind: parseMemberKind(r.kind),
     archived: r.archived_at !== null,
   }));
 }

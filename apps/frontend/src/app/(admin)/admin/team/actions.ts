@@ -17,7 +17,11 @@ import { revalidatePath } from 'next/cache';
 import { getSupabaseAdmin } from '@d3/database';
 import { requireAdmin } from '@gitroom/frontend/lib/auth';
 import { isUuid } from '@gitroom/frontend/lib/ids';
-import { cleanTitle, type MemberKind } from '@gitroom/frontend/lib/tracker';
+import {
+  cleanTitle,
+  MEMBER_KINDS,
+  type MemberKind,
+} from '@gitroom/frontend/lib/tracker';
 
 export interface TeamResult {
   ok: boolean;
@@ -118,7 +122,7 @@ export async function approveStaff(
       if (!name)
         return { ok: false, message: 'Name is required (max 40 chars).' };
       const kind = target?.kind;
-      if (kind !== 'handler' && kind !== 'editor')
+      if (!kind || !MEMBER_KINDS.includes(kind))
         return { ok: false, message: 'Invalid person type.' };
       person = { name, kind };
     }

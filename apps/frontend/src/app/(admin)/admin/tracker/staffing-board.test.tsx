@@ -184,6 +184,33 @@ describe('StaffingBoard editors', () => {
     ]);
   });
 
+  it('gives someone who does both jobs a column and lists them with the editors', () => {
+    const MEI: TrackerMember = {
+      id: 'aaaaaaaa-0000-4000-8000-000000000010',
+      name: 'MEI',
+      role: 'Trader',
+      kind: 'both',
+      sortOrder: 2,
+    };
+    renderBoard([KEE, ALI, MEI], [card(1, 'Gary', KEE.id, null)]);
+    expect(screen.getByRole('heading', { name: 'MEI' })).toBeTruthy();
+    // Their column already carries them: no chip as well.
+    const row = within(screen.getByRole('region', { name: 'Editors' }));
+    expect(row.queryByText('MEI')).toBeNull();
+    const editor = screen.getByLabelText('Editor');
+    expect(optionNames(editor)).toEqual(['Nobody', 'ALI', 'MEI', 'KEE']);
+    expect(
+      Array.from(
+        editor.querySelectorAll('optgroup[label="Editors"] option'),
+      ).map((o) => o.textContent),
+    ).toEqual(['ALI', 'MEI']);
+    expect(optionNames(screen.getByLabelText('Handler'))).toEqual([
+      'Unassigned',
+      'KEE',
+      'MEI',
+    ]);
+  });
+
   it('adds an editor without adding a column', async () => {
     renderBoard([KEE]);
     fireEvent.click(screen.getByRole('button', { name: '+ Add editor' }));

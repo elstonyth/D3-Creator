@@ -446,6 +446,7 @@ export const adminZh: Record<string, string> = {
   '{views} views · {posts} posts': '{views} 播放 · {posts} 条发布',
   Handler: '负责人',
   Editor: '剪辑',
+  'Handler & editor': '负责人兼剪辑',
   Nobody: '无',
   'Scheduled posting': '定时发布',
   'Move {name} up': '上移 {name}',

@@ -122,6 +122,7 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Your job': '你的职位',
   'Handler — runs accounts': '负责人——负责运营账号',
   'Editor — cuts videos': '剪辑——负责剪视频',
+  'Both — runs accounts and cuts videos': '两者都做——运营账号也剪视频',
 
   // ---- Tasks ----------------------------------------------------------------
   'Tasks from the admin': '管理员交代的任务',
@@ -213,6 +214,7 @@ export const staffZh: Readonly<Record<string, string>> = {
   'No handovers this month.': '本月没有交接。',
   handler: '负责人',
   editor: '剪辑',
+  'handler & editor': '负责人兼剪辑',
   nobody: '无人',
   '{role}: {from} → {to}': '{role}：{from} → {to}',
   'Videos done': '已完成的视频',

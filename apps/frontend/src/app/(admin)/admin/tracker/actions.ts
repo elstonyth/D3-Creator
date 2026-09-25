@@ -15,6 +15,7 @@ import { onBoard } from '@gitroom/frontend/lib/team/on-board';
 import {
   cleanTitle,
   isDateKey,
+  MEMBER_KINDS,
   type MemberKind,
 } from '@gitroom/frontend/lib/tracker';
 
@@ -328,7 +329,7 @@ export async function addMember(
   kind: MemberKind,
 ): Promise<ActionResult> {
   return guarded(async () => {
-    if (kind !== 'handler' && kind !== 'editor')
+    if (!MEMBER_KINDS.includes(kind))
       return { ok: false, message: 'Invalid person type.' };
     const n = cleanTitle(name, 40);
     const r = cleanTitle(role, 40) ?? (kind === 'editor' ? 'Editor' : 'Trader');

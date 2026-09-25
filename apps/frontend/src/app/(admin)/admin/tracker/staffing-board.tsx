@@ -5,7 +5,8 @@
  *
  * One column per handler plus an "Unassigned" pool. Editors are not columns:
  * they sit in a row of chips under the header and are offered in every
- * card's Editor select next to the handlers. Each card is one creator
+ * card's Editor select next to the handlers. Someone who does both jobs has
+ * a column and is offered with the editors. Each card is one creator
  * account (an IP); dragging it onto a column sets who handles it. The card's
  * own controls set who edits its videos and whether it is on a posting
  * schedule — the same three facts the team keeps in their heads today, fixed
@@ -110,12 +111,19 @@ export function StaffingBoard({
   // Claude desktop pane returns false in 1 ms), which made the button a no-op.
   const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
 
+  // Columns: everyone who runs accounts, including people who also edit.
   const handlers = useMemo(
-    () => members.filter((m) => m.kind === 'handler'),
+    () => members.filter((m) => m.kind !== 'editor'),
     [members],
   );
+  // The chip row: people who cut video but run no accounts.
   const editors = useMemo(
     () => members.filter((m) => m.kind === 'editor'),
+    [members],
+  );
+  // A card's Editor select offers everyone who cuts video first.
+  const cutters = useMemo(
+    () => members.filter((m) => m.kind !== 'handler'),
     [members],
   );
 
@@ -668,7 +676,7 @@ export function StaffingBoard({
                       key={c.id}
                       creator={c}
                       handlers={handlers}
-                      editors={editors}
+                      editors={cutters}
                       dragging={dragId === c.id}
                       dropBefore={
                         overCard === c.id && dragId !== null && dragId !== c.id
@@ -834,6 +842,7 @@ function CreatorCard({
 }: {
   creator: TrackerCreator;
   handlers: TrackerMember[];
+  /** Everyone who cuts video: editors, and people who do both. */
   editors: TrackerMember[];
   dragging: boolean;
   dropBefore: boolean;
@@ -985,11 +994,13 @@ function CreatorCard({
                   ))}
                 </optgroup>
                 <optgroup label={t('Handlers')}>
-                  {handlers.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
+                  {handlers
+                    .filter((m) => m.kind === 'handler')
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))}
                 </optgroup>
               </>
             ) : (

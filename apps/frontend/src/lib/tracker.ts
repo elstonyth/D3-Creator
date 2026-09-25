@@ -10,8 +10,22 @@
 
 export const TRACKER_TZ_OFFSET = '+08:00';
 
-/** A handler owns a column on the staffing board; an editor only cuts video. */
-export type MemberKind = 'handler' | 'editor';
+/**
+ * A handler owns a column on the staffing board; an editor only cuts video;
+ * 'both' does both: a column, and listed with the editors.
+ */
+export type MemberKind = 'handler' | 'editor' | 'both';
+
+export const MEMBER_KINDS: readonly MemberKind[] = [
+  'handler',
+  'editor',
+  'both',
+];
+
+/** A stored or submitted job. Anything unknown is a handler, the column default. */
+export function parseMemberKind(value: unknown): MemberKind {
+  return value === 'editor' || value === 'both' ? value : 'handler';
+}
 
 export interface TrackerMember {
   id: string;

@@ -32,7 +32,7 @@ const acct = (n: number) => `bbbbbbbb-0000-4000-8000-00000000000${n}`;
 const people = [
   { id: KEE, name: 'KEE', kind: 'handler' as const, archived: false },
   { id: ZUWEI, name: 'ZUWEI', kind: 'handler' as const, archived: false },
-  { id: HOWEN, name: 'HOWEN', kind: 'handler' as const, archived: false },
+  { id: HOWEN, name: 'HOWEN', kind: 'both' as const, archived: false },
   { id: MEI, name: 'MEI', kind: 'editor' as const, archived: false },
 ];
 const accounts = [
@@ -290,6 +290,15 @@ export default async function StaffPreviewPage({
               confirmed: false,
               approved: false,
             },
+            {
+              userId: 'ffffffff-0000-4000-8000-000000000003',
+              email: 'jay.both@example.com',
+              name: 'JAY',
+              kind: 'both',
+              signedUpAt: ago(2),
+              confirmed: true,
+              approved: false,
+            },
           ]}
           team={[
             {
@@ -315,9 +324,9 @@ export default async function StaffPreviewPage({
             {
               id: HOWEN,
               name: 'HOWEN',
-              kind: 'handler',
+              kind: 'both',
               email: null,
-              edited: 0,
+              edited: 5,
               posted: 3,
               shootsDone: 2,
               profileHref: '#',
