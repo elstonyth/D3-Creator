@@ -177,13 +177,16 @@ export function RoleTable({ rows, selfId }: { rows: Row[]; selfId: string }) {
                               // row puts the first back.
                               if (ask && ask.userId !== r.user_id)
                                 ask.select.value = ask.from;
-                              setAsk({
-                                userId: r.user_id,
-                                email: r.email,
-                                from: r.role,
-                                to: e.target.value,
-                                select: e.target,
-                              });
+                              // Back on the saved role: nothing left to ask.
+                              if (e.target.value === r.role) setAsk(null);
+                              else
+                                setAsk({
+                                  userId: r.user_id,
+                                  email: r.email,
+                                  from: r.role,
+                                  to: e.target.value,
+                                  select: e.target,
+                                });
                             }}
                           >
                             {ROLES.map(([value, label]) => (
@@ -206,9 +209,15 @@ export function RoleTable({ rows, selfId }: { rows: Row[]; selfId: string }) {
                       <td colSpan={3} className="px-4 pb-3">
                         <div
                           role="group"
+                          // Named by the question: focus lands on Cancel, and
+                          // a screen reader should still hear what is asked.
+                          aria-labelledby={`ask-${r.user_id}`}
                           className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface-subtle px-3 py-2 text-caption text-fg"
                         >
-                          <span className="min-w-0 flex-1">
+                          <span
+                            id={`ask-${r.user_id}`}
+                            className="min-w-0 flex-1"
+                          >
                             {t('Change {email} from {from} to {to}?', {
                               email: ask.email,
                               from: t(label(ask.from)),
@@ -222,8 +231,11 @@ export function RoleTable({ rows, selfId }: { rows: Row[]; selfId: string }) {
                               </span>
                             ) : null}
                           </span>
+                          {/* Not yellow, like the Team page's confirms: the
+                              nav and the success notice are yellow already. */}
                           <Button
                             size="sm"
+                            variant="danger"
                             onClick={() => {
                               const a = ask;
                               setAsk(null);

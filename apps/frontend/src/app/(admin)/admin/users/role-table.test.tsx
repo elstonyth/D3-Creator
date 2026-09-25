@@ -88,8 +88,34 @@ it('a pick in another row puts the first row back', () => {
   expect(
     screen.queryByText('Change amy@example.com from Member to Admin?'),
   ).toBeNull();
+  // The question names its group, so it is read even with focus on Cancel.
   expect(
-    screen.getByText('Change bob@example.com from Creator to None?'),
+    screen.getByRole('group', {
+      name: 'Change bob@example.com from Creator to None?',
+    }),
   ).toBeTruthy();
   expect(setUserRole).not.toHaveBeenCalled();
+});
+
+it('picking the saved role again closes the question', () => {
+  renderTable();
+  fireEvent.change(roleOf(AMY.email), { target: { value: 'admin' } });
+  fireEvent.change(roleOf(AMY.email), { target: { value: 'member' } });
+
+  expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+  expect(setUserRole).not.toHaveBeenCalled();
+});
+
+it('a refused save puts the saved role back and says why', async () => {
+  (setUserRole as jest.Mock).mockResolvedValueOnce({
+    ok: false,
+    message: 'Nope.',
+  });
+  renderTable();
+  fireEvent.change(roleOf(AMY.email), { target: { value: 'admin' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+  await screen.findByText('Nope.');
+  expect(setUserRole).toHaveBeenCalledWith(AMY.user_id, 'admin');
+  expect(roleOf(AMY.email).value).toBe('member');
 });

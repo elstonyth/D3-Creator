@@ -554,9 +554,8 @@ export function StaffingBoard({
           confirmRemoveId === m.id ? (
             <ConfirmRemove
               key={m.id}
-              name={m.name}
               message={t(
-                'Remove {name}? Accounts they edit go back to Nobody, their open tasks lose their assignee, and their staff login stops working. Their history is kept.',
+                'Remove {name}? Accounts they edit go back to Nobody, their open tasks lose their assignee, and any staff login they have stops working. Their history is kept.',
                 { name: m.name },
               )}
               onConfirm={() => remove(m)}
@@ -632,9 +631,8 @@ export function StaffingBoard({
                 </div>
                 {col.member && confirmRemoveId === col.member.id ? (
                   <ConfirmRemove
-                    name={col.name}
                     message={t(
-                      'Remove {name}? Their accounts move to Unassigned, their open tasks lose their assignee, and their staff login stops working. Their history is kept.',
+                      'Remove {name}? Their accounts move to Unassigned, accounts they edit go back to Nobody, their open tasks lose their assignee, and any staff login they have stops working. Their history is kept.',
                       { name: col.name },
                     )}
                     onConfirm={() => remove(col.member!)}

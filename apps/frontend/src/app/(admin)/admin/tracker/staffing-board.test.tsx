@@ -130,7 +130,7 @@ describe('StaffingBoard remove person', () => {
 
   // Everything removeMember does, said before it happens.
   const REMOVE_KEE =
-    'Remove KEE? Their accounts move to Unassigned, their open tasks lose their assignee, and their staff login stops working. Their history is kept.';
+    'Remove KEE? Their accounts move to Unassigned, accounts they edit go back to Nobody, their open tasks lose their assignee, and any staff login they have stops working. Their history is kept.';
 
   it('confirms inline and never calls window.confirm', async () => {
     const confirmSpy = jest
@@ -170,6 +170,22 @@ describe('StaffingBoard remove person', () => {
         'Gary',
       ),
     ).toBeTruthy();
+  });
+
+  it('a column member who edits a card: the confirm says so and the card goes back to Nobody', async () => {
+    // A handler can be picked as an editor too; ZUWEI runs the card, KEE cuts it.
+    renderBoard([KEE, ZUWEI], [card(1, 'Gary', ZUWEI.id, KEE.id)]);
+    expect((screen.getByLabelText('Editor') as HTMLSelectElement).value).toBe(
+      KEE.id,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Remove KEE' }));
+    expect(screen.getByText(REMOVE_KEE)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+    await waitFor(() => expect(removeMember).toHaveBeenCalledWith(KEE.id));
+    expect((screen.getByLabelText('Editor') as HTMLSelectElement).value).toBe(
+      '',
+    );
   });
 });
 
@@ -259,7 +275,7 @@ describe('StaffingBoard editors', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Remove ALI' }));
     expect(
       screen.getByText(
-        'Remove ALI? Accounts they edit go back to Nobody, their open tasks lose their assignee, and their staff login stops working. Their history is kept.',
+        'Remove ALI? Accounts they edit go back to Nobody, their open tasks lose their assignee, and any staff login they have stops working. Their history is kept.',
       ),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));

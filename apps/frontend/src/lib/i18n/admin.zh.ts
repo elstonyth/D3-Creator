@@ -443,10 +443,10 @@ export const adminZh: Record<string, string> = {
   Handler: '负责人',
   Editor: '剪辑',
   'Handler & editor': '负责人兼剪辑',
-  'Remove {name}? Accounts they edit go back to Nobody, their open tasks lose their assignee, and their staff login stops working. Their history is kept.':
-    '移除 {name}？其剪辑的账号将改为“无”，未完成的任务将取消指派，员工账号也将无法登录。历史记录会保留。',
-  'Remove {name}? Their accounts move to Unassigned, their open tasks lose their assignee, and their staff login stops working. Their history is kept.':
-    '移除 {name}？其负责的账号将移到“未分配”，未完成的任务将取消指派，员工账号也将无法登录。历史记录会保留。',
+  'Remove {name}? Accounts they edit go back to Nobody, their open tasks lose their assignee, and any staff login they have stops working. Their history is kept.':
+    '移除 {name}？其剪辑的账号将改为“无”，未完成的任务将取消指派，其员工登录（如有）也将失效。历史记录会保留。',
+  'Remove {name}? Their accounts move to Unassigned, accounts they edit go back to Nobody, their open tasks lose their assignee, and any staff login they have stops working. Their history is kept.':
+    '移除 {name}？其负责的账号将移到“未分配”，其剪辑的账号将改为“无”，未完成的任务将取消指派，其员工登录（如有）也将失效。历史记录会保留。',
   'Delete “{title}”?': '删除“{title}”？',
   'Change {email} from {from} to {to}?': '将 {email} 从{from}改为{to}？',
   'Admins can see and change everything in the console.':

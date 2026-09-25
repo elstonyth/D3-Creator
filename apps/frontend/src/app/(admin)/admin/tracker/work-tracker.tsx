@@ -487,7 +487,7 @@ function DayCell({
 
 // ---- tasks -----------------------------------------------------------------
 
-function TasksPanel({
+export function TasksPanel({
   tasks,
   setTasks,
   members,
@@ -736,7 +736,6 @@ function TasksPanel({
               />
               {confirmDeleteId === task.id ? (
                 <ConfirmRemove
-                  name={task.title}
                   message={t('Delete “{title}”?', { title: task.title })}
                   confirmLabel={t('Delete')}
                   onConfirm={() => {
@@ -765,7 +764,6 @@ function TasksPanel({
               />
               {confirmDeleteId === task.id ? (
                 <ConfirmRemove
-                  name={task.title}
                   message={t('Delete “{title}”?', { title: task.title })}
                   confirmLabel={t('Delete')}
                   onConfirm={() => {
@@ -883,6 +881,8 @@ function TaskRow({
       </div>
       <button
         type="button"
+        // Nothing to delete until the server has given the task its id.
+        disabled={task.id.startsWith('temp-')}
         onClick={onRemove}
         aria-label={t('Delete task')}
         className="rounded-full p-1 text-fg-subtle transition-colors hover:text-fg"
@@ -895,7 +895,7 @@ function TaskRow({
 
 // ---- events ----------------------------------------------------------------
 
-function EventsPanel({
+export function EventsPanel({
   dateKey,
   label,
   events,
@@ -1030,6 +1030,8 @@ function EventsPanel({
               />
               <button
                 type="button"
+                // Nothing to delete until the server has given it an id.
+                disabled={ev.id.startsWith('temp-')}
                 onClick={() => setConfirmDeleteId(ev.id)}
                 aria-label={t('Delete event')}
                 className="rounded-full p-1 text-fg-subtle transition-colors hover:text-fg"
@@ -1038,7 +1040,6 @@ function EventsPanel({
               </button>
               {confirmDeleteId === ev.id ? (
                 <ConfirmRemove
-                  name={ev.title}
                   message={t('Delete “{title}”?', { title: ev.title })}
                   confirmLabel={t('Delete')}
                   onConfirm={() => {

@@ -15,7 +15,6 @@ function renderConfirm(confirmLabel?: string) {
   const onCancel = jest.fn();
   render(
     <ConfirmRemove
-      name="Call the printer"
       message="Delete this task?"
       confirmLabel={confirmLabel}
       onConfirm={onConfirm}
@@ -29,6 +28,11 @@ it('shows the message, with Remove on the button by default', () => {
   renderConfirm();
   expect(screen.getByText('Delete this task?')).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Remove' })).toBeTruthy();
+});
+
+it('is named by its message', () => {
+  renderConfirm();
+  expect(screen.getByRole('group', { name: 'Delete this task?' })).toBeTruthy();
 });
 
 it('puts the confirm label on the button when given', () => {
