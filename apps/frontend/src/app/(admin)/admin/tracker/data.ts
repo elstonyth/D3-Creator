@@ -10,6 +10,7 @@ import {
   addDays,
   addMonths,
   monthRange,
+  parseMemberKind,
   todayKey,
   type TrackerCreator,
   type TrackerData,
@@ -248,7 +249,7 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
       id: m.id,
       name: m.name,
       role: m.role,
-      kind: m.kind === 'editor' ? 'editor' : 'handler',
+      kind: parseMemberKind(m.kind),
       sortOrder: m.sort_order,
     })),
     tasks: tasks.map((t) => ({

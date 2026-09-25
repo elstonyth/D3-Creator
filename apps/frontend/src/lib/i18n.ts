@@ -27,8 +27,10 @@ export function parseLocale(value: unknown): Locale {
   return value === 'zh' ? 'zh' : 'en';
 }
 
-export function readLocaleCookie(cookie: string): Locale {
-  return parseLocale(cookie.split(';').map((part) => part.trim()).find((part) => part.startsWith(`${LOCALE_COOKIE}=`))?.slice(LOCALE_COOKIE.length + 1));
+/** `fallback` when no language was ever picked (the cookie is missing). */
+export function readLocaleCookie(cookie: string, fallback: Locale = 'en'): Locale {
+  const value = cookie.split(';').map((part) => part.trim()).find((part) => part.startsWith(`${LOCALE_COOKIE}=`))?.slice(LOCALE_COOKIE.length + 1);
+  return value === undefined ? fallback : parseLocale(value);
 }
 
 export function localeTag(locale: Locale): 'en' | 'zh-CN' {

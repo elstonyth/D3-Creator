@@ -14,7 +14,7 @@ import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
-import { dateKeyAt } from '@gitroom/frontend/lib/tracker';
+import { dateKeyAt, type MemberKind } from '@gitroom/frontend/lib/tracker';
 import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { Pill } from './pill';
 import { Button } from '@gitroom/frontend/components/ui/button';
@@ -42,7 +42,7 @@ import { VideoForm, videoDraftOf, type VideoDraft } from './video-form';
 interface Person {
   id: string;
   name: string;
-  kind: 'handler' | 'editor';
+  kind: MemberKind;
   archived: boolean;
 }
 
@@ -98,12 +98,13 @@ export function VideoBoard({
     [accounts],
   );
   const onBoard = people.filter((p) => !p.archived);
+  // Who cuts video comes first for an edit, who runs accounts for a post.
   const editorPicks = [
-    ...onBoard.filter((p) => p.kind === 'editor'),
+    ...onBoard.filter((p) => p.kind !== 'handler'),
     ...onBoard.filter((p) => p.kind === 'handler'),
   ];
   const handlerPicks = [
-    ...onBoard.filter((p) => p.kind === 'handler'),
+    ...onBoard.filter((p) => p.kind !== 'editor'),
     ...onBoard.filter((p) => p.kind === 'editor'),
   ];
   const left = (name: string) => t('{name} (left)', { name });

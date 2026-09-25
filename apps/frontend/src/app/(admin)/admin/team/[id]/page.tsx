@@ -108,7 +108,11 @@ export default async function AdminPersonPage({
           <h1 className="mt-3 flex flex-wrap items-center gap-3 text-display-2 text-fg">
             {person.name}
             <Pill tone="muted">
-              {person.kind === 'editor' ? t('Editor') : t('Handler')}
+              {person.kind === 'both'
+                ? t('Handler & editor')
+                : person.kind === 'editor'
+                  ? t('Editor')
+                  : t('Handler')}
             </Pill>
             {person.archived ? (
               <Pill tone="muted">{t('Left the board')}</Pill>

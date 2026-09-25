@@ -11,6 +11,10 @@ import { Button, ButtonLink } from '@gitroom/frontend/components/ui/button';
 import { Field, Input, Select } from '@gitroom/frontend/components/ui/input';
 import { signUpErrorMessage } from '@gitroom/frontend/lib/auth-errors';
 import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
+import {
+  parseMemberKind,
+  type MemberKind,
+} from '@gitroom/frontend/lib/tracker';
 
 /**
  * Where a confirmed new account lands. The four-question form on /studio/chat
@@ -42,7 +46,7 @@ export function SignUpForm({
   // Staff only: how the team knows them, and which row of the board they
   // belong in. A suggestion for the admin, who confirms both on approval.
   const [displayName, setDisplayName] = useState('');
-  const [kind, setKind] = useState<'handler' | 'editor'>('handler');
+  const [kind, setKind] = useState<MemberKind>('handler');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -301,13 +305,14 @@ export function SignUpForm({
             <Select
               id={kindId}
               value={kind}
-              onChange={(e) =>
-                setKind(e.target.value === 'editor' ? 'editor' : 'handler')
-              }
+              onChange={(e) => setKind(parseMemberKind(e.target.value))}
               disabled={pending}
             >
               <option value="handler">{t('Handler — runs accounts')}</option>
               <option value="editor">{t('Editor — cuts videos')}</option>
+              <option value="both">
+                {t('Both — runs accounts and cuts videos')}
+              </option>
             </Select>
           </Field>
         </>

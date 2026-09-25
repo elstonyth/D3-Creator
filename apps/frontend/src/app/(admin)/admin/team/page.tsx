@@ -5,7 +5,11 @@ import { getSupabaseAdmin } from '@d3/database';
 import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { isAdminHost } from '@gitroom/frontend/lib/portal-host';
-import { monthRange, todayKey } from '@gitroom/frontend/lib/tracker';
+import {
+  monthRange,
+  parseMemberKind,
+  todayKey,
+} from '@gitroom/frontend/lib/tracker';
 import { doneCounts } from '@gitroom/frontend/lib/team/videos';
 import {
   loadPeople,
@@ -88,7 +92,7 @@ export default async function AdminTeamPage() {
         userId: u.id,
         email: u.email ?? '—',
         name: typeof meta.display_name === 'string' ? meta.display_name : '',
-        kind: meta.staff_kind === 'editor' ? 'editor' : 'handler',
+        kind: parseMemberKind(meta.staff_kind),
         signedUpAt: u.created_at,
         confirmed: Boolean(u.email_confirmed_at),
         approved: r.role === 'staff',
