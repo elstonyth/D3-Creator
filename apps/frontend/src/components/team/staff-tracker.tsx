@@ -54,6 +54,14 @@ export function StaffTracker({
 }: StaffTrackerProps) {
   const { t, locale } = useI18n();
   const [shoots, setShoots] = useState<Shoot[]>(initialShoots);
+  // A refresh brings the server's list again (a video taken back on the
+  // board below can turn its shoot back to planned): it replaces this copy.
+  // The page hands the same array through until then (see VideoBoard).
+  const [fromServer, setFromServer] = useState(initialShoots);
+  if (fromServer !== initialShoots) {
+    setFromServer(initialShoots);
+    setShoots(initialShoots);
+  }
   const nav = useTrackerNav(month, today, initialDay);
   const thisMonth = today.slice(0, 7);
 
@@ -128,39 +136,41 @@ export function StaffTracker({
           onMonth={nav.gotoMonth}
           className="lg:col-span-7"
         />
-        <div className="flex flex-col gap-4 md:gap-6 lg:col-span-5">
-          <StatsPanel
-            title={
-              month === thisMonth
-                ? t('This month')
-                : fmtDate(`${month}-01`, localeTag(locale), {
-                    month: 'long',
-                    year: 'numeric',
-                  })
-            }
-            stats={[
-              { label: t('Shoots done'), value: done.length },
-              {
-                label: t('Videos passed'),
-                value: done.reduce((n, x) => n + (x.videosShot ?? 0), 0),
-              },
-              { label: t('Edited'), value: edited },
-              { label: t('Verified'), value: verified },
-            ]}
-          />
-          <DayShoots
-            // A new day is a fresh panel: no form left open from another.
-            key={nav.selected}
-            day={nav.selected}
-            today={today}
-            shoots={shoots.filter((x) => x.date === nav.selected)}
-            people={people}
-            accounts={accounts}
-            meId={meId}
-            setShoots={setShoots}
-            className="flex-1"
-          />
-        </div>
+        <StatsPanel
+          title={
+            month === thisMonth
+              ? t('This month')
+              : fmtDate(`${month}-01`, localeTag(locale), {
+                  month: 'long',
+                  year: 'numeric',
+                })
+          }
+          stats={[
+            { label: t('Shoots done'), value: done.length },
+            {
+              label: t('Videos passed'),
+              value: done.reduce((n, x) => n + (x.videosShot ?? 0), 0),
+            },
+            { label: t('Edited'), value: edited },
+            { label: t('Verified'), value: verified },
+          ]}
+          className="lg:col-span-5"
+        />
+        {/* The picked day on its own row under the calendar, as the old
+            board's events: its forms get the width, and the calendar never
+            stretches to its height. */}
+        <DayShoots
+          // A new day is a fresh panel: no form left open from another.
+          key={nav.selected}
+          day={nav.selected}
+          today={today}
+          shoots={shoots.filter((x) => x.date === nav.selected)}
+          people={people}
+          accounts={accounts}
+          meId={meId}
+          setShoots={setShoots}
+          className="lg:col-span-12"
+        />
       </section>
 
       <GlassPanel className="mt-4 p-4 sm:p-6 md:mt-6">

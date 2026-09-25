@@ -135,34 +135,34 @@ export function AdminTracker({
           onMonth={nav.gotoMonth}
           className="lg:col-span-7"
         />
-        <div className="flex flex-col gap-4 md:gap-6 lg:col-span-5">
-          <StatsPanel
-            title={
-              month === thisMonth
-                ? t('Team this month')
-                : t('Team · {month}', { month: monthLabel })
-            }
-            stats={[
-              { label: t('Shoots done'), value: done.length },
-              {
-                label: t('Videos passed'),
-                value: done.reduce((n, x) => n + (x.videosShot ?? 0), 0),
-              },
-              { label: t('Edited'), value: edited },
-              { label: t('Verified'), value: verified },
-            ]}
-          />
-          <DayShoots
-            key={nav.selected}
-            day={nav.selected}
-            today={today}
-            shoots={shoots.filter((x) => x.date === nav.selected)}
-            people={people}
-            accounts={accounts}
-            meId={null}
-            className="flex-1"
-          />
-        </div>
+        <StatsPanel
+          title={
+            month === thisMonth
+              ? t('Team this month')
+              : t('Team · {month}', { month: monthLabel })
+          }
+          stats={[
+            { label: t('Shoots done'), value: done.length },
+            {
+              label: t('Videos passed'),
+              value: done.reduce((n, x) => n + (x.videosShot ?? 0), 0),
+            },
+            { label: t('Edited'), value: edited },
+            { label: t('Verified'), value: verified },
+          ]}
+          className="lg:col-span-5"
+        />
+        {/* The picked day on its own row, as on the staff tracker. */}
+        <DayShoots
+          key={nav.selected}
+          day={nav.selected}
+          today={today}
+          shoots={shoots.filter((x) => x.date === nav.selected)}
+          people={people}
+          accounts={accounts}
+          meId={null}
+          className="lg:col-span-12"
+        />
       </section>
 
       <GlassPanel className="mt-4 p-4 sm:p-6 md:mt-6">

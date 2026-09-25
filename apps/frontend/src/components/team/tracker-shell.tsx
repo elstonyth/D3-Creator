@@ -252,9 +252,11 @@ export function TrackerCalendar({
   const { t, locale } = useI18n();
   return (
     <GlassPanel className={cn('p-4 sm:p-6', className)}>
-      <div className="mb-5 flex items-center justify-between gap-3">
+      {/* Wraps rather than overflowing on the narrowest phones (320px): the
+          month switcher drops under the title, still on the right. */}
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-heading text-fg">{t('Calendar')}</h2>
-        <div className="flex items-center gap-1.5">
+        <div className="ml-auto flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => onMonth(-1)}
@@ -369,7 +371,11 @@ function DayCell({
   );
 }
 
-/** A panel of month numbers, two by two. */
+/**
+ * A panel of month numbers, two by two. Beside the calendar it is stretched
+ * to the calendar's height; the tiles share that height rather than leaving
+ * empty glass under them.
+ */
 export function StatsPanel({
   title,
   stats,
@@ -382,9 +388,15 @@ export function StatsPanel({
   return (
     <GlassPanel className={cn('p-5 sm:p-6', className)}>
       <h2 className="mb-4 text-heading text-fg">{title}</h2>
-      <dl className="grid grid-cols-2 gap-2 sm:gap-3">
+      <dl className="grid flex-1 auto-rows-fr grid-cols-2 gap-2 sm:gap-3">
         {stats.map((x) => (
-          <div key={x.label} className={cn(s.inset, 'min-w-0 px-4 py-3')}>
+          <div
+            key={x.label}
+            className={cn(
+              s.inset,
+              'flex min-w-0 flex-col justify-between px-4 py-3',
+            )}
+          >
             <dt className="truncate text-micro uppercase tracking-[0.1em] text-fg-subtle">
               {x.label}
             </dt>

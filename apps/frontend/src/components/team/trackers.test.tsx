@@ -166,6 +166,41 @@ describe('the staff tracker', () => {
     expect(screen.queryByText('Hotpot shop')).toBeNull();
   });
 
+  it('takes the server’s shoots again after a refresh', () => {
+    const { rerender } = renderStaff();
+    fireEvent.click(screen.getByRole('button', { name: /^12/ }));
+    expect(screen.getByText('4 videos passed')).toBeTruthy();
+    // Its videos taken back on the board below: the server has the shoot
+    // planned again, and the refresh hands a new list through.
+    rerender(
+      <StaffTracker
+        month="2026-09"
+        today={TODAY}
+        initialDay={null}
+        shoots={shoots.map((x) =>
+          x.title === 'Mall'
+            ? { ...x, status: 'planned' as const, videosShot: null }
+            : x,
+        )}
+        videos={videos}
+        edited={2}
+        verified={5}
+        people={people}
+        accounts={accounts}
+        meId={KEE}
+      />,
+    );
+    expect(screen.queryByText('4 videos passed')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Cancel shoot: Mall' }),
+    ).toBeTruthy();
+    const stats = screen.getByText('This month').parentElement!;
+    const value = (label: string) =>
+      within(stats).getByText(label).nextElementSibling?.textContent;
+    expect(value('Shoots done')).toBe('0');
+    expect(value('Videos passed')).toBe('0');
+  });
+
   it('opens a day in another month on that month', () => {
     renderStaff();
     const spot = screen.getByRole('region', { name: 'Upcoming' });
