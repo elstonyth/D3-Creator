@@ -5,7 +5,7 @@ import { cn } from '@gitroom/frontend/lib/utils';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 
 const CONTROL = cn(
-  'w-full rounded-lg bg-surface-subtle border border-line px-3 text-body text-fg',
+  'w-full rounded-lg bg-surface-subtle border border-line px-3 text-body-lg sm:text-body text-fg',
   'placeholder:text-fg-subtle',
   'transition-[border-color,box-shadow] duration-150 ease-out',
   'hover:border-line-strong',
