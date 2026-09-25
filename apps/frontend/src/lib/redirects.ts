@@ -16,10 +16,11 @@
 const BASE = 'https://redirect.invalid';
 
 /** True only for safe in-app paths like "/me" or "/dashboard?x=1". */
-export function isSafeRedirect(target: string | null | undefined): boolean {
-  // Must be an absolute path: rejects absolute URLs ("https://evil.com"),
-  // data URIs, javascript: URIs, etc.
-  if (!target || !target.startsWith('/')) return false;
+export function isSafeRedirect(target: unknown): boolean {
+  // A string only: a repeated ?redirectTo= arrives as an array. Then an
+  // absolute path, which rejects absolute URLs ("https://evil.com"), data URIs,
+  // javascript: URIs, etc.
+  if (typeof target !== 'string' || !target.startsWith('/')) return false;
   try {
     return new URL(target, BASE).origin === BASE;
   } catch {
@@ -34,5 +35,7 @@ export function safeRedirect(
 ): string {
   if (!isSafeRedirect(target)) return fallback;
   const u = new URL(target!, BASE);
-  return u.pathname + u.search + u.hash; // normalised: control characters stripped
+  const out = u.pathname + u.search + u.hash; // normalised: control characters stripped
+  // Re-check: dot segments can collapse into "//host" ("/..//evil.com").
+  return isSafeRedirect(out) ? out : fallback;
 }
