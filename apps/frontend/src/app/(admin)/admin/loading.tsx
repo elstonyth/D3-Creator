@@ -1,10 +1,17 @@
 /**
- * Loading state for the staff portal (staff.d3creator.com).
+ * Loading state for the admin console (admin.d3creator.com).
  *
- * Every portal page is `force-dynamic` and reads Supabase before it can
+ * Every console page is `force-dynamic` and reads Supabase before it can
  * render anything, so without this the wait shows nothing at all. Structurally
  * neutral on purpose: one boundary covers every page, so it draws a heading
  * and a stack of rows rather than any one page's furniture.
+ *
+ * It sits in admin/, not beside the (admin) layout, on purpose: the Suspense
+ * boundary a loading.tsx creates is keyed by the child segment below it. At
+ * the route-group level that child is always `admin`, the same on every page,
+ * so a tap between pages would keep the old page on screen. Here the child
+ * changes with the page (`__PAGE__`, `tracker`, `videos`, …), so the skeleton
+ * shows on every tap.
  *
  * Flat blocks, no shimmer sweep — DESIGN.md §8 bans the loop.
  */
@@ -15,7 +22,7 @@ import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import { Container, Section } from '@gitroom/frontend/components/ui/section';
 import { Skeleton } from '@gitroom/frontend/components/ui/skeleton';
 
-export default async function StaffLoading(): Promise<ReactElement> {
+export default async function AdminLoading(): Promise<ReactElement> {
   const { t } = await getI18n();
   return (
     <Section space="md">
