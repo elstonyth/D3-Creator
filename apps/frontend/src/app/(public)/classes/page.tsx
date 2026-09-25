@@ -3,8 +3,9 @@ import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { getSupabaseRoute } from '@gitroom/frontend/lib/supabase-route';
-import { getAuthContext } from '@gitroom/frontend/lib/auth';
+import { getAuthContext, isStudioMember } from '@gitroom/frontend/lib/auth';
 import { deriveSeriesLabel } from '@gitroom/frontend/lib/class-series';
+import { CONTACT_EMAIL } from '@gitroom/frontend/lib/site';
 import { Container, Section } from '@gitroom/frontend/components/ui/section';
 import { Badge } from '@gitroom/frontend/components/ui/badge';
 import { ButtonLink } from '@gitroom/frontend/components/ui/button';
@@ -72,6 +73,9 @@ export default async function ClassesPage() {
   const rows = (videos ?? []) as ClassRow[];
   const groups = groupBySeries(rows);
   const signedOut = !auth;
+  // Signed in is not the same as a member: a revoked account (role 'none')
+  // gets the public rows only, like a visitor, but signing in cannot fix it.
+  const member = isStudioMember(auth);
 
   return (
     // One <Section> owns the whole page rhythm: two stacked Sections would put
@@ -86,7 +90,7 @@ export default async function ClassesPage() {
           <h1 className="mt-3 text-display-2 text-fg">{t('Online classes')}</h1>
           <p className="mt-4 max-w-prose text-body-lg text-fg-muted">
             {t(
-              'Recorded sessions from the D3 creator programme, in the order we teach them. Start at the first session or jump straight to the one you need.'
+              'Recorded sessions from the D3 creator programme, in the order we teach them. Start at the first session or jump straight to the one you need.',
             )}{' '}
           </p>
           {rows.length > 0 && (
@@ -95,14 +99,14 @@ export default async function ClassesPage() {
                 rows.length === 1
                   ? '{count} session available to you · streamed from Google Drive'
                   : '{count} sessions available to you · streamed from Google Drive',
-                { count: rows.length }
+                { count: rows.length },
               )}{' '}
             </p>
           )}
         </header>
 
         <div className="mt-10 flex flex-col gap-10 sm:mt-12 sm:gap-12">
-          {signedOut && rows.length > 0 && (
+          {!member && rows.length > 0 && (
             <div className="flex flex-col gap-5 rounded-2xl border border-line bg-surface-subtle p-6 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
               <div className="flex min-w-0 gap-3">
                 <LockGlyph className="mt-0.5 h-4 w-4 shrink-0 text-fg-subtle" />
@@ -111,19 +115,30 @@ export default async function ClassesPage() {
                     {t('Member sessions are not listed here')}{' '}
                   </p>
                   <p className="mt-1.5 max-w-prose text-body text-fg-muted">
-                    {t(
-                      'You are seeing the classes we publish openly. Sign in with your member account to see the rest of the library.'
+                    {signedOut ? (
+                      t(
+                        'You are seeing the classes we publish openly. Sign in with your member account to see the rest of the library.',
+                      )
+                    ) : (
+                      <>
+                        {t(
+                          'Your account doesn’t have member access. If you think it should, contact the D3 team.',
+                        )}{' '}
+                        <ContactLink />
+                      </>
                     )}{' '}
                   </p>
                 </div>
               </div>
-              <ButtonLink
-                size="lg"
-                href="/login?redirectTo=/classes"
-                className="shrink-0 self-start sm:self-auto"
-              >
-                {t('Sign in')}{' '}
-              </ButtonLink>
+              {signedOut && (
+                <ButtonLink
+                  size="lg"
+                  href="/login?redirectTo=/classes"
+                  className="shrink-0 self-start sm:self-auto"
+                >
+                  {t('Sign in')}{' '}
+                </ButtonLink>
+              )}
             </div>
           )}
 
@@ -133,7 +148,7 @@ export default async function ClassesPage() {
                 icon={<LockGlyph className="h-5 w-5" />}
                 title={t('No classes are open to the public right now')}
                 description={t(
-                  'Sessions are published to signed-in members. Sign in to see the library.'
+                  'Sessions are published to signed-in members. Sign in to see the library.',
                 )}
                 action={{
                   href: '/login?redirectTo=/classes',
@@ -141,13 +156,27 @@ export default async function ClassesPage() {
                 }}
                 secondary={{ href: '/', label: t('Back to the showcase') }}
               />
-            ) : (
+            ) : member ? (
               <EmptyState
                 icon={<PlayGlyph className="h-5 w-5" />}
                 title={t('No classes published yet')}
                 description={t(
-                  'New sessions appear here as soon as they go live. Nothing to watch today.'
+                  'New sessions appear here as soon as they go live. Nothing to watch today.',
                 )}
+                action={{ href: '/', label: t('Back to the showcase') }}
+              />
+            ) : (
+              <EmptyState
+                icon={<LockGlyph className="h-5 w-5" />}
+                title={t('Classes are for D3 members')}
+                description={
+                  <>
+                    {t(
+                      'Your account doesn’t have member access. If you think it should, contact the D3 team.',
+                    )}{' '}
+                    <ContactLink />
+                  </>
+                }
                 action={{ href: '/', label: t('Back to the showcase') }}
               />
             )
@@ -174,7 +203,7 @@ export default async function ClassesPage() {
                         group.items.length === 1
                           ? '{count} session'
                           : '{count} sessions',
-                        { count: group.items.length }
+                        { count: group.items.length },
                       )}
                     </span>
                   </div>
@@ -246,6 +275,19 @@ export default async function ClassesPage() {
         </div>
       </Container>
     </Section>
+  );
+}
+
+// Styled like the inline links on the auth pages: DESIGN.md keeps yellow for
+// the one primary action in a view.
+function ContactLink() {
+  return (
+    <a
+      href={`mailto:${CONTACT_EMAIL}`}
+      className="rounded text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
+    >
+      {CONTACT_EMAIL}
+    </a>
   );
 }
 

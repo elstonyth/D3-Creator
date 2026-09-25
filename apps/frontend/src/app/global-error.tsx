@@ -6,11 +6,20 @@
 import * as Sentry from '@sentry/nextjs';
 import NextError from 'next/error';
 import { useEffect, useSyncExternalStore } from 'react';
-import { localeTag, readLocaleCookie, translate } from '@gitroom/frontend/lib/i18n';
+import {
+  localeTag,
+  readLocaleCookie,
+  translate,
+} from '@gitroom/frontend/lib/i18n';
+import { isStaffHost } from '@gitroom/frontend/lib/portal-host';
 
 const subscribe = () => () => {};
 const serverLocale = () => 'en' as const;
-const browserLocale = () => readLocaleCookie(document.cookie);
+const browserLocale = () =>
+  readLocaleCookie(
+    document.cookie,
+    isStaffHost(window.location.host) ? 'zh' : 'en',
+  );
 
 export default function GlobalError({
   error,
@@ -26,7 +35,10 @@ export default function GlobalError({
   return (
     <html lang={localeTag(locale)}>
       <body>
-        <NextError statusCode={0} title={translate(locale, 'Something went wrong')} />
+        <NextError
+          statusCode={0}
+          title={translate(locale, 'Something went wrong')}
+        />
       </body>
     </html>
   );
