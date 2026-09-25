@@ -158,6 +158,31 @@ describe('RemarksPanel autosave', () => {
     expect(screen.queryByRole('alert')).toBeNull();
     expect(onFail).toHaveBeenCalledTimes(1); // the lost answer, nothing more
   });
+
+  it('a lost answer is still recognised after later saves failed too', async () => {
+    // "ab" lands but its answer is lost; "abc" fails outright (offline).
+    save.mockRejectedValueOnce(new Error('network'));
+    save.mockRejectedValueOnce(new Error('network'));
+    // Back online, the next save finds "ab" there under a newer version.
+    save.mockResolvedValueOnce({
+      ok: false,
+      conflict: true,
+      message: CONFLICT,
+      body: 'ab',
+      at: 'v2',
+    });
+    const onFail = renderPad();
+    await typeAndSave('ab');
+    await typeAndSave('abc');
+    await typeAndSave('abcd');
+
+    expect(save).toHaveBeenCalledTimes(4);
+    expect(save).toHaveBeenNthCalledWith(3, 'abcd', LOADED_AT);
+    expect(save).toHaveBeenNthCalledWith(4, 'abcd', 'v2');
+    expect(screen.getByText('Saved')).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(onFail).toHaveBeenCalledTimes(2); // the two failed saves only
+  });
 });
 
 describe('RemarksPanel settle', () => {
@@ -236,5 +261,86 @@ describe('RemarksPanel settle', () => {
     expect(ok).toBe(false);
     expect(onFail).toHaveBeenCalledTimes(1);
     expect(pad().value).toBe('ab');
+  });
+
+  it('waits out an autosave that starts another, then resolves true', async () => {
+    let release1!: (r: ActionResult) => void;
+    let release2!: (r: ActionResult) => void;
+    save
+      .mockImplementationOnce(() => new Promise((r) => (release1 = r)))
+      .mockImplementationOnce(() => new Promise((r) => (release2 = r)));
+    const handle = createRef<RemarksHandle>();
+    renderPad(jest.fn(), handle);
+    fireEvent.change(pad(), { target: { value: 'ab' } });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(800);
+    });
+    // Typed while that autosave is on its way.
+    fireEvent.change(pad(), { target: { value: 'abc' } });
+
+    let done = false;
+    let settling!: Promise<boolean>;
+    await act(async () => {
+      settling = handle.current!.settle();
+      void settling.then(() => (done = true));
+    });
+    // The autosave lands and starts the next save, for the newer text.
+    await act(async () => release1({ ok: true, at: 'v2' }));
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save).toHaveBeenLastCalledWith('abc', 'v2');
+    expect(done).toBe(false);
+
+    let ok: boolean | undefined;
+    await act(async () => {
+      release2({ ok: true, at: 'v3' });
+      ok = await settling;
+    });
+    expect(ok).toBe(true);
+    expect(save).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops on a conflict it finds, and lets the next attempt go', async () => {
+    save.mockResolvedValueOnce({
+      ok: false,
+      conflict: true,
+      message: CONFLICT,
+    });
+    const handle = createRef<RemarksHandle>();
+    const onFail = renderPad(jest.fn(), handle);
+    fireEvent.change(pad(), { target: { value: 'ab' } });
+
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await handle.current!.settle();
+    });
+    // The user stays, with the instruction and their words on screen.
+    expect(ok).toBe(false);
+    expect(screen.getByRole('alert').textContent).toBe(CONFLICT);
+    expect(pad().value).toBe('ab');
+
+    // They have seen it: a second attempt goes.
+    await act(async () => {
+      ok = await handle.current!.settle();
+    });
+    expect(ok).toBe(true);
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(onFail).toHaveBeenCalledTimes(1);
+  });
+
+  it('is read-only while the board leaves, and only then', () => {
+    const onFail = jest.fn();
+    const { rerender } = render(
+      <RemarksPanel initial="a" initialAt={LOADED_AT} onFail={onFail} />,
+    );
+    expect(pad().readOnly).toBe(false);
+    rerender(
+      <RemarksPanel
+        readOnly
+        initial="a"
+        initialAt={LOADED_AT}
+        onFail={onFail}
+      />,
+    );
+    expect(pad().readOnly).toBe(true);
   });
 });

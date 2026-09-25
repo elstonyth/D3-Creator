@@ -392,6 +392,7 @@ export function WorkTracker({
             initial={initial.remarks}
             initialAt={initial.remarksAt}
             onFail={fail}
+            readOnly={navPending}
           />
         </section>
 
@@ -1099,8 +1100,9 @@ function DayList({
 export interface RemarksHandle {
   /**
    * Waits for a save on its way, then sends whatever is newer. True once
-   * nothing typed is left unsaved, or when another screen saved first (the
-   * pad already says what to do); false when a save failed.
+   * nothing typed is left unsaved, or when the pad was already stopped by a
+   * conflict before this call (it has said what to do). False when a save
+   * failed, or found a conflict just now: the user stays to read it.
    */
   settle(): Promise<boolean>;
 }
@@ -1109,11 +1111,14 @@ export function RemarksPanel({
   initial,
   initialAt,
   onFail,
+  readOnly,
   ref,
 }: {
   initial: string;
   initialAt: string | null;
   onFail: (r: ActionResult, rollback: () => void) => void;
+  /** While the board leaves the page: text typed now would miss the save. */
+  readOnly?: boolean;
   ref?: Ref<RemarksHandle>;
 }) {
   const { t } = useI18n();
@@ -1132,9 +1137,10 @@ export function RemarksPanel({
   const seenAt = useRef(initialAt);
   // Another screen saved first: autosave stops for this page load.
   const conflicted = useRef(false);
-  // The text of the last save that failed. It may have landed with only the
-  // answer lost; the next save then meets it as a "conflict".
-  const unconfirmed = useRef<string | null>(null);
+  // Every text sent since the last confirmed version. They all named the same
+  // version, so at most one can have landed; a conflict that finds one of
+  // them there is this screen's own write whose answer was lost.
+  const sent = useRef(new Set<string>());
 
   // One save at a time, always of the newest text; a save that lands on
   // already-stale text starts the next one, and its promise covers that one.
@@ -1146,24 +1152,29 @@ export function RemarksPanel({
       const v = latest.current;
       if (v === lastSaved.current) return;
       setState('saving');
+      sent.current.add(v);
       const call = safeCall(() => saveRemarks(v, seenAt.current));
       inFlight.current = call;
       const r = await call;
       inFlight.current = null;
-      const mine = unconfirmed.current;
       if (r.ok) {
         if (r.at) seenAt.current = r.at;
         lastSaved.current = v;
-        unconfirmed.current = null;
+        sent.current.clear();
         if (latest.current === v) setState('saved');
         else await run();
-      } else if (r.conflict && r.at && mine !== null && r.body === mine) {
-        // What is there is this screen's own failed save: it landed and only
+      } else if (
+        r.conflict &&
+        r.at &&
+        r.body !== undefined &&
+        sent.current.has(r.body)
+      ) {
+        // What is there is one of this screen's own saves: it landed and only
         // the answer was lost. Carry on from it instead of stopping.
         seenAt.current = r.at;
-        lastSaved.current = mine;
-        unconfirmed.current = null;
-        if (latest.current === mine) setState('saved');
+        lastSaved.current = r.body;
+        sent.current.clear();
+        if (latest.current === r.body) setState('saved');
         else await run();
       } else if (r.conflict) {
         conflicted.current = true;
@@ -1171,7 +1182,6 @@ export function RemarksPanel({
         setState('conflict');
         onFail(r, () => {});
       } else {
-        unconfirmed.current = v;
         setState('dirty');
         onFail(r, () => {});
       }
@@ -1183,10 +1193,15 @@ export function RemarksPanel({
     ref,
     () => ({
       async settle() {
+        // A conflict already on screen has told the user what to do; one
+        // found now has not, so that one keeps them here to read it.
+        const was = conflicted.current;
         // A save on its way may start the next one; wait until none is.
         while (inFlight.current) await inFlight.current;
         await flush();
-        return conflicted.current || latest.current === lastSaved.current;
+        return (
+          was || (!conflicted.current && latest.current === lastSaved.current)
+        );
       },
     }),
     [flush],
@@ -1241,6 +1256,7 @@ export function RemarksPanel({
           // After a conflict the status keeps saying why nothing saves.
           if (!conflicted.current) setState('dirty');
         }}
+        readOnly={readOnly}
         maxLength={20000}
         rows={8}
         placeholder={t(
