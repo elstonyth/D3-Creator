@@ -55,10 +55,11 @@ export function hostRoute(
   const prefix = PORTAL_PREFIX[area];
   if (under(path, prefix))
     return { redirect: site![area] + stripPrefix(path, prefix) + search };
-  // Nobody signs up on the console host; that form belongs to the public
-  // site. (Staff do sign up on theirs.)
+  // Nobody signs up on the console host. Whoever tries there is almost
+  // always staff, so the form they want is the staff site's — sending them to
+  // the public one made member accounts that never reach the Team page.
   if (area === 'admin' && path === '/signup' && site)
-    return { redirect: `${site.public}/signup` };
+    return { redirect: `${site.staff}/signup` };
   return { appPath: toAppPath(path, area) };
 }
 
@@ -96,6 +97,12 @@ const AUTH_PAGES = new Set(['/login', '/signup', '/forgot-password']);
 // /auth/callback exchanges the emailed code before redirecting here. Every
 // role may finish a reset wherever it started.
 const RESET_PATH = '/reset-password';
+// Where a portal host parks a signed-in account that is not one of its own
+// (app/(auth)/wrong-account). Always this host, never another origin:
+// sessions are per host, so sending the account elsewhere left this host's
+// session in place with no page here to sign out of it — it redirected
+// forever, /login included.
+const WRONG_ACCOUNT = '/wrong-account';
 
 /**
  * `role` is null for an anonymous visitor. A signed-in account without a
@@ -126,6 +133,8 @@ export function accessRoute({
   if (appPath === '/me/profiles') return { redirect: '/me' };
 
   if (role === null) {
+    // Nobody is signed in, so there is no wrong account to explain.
+    if (appPath === WRONG_ACCOUNT) return { redirect: '/login' };
     if (isAdminRoute || isStaffRoute || isCreatorRoute || isStudioRoute)
       return { redirect: `/login?redirectTo=${encodeURIComponent(rawPath)}` };
     return serve;
@@ -134,15 +143,20 @@ export function accessRoute({
   const home = { redirect: roleHome(role, host) };
   const isStaff = role === 'staff' || role === 'staff_pending';
 
-  // Signed-in users do not sit on (or re-submit) sign-in / sign-up.
-  if (AUTH_PAGES.has(appPath)) return home;
   // A reset is finished wherever it started, whatever the role and host:
   // the emailed link lands on the host that sent it.
   if (appPath === RESET_PATH) return serve;
 
-  // Each portal host is for its own people only.
-  if (area === 'admin' && role !== 'admin') return home;
-  if (area === 'staff' && !isStaff) return home;
+  // Each portal host is for its own people only. Anyone else, on any path —
+  // the sign-in pages included — is told which account this is and offered a
+  // sign-out, on this host. The public site has no wrong accounts.
+  const wrongHere =
+    (area === 'admin' && role !== 'admin') || (area === 'staff' && !isStaff);
+  if (appPath === WRONG_ACCOUNT) return wrongHere ? serve : home;
+  if (wrongHere) return { redirect: WRONG_ACCOUNT };
+
+  // Signed-in users do not sit on (or re-submit) sign-in / sign-up.
+  if (AUTH_PAGES.has(appPath)) return home;
 
   // Admins are managers: the console and nothing else — not the Studio, not
   // the public pages.
