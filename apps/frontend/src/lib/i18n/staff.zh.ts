@@ -261,6 +261,8 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Login removed.': '已移除登录。',
   'Job: {name}': '职位：{name}',
   'Job saved.': '职位已保存。',
+  'Job saved. Their accounts moved to Unassigned.':
+    '职位已保存。其负责的账号已移至“未分配”。',
   'That person is no longer on the board.': '此人已不在看板上。',
   'That account is not waiting for approval.': '这个账号不在待审批状态。',
   'That person already has a login, or is no longer on the board.':

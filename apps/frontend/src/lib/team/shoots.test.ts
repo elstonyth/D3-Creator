@@ -1,6 +1,7 @@
 import {
   isTimeKey,
   parseShootInput,
+  shootPatch,
   sortShoots,
   weekDays,
   weekStart,
@@ -131,5 +132,43 @@ describe('sortShoots', () => {
         .join(''),
     ).toBe('abced');
     expect(list[0].id).toBe('d'); // not mutated
+  });
+});
+
+describe('shootPatch', () => {
+  // As the form holds it: the count is text.
+  const form = {
+    date: '2026-09-26',
+    time: '10:00',
+    title: 'Mall shoot',
+    creatorId: '',
+    videosPlanned: '3',
+    note: '',
+  };
+  const next = (patch: Record<string, unknown> = {}) => {
+    const p = parseShootInput({ ...form, ...patch });
+    if (!p.ok) throw new Error(p.message);
+    return p.value;
+  };
+
+  it('writes only what the form changed', () => {
+    expect(shootPatch(next(), form)).toEqual({});
+    expect(shootPatch(next({ note: 'Bring the lights' }), form)).toEqual({
+      note: 'Bring the lights',
+    });
+    expect(shootPatch(next({ videosPlanned: '4' }), form)).toEqual({
+      videos_planned: 4,
+    });
+  });
+
+  it('writes everything when it does not know what the form started with', () => {
+    expect(Object.keys(shootPatch(next(), null)).sort()).toEqual([
+      'creator_id',
+      'note',
+      'shoot_date',
+      'start_time',
+      'title',
+      'videos_planned',
+    ]);
   });
 });

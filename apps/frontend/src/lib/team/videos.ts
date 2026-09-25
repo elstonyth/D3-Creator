@@ -175,3 +175,32 @@ export function doneCounts(
   const f = finishedBy(videos, memberId, from, to);
   return { edited: f.edited.length, posted: f.posted.length };
 }
+
+/**
+ * The columns an edit writes: only the fields that differ from what the form
+ * started with, so a newer change by someone else to another field (the
+ * handler setting the posting day, say) is not written over by a form opened
+ * before it. The posting day and time are one slot and always go together.
+ * With no starting point every field is written.
+ */
+export function videoPatch(
+  next: VideoInput,
+  before: unknown,
+): Record<string, string | null> {
+  const b = (before && typeof before === 'object' ? before : {}) as Record<
+    string,
+    unknown
+  >;
+  const was = (k: string) => (k in b ? (blank(b[k]) ? null : b[k]) : undefined);
+  const patch: Record<string, string | null> = {};
+  if (next.creatorId !== was('creatorId')) patch.creator_id = next.creatorId;
+  if (next.title !== was('title')) patch.title = next.title;
+  if (next.note !== was('note')) patch.note = next.note;
+  if (next.editorId !== was('editorId')) patch.editor_id = next.editorId;
+  if (next.handlerId !== was('handlerId')) patch.handler_id = next.handlerId;
+  if (next.postDate !== was('postDate') || next.postTime !== was('postTime')) {
+    patch.post_date = next.postDate;
+    patch.post_time = next.postTime;
+  }
+  return patch;
+}

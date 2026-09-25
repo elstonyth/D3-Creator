@@ -109,6 +109,34 @@ it('gives the editor Done on the edit and nothing on the post', () => {
   ).toBe('https://drive.google.com/x');
 });
 
+it('offers staff no Undo for an edit from an earlier month', () => {
+  const { unmount } = render(
+    <VideoBoard
+      videos={[TO_POST]}
+      people={people}
+      accounts={accounts}
+      meId={ALI}
+      month="2026-10"
+    />,
+  );
+  expect(
+    screen.queryByRole('button', { name: 'Undo edit: Reel 2' }),
+  ).toBeNull();
+  unmount();
+  render(
+    <VideoBoard
+      videos={[TO_POST]}
+      people={people}
+      accounts={accounts}
+      meId={ALI}
+      month="2026-09"
+    />,
+  );
+  expect(
+    screen.getByRole('button', { name: 'Undo edit: Reel 2' }),
+  ).toBeTruthy();
+});
+
 it('gives the handler Schedule and Done once the edit is done', () => {
   renderBoard(KEE);
   expect(

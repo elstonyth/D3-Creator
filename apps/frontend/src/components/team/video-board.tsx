@@ -52,6 +52,11 @@ export interface VideoBoardProps {
   accounts: { id: string; name: string }[];
   /** The staff member's own person; null when an admin is looking. */
   meId: string | null;
+  /**
+   * Staff only: this month (`YYYY-MM`, Malaysia). Staff take back only a
+   * Done from this month, so an older one offers no Undo.
+   */
+  month?: string;
   /** Admin only: today's staffing board, to fill in a new job's people. */
   assignments?: Record<
     string,
@@ -78,6 +83,7 @@ export function VideoBoard({
   people,
   accounts,
   meId,
+  month,
   assignments = {},
 }: VideoBoardProps) {
   const { t, locale } = useI18n();
@@ -282,7 +288,12 @@ export function VideoBoard({
                           onSave={(d) =>
                             save(
                               v.id,
-                              () => updateVideo(v.id, draftInput(d)),
+                              () =>
+                                updateVideo(
+                                  v.id,
+                                  draftInput(d),
+                                  draftInput(videoDraftOf(v)),
+                                ),
                               replace,
                               open,
                             )
@@ -310,7 +321,13 @@ export function VideoBoard({
                         )}
                         canEdit={isAdmin || v.editorId === meId}
                         canPost={isAdmin || posterOf(v) === meId}
-                        canUndoEdit={isAdmin || v.editedBy === meId}
+                        canUndoEdit={
+                          isAdmin ||
+                          (v.editedBy === meId &&
+                            v.editedAt !== null &&
+                            dateKeyAt(new Date(v.editedAt)).slice(0, 7) >=
+                              (month ?? ''))
+                        }
                         canUndoPost={isAdmin || v.postedBy === meId}
                         isAdmin={isAdmin}
                         tag={tag}

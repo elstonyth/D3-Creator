@@ -5,6 +5,7 @@ import {
   parseVideoInput,
   posterOf,
   safeHref,
+  videoPatch,
   videoStage,
   type Video,
 } from './videos';
@@ -174,5 +175,57 @@ describe('posterOf', () => {
     expect(posterOf(video())).toBe(KEE);
     expect(posterOf(video({ handlerId: null }))).toBe(ALI);
     expect(posterOf(video({ handlerId: null, editorId: null }))).toBeNull();
+  });
+});
+
+describe('videoPatch', () => {
+  const form = {
+    creatorId: ACC,
+    title: 'CNY reel',
+    note: '',
+    editorId: ALI,
+    handlerId: KEE,
+    postDate: '',
+    postTime: '',
+  };
+  const next = (patch: Record<string, unknown> = {}) => {
+    const p = parseVideoInput({ ...form, ...patch });
+    if (!p.ok) throw new Error(p.message);
+    return p.value;
+  };
+
+  it('writes only what the form changed, so a newer posting slot survives a title fix', () => {
+    expect(videoPatch(next(), form)).toEqual({});
+    expect(videoPatch(next({ title: 'CNY reel v2' }), form)).toEqual({
+      title: 'CNY reel v2',
+    });
+  });
+
+  it('writes the posting day and time together', () => {
+    expect(
+      videoPatch(next({ postTime: '19:30', postDate: '2026-09-26' }), form),
+    ).toEqual({
+      post_date: '2026-09-26',
+      post_time: '19:30',
+    });
+    const slotted = { ...form, postDate: '2026-09-26', postTime: '19:30' };
+    expect(
+      videoPatch(next({ postDate: '2026-09-26', postTime: '20:00' }), slotted),
+    ).toEqual({
+      post_date: '2026-09-26',
+      post_time: '20:00',
+    });
+  });
+
+  it('writes everything when it does not know what the form started with', () => {
+    expect(Object.keys(videoPatch(next(), undefined)).sort()).toEqual([
+      'creator_id',
+      'editor_id',
+      'handler_id',
+      'note',
+      'post_date',
+      'post_time',
+      'title',
+    ]);
   });
 });

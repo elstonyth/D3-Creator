@@ -106,7 +106,7 @@ export function TeamManager({
           });
           return;
         }
-        setMessage({ at, ok: true, text: done });
+        setMessage({ at, ok: true, text: r.message ?? done });
         setConfirmUnlink(null);
         router.refresh();
       });

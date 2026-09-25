@@ -66,6 +66,7 @@ export default async function StaffWorkPage() {
                 people={data[2]}
                 accounts={data[3].map(({ id, name }) => ({ id, name }))}
                 meId={staff.memberId}
+                month={month}
               />
             </section>
           </>

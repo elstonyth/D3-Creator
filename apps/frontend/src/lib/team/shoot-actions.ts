@@ -25,6 +25,7 @@ import {
   isShootStatus,
   parseCount,
   parseShootInput,
+  shootPatch,
   type Shoot,
 } from './shoots';
 
@@ -91,6 +92,8 @@ export async function addShoot(
 export async function updateShoot(
   id: string,
   input: unknown,
+  /** What the form started with; only fields changed from it are written. */
+  before?: unknown,
 ): Promise<ShootResult> {
   return asActor(async (a): Promise<ShootResult> => {
     if (!isUuid(id)) return { ok: false, message: 'Invalid shoot.' };
@@ -99,24 +102,28 @@ export async function updateShoot(
     const v = p.value;
     if (a.memberId && v.date < monthStart())
       return { ok: false, message: CLOSED };
-    let q = getSupabaseAdmin()
-      .from('tracker_shoot')
-      .update({
-        shoot_date: v.date,
-        start_time: v.time,
-        title: v.title,
-        creator_id: v.creatorId,
-        videos_planned: v.videosPlanned,
-        note: v.note,
-      })
-      .eq('id', id);
+    const patch = shootPatch(v, before);
+    const answer = (res: {
+      data: unknown[] | null;
+      error: { message: string } | null;
+    }): ShootResult => {
+      if (res.error) return { ok: false, message: res.error.message };
+      if (!res.data || res.data.length === 0)
+        return { ok: false, message: a.memberId ? NOT_YOURS : GONE };
+      return { ok: true, shoot: rowToShoot(res.data[0] as ShootRow) };
+    };
+    const admin = getSupabaseAdmin();
+    if (Object.keys(patch).length === 0) {
+      // Nothing changed: hand back the shoot as it is now.
+      let r = admin.from('tracker_shoot').select(SHOOT_COLS).eq('id', id);
+      if (a.memberId)
+        r = r.eq('member_id', a.memberId).gte('shoot_date', monthStart());
+      return answer(await r);
+    }
+    let q = admin.from('tracker_shoot').update(patch).eq('id', id);
     if (a.memberId)
       q = q.eq('member_id', a.memberId).gte('shoot_date', monthStart());
-    const { data, error } = await q.select(SHOOT_COLS);
-    if (error) return { ok: false, message: error.message };
-    if (!data || data.length === 0)
-      return { ok: false, message: a.memberId ? NOT_YOURS : GONE };
-    return { ok: true, shoot: rowToShoot(data[0] as ShootRow) };
+    return answer(await q.select(SHOOT_COLS));
   });
 }
 
