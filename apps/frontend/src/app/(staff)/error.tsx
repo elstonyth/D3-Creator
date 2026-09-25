@@ -11,9 +11,11 @@
  *
  * Never renders the thrown error's own message: these pages read Supabase
  * directly, so it can carry a Postgres string. The diagnostic still reaches
- * the browser console, and server failures reach Sentry via instrumentation.ts.
+ * the browser console, and Sentry: client errors are reported here, server
+ * errors (which carry a digest) by onRequestError in instrumentation.ts.
  */
 
+import * as Sentry from '@sentry/nextjs';
 import { useEffect } from 'react';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { Button, ButtonLink } from '@gitroom/frontend/components/ui/button';
@@ -21,13 +23,16 @@ import { Container, Section } from '@gitroom/frontend/components/ui/section';
 
 export default function StaffError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   const { t } = useI18n();
-  useEffect(() => console.error('[staff] route error', error), [error]);
+  useEffect(() => {
+    console.error('[staff] route error', error);
+    if (!error.digest) Sentry.captureException(error);
+  }, [error]);
 
   return (
     <Container className="pb-16">
@@ -45,7 +50,7 @@ export default function StaffError({
             )}
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Button size="lg" onClick={reset}>
+            <Button size="lg" onClick={retry}>
               {t('Try again')}
             </Button>
             <ButtonLink href="/" variant="secondary" size="lg">

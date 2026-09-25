@@ -9,11 +9,14 @@
  * request. Mirrors app/(public)/error.tsx.
  *
  * Never renders error.message: these pages read Supabase directly, so a thrown
- * error can carry a Postgres string. The diagnostic still reaches the console
- * (and Sentry, via global-error). The second action goes to /me/account rather
- * than /me, because /me is usually the page that just failed.
+ * error can carry a Postgres string. The diagnostic still reaches the console,
+ * and Sentry: client errors are reported here, server errors (which carry a
+ * digest) by onRequestError in instrumentation.ts. The second action goes to
+ * /me/account rather than /me, because /me is usually the page that just
+ * failed.
  */
 
+import * as Sentry from '@sentry/nextjs';
 import { useEffect } from 'react';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { Button, ButtonLink } from '@gitroom/frontend/components/ui/button';
@@ -21,13 +24,16 @@ import { Container, Section } from '@gitroom/frontend/components/ui/section';
 
 export default function CreatorError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   const { t } = useI18n();
-  useEffect(() => console.error('[creator] route error', error), [error]);
+  useEffect(() => {
+    console.error('[creator] route error', error);
+    if (!error.digest) Sentry.captureException(error);
+  }, [error]);
 
   return (
     <Container className="pb-16">
@@ -45,7 +51,7 @@ export default function CreatorError({
             )}
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Button size="lg" onClick={reset}>
+            <Button size="lg" onClick={retry}>
               {t('Try again')}
             </Button>
             <ButtonLink href="/me/account" variant="secondary" size="lg">

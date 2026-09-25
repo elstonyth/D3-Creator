@@ -13,7 +13,7 @@
  * changes with the page (`__PAGE__`, `schedule`, `history`, …), so the
  * skeleton shows on every tap.
  *
- * Flat blocks, no shimmer sweep — DESIGN.md §8 bans the loop.
+ * Flat blocks, no shimmer sweep — DESIGN.md §5 bans animated gradients.
  */
 
 import type { ReactElement } from 'react';
@@ -25,7 +25,7 @@ import { Skeleton } from '@gitroom/frontend/components/ui/skeleton';
 export default async function StaffLoading(): Promise<ReactElement> {
   const { t } = await getI18n();
   return (
-    <Section space="md">
+    <Section space="sm">
       {/* The only thing announced: the blocks below are aria-hidden. */}
       <p role="status" className="sr-only">
         {t('Loading.')}
