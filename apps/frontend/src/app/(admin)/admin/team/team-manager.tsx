@@ -4,7 +4,7 @@
  * Staff approvals and the team at a glance. A waiting signup is approved as
  * a new person on the board (named and placed as they asked, editable here)
  * or linked to a person already on it; the team list shows each person's
- * month so far and opens their profile.
+ * month so far and job (changeable here) and opens their profile.
  *
  * One action at a time. The card that acted stays busy until the refreshed
  * page arrives, so it cannot be clicked twice; a refusal is shown on it.
@@ -15,7 +15,6 @@ import { useState, useTransition, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { Alert } from '@gitroom/frontend/components/ui/alert';
-import { Pill } from '@gitroom/frontend/components/team/pill';
 import { Button } from '@gitroom/frontend/components/ui/button';
 import { Field, Input, Select } from '@gitroom/frontend/components/ui/input';
 import {
@@ -26,6 +25,7 @@ import {
 import {
   approveStaff,
   rejectStaff,
+  setMemberKind,
   unlinkStaff,
   type TeamResult,
 } from './actions';
@@ -77,8 +77,15 @@ export function TeamManager({
     text: string;
   } | null>(null);
   const [confirmUnlink, setConfirmUnlink] = useState<string | null>(null);
+  // A job change shows at once; a refused one goes back.
+  const [jobOf, setJobOf] = useState<Record<string, MemberKind>>({});
 
-  function run(at: string, call: () => Promise<TeamResult>, done: string) {
+  function run(
+    at: string,
+    call: () => Promise<TeamResult>,
+    done: string,
+    undo?: () => void,
+  ) {
     setActing(at);
     setMessage(null);
     startTransition(async () => {
@@ -91,6 +98,7 @@ export function TeamManager({
       }
       startTransition(() => {
         if (!r.ok) {
+          undo?.();
           setMessage({
             at,
             ok: false,
@@ -163,21 +171,37 @@ export function TeamManager({
         </p>
         <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
           {team.map((m) => {
-            const error = refusal(`unlink:${m.id}`);
+            const error = refusal(`unlink:${m.id}`, `kind:${m.id}`);
             return (
               <li key={m.id} className="px-4 py-3">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="flex flex-wrap items-center gap-2 text-label text-fg">
+                  {/* Room for the name and the job select; the numbers wrap
+                      below it on a narrow phone rather than overlap it. */}
+                  <div className="min-w-[12rem] flex-1">
+                    <div className="flex flex-wrap items-center gap-2 text-label text-fg">
                       {m.name}
-                      <Pill tone="muted">
-                        {m.kind === 'both'
-                          ? t('Handler & editor')
-                          : m.kind === 'editor'
-                            ? t('Editor')
-                            : t('Handler')}
-                      </Pill>
-                    </p>
+                      <Select
+                        aria-label={t('Job: {name}', { name: m.name })}
+                        value={jobOf[m.id] ?? m.kind}
+                        disabled={inFlight}
+                        onChange={(e) => {
+                          const next = parseMemberKind(e.target.value);
+                          const shown = jobOf[m.id] ?? m.kind;
+                          setJobOf((j) => ({ ...j, [m.id]: next }));
+                          run(
+                            `kind:${m.id}`,
+                            () => setMemberKind(m.id, next),
+                            'Job saved.',
+                            () => setJobOf((j) => ({ ...j, [m.id]: shown })),
+                          );
+                        }}
+                        className="h-8 w-auto py-0 pl-3 text-caption"
+                      >
+                        <option value="handler">{t('Handler')}</option>
+                        <option value="editor">{t('Editor')}</option>
+                        <option value="both">{t('Handler & editor')}</option>
+                      </Select>
+                    </div>
                     <p className="mt-0.5 break-all text-caption text-fg-subtle">
                       {m.email ?? t('No login yet')}
                     </p>
