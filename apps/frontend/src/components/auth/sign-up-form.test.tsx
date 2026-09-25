@@ -193,3 +193,25 @@ it('never marks a public signup as staff', async () => {
   expect(options.data).toBeUndefined();
   expect(options.emailRedirectTo).toMatch(/redirectTo=%2Fstudio%2Fchat$/);
 });
+
+it('asks a staff member to choose a job', async () => {
+  signUp.mockResolvedValue(NEW_ACCOUNT);
+  render(<SignUpForm portal="staff" />);
+  fireEvent.change(screen.getByLabelText('Your name on the board'), {
+    target: { value: 'KEE' },
+  });
+  fireEvent.change(screen.getByPlaceholderText('you@email.com'), {
+    target: { value: 'kee@example.com' },
+  });
+  fireEvent.change(screen.getByPlaceholderText('At least 8 characters'), {
+    target: { value: 'a decent long passphrase' },
+  });
+  // The browser's own check on the job stops the button before the form sees
+  // it, so submit the form itself to reach the form's own answer.
+  fireEvent.submit(
+    screen.getByRole('button', { name: /create account/i }).closest('form')!,
+  );
+
+  await screen.findByText('Choose your job.');
+  expect(signUp).not.toHaveBeenCalled();
+});

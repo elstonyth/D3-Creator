@@ -45,8 +45,9 @@ export function SignUpForm({
   const [email, setEmail] = useState('');
   // Staff only: how the team knows them, and which row of the board they
   // belong in. A suggestion for the admin, who confirms both on approval.
+  // No job is picked for them: a wrong default is easy to send unread.
   const [displayName, setDisplayName] = useState('');
-  const [kind, setKind] = useState<MemberKind>('handler');
+  const [kind, setKind] = useState<MemberKind | ''>('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -133,6 +134,12 @@ export function SignUpForm({
     e.preventDefault();
     setError(null);
     setTaken(null);
+    // The job select is required, so a browser stops the form first; this is
+    // for one that does not.
+    if (portal && kind === '') {
+      setError('Choose your job.');
+      return;
+    }
     setPending(true);
     try {
       await submit(email.trim().toLowerCase());
@@ -305,9 +312,17 @@ export function SignUpForm({
             <Select
               id={kindId}
               value={kind}
-              onChange={(e) => setKind(parseMemberKind(e.target.value))}
+              onChange={(e) =>
+                setKind(
+                  e.target.value === '' ? '' : parseMemberKind(e.target.value),
+                )
+              }
               disabled={pending}
+              required
             >
+              <option value="" disabled>
+                {t('Choose your job')}
+              </option>
               <option value="handler">{t('Handler — runs accounts')}</option>
               <option value="editor">{t('Editor — cuts videos')}</option>
               <option value="both">

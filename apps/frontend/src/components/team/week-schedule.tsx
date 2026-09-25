@@ -472,8 +472,8 @@ function ShootItem({
         {s.status === 'done' ? (
           <Pill className="shrink-0">
             {s.videosShot != null
-              ? t('Done · {count} videos', { count: s.videosShot })
-              : t('Done')}
+              ? t('Finished · {count} videos', { count: s.videosShot })
+              : t('Finished')}
           </Pill>
         ) : cancelled ? (
           <Pill tone="muted" className="shrink-0">

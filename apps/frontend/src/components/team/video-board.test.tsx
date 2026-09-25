@@ -176,6 +176,50 @@ it('sends the pasted link with the editor’s Done', async () => {
   expect(within(posting).getByText('Reel 1')).toBeTruthy();
 });
 
+it('says a staff Done went through, since the job moves to another list', async () => {
+  (finishEdit as jest.Mock).mockResolvedValue({
+    ok: true,
+    video: { ...TO_EDIT, editedAt: '2026-09-23T02:00:00Z', editedBy: ALI },
+  });
+  renderBoard(ALI);
+  // The live region is there, empty, before anything is said in it.
+  expect(screen.getByRole('status').textContent).toBe('');
+  fireEvent.click(screen.getByRole('button', { name: 'Done editing: Reel 1' }));
+  fireEvent.change(screen.getByLabelText('Link to the edited video'), {
+    target: { value: 'https://drive.google.com/cut' },
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+  });
+  expect(screen.getByRole('status').textContent).toContain(
+    'Edit done: “Reel 1” is ready to post.',
+  );
+});
+
+it('sends share text pasted from an app, words and all', async () => {
+  const share =
+    '7.43 复制打开抖音，看看【作品】https://v.douyin.com/iRNBho6H/ 再次打开';
+  (finishPost as jest.Mock).mockResolvedValue({
+    ok: true,
+    video: {
+      ...TO_POST,
+      postedAt: '2026-09-23T02:00:00Z',
+      postedBy: KEE,
+      postLink: 'https://v.douyin.com/iRNBho6H/',
+    },
+  });
+  renderBoard(KEE);
+  fireEvent.click(screen.getByRole('button', { name: 'Done posting: Reel 2' }));
+  fireEvent.change(screen.getByLabelText('Link to the live post'), {
+    target: { value: share },
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+  });
+  // The server takes the link out of the words around it.
+  expect(finishPost).toHaveBeenCalledWith(TO_POST.id, share);
+});
+
 it('keeps the step open with the reason when the server refuses', async () => {
   (finishPost as jest.Mock).mockResolvedValue({
     ok: false,
