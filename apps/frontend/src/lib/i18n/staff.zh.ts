@@ -259,6 +259,9 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Approved. They can sign in now.': '已批准，现在可以登录了。',
   'Turned away.': '已拒绝。',
   'Login removed.': '已移除登录。',
+  'Job: {name}': '职位：{name}',
+  'Job saved.': '职位已保存。',
+  'That person is no longer on the board.': '此人已不在看板上。',
   'That account is not waiting for approval.': '这个账号不在待审批状态。',
   'That person already has a login, or is no longer on the board.':
     '此人已有登录账号，或已不在看板上。',

@@ -211,3 +211,48 @@ export async function unlinkStaff(memberId: string): Promise<TeamResult> {
     return error ? { ok: false, message: error.message } : { ok: true };
   });
 }
+
+const GONE = 'That person is no longer on the board.';
+
+/**
+ * Change what someone does: handler, editor, or both. The default title
+ * follows the job (Trader on a column, Editor in the editor row); a custom
+ * one stays.
+ */
+export async function setMemberKind(
+  memberId: string,
+  kind: MemberKind,
+): Promise<TeamResult> {
+  return guarded(async () => {
+    if (!isUuid(memberId)) return { ok: false, message: 'Invalid person.' };
+    if (!MEMBER_KINDS.includes(kind))
+      return { ok: false, message: 'Invalid person type.' };
+    const admin = getSupabaseAdmin();
+    const { data: row, error: readErr } = await admin
+      .from('tracker_member')
+      .select('role')
+      .eq('id', memberId)
+      .is('archived_at', null)
+      .maybeSingle();
+    if (readErr) return { ok: false, message: readErr.message };
+    if (!row) return { ok: false, message: GONE };
+    const role =
+      kind === 'editor'
+        ? row.role === 'Trader'
+          ? 'Editor'
+          : row.role
+        : row.role === 'Editor'
+          ? 'Trader'
+          : row.role;
+    const { data, error } = await admin
+      .from('tracker_member')
+      .update({ kind, role })
+      .eq('id', memberId)
+      .is('archived_at', null)
+      .select('id');
+    if (error) return { ok: false, message: error.message };
+    return data && data.length > 0
+      ? { ok: true }
+      : { ok: false, message: GONE };
+  });
+}
