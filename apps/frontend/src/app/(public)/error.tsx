@@ -7,22 +7,27 @@ import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
  * page — the site's chrome disappears and it reads as a dead domain.
  *
  * Never renders error.message: it can carry a Postgres string. The diagnostic
- * still reaches the console (and Sentry, via global-error).
+ * still reaches the console, and Sentry: client errors are reported here,
+ * server errors (which carry a digest) by onRequestError in instrumentation.ts.
  */
 
+import * as Sentry from '@sentry/nextjs';
 import { useEffect } from 'react';
 import { Button, ButtonLink } from '@gitroom/frontend/components/ui/button';
 import { Container, Section } from '@gitroom/frontend/components/ui/section';
 
 export default function PublicError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }) {
   const { t } = useI18n();
-  useEffect(() => console.error('[public] route error', error), [error]);
+  useEffect(() => {
+    console.error('[public] route error', error);
+    if (!error.digest) Sentry.captureException(error);
+  }, [error]);
 
   return (
     <Section space="lg">
@@ -40,7 +45,7 @@ export default function PublicError({
             )}{' '}
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Button size="lg" onClick={reset}>
+            <Button size="lg" onClick={retry}>
               {t('Try again')}{' '}
             </Button>
             <ButtonLink href="/" variant="secondary" size="lg">
