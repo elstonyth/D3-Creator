@@ -100,34 +100,20 @@ export async function updateVideo(
   });
 }
 
-/** Take a video back before the editor has finished it. */
+/**
+ * Take a video back before the editor has finished it. tracker_remove_video
+ * keeps the shoot's count true under the shoot's lock, and puts a shoot left
+ * with no videos back to planned.
+ */
 export async function deleteVideo(id: string): Promise<VideoResult> {
   return asActor(async (a): Promise<VideoResult> => {
     if (!isUuid(id)) return { ok: false, message: 'Invalid video.' };
-    const admin = getSupabaseAdmin();
-    const { data, error } = await admin
-      .from('tracker_video')
-      .delete()
-      .eq('id', id)
-      .eq('handler_id', a.memberId)
-      .is('edited_at', null)
-      .select('shoot_id');
+    const { data, error } = await getSupabaseAdmin().rpc(
+      'tracker_remove_video',
+      { p_video_id: id, p_member_id: a.memberId },
+    );
     if (error) return dbError('deleteVideo', error);
-    if (!data || data.length === 0) return { ok: false, message: NOT_YOURS };
-    // Keep the shoot's count of videos passed on from it true.
-    const shootId = (data[0] as { shoot_id: string | null }).shoot_id;
-    if (shootId) {
-      const { count, error: countErr } = await admin
-        .from('tracker_video')
-        .select('id', { count: 'exact', head: true })
-        .eq('shoot_id', shootId);
-      if (countErr) return dbError('deleteVideo', countErr);
-      const { error: shootErr } = await admin
-        .from('tracker_shoot')
-        .update({ videos_shot: Math.min(99, count ?? 0) })
-        .eq('id', shootId);
-      if (shootErr) return dbError('deleteVideo', shootErr);
-    }
+    if (data !== true) return { ok: false, message: NOT_YOURS };
     return { ok: true };
   });
 }

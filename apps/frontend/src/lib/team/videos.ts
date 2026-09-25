@@ -143,6 +143,7 @@ export const PASS_REFUSALS = {
   title: 'Give each video a title (up to 200 characters).',
   editor: 'Pick an editor for each video.',
   offBoard: 'Pick an editor who is on the team.',
+  left: 'You are no longer on the team.',
 } as const;
 
 /** The rows of a pass: 1..30, each a title and an editor's id. */

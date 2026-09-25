@@ -99,7 +99,8 @@ declare
   v_editor uuid;
   v_row    public.tracker_video;
 begin
-  -- Locked, so two passes at once count each other's videos.
+  -- Locked, so two passes (or a pass and a take-back) at once count each
+  -- other's videos.
   select * into v_shoot
   from public.tracker_shoot
   where id = p_shoot_id
@@ -112,6 +113,15 @@ begin
   end if;
   if v_shoot.status = 'cancelled' then
     raise exception 'That shoot was cancelled. Reopen it first.';
+  end if;
+  -- The caller must still be on the team. Held until the pass commits, so an
+  -- admin removing them at the same moment waits for it rather than
+  -- slipping in between the app's session check and these inserts.
+  perform 1 from public.tracker_member
+  where id = p_member_id and archived_at is null
+  for share;
+  if not found then
+    raise exception 'You are no longer on the team.';
   end if;
 
   -- Separate checks: jsonb_array_length fails on anything but an array.
@@ -167,11 +177,65 @@ begin
 end;
 $$;
 
--- 4. Lock down ------------------------------------------------------------------
+-- 4. Taking a video back ---------------------------------------------------------
 
--- Service role only, like every tracker table: the app calls it from a
--- server action behind requireStaff.
+-- The handler takes back a video the editor has not finished, and the shoot's
+-- count follows. Under the same shoot lock as a pass, so the two can't write
+-- stale counts over each other. A shoot left with no videos goes back to
+-- planned: it was marked done only because videos had come out of it.
+--
+-- p_member_id is the caller's board person, from the session as above.
+-- Returns false when the video is not theirs, or has moved on.
+create or replace function public.tracker_remove_video(
+  p_video_id  uuid,
+  p_member_id uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_shoot_id uuid;
+  v_count    int;
+begin
+  select shoot_id into v_shoot_id
+  from public.tracker_video
+  where id = p_video_id;
+  if v_shoot_id is not null then
+    perform 1 from public.tracker_shoot where id = v_shoot_id for update;
+  end if;
+
+  delete from public.tracker_video
+  where id = p_video_id
+    and handler_id = p_member_id
+    and edited_at is null;
+  if not found then
+    return false;
+  end if;
+
+  if v_shoot_id is not null then
+    select count(*) into v_count
+    from public.tracker_video
+    where shoot_id = v_shoot_id;
+    update public.tracker_shoot
+    set status = case when v_count = 0 then 'planned' else status end,
+        videos_shot = case when v_count = 0 then null else least(99, v_count) end
+    where id = v_shoot_id;
+  end if;
+  return true;
+end;
+$$;
+
+-- 5. Lock down ------------------------------------------------------------------
+
+-- Service role only, like every tracker table: the app calls them from
+-- server actions behind requireStaff.
 revoke execute on function public.tracker_pass_shoot(uuid, uuid, uuid, jsonb)
   from public, anon, authenticated;
 grant execute on function public.tracker_pass_shoot(uuid, uuid, uuid, jsonb)
+  to service_role;
+revoke execute on function public.tracker_remove_video(uuid, uuid)
+  from public, anon, authenticated;
+grant execute on function public.tracker_remove_video(uuid, uuid)
   to service_role;

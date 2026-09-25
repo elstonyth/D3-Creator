@@ -16,9 +16,15 @@ import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
  */
 export function SignOutButton({
   primary = false,
+  thisHostOnly = false,
 }: {
   /** The page's main action (the wrong-account page): full width, primary. */
   primary?: boolean;
+  /**
+   * End only this host's session (the wrong-account page). Otherwise the
+   * sign-out is global, ending the account's sessions on every host.
+   */
+  thisHostOnly?: boolean;
 } = {}) {
   const { t } = useI18n();
   const router = useRouter();
@@ -29,7 +35,9 @@ export function SignOutButton({
     setPending(true);
     setError(null);
     const supabase = getSupabaseBrowser();
-    const { error: signOutErr } = await supabase.auth.signOut();
+    const { error: signOutErr } = await supabase.auth.signOut({
+      scope: thisHostOnly ? 'local' : 'global',
+    });
     if (signOutErr) {
       // Surface the failure inline and bail out — redirecting would mask
       // a still-active session and confuse the user about their auth state.

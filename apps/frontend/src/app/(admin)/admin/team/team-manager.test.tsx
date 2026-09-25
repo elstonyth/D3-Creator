@@ -72,8 +72,7 @@ it('removes someone, even without a login, only after asking', async () => {
 });
 
 it('shows why a remove was refused on that person’s row', async () => {
-  const why =
-    'They still have videos to edit or verify. Those must be finished, or passed to someone else, first.';
+  const why = 'That person is already gone.';
   (removePerson as jest.Mock).mockResolvedValueOnce({
     ok: false,
     message: why,

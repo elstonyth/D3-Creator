@@ -52,7 +52,7 @@ export default async function WrongAccountPage() {
           {t('Go to the staff site')}
         </ButtonLink>
         <div className="text-center">
-          <SignOutButton />
+          <SignOutButton thisHostOnly />
         </div>
       </>
     );
@@ -65,7 +65,7 @@ export default async function WrongAccountPage() {
             hosts,
           )}
         </p>
-        <SignOutButton primary />
+        <SignOutButton primary thisHostOnly />
         <p className="text-center text-caption">
           <a href={`${site.staff}/login`} className={LINK}>
             {hosts.staff}
@@ -85,8 +85,21 @@ export default async function WrongAccountPage() {
           {t('Go to the admin console')}
         </ButtonLink>
         <div className="text-center">
-          <SignOutButton />
+          <SignOutButton thisHostOnly />
         </div>
+      </>
+    );
+  } else if (auth.role === 'none') {
+    // Removed from the team, or turned away: signing up again would only put
+    // them back in the admin's queue.
+    body = (
+      <>
+        <p>
+          {t(
+            'This account has no access to the staff site. Ask an admin if you think this is a mistake.',
+          )}
+        </p>
+        <SignOutButton primary thisHostOnly />
       </>
     );
   } else {
@@ -97,7 +110,7 @@ export default async function WrongAccountPage() {
             'This isn’t a staff account. Sign out, then create a staff account at this site. If this email is already registered, use a different one, or ask an admin to remove the old account.',
           )}
         </p>
-        <SignOutButton primary />
+        <SignOutButton primary thisHostOnly />
       </>
     );
   }

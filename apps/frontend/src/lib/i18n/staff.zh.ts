@@ -180,11 +180,9 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Could not finish approving. Try again.': '审批未完成，请再试一次。',
   Verified: '已审核',
   'Passed on to the editors': '已交给剪辑',
-  'Take {name} off the team? Their staff login stops working. Their shoots and finished videos stay in the record.':
-    '要将 {name} 移出团队吗？其员工登录将失效，拍摄和已完成的视频会保留在记录中。',
+  'Take {name} off the team? Their staff login stops working. Their shoots and videos stay in the record; videos they passed on that are not verified yet can no longer be verified.':
+    '要将 {name} 移出团队吗？其员工登录将失效，拍摄和视频会保留在记录中；其交出但尚未审核的视频将无法再审核。',
   'Removed from the team.': '已移出团队。',
-  'They still have videos to edit or verify. Those must be finished, or passed to someone else, first.':
-    '此人还有待剪辑或待审核的视频，请先完成或交给其他人。',
 
   // ---- Video job notices ------------------------------------------------------
   'Taken back: “{title}”.': '已撤回：“{title}”。',
@@ -254,6 +252,7 @@ export const staffZh: Readonly<Record<string, string>> = {
     '请为每条视频填写标题（最多 200 字）。',
   'Pick an editor for each video.': '请为每条视频选择剪辑。',
   'Pick an editor who is on the team.': '请选择仍在团队中的剪辑。',
+  'You are no longer on the team.': '你已不在团队中。',
   'Pick an editor.': '请选择剪辑。',
   'That link does not look right. Paste one starting with https://, or leave it empty.':
     '链接格式不对。请贴上以 https:// 开头的链接，或留空。',

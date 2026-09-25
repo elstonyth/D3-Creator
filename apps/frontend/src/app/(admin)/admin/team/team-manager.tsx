@@ -255,7 +255,7 @@ export function TeamManager({
                   >
                     <span className="min-w-0 flex-1">
                       {t(
-                        'Take {name} off the team? Their staff login stops working. Their shoots and finished videos stay in the record.',
+                        'Take {name} off the team? Their staff login stops working. Their shoots and videos stay in the record; videos they passed on that are not verified yet can no longer be verified.',
                         { name: m.name },
                       )}
                     </span>

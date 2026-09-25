@@ -109,6 +109,8 @@ export const authZh: Record<string, string> = {
   'Go to the admin console': '前往管理控制台',
   'This isn’t a staff account. Sign out, then create a staff account at this site. If this email is already registered, use a different one, or ask an admin to remove the old account.':
     '这不是员工账号。请先退出登录，再在本站注册员工账号。如果此邮箱已注册，请换一个邮箱，或请管理员删除旧账号。',
+  'This account has no access to the staff site. Ask an admin if you think this is a mistake.':
+    '此账号无权使用员工门户。如果你认为有误，请联系管理员。',
   'Could not send the link. Try again in a moment.':
     '链接发送失败，请稍后再试。',
   'Could not sign in. Check your connection and try again.':

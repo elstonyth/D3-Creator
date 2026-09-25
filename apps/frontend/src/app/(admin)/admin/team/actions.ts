@@ -227,8 +227,10 @@ export async function setMemberKind(
 
 /**
  * Take someone off the team: their login reaches nothing and they leave the
- * board. Their shoots and finished videos stay, under their name. Refused
- * while a video waits on them, so no job is left with nobody to finish it.
+ * board. Never refused over open work — the admin must always be able to
+ * shut a leaver out. Their shoots and videos stay, under their name marked
+ * as left: a video with them as editor can be given to another editor by its
+ * handler, but one they passed on and nobody verified stays unverified.
  */
 export async function removePerson(memberId: string): Promise<TeamResult> {
   return guarded(async () => {
@@ -242,22 +244,6 @@ export async function removePerson(memberId: string): Promise<TeamResult> {
       .maybeSingle();
     if (readErr) return { ok: false, message: readErr.message };
     if (!person) return { ok: false, message: 'That person is already gone.' };
-
-    // Checked before anything is written: a refused remove changes nothing.
-    const { data: open, error: openErr } = await admin
-      .from('tracker_video')
-      .select('id')
-      .or(
-        `and(editor_id.eq.${memberId},edited_at.is.null),and(handler_id.eq.${memberId},verified_at.is.null)`,
-      )
-      .limit(1);
-    if (openErr) return { ok: false, message: openErr.message };
-    if (open && open.length > 0)
-      return {
-        ok: false,
-        message:
-          'They still have videos to edit or verify. Those must be finished, or passed to someone else, first.',
-      };
 
     // Access first: whatever fails below, the login already reaches nothing.
     if (person.user_id) {

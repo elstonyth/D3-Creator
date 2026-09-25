@@ -106,7 +106,7 @@ export async function updateShoot(
           .eq('member_id', a.memberId)
           .gte('shoot_date', monthStart()),
       );
-    return one(
+    const saved = one(
       await admin
         .from('tracker_shoot')
         .update(patch)
@@ -115,12 +115,23 @@ export async function updateShoot(
         .gte('shoot_date', monthStart())
         .select(SHOOT_COLS),
     );
+    if (!saved.ok || !('creator_id' in patch)) return saved;
+    // Its videos were given the shoot's account when passed on; a corrected
+    // account reaches them too. The caller handles every one of them.
+    const { error } = await admin
+      .from('tracker_video')
+      .update({ creator_id: patch.creator_id })
+      .eq('shoot_id', id)
+      .eq('handler_id', a.memberId);
+    if (error) return dbError('updateShoot', error);
+    return saved;
   });
 }
 
 /**
  * Cancel a planned shoot, or reopen a cancelled one. A shoot is done only by
- * passing its videos on, and a done shoot stays done.
+ * passing its videos on, and stays done while any of them is left
+ * (deleteVideo puts it back to planned once none is).
  */
 export async function setShootStatus(
   id: string,
