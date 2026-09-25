@@ -3,7 +3,7 @@
  *
  * www.d3creator.com is the public product (creators, members, classes,
  * Studio). Two portals live on hosts of their own: admin.d3creator.com (the
- * console) and staff.d3creator.com (the team's schedule and records). Each
+ * console) and staff.d3creator.com (each staff member's Work Tracker). Each
  * portal is a route group under a prefix in the app tree — /admin, /staff —
  * and on its host the middleware (proxy.ts, via portal-routing.ts) serves it
  * from the root: `staff.d3creator.com/history` is `/staff/history`.

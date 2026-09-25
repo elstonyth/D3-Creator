@@ -29,7 +29,7 @@ export default async function StaffPendingPage() {
           </h1>
           <p className="mt-3 text-body text-fg-muted">
             {t(
-              'Your staff account is set up. An admin has to approve it and link it to your name on the work board before you can see the team’s schedule.',
+              'Your staff account is set up. An admin has to approve it and link it to your name on the work board before you can use your Work Tracker.',
             )}
           </p>
           {auth?.email ? (

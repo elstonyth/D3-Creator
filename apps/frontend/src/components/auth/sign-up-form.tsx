@@ -223,7 +223,7 @@ export function SignUpForm({
           <span className="break-words text-fg">
             {portal
               ? t(
-                  'If {email} is new, a confirmation link is on its way. Open it, and an admin approves your account before you see the team’s work.',
+                  'If {email} is new, a confirmation link is on its way. Open it, and an admin approves your account before you can use your Work Tracker.',
                   { email: sentTo },
                 )
               : t(
@@ -323,10 +323,10 @@ export function SignUpForm({
               <option value="" disabled>
                 {t('Choose your job')}
               </option>
-              <option value="handler">{t('Handler — runs accounts')}</option>
+              <option value="handler">{t('Handler — shoots and verifies videos')}</option>
               <option value="editor">{t('Editor — cuts videos')}</option>
               <option value="both">
-                {t('Both — runs accounts and cuts videos')}
+                {t('Both — shoots, edits and verifies')}
               </option>
             </Select>
           </Field>

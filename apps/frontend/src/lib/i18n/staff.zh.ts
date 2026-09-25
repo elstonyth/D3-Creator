@@ -17,10 +17,10 @@ export const staffZh: Readonly<Record<string, string>> = {
   'For the D3 team: your shoot schedule and your videos. New here? Create a staff account and an admin approves it.':
     '供 D3 团队使用：你的拍摄行程和视频。第一次来？注册员工账号，管理员审批后即可使用。',
   'Create your staff account': '注册员工账号',
-  'Use your own email. An admin approves new accounts before you see the team’s schedule.':
-    '请使用你自己的邮箱。新账号需管理员审批后才能查看团队行程。',
-  'If {email} is new, a confirmation link is on its way. Open it, and an admin approves your account before you see the team’s work.':
-    '如果 {email} 是新邮箱，确认链接已发出。打开链接后，管理员审批通过即可查看团队工作。',
+  'Use your own email. An admin approves new accounts before you can use your Work Tracker.':
+    '请使用你自己的邮箱。新账号需管理员审批后才能使用你的工作看板。',
+  'If {email} is new, a confirmation link is on its way. Open it, and an admin approves your account before you can use your Work Tracker.':
+    '如果 {email} 是新邮箱，确认链接已发出。打开链接后，管理员审批通过即可使用你的工作看板。',
   'D3 team portal. Creators and members sign in at':
     'D3 团队门户。创作者和会员请在此登录：',
   '{email} is already registered. If it is your staff account, sign in. If you use it for D3 classes or the Studio, sign up for staff with a different email.':
@@ -72,16 +72,16 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Almost there': '就快好了',
   'Waiting for an admin': '等待管理员审批',
   'Waiting for approval — D3 Staff': '等待审批 — D3 员工门户',
-  'Your staff account is set up. An admin has to approve it and link it to your name on the work board before you can see the team’s schedule.':
-    '你的员工账号已创建。管理员审批并关联到你在工作看板上的名字后，你才能看到团队行程。',
+  'Your staff account is set up. An admin has to approve it and link it to your name on the work board before you can use your Work Tracker.':
+    '你的员工账号已创建。管理员审批并关联到你在工作看板上的名字后，你才能使用你的工作看板。',
   'Tell your admin you have signed up. This page opens the portal once you are approved — just reload it.':
     '请告诉管理员你已注册。审批通过后刷新此页即可进入门户。',
   'Your name on the board': '你在看板上的名字',
   'How the team knows you, e.g. KEE.': '团队怎么称呼你，例如 KEE。',
   'Your job': '你的职位',
-  'Handler — runs accounts': '负责人——负责运营账号',
+  'Handler — shoots and verifies videos': '负责人——负责拍摄和审核视频',
   'Editor — cuts videos': '剪辑——负责剪视频',
-  'Both — runs accounts and cuts videos': '两者都做——运营账号也剪视频',
+  'Both — shoots, edits and verifies': '两者都做——拍摄、剪辑和审核',
 
   // ---- Video jobs -------------------------------------------------------------
   'Show whose videos': '显示谁的视频',
