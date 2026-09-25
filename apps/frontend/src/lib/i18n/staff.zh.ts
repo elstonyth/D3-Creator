@@ -293,4 +293,8 @@ export const staffZh: Readonly<Record<string, string>> = {
 
   // ---- A finished job or shoot, apart from the Done button that finishes it
   Finished: '已完成',
+
+  // ---- Staff sign-up: no job picked for them
+  'Choose your job': '请选择职位',
+  'Choose your job.': '请选择你的职位。',
 };
