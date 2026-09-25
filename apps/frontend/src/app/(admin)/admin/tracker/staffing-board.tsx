@@ -57,6 +57,7 @@ import {
   setAssignment,
   type ActionResult,
 } from './actions';
+import { ConfirmRemove } from './confirm-remove';
 import { GlassPanel } from './glass-panel';
 import { safeCall } from './safe-call';
 import s from './tracker.module.scss';
@@ -555,7 +556,7 @@ export function StaffingBoard({
               key={m.id}
               name={m.name}
               message={t(
-                'Remove {name}? Accounts they edit go back to Nobody.',
+                'Remove {name}? Accounts they edit go back to Nobody, their open tasks lose their assignee, and their staff login stops working. Their history is kept.',
                 { name: m.name },
               )}
               onConfirm={() => remove(m)}
@@ -633,7 +634,7 @@ export function StaffingBoard({
                   <ConfirmRemove
                     name={col.name}
                     message={t(
-                      'Remove {name}? Their accounts move to Unassigned.',
+                      'Remove {name}? Their accounts move to Unassigned, their open tasks lose their assignee, and their staff login stops working. Their history is kept.',
                       { name: col.name },
                     )}
                     onConfirm={() => remove(col.member!)}
@@ -750,49 +751,6 @@ function Stat({ label, value }: { label: string; value: string }) {
         {label}
       </dt>
       <dd className="text-heading tnum text-fg">{value}</dd>
-    </div>
-  );
-}
-
-/** The inline "are you sure" strip — never `window.confirm` (see above). */
-function ConfirmRemove({
-  name,
-  message,
-  onConfirm,
-  onCancel,
-  className,
-}: {
-  name: string;
-  message: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-  className?: string;
-}) {
-  const { t } = useI18n();
-  return (
-    <div
-      role="group"
-      aria-label={t('Remove {name}', { name })}
-      className={clsx(
-        'flex flex-wrap items-center gap-2 rounded-xl border border-brand/30 bg-brand/10 px-3 py-2 text-caption text-fg',
-        className,
-      )}
-    >
-      <span className="min-w-0 flex-1">{message}</span>
-      <button
-        type="button"
-        onClick={onConfirm}
-        className={clsx(s.pill, s.pillBrand, 'h-8 px-3 text-caption')}
-      >
-        {t('Remove')}
-      </button>
-      <button
-        type="button"
-        onClick={onCancel}
-        className={clsx(s.pill, 'h-8 px-3 text-caption')}
-      >
-        {t('Cancel')}
-      </button>
     </div>
   );
 }

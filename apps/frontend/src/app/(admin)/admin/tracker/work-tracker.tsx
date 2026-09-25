@@ -57,6 +57,7 @@ import {
   updateTask,
   type ActionResult,
 } from './actions';
+import { ConfirmRemove } from './confirm-remove';
 import { EditableTitle } from './editable-title';
 import { GlassPanel } from './glass-panel';
 import { safeCall } from './safe-call';
@@ -506,6 +507,8 @@ function TasksPanel({
   // The row being renamed is not draggable: selecting text in its input
   // would otherwise pick up the whole row.
   const [editingId, setEditingId] = useState<string | null>(null);
+  // The task whose × was clicked; its row asks before deleting.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const open = tasks.filter((x) => !x.done);
   const done = tasks.filter((x) => x.done);
@@ -703,7 +706,7 @@ function TasksPanel({
               }}
               className={cn(
                 s.inset,
-                'flex items-center gap-3 px-3 py-2.5',
+                'flex flex-wrap items-center gap-3 px-3 py-2.5',
                 dragFrom === i && s.dragging,
                 over === i &&
                   dragFrom !== null &&
@@ -721,7 +724,7 @@ function TasksPanel({
               <TaskRow
                 task={task}
                 onToggle={() => toggle(task)}
-                onRemove={() => remove(task)}
+                onRemove={() => setConfirmDeleteId(task.id)}
                 onRename={(title) => rename(task, title)}
                 members={members}
                 onAssign={(id) => assign(task, id)}
@@ -731,6 +734,19 @@ function TasksPanel({
                   )
                 }
               />
+              {confirmDeleteId === task.id ? (
+                <ConfirmRemove
+                  name={task.title}
+                  message={t('Delete “{title}”?', { title: task.title })}
+                  confirmLabel={t('Delete')}
+                  onConfirm={() => {
+                    setConfirmDeleteId(null);
+                    void remove(task);
+                  }}
+                  onCancel={() => setConfirmDeleteId(null)}
+                  className="basis-full"
+                />
+              ) : null}
             </li>
           ))}
           {done.map((task) => (
@@ -738,15 +754,28 @@ function TasksPanel({
               key={task.id}
               className={cn(
                 s.inset,
-                'flex items-center gap-3 px-3 py-2.5 opacity-60',
+                'flex flex-wrap items-center gap-3 px-3 py-2.5 opacity-60',
               )}
             >
               <span aria-hidden className="w-4" />
               <TaskRow
                 task={task}
                 onToggle={() => toggle(task)}
-                onRemove={() => remove(task)}
+                onRemove={() => setConfirmDeleteId(task.id)}
               />
+              {confirmDeleteId === task.id ? (
+                <ConfirmRemove
+                  name={task.title}
+                  message={t('Delete “{title}”?', { title: task.title })}
+                  confirmLabel={t('Delete')}
+                  onConfirm={() => {
+                    setConfirmDeleteId(null);
+                    void remove(task);
+                  }}
+                  onCancel={() => setConfirmDeleteId(null)}
+                  className="basis-full"
+                />
+              ) : null}
             </li>
           ))}
         </ul>
@@ -887,6 +916,8 @@ function EventsPanel({
   const { t } = useI18n();
   const inputId = useId();
   const [draft, setDraft] = useState('');
+  // The event whose × was clicked; its row asks before deleting.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -981,7 +1012,10 @@ function EventsPanel({
           {events.map((ev) => (
             <li
               key={ev.id}
-              className={cn(s.inset, 'flex items-center gap-3 px-4 py-3')}
+              className={cn(
+                s.inset,
+                'flex flex-wrap items-center gap-3 px-4 py-3',
+              )}
             >
               <span
                 aria-hidden
@@ -996,12 +1030,25 @@ function EventsPanel({
               />
               <button
                 type="button"
-                onClick={() => remove(ev)}
+                onClick={() => setConfirmDeleteId(ev.id)}
                 aria-label={t('Delete event')}
                 className="rounded-full p-1 text-fg-subtle transition-colors hover:text-fg"
               >
                 <Cross />
               </button>
+              {confirmDeleteId === ev.id ? (
+                <ConfirmRemove
+                  name={ev.title}
+                  message={t('Delete “{title}”?', { title: ev.title })}
+                  confirmLabel={t('Delete')}
+                  onConfirm={() => {
+                    setConfirmDeleteId(null);
+                    void remove(ev);
+                  }}
+                  onCancel={() => setConfirmDeleteId(null)}
+                  className="basis-full"
+                />
+              ) : null}
             </li>
           ))}
         </ul>

@@ -3,10 +3,11 @@
 import { localizeAdminError } from '../localize-error';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag, type Locale } from '@gitroom/frontend/lib/i18n';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { setUserRole } from './actions';
+import { Button } from '@gitroom/frontend/components/ui/button';
 import { Select } from '@gitroom/frontend/components/ui/input';
 import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { EmptyState } from '@gitroom/frontend/components/ui/empty-state';
@@ -32,6 +33,7 @@ const ROLES: [value: string, label: string][] = [
   ['member', 'Member'],
   ['none', 'None'],
 ];
+const label = (v: string) => ROLES.find(([x]) => x === v)?.[1] ?? v;
 
 // Module scope, and an explicit locale: a client component that formats with
 // the browser's locale renders a different string than the server did and
@@ -53,6 +55,14 @@ export function RoleTable({ rows, selfId }: { rows: Row[]; selfId: string }) {
   const router = useRouter();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  // The role pick waiting for Save: nothing is written on change alone.
+  const [ask, setAsk] = useState<{
+    userId: string;
+    email: string;
+    from: string;
+    to: string;
+    select: HTMLSelectElement;
+  } | null>(null);
 
   async function change(
     userId: string,
@@ -124,61 +134,120 @@ export function RoleTable({ rows, selfId }: { rows: Row[]; selfId: string }) {
             {rows.map((r) => {
               const isSelf = r.user_id === selfId;
               return (
-                <Tr key={r.user_id}>
-                  <Td>
-                    <span className="break-all">{r.email}</span>
-                    {isSelf && (
-                      <span className="ml-2 text-caption text-fg-subtle">
-                        {t('you')}
-                      </span>
-                    )}
-                  </Td>
-                  <Td className="tnum text-fg-muted">
-                    {t(formatJoined(r.created_at, locale))}
-                  </Td>
-                  <Td>
-                    {r.role === 'staff' || r.role === 'staff_pending' ? (
-                      // Staff logins are approved and linked to a person on
-                      // the Team page; a role flip here would skip the link.
-                      <p className="text-body-sm text-fg">
-                        {t(
-                          r.role === 'staff' ? 'Staff' : 'Staff, waiting',
-                        )}{' '}
-                        <Link
-                          href="/admin/team"
-                          className="rounded text-fg-muted underline underline-offset-4 hover:text-fg focus-visible:outline-none focus-visible:shadow-focusRing"
+                <Fragment key={r.user_id}>
+                  <Tr>
+                    <Td>
+                      <span className="break-all">{r.email}</span>
+                      {isSelf && (
+                        <span className="ml-2 text-caption text-fg-subtle">
+                          {t('you')}
+                        </span>
+                      )}
+                    </Td>
+                    <Td className="tnum text-fg-muted">
+                      {t(formatJoined(r.created_at, locale))}
+                    </Td>
+                    <Td>
+                      {r.role === 'staff' || r.role === 'staff_pending' ? (
+                        // Staff logins are approved and linked to a person on
+                        // the Team page; a role flip here would skip the link.
+                        <p className="text-body-sm text-fg">
+                          {t(r.role === 'staff' ? 'Staff' : 'Staff, waiting')}{' '}
+                          <Link
+                            href="/admin/team"
+                            className="rounded text-fg-muted underline underline-offset-4 hover:text-fg focus-visible:outline-none focus-visible:shadow-focusRing"
+                          >
+                            {t('Manage on Team')}
+                          </Link>
+                        </p>
+                      ) : (
+                        <>
+                          <label
+                            htmlFor={`role-${r.user_id}`}
+                            className="sr-only"
+                          >
+                            {t('Role for {email}', { email: r.email })}
+                          </label>
+                          <Select
+                            id={`role-${r.user_id}`}
+                            defaultValue={r.role}
+                            disabled={isSelf || pendingId === r.user_id}
+                            onChange={(e) => {
+                              // Only one question at a time: a pick in another
+                              // row puts the first back.
+                              if (ask && ask.userId !== r.user_id)
+                                ask.select.value = ask.from;
+                              setAsk({
+                                userId: r.user_id,
+                                email: r.email,
+                                from: r.role,
+                                to: e.target.value,
+                                select: e.target,
+                              });
+                            }}
+                          >
+                            {ROLES.map(([value, label]) => (
+                              <option key={value} value={value}>
+                                {t(label)}
+                              </option>
+                            ))}
+                          </Select>
+                          {isSelf && (
+                            <p className="mt-1.5 text-caption text-fg-subtle">
+                              {t('You cannot change your own role.')}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </Td>
+                  </Tr>
+                  {ask?.userId === r.user_id ? (
+                    <tr>
+                      <td colSpan={3} className="px-4 pb-3">
+                        <div
+                          role="group"
+                          className="flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface-subtle px-3 py-2 text-caption text-fg"
                         >
-                          {t('Manage on Team')}
-                        </Link>
-                      </p>
-                    ) : (
-                    <>
-                    <label htmlFor={`role-${r.user_id}`} className="sr-only">
-                      {t('Role for {email}', { email: r.email })}
-                    </label>
-                    <Select
-                      id={`role-${r.user_id}`}
-                      defaultValue={r.role}
-                      disabled={isSelf || pendingId === r.user_id}
-                      onChange={(e) =>
-                        change(r.user_id, e.target.value, e.target, r.role)
-                      }
-                    >
-                      {ROLES.map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {t(label)}
-                        </option>
-                      ))}
-                    </Select>
-                    {isSelf && (
-                      <p className="mt-1.5 text-caption text-fg-subtle">
-                        {t('You cannot change your own role.')}
-                      </p>
-                    )}
-                    </>
-                    )}
-                  </Td>
-                </Tr>
+                          <span className="min-w-0 flex-1">
+                            {t('Change {email} from {from} to {to}?', {
+                              email: ask.email,
+                              from: t(label(ask.from)),
+                              to: t(label(ask.to)),
+                            })}
+                            {ask.to === 'admin' ? (
+                              <span className="block">
+                                {t(
+                                  'Admins can see and change everything in the console.',
+                                )}
+                              </span>
+                            ) : null}
+                          </span>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              const a = ask;
+                              setAsk(null);
+                              void change(a.userId, a.to, a.select, a.from);
+                            }}
+                          >
+                            {t('Save')}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            autoFocus
+                            onClick={() => {
+                              ask.select.value = ask.from;
+                              setAsk(null);
+                            }}
+                          >
+                            {t('Cancel')}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : null}
+                </Fragment>
               );
             })}
           </tbody>

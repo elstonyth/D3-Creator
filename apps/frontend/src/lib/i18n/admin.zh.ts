@@ -421,10 +421,6 @@ export const adminZh: Record<string, string> = {
   Editors: '剪辑人员',
   Handlers: '负责人',
   'No editors yet.': '还没有剪辑人员。',
-  'Remove {name}? Accounts they edit go back to Nobody.':
-    '移除 {name}？其剪辑的账号将改为“无”。',
-  'Remove {name}? Their accounts move to Unassigned.':
-    '移除 {name}？其负责的账号将变为未分配。',
   'Remove {name}': '移除 {name}',
   Videos: '视频',
   'Edits {count} accounts · {videos} videos':
@@ -447,6 +443,14 @@ export const adminZh: Record<string, string> = {
   Handler: '负责人',
   Editor: '剪辑',
   'Handler & editor': '负责人兼剪辑',
+  'Remove {name}? Accounts they edit go back to Nobody, their open tasks lose their assignee, and their staff login stops working. Their history is kept.':
+    '移除 {name}？其剪辑的账号将改为“无”，未完成的任务将取消指派，员工账号也将无法登录。历史记录会保留。',
+  'Remove {name}? Their accounts move to Unassigned, their open tasks lose their assignee, and their staff login stops working. Their history is kept.':
+    '移除 {name}？其负责的账号将移到“未分配”，未完成的任务将取消指派，员工账号也将无法登录。历史记录会保留。',
+  'Delete “{title}”?': '删除“{title}”？',
+  'Change {email} from {from} to {to}?': '将 {email} 从{from}改为{to}？',
+  'Admins can see and change everything in the console.':
+    '管理员可以查看并修改控制台中的所有内容。',
   Nobody: '无',
   'Scheduled posting': '定时发布',
   'Move {name} up': '上移 {name}',
