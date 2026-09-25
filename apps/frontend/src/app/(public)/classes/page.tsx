@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { getSupabaseRoute } from '@gitroom/frontend/lib/supabase-route';
 import { getAuthContext, isStudioMember } from '@gitroom/frontend/lib/auth';
 import { deriveSeriesLabel } from '@gitroom/frontend/lib/class-series';
+import { CONTACT_EMAIL } from '@gitroom/frontend/lib/site';
 import { Container, Section } from '@gitroom/frontend/components/ui/section';
 import { Badge } from '@gitroom/frontend/components/ui/badge';
 import { ButtonLink } from '@gitroom/frontend/components/ui/button';
@@ -114,13 +115,18 @@ export default async function ClassesPage() {
                     {t('Member sessions are not listed here')}{' '}
                   </p>
                   <p className="mt-1.5 max-w-prose text-body text-fg-muted">
-                    {signedOut
-                      ? t(
-                          'You are seeing the classes we publish openly. Sign in with your member account to see the rest of the library.',
-                        )
-                      : t(
+                    {signedOut ? (
+                      t(
+                        'You are seeing the classes we publish openly. Sign in with your member account to see the rest of the library.',
+                      )
+                    ) : (
+                      <>
+                        {t(
                           'Your account doesn’t have member access. If you think it should, contact the D3 team.',
                         )}{' '}
+                        <ContactLink />
+                      </>
+                    )}{' '}
                   </p>
                 </div>
               </div>
@@ -163,9 +169,14 @@ export default async function ClassesPage() {
               <EmptyState
                 icon={<LockGlyph className="h-5 w-5" />}
                 title={t('Classes are for D3 members')}
-                description={t(
-                  'Your account doesn’t have member access. If you think it should, contact the D3 team.',
-                )}
+                description={
+                  <>
+                    {t(
+                      'Your account doesn’t have member access. If you think it should, contact the D3 team.',
+                    )}{' '}
+                    <ContactLink />
+                  </>
+                }
                 action={{ href: '/', label: t('Back to the showcase') }}
               />
             )
@@ -264,6 +275,19 @@ export default async function ClassesPage() {
         </div>
       </Container>
     </Section>
+  );
+}
+
+// Styled like the inline links on the auth pages: DESIGN.md keeps yellow for
+// the one primary action in a view.
+function ContactLink() {
+  return (
+    <a
+      href={`mailto:${CONTACT_EMAIL}`}
+      className="rounded text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
+    >
+      {CONTACT_EMAIL}
+    </a>
   );
 }
 
