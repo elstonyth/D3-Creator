@@ -25,7 +25,7 @@ interface PageProps {
   searchParams: Promise<{ week?: string }>;
 }
 
-/** This week's shoots: the whole team's, yours editable. */
+/** This week's shoots: the whole team's, yours to change and pass on. */
 export default async function StaffSchedulePage({ searchParams }: PageProps) {
   const { t } = await getI18n();
   const staff = await getStaffContext();
@@ -49,12 +49,10 @@ export default async function StaffSchedulePage({ searchParams }: PageProps) {
       <Section space="sm" className="space-y-8">
         <header className="max-w-prose">
           <p className="text-micro uppercase text-fg-subtle">{t('Schedule')}</p>
-          <h1 className="mt-3 text-display-2 text-fg">
-            {t('Shoot schedule')}
-          </h1>
+          <h1 className="mt-3 text-display-2 text-fg">{t('Shoot schedule')}</h1>
           <p className="mt-3 text-body-lg text-fg-muted">
             {t(
-              'When and where everyone is shooting this week. Add yours — the team and the admin see it straight away.',
+              'Add your shoots for the week. After a shoot, click Pass videos on it and give each video to an editor.',
             )}
           </p>
         </header>
@@ -66,11 +64,7 @@ export default async function StaffSchedulePage({ searchParams }: PageProps) {
             start={start}
             today={today}
             shoots={data[0]}
-            people={data[1].map(({ id, name, archived }) => ({
-              id,
-              name,
-              archived,
-            }))}
+            people={data[1]}
             accounts={data[2].map(({ id, name }) => ({ id, name }))}
             meId={staff.memberId}
             basePath={basePath}

@@ -33,8 +33,6 @@ export async function generateMetadata(): Promise<Metadata> {
 const NAV = [
   { path: '/', label: 'My work', exact: true },
   { path: '/schedule', label: 'Schedule' },
-  { path: '/accounts', label: 'My accounts' },
-  { path: '/history', label: 'History' },
 ];
 
 /**

@@ -3,13 +3,11 @@ import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import { monthRange, todayKey } from '@gitroom/frontend/lib/tracker';
 import { getStaffContext } from '@gitroom/frontend/lib/team/staff-context';
 import {
-  loadMyTasks,
   loadPeople,
   loadRoster,
   loadVideos,
 } from '@gitroom/frontend/lib/team/load';
 import { Container, Section } from '@gitroom/frontend/components/ui/section';
-import { MyTasks } from '@gitroom/frontend/components/team/my-tasks';
 import { VideoBoard } from '@gitroom/frontend/components/team/video-board';
 import { NotLinked } from '@gitroom/frontend/components/team/not-linked';
 
@@ -21,8 +19,9 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * The staff home: what the admin gave you. Tasks to tick off, and the video
- * jobs you edit or post — Done with a link when your step is finished.
+ * The staff home: the videos in your hands. Ones to edit, cuts to verify
+ * from shoots you passed on, those still with their editor, and what you
+ * finished this month.
  */
 export default async function StaffWorkPage() {
   const { t } = await getI18n();
@@ -31,7 +30,6 @@ export default async function StaffWorkPage() {
 
   const data = staff
     ? await Promise.all([
-        loadMyTasks(staff.memberId),
         loadVideos(
           new Date(monthRange(month).from).toISOString(),
           staff.memberId,
@@ -51,25 +49,19 @@ export default async function StaffWorkPage() {
           </h1>
           <p className="mt-3 text-body-lg text-fg-muted">
             {t(
-              'What the admin gave you. When your part of a video is finished, click Done and paste the link — the admin sees it straight away.',
+              'Edit a video, then click Done. Videos you passed on come back here to verify once their editor is done.',
             )}
           </p>
         </header>
 
         {staff && data ? (
-          <>
-            <MyTasks tasks={data[0]} />
-            <section aria-label={t('Videos')} className="space-y-3">
-              <h2 className="text-subsection text-fg">{t('Videos')}</h2>
-              <VideoBoard
-                videos={data[1]}
-                people={data[2]}
-                accounts={data[3].map(({ id, name }) => ({ id, name }))}
-                meId={staff.memberId}
-                month={month}
-              />
-            </section>
-          </>
+          <VideoBoard
+            videos={data[0]}
+            people={data[1]}
+            accounts={data[2].map(({ id, name }) => ({ id, name }))}
+            meId={staff.memberId}
+            month={month}
+          />
         ) : (
           <NotLinked />
         )}

@@ -1,18 +1,20 @@
 'use server';
 
 /**
- * Shoot mutations for the staff portal and the admin console.
+ * Shoot mutations for the staff portal. Staff only: the admin console shows
+ * the schedule but changes none of it, so an admin is refused here like
+ * anyone else who is not staff (asActor).
  *
- * Two kinds of caller. An admin may act on anyone's shoots and picks the
- * person when adding one. A staff member only ever writes their own: the
- * person comes from their session (requireStaff), never from the browser,
- * and every update or delete is filtered by it, so an id belonging to
- * someone else simply matches nothing. Staff also stay inside this month and
- * later: a month that has been counted is changed only by an admin.
+ * A staff member only ever writes their own shoots: the person comes from
+ * their session (requireStaff), never from the browser, and every write is
+ * filtered by it, so an id belonging to someone else simply matches nothing.
+ * Changing, cancelling and deleting also stay inside this month and later: a
+ * month that has been counted is closed. Passing videos on is the exception
+ * — a shoot's videos can be passed on whenever they are ready.
  *
- * Every input is validated here (parseShootInput) as well as by the table,
- * so a refusal reads as a sentence. No revalidatePath: the pages are
- * dynamic and the schedule keeps its own optimistic state, so re-rendering
+ * Every input is validated here (parseShootInput, parsePassInput) as well as
+ * by the database, so a refusal reads as a sentence. No revalidatePath: the
+ * pages are dynamic and the schedule keeps its own state, so re-rendering
  * the page inside every action would only slow the save down.
  */
 
@@ -21,14 +23,11 @@ import { isUuid } from '@gitroom/frontend/lib/ids';
 import { todayKey } from '@gitroom/frontend/lib/tracker';
 import { asActor } from './actor';
 import { dbError } from './db-error';
+import { onBoard } from './on-board';
 import { rowToShoot, SHOOT_COLS, type ShootRow } from './shoot-rows';
-import {
-  isShootStatus,
-  parseCount,
-  parseShootInput,
-  shootPatch,
-  type Shoot,
-} from './shoots';
+import { parseShootInput, shootPatch, type Shoot } from './shoots';
+import { rowToVideo, type VideoRow } from './video-rows';
+import { parsePassInput, PASS_REFUSALS, type Video } from './videos';
 
 export interface ShootResult {
   ok: boolean;
@@ -37,48 +36,41 @@ export interface ShootResult {
   shoot?: Shoot;
 }
 
-const NOT_YOURS =
-  'You can only change your own shoots, from this month on. Ask an admin.';
-const GONE = 'That shoot is already gone.';
-const CLOSED = 'Shoots before this month are closed. Ask an admin.';
+export interface PassResult extends ShootResult {
+  /** The videos just passed on. */
+  videos?: Video[];
+}
+
+const NOT_YOURS = 'That shoot is not yours to change, or it has moved on.';
+const CLOSED = 'Shoots before this month are closed.';
 
 /** First day of this month in the tracker's time zone, `YYYY-MM-DD`. */
 const monthStart = () => `${todayKey().slice(0, 7)}-01`;
 
-export async function addShoot(
-  input: unknown,
-  memberId?: string,
-): Promise<ShootResult> {
+function one(res: {
+  data: unknown[] | null;
+  error: { message: string } | null;
+}): ShootResult {
+  if (res.error) return dbError('shoot', res.error);
+  if (!res.data || res.data.length === 0)
+    return { ok: false, message: NOT_YOURS };
+  return { ok: true, shoot: rowToShoot(res.data[0] as ShootRow) };
+}
+
+export async function addShoot(input: unknown): Promise<ShootResult> {
   return asActor(async (a): Promise<ShootResult> => {
     const p = parseShootInput(input);
     if (!p.ok) return p;
-    const admin = getSupabaseAdmin();
-    // Staff always write their own; only an admin chooses the person.
-    const member = a.memberId ?? memberId;
-    if (!isUuid(member)) return { ok: false, message: 'Pick a person.' };
-    if (a.memberId === null) {
-      const { data, error } = await admin
-        .from('tracker_member')
-        .select('id')
-        .eq('id', member)
-        .is('archived_at', null)
-        .maybeSingle();
-      if (error) return dbError('addShoot', error);
-      if (!data)
-        return { ok: false, message: 'That person is not on the board.' };
-    }
     const v = p.value;
-    if (a.memberId && v.date < monthStart())
-      return { ok: false, message: CLOSED };
-    const { data, error } = await admin
+    if (v.date < monthStart()) return { ok: false, message: CLOSED };
+    const { data, error } = await getSupabaseAdmin()
       .from('tracker_shoot')
       .insert({
-        member_id: member,
+        member_id: a.memberId,
         shoot_date: v.date,
         start_time: v.time,
         title: v.title,
         creator_id: v.creatorId,
-        videos_planned: v.videosPlanned,
         note: v.note,
         created_by: a.userId,
       })
@@ -89,7 +81,7 @@ export async function addShoot(
   });
 }
 
-/** Change what was filled in: day, time, where/what, account, count, note. */
+/** Change what was filled in: day, time, where/what, account, note. */
 export async function updateShoot(
   id: string,
   input: unknown,
@@ -101,76 +93,122 @@ export async function updateShoot(
     const p = parseShootInput(input);
     if (!p.ok) return p;
     const v = p.value;
-    if (a.memberId && v.date < monthStart())
-      return { ok: false, message: CLOSED };
+    if (v.date < monthStart()) return { ok: false, message: CLOSED };
     const patch = shootPatch(v, before);
-    const answer = (res: {
-      data: unknown[] | null;
-      error: { message: string } | null;
-    }): ShootResult => {
-      if (res.error) return dbError('updateShoot', res.error);
-      if (!res.data || res.data.length === 0)
-        return { ok: false, message: a.memberId ? NOT_YOURS : GONE };
-      return { ok: true, shoot: rowToShoot(res.data[0] as ShootRow) };
-    };
     const admin = getSupabaseAdmin();
-    if (Object.keys(patch).length === 0) {
+    if (Object.keys(patch).length === 0)
       // Nothing changed: hand back the shoot as it is now.
-      let r = admin.from('tracker_shoot').select(SHOOT_COLS).eq('id', id);
-      if (a.memberId)
-        r = r.eq('member_id', a.memberId).gte('shoot_date', monthStart());
-      return answer(await r);
-    }
-    let q = admin.from('tracker_shoot').update(patch).eq('id', id);
-    if (a.memberId)
-      q = q.eq('member_id', a.memberId).gte('shoot_date', monthStart());
-    return answer(await q.select(SHOOT_COLS));
+      return one(
+        await admin
+          .from('tracker_shoot')
+          .select(SHOOT_COLS)
+          .eq('id', id)
+          .eq('member_id', a.memberId)
+          .gte('shoot_date', monthStart()),
+      );
+    return one(
+      await admin
+        .from('tracker_shoot')
+        .update(patch)
+        .eq('id', id)
+        .eq('member_id', a.memberId)
+        .gte('shoot_date', monthStart())
+        .select(SHOOT_COLS),
+    );
   });
 }
 
 /**
- * Mark a shoot done (with how many videos came out of it), cancelled, or
- * back to planned. The count is kept only for a done shoot.
+ * Cancel a planned shoot, or reopen a cancelled one. A shoot is done only by
+ * passing its videos on, and a done shoot stays done.
  */
 export async function setShootStatus(
   id: string,
   status: string,
-  videosShot: unknown,
 ): Promise<ShootResult> {
   return asActor(async (a): Promise<ShootResult> => {
     if (!isUuid(id)) return { ok: false, message: 'Invalid shoot.' };
-    if (!isShootStatus(status))
+    if (status !== 'planned' && status !== 'cancelled')
       return { ok: false, message: 'Invalid status.' };
-    const shot = status === 'done' ? parseCount(videosShot) : null;
-    if (shot === undefined)
-      return {
-        ok: false,
-        message: 'Videos must be a whole number from 0 to 99.',
-      };
-    let q = getSupabaseAdmin()
-      .from('tracker_shoot')
-      .update({ status, videos_shot: shot })
-      .eq('id', id);
-    if (a.memberId)
-      q = q.eq('member_id', a.memberId).gte('shoot_date', monthStart());
-    const { data, error } = await q.select(SHOOT_COLS);
-    if (error) return dbError('setShootStatus', error);
-    if (!data || data.length === 0)
-      return { ok: false, message: a.memberId ? NOT_YOURS : GONE };
-    return { ok: true, shoot: rowToShoot(data[0] as ShootRow) };
+    return one(
+      await getSupabaseAdmin()
+        .from('tracker_shoot')
+        .update({ status })
+        .eq('id', id)
+        .eq('member_id', a.memberId)
+        .eq('status', status === 'cancelled' ? 'planned' : 'cancelled')
+        .gte('shoot_date', monthStart())
+        .select(SHOOT_COLS),
+    );
   });
 }
 
 export async function deleteShoot(id: string): Promise<ShootResult> {
   return asActor(async (a): Promise<ShootResult> => {
     if (!isUuid(id)) return { ok: false, message: 'Invalid shoot.' };
-    let q = getSupabaseAdmin().from('tracker_shoot').delete().eq('id', id);
-    if (a.memberId)
-      q = q.eq('member_id', a.memberId).gte('shoot_date', monthStart());
-    const { data, error } = await q.select('id');
+    const { data, error } = await getSupabaseAdmin()
+      .from('tracker_shoot')
+      .delete()
+      .eq('id', id)
+      .eq('member_id', a.memberId)
+      .gte('shoot_date', monthStart())
+      .select('id');
     if (error) return dbError('deleteShoot', error);
-    if (!data || data.length === 0)
-      return { ok: false, message: a.memberId ? NOT_YOURS : GONE };
+    if (!data || data.length === 0) return { ok: false, message: NOT_YOURS };
     return { ok: true };
+  });
+}
+
+/**
+ * After a shoot: pass its videos on, one row per video, each to an editor.
+ * The caller becomes every video's handler, and the shoot is marked done
+ * with how many videos have come out of it. Passing again adds more.
+ *
+ * tracker_pass_shoot does all of it in one transaction and re-checks
+ * everything: that the shoot is the caller's and not cancelled, the rows,
+ * and that each editor is on the team and cuts video.
+ */
+export async function passVideos(
+  shootId: string,
+  input: unknown,
+): Promise<PassResult> {
+  return asActor(async (a): Promise<PassResult> => {
+    if (!isUuid(shootId)) return { ok: false, message: 'Invalid shoot.' };
+    const p = parsePassInput(input);
+    if (!p.ok) return p;
+    const rows = p.value;
+    if (
+      !(await onBoard(
+        rows.map((r) => r.editorId),
+        ['editor', 'both'],
+      ))
+    )
+      return { ok: false, message: PASS_REFUSALS.offBoard };
+    const admin = getSupabaseAdmin();
+    const { data, error } = await admin.rpc('tracker_pass_shoot', {
+      p_shoot_id: shootId,
+      p_member_id: a.memberId,
+      p_user_id: a.userId,
+      // The function reads snake_case keys.
+      p_videos: rows.map((r) => ({ title: r.title, editor_id: r.editorId })),
+    });
+    if (error) {
+      // The function's own refusals are sentences meant for the screen.
+      const known: string[] = Object.values(PASS_REFUSALS);
+      return known.includes(error.message)
+        ? { ok: false, message: error.message }
+        : dbError('passVideos', error);
+    }
+    const shoot = await admin
+      .from('tracker_shoot')
+      .select(SHOOT_COLS)
+      .eq('id', shootId)
+      .single();
+    if (shoot.error) return dbError('passVideos', shoot.error);
+    return {
+      ok: true,
+      shoot: rowToShoot(shoot.data as ShootRow),
+      videos: ((data ?? []) as VideoRow[]).map(rowToVideo),
+    };
   });
 }

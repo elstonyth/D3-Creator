@@ -3,59 +3,71 @@
 /**
  * One week of shoots, Monday to Sunday — the team's group-chat schedule as a
  * page. Used by the staff portal (everyone's shoots visible, only your own
- * editable) and the admin console's Schedule page (everything editable, a
- * person picked when adding).
+ * changeable) and, read-only, by the admin console's Schedule page.
+ *
+ * After a shoot its owner passes the videos on from its card: one row per
+ * video, each given to an editor. That marks the shoot done; passing again
+ * adds more.
  *
  * Saves wait for the server rather than guessing: a shoot needs its real id
  * and the server's validation, and each save is a single small write, so the
  * form simply stays open with the reason when one is refused.
  *
- * Staff work from this month on; earlier shoots are read-only to them (the
- * server enforces it too), because a counted month is changed by an admin.
+ * Staff change, cancel and delete from this month on; earlier shoots are
+ * closed (the server enforces it too), because a counted month stays put.
+ * Passing videos on has no such limit.
  */
 
-import { useMemo, useState, type FormEvent } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
 import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { Pill } from './pill';
 import { Button, ButtonLink } from '@gitroom/frontend/components/ui/button';
-import { Field, Input, Select } from '@gitroom/frontend/components/ui/input';
-import { addDays } from '@gitroom/frontend/lib/tracker';
+import { Select } from '@gitroom/frontend/components/ui/input';
+import { addDays, type MemberKind } from '@gitroom/frontend/lib/tracker';
 import {
   sortShoots,
   weekDays,
   weekStart,
   type Shoot,
-  type ShootStatus,
 } from '@gitroom/frontend/lib/team/shoots';
+import { isEditorKind, type PassRow } from '@gitroom/frontend/lib/team/videos';
 import {
   addShoot,
   deleteShoot,
+  passVideos,
   setShootStatus,
   updateShoot,
   type ShootResult,
 } from '@gitroom/frontend/lib/team/shoot-actions';
 import { draftOf, ShootForm, type ShootDraft } from './shoot-form';
+import { PassVideosForm } from './pass-videos-form';
 
 export interface WeekScheduleProps {
   /** Monday, `YYYY-MM-DD`. */
   start: string;
   today: string;
   shoots: Shoot[];
-  /** Everyone who is or was on the board — names for every shoot. */
-  people: { id: string; name: string; archived: boolean }[];
+  /**
+   * Everyone who is or was on the board — names for every shoot, and the
+   * editors a shoot's videos can be passed to.
+   */
+  people: { id: string; name: string; kind: MemberKind; archived: boolean }[];
   accounts: { id: string; name: string }[];
-  /** The staff member's own person; null when an admin is looking. */
+  /** The staff member's own person; null on the admin's view. */
   meId: string | null;
+  /** The admin's view: the whole team's week, with nothing to change. */
+  readOnly?: boolean;
   /** The page the week links point at (`?week=` is added). */
   basePath: string;
 }
 
+type ItemStep = 'edit' | 'pass' | 'delete';
 type Open =
   | { kind: 'add'; date: string }
-  | { kind: 'edit' | 'done' | 'delete'; id: string }
+  | { kind: ItemStep; id: string }
   | null;
 
 function fmt(
@@ -75,12 +87,14 @@ export function WeekSchedule({
   people,
   accounts,
   meId,
+  readOnly = false,
   basePath,
 }: WeekScheduleProps) {
   const { t, locale } = useI18n();
   const router = useRouter();
   const tag = localeTag(locale);
-  const isAdmin = meId === null;
+  // Whose shoots can be changed here: nobody's on the admin's view.
+  const me = readOnly ? null : meId;
   const [shoots, setShoots] = useState(initialShoots);
   // 'all', or a person's id.
   const [filter, setFilter] = useState('all');
@@ -98,6 +112,10 @@ export function WeekSchedule({
     [accounts],
   );
   const onBoard = useMemo(() => people.filter((p) => !p.archived), [people]);
+  const editors = useMemo(
+    () => onBoard.filter((p) => isEditorKind(p.kind)),
+    [onBoard],
+  );
   const archived = useMemo(
     () => new Set(people.filter((p) => p.archived).map((p) => p.id)),
     [people],
@@ -111,8 +129,6 @@ export function WeekSchedule({
   const shown = shoots.filter((s) => filter === 'all' || s.memberId === filter);
   // First day of this month: staff change nothing dated before it.
   const monthStart = `${today.slice(0, 7)}-01`;
-  const canEdit = (s: Shoot) =>
-    isAdmin || (s.memberId === meId && s.date >= monthStart);
   const weekHref = (monday: string) => `${basePath}?week=${monday}`;
   const thisWeek = weekStart(today);
 
@@ -160,7 +176,6 @@ export function WeekSchedule({
     time: d.time,
     title: d.title,
     creatorId: d.creatorId,
-    videosPlanned: d.videosPlanned,
     note: d.note,
   });
   const replace = (next: Shoot) =>
@@ -169,7 +184,7 @@ export function WeekSchedule({
   const add = (day: string, d: ShootDraft) =>
     save(
       `add:${day}`,
-      () => addShoot(input(d), isAdmin ? d.memberId : undefined),
+      () => addShoot(input(d)),
       (r) => setShoots((p) => sortShoots([...p, r.shoot!])),
       open,
     );
@@ -180,13 +195,19 @@ export function WeekSchedule({
       (r) => replace(r.shoot!),
       open,
     );
-  // Done comes from its small form; Cancel shoot and Reopen are one click.
-  const status = (s: Shoot, next: ShootStatus, videosShot: string | null) =>
+  // Cancel shoot and Reopen are one click.
+  const status = (s: Shoot, next: 'planned' | 'cancelled') =>
     save(
       s.id,
-      () => setShootStatus(s.id, next, videosShot),
+      () => setShootStatus(s.id, next),
       (r) => replace(r.shoot!),
-      next === 'done' ? open : null,
+    );
+  const pass = (s: Shoot, rows: PassRow[]) =>
+    save(
+      s.id,
+      () => passVideos(s.id, rows),
+      (r) => replace(r.shoot!),
+      open,
     );
   const remove = (s: Shoot) =>
     save(
@@ -229,7 +250,7 @@ export function WeekSchedule({
           ) : null}
         </div>
 
-        {isAdmin ? (
+        {me === null ? (
           <div className="w-full sm:w-56">
             <label htmlFor="schedule-person" className="sr-only">
               {t('Show whose shoots')}
@@ -263,9 +284,9 @@ export function WeekSchedule({
             </Button>
             <Button
               size="sm"
-              variant={filter === meId ? 'secondary' : 'ghost'}
-              aria-pressed={filter === meId}
-              onClick={() => setFilter(meId!)}
+              variant={filter === me ? 'secondary' : 'ghost'}
+              aria-pressed={filter === me}
+              onClick={() => setFilter(me)}
             >
               {t('Mine')}
             </Button>
@@ -278,7 +299,7 @@ export function WeekSchedule({
           const list = shown.filter((s) => s.date === day);
           const isToday = day === today;
           const adding = open?.kind === 'add' && open.date === day;
-          const canAdd = isAdmin || day >= monthStart;
+          const canAdd = me !== null && day >= monthStart;
           return (
             <section
               key={day}
@@ -321,10 +342,9 @@ export function WeekSchedule({
               {adding ? (
                 <div className="mb-3">
                   <ShootForm
-                    initial={draftOf(null, day, filter === 'all' ? '' : filter)}
+                    initial={draftOf(null, day)}
                     accounts={accounts}
-                    people={isAdmin ? onBoard : undefined}
-                    minDate={isAdmin ? undefined : monthStart}
+                    minDate={monthStart}
                     saving={saving}
                     error={errorAt(`add:${day}`)}
                     onSave={(d) => add(day, d)}
@@ -345,7 +365,7 @@ export function WeekSchedule({
                         <ShootForm
                           initial={draftOf(s, s.date)}
                           accounts={accounts}
-                          minDate={isAdmin ? undefined : monthStart}
+                          minDate={monthStart}
                           saving={saving}
                           error={errorAt(s.id)}
                           onSave={(d) => edit(s, d)}
@@ -362,8 +382,12 @@ export function WeekSchedule({
                             ? (accountOf.get(s.creatorId) ?? null)
                             : null
                         }
-                        showPerson={isAdmin || s.memberId !== meId}
-                        editable={canEdit(s)}
+                        showPerson={s.memberId !== me}
+                        mine={s.memberId === me}
+                        // Change, cancel, reopen, delete: from this month
+                        // on. Passing videos on: any day.
+                        changeable={s.memberId === me && s.date >= monthStart}
+                        editors={editors}
                         open={
                           open && 'id' in open && open.id === s.id
                             ? open.kind
@@ -376,7 +400,8 @@ export function WeekSchedule({
                           setOpen({ kind, id: s.id });
                         }}
                         onClose={close}
-                        onStatus={(next, shot) => status(s, next, shot)}
+                        onStatus={(next) => status(s, next)}
+                        onPass={(rows) => pass(s, rows)}
                         onDelete={() => remove(s)}
                       />
                     ),
@@ -396,51 +421,42 @@ function ShootItem({
   person,
   account,
   showPerson,
-  editable,
+  mine,
+  changeable,
+  editors,
   open,
   saving,
   error,
   onOpen,
   onClose,
   onStatus,
+  onPass,
   onDelete,
 }: {
   shoot: Shoot;
   person: string;
   account: string | null;
   showPerson: boolean;
-  editable: boolean;
-  open: 'add' | 'edit' | 'done' | 'delete' | null;
+  /** Mine: its videos can be passed on, unless it was cancelled. */
+  mine: boolean;
+  /** Mine and not in a closed month: can be changed, cancelled, deleted. */
+  changeable: boolean;
+  /** Who its videos can be given to. */
+  editors: { id: string; name: string }[];
+  open: 'add' | ItemStep | null;
   saving: boolean;
   /** Why the last save on this shoot was refused. */
   error: string | null;
-  onOpen: (kind: 'edit' | 'done' | 'delete') => void;
+  onOpen: (kind: ItemStep) => void;
   onClose: () => void;
-  onStatus: (next: ShootStatus, videosShot: string | null) => void;
+  onStatus: (next: 'planned' | 'cancelled') => void;
+  onPass: (rows: PassRow[]) => void;
   onDelete: () => void;
 }) {
   const { t } = useI18n();
-  // Starts from what was shot, else what was planned.
-  const saved =
-    s.videosShot == null
-      ? s.videosPlanned == null
-        ? ''
-        : String(s.videosPlanned)
-      : String(s.videosShot);
-  const [shot, setShot] = useState(saved);
   const cancelled = s.status === 'cancelled';
-  const meta = [
-    showPerson ? person : null,
-    account,
-    s.videosPlanned != null
-      ? t('{count} videos planned', { count: s.videosPlanned })
-      : null,
-  ].filter(Boolean);
-
-  function markDone(e: FormEvent) {
-    e.preventDefault();
-    onStatus('done', shot);
-  }
+  const canPass = mine && !cancelled;
+  const meta = [showPerson ? person : null, account].filter(Boolean);
 
   return (
     <li className="rounded-lg border border-line bg-surface-subtle p-3">
@@ -471,9 +487,7 @@ function ShootItem({
         </div>
         {s.status === 'done' ? (
           <Pill className="shrink-0">
-            {s.videosShot != null
-              ? t('Finished · {count} videos', { count: s.videosShot })
-              : t('Finished')}
+            {t('{count} videos passed', { count: s.videosShot ?? 0 })}
           </Pill>
         ) : cancelled ? (
           <Pill tone="muted" className="shrink-0">
@@ -482,39 +496,15 @@ function ShootItem({
         ) : null}
       </div>
 
-      {editable && open === 'done' ? (
-        <form
-          onSubmit={markDone}
-          className="mt-3 flex flex-wrap items-end gap-2"
-        >
-          <div className="w-28">
-            <Field label={t('Videos shot')} htmlFor={`shot-${s.id}`}>
-              <Input
-                id={`shot-${s.id}`}
-                type="number"
-                inputMode="numeric"
-                min={0}
-                max={99}
-                step={1}
-                value={shot}
-                onChange={(e) => setShot(e.target.value)}
-                autoFocus
-              />
-            </Field>
-          </div>
-          <Button type="submit" size="sm" loading={saving}>
-            {t('Mark done')}
-          </Button>
-          <Button type="button" size="sm" variant="ghost" onClick={onClose}>
-            {t('Cancel')}
-          </Button>
-          {error ? (
-            <div className="w-full">
-              <Alert tone="danger">{error}</Alert>
-            </div>
-          ) : null}
-        </form>
-      ) : editable && open === 'delete' ? (
+      {canPass && open === 'pass' ? (
+        <PassVideosForm
+          editors={editors}
+          saving={saving}
+          error={error}
+          onSave={onPass}
+          onCancel={onClose}
+        />
+      ) : changeable && open === 'delete' ? (
         <div className="mt-3 space-y-2">
           <div
             role="group"
@@ -522,7 +512,11 @@ function ShootItem({
             className="flex flex-wrap items-center gap-2 text-caption text-fg"
           >
             <span className="min-w-0 flex-1">
-              {t('Delete this shoot for good?')}
+              {s.status === 'done'
+                ? t(
+                    'Delete this shoot for good? The videos passed on from it stay.',
+                  )
+                : t('Delete this shoot for good?')}
             </span>
             <Button
               size="sm"
@@ -538,61 +532,60 @@ function ShootItem({
           </div>
           {error ? <Alert tone="danger">{error}</Alert> : null}
         </div>
-      ) : editable ? (
+      ) : changeable || canPass ? (
         <div className="mt-2 flex flex-wrap justify-end gap-1">
-          {!cancelled ? (
+          {changeable && !cancelled ? (
             <Button
               size="sm"
               variant="ghost"
               onClick={() => onOpen('edit')}
-              aria-label={t('Edit {title}', { title: s.title })}
+              aria-label={t('Change {title}', { title: s.title })}
             >
-              {t('Edit')}
+              {t('Change')}
             </Button>
           ) : null}
-          {s.status === 'planned' ? (
-            <>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  // Start from what is saved, not an abandoned draft.
-                  setShot(saved);
-                  onOpen('done');
-                }}
-                aria-label={t('Done: {title}', { title: s.title })}
-              >
-                {t('Done')}
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={saving}
-                onClick={() => onStatus('cancelled', null)}
-                aria-label={t('Cancel shoot: {title}', { title: s.title })}
-              >
-                {t('Cancel shoot')}
-              </Button>
-            </>
-          ) : (
+          {canPass ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => onOpen('pass')}
+              aria-label={t('Pass videos: {title}', { title: s.title })}
+            >
+              {t('Pass videos')}
+            </Button>
+          ) : null}
+          {changeable && s.status === 'planned' ? (
             <Button
               size="sm"
               variant="ghost"
               disabled={saving}
-              onClick={() => onStatus('planned', null)}
+              onClick={() => onStatus('cancelled')}
+              aria-label={t('Cancel shoot: {title}', { title: s.title })}
+            >
+              {t('Cancel shoot')}
+            </Button>
+          ) : null}
+          {changeable && cancelled ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={saving}
+              onClick={() => onStatus('planned')}
               aria-label={t('Reopen {title}', { title: s.title })}
             >
               {t('Reopen')}
             </Button>
-          )}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => onOpen('delete')}
-            aria-label={t('Delete {title}', { title: s.title })}
-          >
-            {t('Delete')}
-          </Button>
+          ) : null}
+          {changeable ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onOpen('delete')}
+              aria-label={t('Delete {title}', { title: s.title })}
+            >
+              {t('Delete')}
+            </Button>
+          ) : null}
           {/* A one-click change (Cancel shoot, Reopen) that was refused. */}
           {error ? (
             <div className="w-full">

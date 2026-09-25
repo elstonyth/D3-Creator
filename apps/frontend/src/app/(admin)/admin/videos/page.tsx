@@ -4,7 +4,6 @@ import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { monthRange, todayKey } from '@gitroom/frontend/lib/tracker';
 import {
-  loadAssignments,
   loadPeople,
   loadRoster,
   loadVideos,
@@ -21,8 +20,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * Every video job: give one out, see it move from the editor's Done to the
- * handler's Done, and open the links they pasted.
+ * Every video in hand, read-only: who is editing it now, who is to verify
+ * it, and what was verified this month, with the links the editors pasted.
  */
 export default async function AdminVideosPage() {
   const { t } = await getI18n();
@@ -31,11 +30,10 @@ export default async function AdminVideosPage() {
   if (auth.role !== 'admin') redirect('/me');
 
   const month = todayKey().slice(0, 7);
-  const [videos, people, roster, assignments] = await Promise.all([
+  const [videos, people, roster] = await Promise.all([
     loadVideos(new Date(monthRange(month).from).toISOString()),
     loadPeople(),
     loadRoster(),
-    loadAssignments(),
   ]);
 
   return (
@@ -46,7 +44,7 @@ export default async function AdminVideosPage() {
           <h1 className="mt-3 text-display-2 text-fg">{t('Video jobs')}</h1>
           <p className="mt-3 text-body-lg text-fg-muted">
             {t(
-              'Give a video to an account’s editor and handler. Each clicks Done with a link when their part is finished, and it counts toward their month.',
+              'Who is editing each video now, and who verifies it next. Staff pass videos on from their shoots; each Done and Verify counts toward their month.',
             )}
           </p>
         </header>
@@ -55,7 +53,8 @@ export default async function AdminVideosPage() {
           people={people}
           accounts={roster.map(({ id, name }) => ({ id, name }))}
           meId={null}
-          assignments={assignments}
+          month={month}
+          readOnly
         />
       </Section>
     </Container>

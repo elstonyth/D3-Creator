@@ -1,9 +1,10 @@
 /** @jest-environment jsdom */
 /**
  * The week schedule's permissions and saves. Staff see the whole team's
- * shoots but can only change their own; the admin can change anyone's and
- * picks the person when adding. The server has the final word (the actions
- * re-check), but the screen must not offer what the server would refuse.
+ * shoots but change only their own, and pass on the videos from their own
+ * shoots; the admin's view shows everything and changes nothing. The server
+ * has the final word (the actions re-check), but the screen must not offer
+ * what the server would refuse.
  */
 
 import {
@@ -18,6 +19,7 @@ import {
 import type { Shoot } from '@gitroom/frontend/lib/team/shoots';
 import {
   addShoot,
+  passVideos,
   setShootStatus,
 } from '@gitroom/frontend/lib/team/shoot-actions';
 import { WeekSchedule } from './week-schedule';
@@ -27,6 +29,7 @@ jest.mock('@gitroom/frontend/lib/team/shoot-actions', () => ({
   updateShoot: jest.fn(),
   setShootStatus: jest.fn(),
   deleteShoot: jest.fn(),
+  passVideos: jest.fn(),
 }));
 jest.mock('next/link', () => ({
   __esModule: true,
@@ -49,9 +52,13 @@ jest.mock('next/navigation', () => ({ useRouter: () => ({ refresh }) }));
 
 const KEE = 'aaaaaaaa-0000-4000-8000-000000000001';
 const ZUWEI = 'aaaaaaaa-0000-4000-8000-000000000002';
+const ALI = 'aaaaaaaa-0000-4000-8000-000000000009';
+const MEI = 'aaaaaaaa-0000-4000-8000-000000000003';
 const people = [
-  { id: KEE, name: 'KEE', archived: false },
-  { id: ZUWEI, name: 'ZUWEI', archived: false },
+  { id: KEE, name: 'KEE', kind: 'handler' as const, archived: false },
+  { id: ZUWEI, name: 'ZUWEI', kind: 'handler' as const, archived: false },
+  { id: ALI, name: 'ALI', kind: 'editor' as const, archived: false },
+  { id: MEI, name: 'MEI', kind: 'both' as const, archived: false },
 ];
 const accounts = [{ id: 'bbbbbbbb-0000-4000-8000-000000000001', name: 'Gary' }];
 
@@ -70,7 +77,6 @@ function shoot(
     time,
     title,
     creatorId: null,
-    videosPlanned: null,
     videosShot: null,
     status: 'planned',
     note: null,
@@ -78,15 +84,13 @@ function shoot(
   };
 }
 
-const MINE = shoot(1, KEE, '2026-09-22', '19:30', 'Hotpot shop', {
-  videosPlanned: 3,
-});
+const MINE = shoot(1, KEE, '2026-09-22', '19:30', 'Hotpot shop');
 const THEIRS = shoot(2, ZUWEI, '2026-09-24', null, 'Furniture shop');
 
 function renderWeek(
   meId: string | null,
   shoots = [MINE, THEIRS],
-  { start = '2026-09-21', today = '2026-09-23' } = {},
+  { start = '2026-09-21', today = '2026-09-23', readOnly = false } = {},
 ) {
   return render(
     <WeekSchedule
@@ -96,28 +100,28 @@ function renderWeek(
       people={people}
       accounts={accounts}
       meId={meId}
+      readOnly={readOnly}
       basePath="/"
     />,
   );
 }
 
+const button = (name: string) => screen.queryByRole('button', { name });
+
 beforeEach(() => jest.clearAllMocks());
 
 it('lets staff change only their own shoots, and names the others', () => {
   renderWeek(KEE);
-  expect(screen.getByRole('button', { name: 'Edit Hotpot shop' })).toBeTruthy();
-  expect(
-    screen.queryByRole('button', { name: 'Edit Furniture shop' }),
-  ).toBeNull();
-  expect(
-    screen.queryByRole('button', { name: 'Delete Furniture shop' }),
-  ).toBeNull();
+  expect(button('Change Hotpot shop')).toBeTruthy();
+  expect(button('Pass videos: Hotpot shop')).toBeTruthy();
+  expect(button('Change Furniture shop')).toBeNull();
+  expect(button('Pass videos: Furniture shop')).toBeNull();
+  expect(button('Delete Furniture shop')).toBeNull();
   const thursday = screen.getByRole('region', { name: /Thursday/ });
   expect(within(thursday).getByText('ZUWEI')).toBeTruthy();
   // My own shoot does not repeat my name.
   const tuesday = screen.getByRole('region', { name: /Tuesday/ });
   expect(within(tuesday).queryByText(/KEE/)).toBeNull();
-  expect(within(tuesday).getByText('3 videos planned')).toBeTruthy();
 });
 
 it('filters to my own shoots', () => {
@@ -130,9 +134,7 @@ it('filters to my own shoots', () => {
 it('adds a shoot for the day it was opened on', async () => {
   (addShoot as jest.Mock).mockResolvedValue({
     ok: true,
-    shoot: shoot(3, KEE, '2026-09-23', '11:30', 'Café visit', {
-      videosPlanned: 4,
-    }),
+    shoot: shoot(3, KEE, '2026-09-23', '11:30', 'Café visit'),
   });
   renderWeek(KEE);
   fireEvent.click(
@@ -144,23 +146,17 @@ it('adds a shoot for the day it was opened on', async () => {
   fireEvent.change(screen.getByLabelText('Where / what'), {
     target: { value: 'Café visit' },
   });
-  fireEvent.change(screen.getByLabelText(/Videos/), {
-    target: { value: '4' },
-  });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
   await waitFor(() => expect(screen.getByText('Café visit')).toBeTruthy());
-  expect(addShoot).toHaveBeenCalledWith(
-    {
-      date: '2026-09-23',
-      time: '11:30',
-      title: 'Café visit',
-      creatorId: '',
-      videosPlanned: '4',
-      note: '',
-    },
-    undefined, // staff never choose the person; the server uses theirs
-  );
+  // Staff never choose the person; the server uses theirs.
+  expect(addShoot).toHaveBeenCalledWith({
+    date: '2026-09-23',
+    time: '11:30',
+    title: 'Café visit',
+    creatorId: '',
+    note: '',
+  });
   expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
 });
 
@@ -184,71 +180,132 @@ it('keeps the form open and says why when the server refuses', async () => {
   expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
 });
 
-it('marks a shoot done with how many videos came out of it', async () => {
-  (setShootStatus as jest.Mock).mockResolvedValue({
+it('passes a shoot’s videos on, one row per video, to the editors', async () => {
+  (passVideos as jest.Mock).mockResolvedValue({
     ok: true,
     shoot: { ...MINE, status: 'done', videosShot: 2 },
+    videos: [],
   });
   renderWeek(KEE);
-  fireEvent.click(screen.getByRole('button', { name: 'Done: Hotpot shop' }));
-  const box = screen.getByLabelText('Videos shot') as HTMLInputElement;
-  expect(box.value).toBe('3'); // starts from the plan
-  fireEvent.change(box, { target: { value: '2' } });
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'Mark done' }));
-  });
-
-  expect(setShootStatus).toHaveBeenCalledWith(MINE.id, 'done', '2');
-  await waitFor(() =>
-    expect(screen.getByText('Finished · 2 videos')).toBeTruthy(),
-  );
-});
-
-it('lets the admin change anyone and choose the person when adding', () => {
-  renderWeek(null);
-  expect(
-    screen.getByRole('button', { name: 'Edit Furniture shop' }),
-  ).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Edit Hotpot shop' })).toBeTruthy();
   fireEvent.click(
-    screen.getByRole('button', { name: 'Add a shoot on Monday' }),
+    screen.getByRole('button', { name: 'Pass videos: Hotpot shop' }),
   );
-  fireEvent.change(screen.getByLabelText('Where / what'), {
-    target: { value: 'Client A, 4 videos' },
+  // Only people who cut video can be given one.
+  const first = screen.getByLabelText('Video 1 editor') as HTMLSelectElement;
+  expect([...first.options].slice(1).map((o) => o.text)).toEqual([
+    'ALI',
+    'MEI',
+  ]);
+  fireEvent.change(screen.getByLabelText('Video 1 title'), {
+    target: { value: 'Reel 1' },
   });
-  const save = screen.getByRole('button', {
-    name: 'Save',
-  }) as HTMLButtonElement;
-  expect(save.disabled).toBe(true); // nobody chosen yet
-  fireEvent.change(screen.getByLabelText('Person'), {
-    target: { value: ZUWEI },
+  fireEvent.change(first, { target: { value: MEI } });
+  fireEvent.click(screen.getByRole('button', { name: '+ Add video' }));
+  // A new row starts with the editor above it.
+  expect(
+    (screen.getByLabelText('Video 2 editor') as HTMLSelectElement).value,
+  ).toBe(MEI);
+  fireEvent.change(screen.getByLabelText('Video 2 title'), {
+    target: { value: 'Reel 2' },
   });
-  expect(save.disabled).toBe(false);
+  fireEvent.change(screen.getByLabelText('Video 2 editor'), {
+    target: { value: ALI },
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Pass videos' }));
+  });
+
+  expect(passVideos).toHaveBeenCalledWith(MINE.id, [
+    { title: 'Reel 1', editorId: MEI },
+    { title: 'Reel 2', editorId: ALI },
+  ]);
+  expect(screen.getByText('2 videos passed')).toBeTruthy();
+  expect(screen.queryByLabelText('Video 1 title')).toBeNull();
 });
 
-it('keeps staff out of last month, which an admin has counted', () => {
+it('keeps each row’s text when a row above it is removed', () => {
+  renderWeek(KEE);
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Pass videos: Hotpot shop' }),
+  );
+  fireEvent.change(screen.getByLabelText('Video 1 title'), {
+    target: { value: 'Reel 1' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: '+ Add video' }));
+  fireEvent.change(screen.getByLabelText('Video 2 title'), {
+    target: { value: 'Reel 2' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Remove video 1' }));
+  expect(
+    (screen.getByLabelText('Video 1 title') as HTMLInputElement).value,
+  ).toBe('Reel 2');
+});
+
+it('offers the right steps for each state of my own shoot', () => {
+  const done = shoot(3, KEE, '2026-09-21', null, 'Mall', {
+    status: 'done',
+    videosShot: 4,
+  });
+  const cancelled = shoot(4, KEE, '2026-09-25', null, 'Beach', {
+    status: 'cancelled',
+  });
+  renderWeek(KEE, [MINE, done, cancelled]);
+
+  // Planned: change it, pass its videos on, cancel it, delete it.
+  expect(button('Change Hotpot shop')).toBeTruthy();
+  expect(button('Pass videos: Hotpot shop')).toBeTruthy();
+  expect(button('Cancel shoot: Hotpot shop')).toBeTruthy();
+  expect(button('Delete Hotpot shop')).toBeTruthy();
+  expect(button('Reopen Hotpot shop')).toBeNull();
+
+  // Done: pass more on; it stays done.
+  expect(screen.getByText('4 videos passed')).toBeTruthy();
+  expect(button('Pass videos: Mall')).toBeTruthy();
+  expect(button('Change Mall')).toBeTruthy();
+  expect(button('Delete Mall')).toBeTruthy();
+  expect(button('Cancel shoot: Mall')).toBeNull();
+  expect(button('Reopen Mall')).toBeNull();
+
+  // Cancelled: reopen or delete, never pass.
+  expect(button('Reopen Beach')).toBeTruthy();
+  expect(button('Delete Beach')).toBeTruthy();
+  expect(button('Pass videos: Beach')).toBeNull();
+  expect(button('Change Beach')).toBeNull();
+});
+
+it('keeps last month closed, except for passing its videos on', () => {
   const lastMonth = shoot(4, KEE, '2026-08-31', '10:00', 'Café visit');
   const thisMonth = shoot(5, KEE, '2026-09-01', '10:00', 'Hotpot shop');
   const week = { start: '2026-08-31', today: '2026-09-02' };
   renderWeek(KEE, [lastMonth, thisMonth], week);
-  expect(screen.queryByRole('button', { name: 'Edit Café visit' })).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Done: Café visit' })).toBeNull();
-  expect(
-    screen.getByRole('button', { name: 'Done: Hotpot shop' }),
-  ).toBeTruthy();
-  expect(
-    screen.queryByRole('button', { name: 'Add a shoot on Monday' }),
-  ).toBeNull();
-  expect(
-    screen.getByRole('button', { name: 'Add a shoot on Tuesday' }),
-  ).toBeTruthy();
+  expect(button('Pass videos: Café visit')).toBeTruthy();
+  expect(button('Change Café visit')).toBeNull();
+  expect(button('Cancel shoot: Café visit')).toBeNull();
+  expect(button('Delete Café visit')).toBeNull();
+  expect(button('Change Hotpot shop')).toBeTruthy();
+  expect(button('Add a shoot on Monday')).toBeNull();
+  expect(button('Add a shoot on Tuesday')).toBeTruthy();
+});
+
+it('cancels a planned shoot with one click', async () => {
+  (setShootStatus as jest.Mock).mockResolvedValue({
+    ok: true,
+    shoot: { ...MINE, status: 'cancelled' },
+  });
+  renderWeek(KEE);
+  await act(async () => {
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Cancel shoot: Hotpot shop' }),
+    );
+  });
+  expect(setShootStatus).toHaveBeenCalledWith(MINE.id, 'cancelled');
+  expect(button('Reopen Hotpot shop')).toBeTruthy();
 });
 
 it('shows a refused one-click change on that shoot', async () => {
   (setShootStatus as jest.Mock).mockResolvedValue({
     ok: false,
-    message:
-      'You can only change your own shoots, from this month on. Ask an admin.',
+    message: 'That shoot is not yours to change, or it has moved on.',
   });
   renderWeek(KEE);
   await act(async () => {
@@ -258,7 +315,7 @@ it('shows a refused one-click change on that shoot', async () => {
   });
   const tuesday = screen.getByRole('region', { name: /Tuesday/ });
   expect(within(tuesday).getByRole('alert').textContent).toContain(
-    'from this month on',
+    'has moved on',
   );
 });
 
@@ -280,4 +337,37 @@ it('frees the week and says why when an action throws', async () => {
     name: 'Cancel shoot: Hotpot shop',
   }) as HTMLButtonElement;
   expect(cancel.disabled).toBe(false);
+});
+
+describe('the admin’s view', () => {
+  it('shows everyone’s shoots with nothing to press', () => {
+    const done = shoot(3, ZUWEI, '2026-09-21', null, 'Mall', {
+      status: 'done',
+      videosShot: 3,
+    });
+    renderWeek(null, [MINE, THEIRS, done], { readOnly: true });
+    // Week links are links and the person filter is a select: any button
+    // here would be a way to change something.
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+    const tuesday = screen.getByRole('region', { name: /Tuesday/ });
+    expect(within(tuesday).getByText('KEE')).toBeTruthy();
+    expect(screen.getByText('3 videos passed')).toBeTruthy();
+    expect(
+      screen.getByRole('link', { name: 'Next week' }).getAttribute('href'),
+    ).toBe('/?week=2026-09-28');
+  });
+
+  it('filters to one person', () => {
+    renderWeek(null, [MINE, THEIRS], { readOnly: true });
+    fireEvent.change(screen.getByLabelText('Show whose shoots'), {
+      target: { value: ZUWEI },
+    });
+    expect(screen.queryByText('Hotpot shop')).toBeNull();
+    expect(screen.getByText('Furniture shop')).toBeTruthy();
+  });
+
+  it('stays read-only even when given a person', () => {
+    renderWeek(KEE, [MINE], { readOnly: true });
+    expect(screen.queryAllByRole('button')).toHaveLength(0);
+  });
 });

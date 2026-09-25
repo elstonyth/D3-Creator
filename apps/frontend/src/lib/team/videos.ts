@@ -1,55 +1,83 @@
 /**
- * Video jobs — one video for one account, through two hands.
+ * Video jobs — one video from a shoot, through two hands.
  *
- * The admin gives a video to the account's editor and handler (filled in
- * from the staffing board). The editor clicks Done with a link to the cut;
- * the handler — or, on a job with no handler, the editor — sets when it goes
- * out and clicks Done with a link to the live post. The database stamps each
- * Done with when and whom it counts for (editedBy / postedBy), and those
- * stamps are what the console counts per person per month.
+ * After a shoot, its owner passes the videos on and gives each to an editor;
+ * that owner is the video's handler. The editor clicks Done (a link to the
+ * cut is optional), then the handler checks the cut and clicks Verify. The
+ * database stamps each Done with when and whom it counts for (editedBy /
+ * verifiedBy), and those stamps are what the console counts per person per
+ * month. On a small team one person may be both hands of a video.
  *
  * Pure: shared by the video board (client), the pages and the actions.
  */
 
 import { isUuid } from '@gitroom/frontend/lib/ids';
-import { cleanTitle, isDateKey } from '@gitroom/frontend/lib/tracker';
-import { isTimeKey, NOTE_MAX } from './shoots';
+import {
+  cleanTitle,
+  dateKeyAt,
+  type MemberKind,
+} from '@gitroom/frontend/lib/tracker';
 
 export interface Video {
   id: string;
   creatorId: string | null;
+  /** The shoot it was passed on from; null once that shoot is deleted. */
+  shootId: string | null;
   title: string;
-  note: string | null;
-  editorId: string | null;
-  handlerId: string | null;
+  editorId: string;
+  /** Who passed it on, and checks the cut. */
+  handlerId: string;
   /** When the editor clicked Done (ISO), and whose edit it counts as. */
   editedAt: string | null;
   editedBy: string | null;
   editLink: string | null;
-  /** When it is meant to go out, `YYYY-MM-DD` / `HH:MM`. */
-  postDate: string | null;
-  postTime: string | null;
-  /** When the post was marked Done (ISO), and whose post it counts as. */
-  postedAt: string | null;
-  postedBy: string | null;
-  postLink: string | null;
+  /** When the handler clicked Verify (ISO), and whose check it counts as. */
+  verifiedAt: string | null;
+  verifiedBy: string | null;
   createdAt: string;
 }
 
-export type VideoStage = 'editing' | 'posting' | 'done';
+export type VideoStage = 'editing' | 'verifying' | 'done';
 
-/** With the editor until their Done, then with the handler until theirs. */
-export function videoStage(v: Video): VideoStage {
-  if (v.postedAt) return 'done';
-  if (v.editorId && !v.editedAt) return 'editing';
-  return 'posting';
+/** With the editor until their Done, then with the handler until Verify. */
+export function videoStage(
+  v: Pick<Video, 'editedAt' | 'verifiedAt'>,
+): VideoStage {
+  if (v.verifiedAt) return 'done';
+  if (v.editedAt) return 'verifying';
+  return 'editing';
 }
 
-/** Who schedules and posts it: the handler, or the editor if it has none. */
-export function posterOf(
-  v: Pick<Video, 'handlerId' | 'editorId'>,
-): string | null {
-  return v.handlerId ?? v.editorId;
+/** Where a video sits on a staff member's own list. */
+export type MySection = 'toEdit' | 'toVerify' | 'withEditor' | 'done';
+
+/**
+ * Which of `me`'s lists a video goes on, or null for none. Each video is on
+ * one list only, even when `me` is both its editor and its handler: to edit
+ * before verifying, and done only for a Done of theirs from `month`
+ * (`YYYY-MM`, Malaysia).
+ */
+export function mySection(
+  v: Video,
+  me: string,
+  month: string,
+): MySection | null {
+  if (!v.editedAt) {
+    if (v.editorId === me) return 'toEdit';
+    return v.handlerId === me ? 'withEditor' : null;
+  }
+  if (!v.verifiedAt && v.handlerId === me) return 'toVerify';
+  const thisMonth = (iso: string | null) =>
+    iso !== null && dateKeyAt(new Date(iso)).slice(0, 7) === month;
+  return (v.editedBy === me && thisMonth(v.editedAt)) ||
+    (v.verifiedBy === me && thisMonth(v.verifiedAt))
+    ? 'done'
+    : null;
+}
+
+/** Whether someone with this job cuts video, so can be given one. */
+export function isEditorKind(kind: MemberKind): boolean {
+  return kind === 'editor' || kind === 'both';
 }
 
 export const LINK_MAX = 500;
@@ -92,69 +120,72 @@ export function safeHref(link: string | null): string | null {
   return link !== null && parseLink(link) === link ? link : null;
 }
 
-export interface VideoInput {
-  creatorId: string;
-  title: string;
-  note: string | null;
-  editorId: string | null;
-  handlerId: string | null;
-  postDate: string | null;
-  postTime: string | null;
-}
-
 type Parsed<T> = { ok: true; value: T } | { ok: false; message: string };
 
-const optionalId = (v: unknown): string | null | undefined =>
-  blank(v) ? null : isUuid(v) ? v : undefined;
+/** At most this many videos are passed on in one go. */
+export const PASS_MAX = 30;
 
-export function parseVideoInput(v: unknown): Parsed<VideoInput> {
+/** One video passed on from a shoot. */
+export interface PassRow {
+  title: string;
+  editorId: string;
+}
+
+/**
+ * Why a pass was refused. tracker_pass_shoot raises these same sentences,
+ * word for word, so the action can show the database's refusal as it is.
+ */
+export const PASS_REFUSALS = {
+  gone: 'That shoot is already gone.',
+  notYours: 'You can only pass videos from your own shoots.',
+  cancelled: 'That shoot was cancelled. Reopen it first.',
+  count: 'Add between 1 and 30 videos.',
+  title: 'Give each video a title (up to 200 characters).',
+  editor: 'Pick an editor for each video.',
+  offBoard: 'Pick an editor who is on the team.',
+} as const;
+
+/** The rows of a pass: 1..30, each a title and an editor's id. */
+export function parsePassInput(v: unknown): Parsed<PassRow[]> {
+  if (!Array.isArray(v) || v.length < 1 || v.length > PASS_MAX)
+    return { ok: false, message: PASS_REFUSALS.count };
+  const rows: PassRow[] = [];
+  for (const r of v) {
+    if (!r || typeof r !== 'object')
+      return { ok: false, message: PASS_REFUSALS.count };
+    const o = r as Record<string, unknown>;
+    const title = cleanTitle(o.title);
+    if (!title) return { ok: false, message: PASS_REFUSALS.title };
+    if (!isUuid(o.editorId))
+      return { ok: false, message: PASS_REFUSALS.editor };
+    rows.push({ title, editorId: o.editorId });
+  }
+  return { ok: true, value: rows };
+}
+
+/** What the handler may change while the video is still with the editor. */
+export interface VideoChange {
+  title: string;
+  editorId: string;
+}
+
+export function parseVideoChange(v: unknown): Parsed<VideoChange> {
   if (!v || typeof v !== 'object')
     return { ok: false, message: 'Invalid video.' };
   const o = v as Record<string, unknown>;
-  if (!isUuid(o.creatorId))
-    return { ok: false, message: 'Pick the account the video is for.' };
   const title = cleanTitle(o.title);
   if (!title)
     return {
       ok: false,
       message: 'Say which video this is (up to 200 characters).',
     };
-  const editorId = optionalId(o.editorId);
-  const handlerId = optionalId(o.handlerId);
-  if (editorId === undefined || handlerId === undefined)
-    return { ok: false, message: 'Invalid person.' };
-  if (editorId === null && handlerId === null)
-    return { ok: false, message: 'Give the video to an editor or a handler.' };
-  const postDate = blank(o.postDate) ? null : o.postDate;
-  if (postDate !== null && !isDateKey(postDate))
-    return { ok: false, message: 'Pick a posting day.' };
-  const postTime = blank(o.postTime) ? null : o.postTime;
-  if (postTime !== null && !isTimeKey(postTime))
-    return { ok: false, message: 'Time must look like 19:30.' };
-  if (postTime !== null && postDate === null)
-    return { ok: false, message: 'A posting time needs a day.' };
-  if (!blank(o.note) && typeof o.note !== 'string')
-    return { ok: false, message: 'Invalid note.' };
-  const note = blank(o.note) ? null : (o.note as string).trim();
-  if (note !== null && note.length > NOTE_MAX)
-    return { ok: false, message: 'Notes are limited to 1,000 characters.' };
-  return {
-    ok: true,
-    value: {
-      creatorId: o.creatorId,
-      title,
-      note,
-      editorId,
-      handlerId,
-      postDate,
-      postTime,
-    },
-  };
+  if (!isUuid(o.editorId)) return { ok: false, message: 'Pick an editor.' };
+  return { ok: true, value: { title, editorId: o.editorId } };
 }
 
 /**
- * The videos a person finished in [from, to): the edits and the posts whose
- * Done was stamped with them. By the stamp, not the job's people now, so a
+ * The videos a person finished in [from, to): the edits and the checks
+ * whose Done was stamped with them. By the stamp, not the job's people now, so a
  * job reassigned after its Done keeps its credit. Instants are compared as
  * instants, whatever offset each string carries.
  */
@@ -163,7 +194,7 @@ export function finishedBy(
   memberId: string,
   from: string,
   to: string,
-): { edited: Video[]; posted: Video[] } {
+): { edited: Video[]; verified: Video[] } {
   const start = Date.parse(from);
   const end = Date.parse(to);
   const inside = (iso: string | null) => {
@@ -173,7 +204,9 @@ export function finishedBy(
   };
   return {
     edited: videos.filter((v) => v.editedBy === memberId && inside(v.editedAt)),
-    posted: videos.filter((v) => v.postedBy === memberId && inside(v.postedAt)),
+    verified: videos.filter(
+      (v) => v.verifiedBy === memberId && inside(v.verifiedAt),
+    ),
   };
 }
 
@@ -183,36 +216,26 @@ export function doneCounts(
   memberId: string,
   from: string,
   to: string,
-): { edited: number; posted: number } {
+): { edited: number; verified: number } {
   const f = finishedBy(videos, memberId, from, to);
-  return { edited: f.edited.length, posted: f.posted.length };
+  return { edited: f.edited.length, verified: f.verified.length };
 }
 
 /**
- * The columns an edit writes: only the fields that differ from what the form
- * started with, so a newer change by someone else to another field (the
- * handler setting the posting day, say) is not written over by a form opened
- * before it. The posting day and time are one slot and always go together.
- * With no starting point every field is written.
+ * The columns a change writes: only the fields that differ from what the
+ * form started with, so a form left open does not undo a newer change to
+ * the other field. With no starting point both are written.
  */
 export function videoPatch(
-  next: VideoInput,
+  next: VideoChange,
   before: unknown,
-): Record<string, string | null> {
+): Record<string, string> {
   const b = (before && typeof before === 'object' ? before : {}) as Record<
     string,
     unknown
   >;
-  const was = (k: string) => (k in b ? (blank(b[k]) ? null : b[k]) : undefined);
-  const patch: Record<string, string | null> = {};
-  if (next.creatorId !== was('creatorId')) patch.creator_id = next.creatorId;
-  if (next.title !== was('title')) patch.title = next.title;
-  if (next.note !== was('note')) patch.note = next.note;
-  if (next.editorId !== was('editorId')) patch.editor_id = next.editorId;
-  if (next.handlerId !== was('handlerId')) patch.handler_id = next.handlerId;
-  if (next.postDate !== was('postDate') || next.postTime !== was('postTime')) {
-    patch.post_date = next.postDate;
-    patch.post_time = next.postTime;
-  }
+  const patch: Record<string, string> = {};
+  if (next.title !== b.title) patch.title = next.title;
+  if (next.editorId !== b.editorId) patch.editor_id = next.editorId;
   return patch;
 }

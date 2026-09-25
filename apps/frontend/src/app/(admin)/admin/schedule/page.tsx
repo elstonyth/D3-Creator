@@ -26,7 +26,10 @@ interface PageProps {
   searchParams: Promise<{ week?: string }>;
 }
 
-/** Everyone's shoots for a week; the admin can add or change any of them. */
+/**
+ * Everyone's shoots for a week — who is shooting where, and how many videos
+ * each shoot passed on. Read-only: staff keep their own schedule.
+ */
 export default async function AdminSchedulePage({ searchParams }: PageProps) {
   const { t } = await getI18n();
   const auth = await getAuthContext();
@@ -53,7 +56,7 @@ export default async function AdminSchedulePage({ searchParams }: PageProps) {
           <h1 className="mt-3 text-display-2 text-fg">{t('Shoot schedule')}</h1>
           <p className="mt-3 text-body-lg text-fg-muted">
             {t(
-              'When and where the team is shooting. Staff fill in their own; you can add or change anyone’s.',
+              'See where the team is shooting, this week or the next. Staff fill in their own shoots and pass the videos on to the editors.',
             )}
           </p>
         </header>
@@ -62,13 +65,10 @@ export default async function AdminSchedulePage({ searchParams }: PageProps) {
           start={start}
           today={today}
           shoots={shoots}
-          people={people.map(({ id, name, archived }) => ({
-            id,
-            name,
-            archived,
-          }))}
+          people={people}
           accounts={roster.map(({ id, name }) => ({ id, name }))}
           meId={null}
+          readOnly
           basePath={basePath}
         />
       </Section>

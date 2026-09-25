@@ -6,7 +6,7 @@
 import { isShootStatus, type Shoot } from './shoots';
 
 export const SHOOT_COLS =
-  'id, member_id, shoot_date, start_time, title, creator_id, videos_planned, videos_shot, status, note';
+  'id, member_id, shoot_date, start_time, title, creator_id, videos_shot, status, note';
 
 export interface ShootRow {
   id: string;
@@ -15,7 +15,6 @@ export interface ShootRow {
   start_time: string | null;
   title: string;
   creator_id: string | null;
-  videos_planned: number | null;
   videos_shot: number | null;
   status: string;
   note: string | null;
@@ -30,7 +29,6 @@ export function rowToShoot(r: ShootRow): Shoot {
     time: r.start_time ? r.start_time.slice(0, 5) : null,
     title: r.title,
     creatorId: r.creator_id,
-    videosPlanned: r.videos_planned,
     videosShot: r.videos_shot,
     status: isShootStatus(r.status) ? r.status : 'planned',
     note: r.note,

@@ -1,7 +1,7 @@
 /**
- * Server-side reads for the staff portal and the admin console's Schedule
- * and Team pages. Service-role; every caller has already passed its own
- * gate (the (staff) / (admin) layouts, requireStaff / requireAdmin).
+ * Server-side reads for the staff portal and the admin console's Schedule,
+ * Videos and Team pages. Service-role; every caller has already passed its
+ * own gate (the (staff) / (admin) layouts, requireStaff / requireAdmin).
  *
  * Reads are windowed — a week of shoots, a month of history — and the
  * handover log and the video lists are paged, so PostgREST's 1000-row cap
@@ -271,9 +271,8 @@ async function videosWhere(ors: string[], what: string): Promise<Video[]> {
 }
 
 /**
- * Video jobs still in hand (not posted), plus those finished — edited or
- * posted — since `since` (an ISO instant). Everyone's, or the ones a person
- * edits or posts.
+ * Videos still in hand (not verified), plus those verified since `since` (an
+ * ISO instant). Everyone's, or the ones a person edits or passed on.
  */
 export async function loadVideos(
   since: string,
@@ -281,8 +280,10 @@ export async function loadVideos(
 ): Promise<Video[]> {
   return videosWhere(
     [
-      // Values quoted: a timestamp's ':' and '.' are reserved in or().
-      `posted_at.is.null,posted_at.gte."${since}",edited_at.gte."${since}"`,
+      // Values quoted: a timestamp's ':' and '.' are reserved in or(). An
+      // edit is never later than its verify, so this keeps this month's
+      // edits too.
+      `verified_at.is.null,verified_at.gte."${since}"`,
       ...(memberId
         ? [`editor_id.eq.${memberId},handler_id.eq.${memberId}`]
         : []),
@@ -292,7 +293,7 @@ export async function loadVideos(
 }
 
 /**
- * Videos whose edit or post was marked Done in [from, to) — for counting.
+ * Videos whose edit or verify was marked Done in [from, to) — for counting.
  * Everyone's, or only those with a Done stamped with one person.
  */
 export async function loadVideosDone(
@@ -302,9 +303,9 @@ export async function loadVideosDone(
 ): Promise<Video[]> {
   return videosWhere(
     [
-      `and(edited_at.gte."${from}",edited_at.lt."${to}"),and(posted_at.gte."${from}",posted_at.lt."${to}")`,
+      `and(edited_at.gte."${from}",edited_at.lt."${to}"),and(verified_at.gte."${from}",verified_at.lt."${to}")`,
       ...(memberId
-        ? [`edited_by.eq.${memberId},posted_by.eq.${memberId}`]
+        ? [`edited_by.eq.${memberId},verified_by.eq.${memberId}`]
         : []),
     ],
     'videos done',

@@ -24,24 +24,25 @@ export interface Shoot {
   /** Where / what, in the team's own words. */
   title: string;
   creatorId: string | null;
-  videosPlanned: number | null;
+  /** How many videos have been passed on from it (set when they are). */
   videosShot: number | null;
   status: ShootStatus;
   note: string | null;
 }
 
-/** What a person fills in. Status and videos shot change separately. */
+/**
+ * What a person fills in. The status changes separately: cancelled and back,
+ * or done once videos are passed on from it.
+ */
 export interface ShootInput {
   date: string;
   time: string | null;
   title: string;
   creatorId: string | null;
-  videosPlanned: number | null;
   note: string | null;
 }
 
 export const NOTE_MAX = 1000;
-export const VIDEOS_MAX = 99;
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -67,13 +68,6 @@ export function weekDays(start: string): string[] {
 const blank = (v: unknown) =>
   v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
 
-/** A video count: blank = null, a whole number 0..99, else undefined (bad). */
-export function parseCount(v: unknown): number | null | undefined {
-  if (blank(v)) return null;
-  const n = typeof v === 'number' ? v : Number(String(v).trim());
-  return Number.isInteger(n) && n >= 0 && n <= VIDEOS_MAX ? n : undefined;
-}
-
 type Parsed<T> = { ok: true; value: T } | { ok: false; message: string };
 
 export function parseShootInput(v: unknown): Parsed<ShootInput> {
@@ -93,12 +87,6 @@ export function parseShootInput(v: unknown): Parsed<ShootInput> {
   const creatorId = blank(o.creatorId) ? null : o.creatorId;
   if (creatorId !== null && !isUuid(creatorId))
     return { ok: false, message: 'Invalid account.' };
-  const videosPlanned = parseCount(o.videosPlanned);
-  if (videosPlanned === undefined)
-    return {
-      ok: false,
-      message: 'Videos must be a whole number from 0 to 99.',
-    };
   if (!blank(o.note) && typeof o.note !== 'string')
     return { ok: false, message: 'Invalid note.' };
   const note = blank(o.note) ? null : (o.note as string).trim();
@@ -106,7 +94,7 @@ export function parseShootInput(v: unknown): Parsed<ShootInput> {
     return { ok: false, message: 'Notes are limited to 1,000 characters.' };
   return {
     ok: true,
-    value: { date: o.date, time, title, creatorId, videosPlanned, note },
+    value: { date: o.date, time, title, creatorId, note },
   };
 }
 
@@ -123,28 +111,24 @@ export function sortShoots(list: Shoot[]): Shoot[] {
 
 /**
  * The columns an edit writes: only the fields that differ from what the form
- * started with, so the admin's and the staff member's edits to different
- * fields of one shoot don't undo each other. With no starting point every
- * field is written.
+ * started with, so a form left open in another tab doesn't undo a newer
+ * change to a field it never touched. With no starting point every field is
+ * written.
  */
 export function shootPatch(
   next: ShootInput,
   before: unknown,
-): Record<string, string | number | null> {
+): Record<string, string | null> {
   const b = (before && typeof before === 'object' ? before : {}) as Record<
     string,
     unknown
   >;
   const was = (k: string) => (k in b ? (blank(b[k]) ? null : b[k]) : undefined);
-  const patch: Record<string, string | number | null> = {};
+  const patch: Record<string, string | null> = {};
   if (next.date !== was('date')) patch.shoot_date = next.date;
   if (next.time !== was('time')) patch.start_time = next.time;
   if (next.title !== was('title')) patch.title = next.title;
   if (next.creatorId !== was('creatorId')) patch.creator_id = next.creatorId;
-  // The form holds the count as text.
-  const count = 'videosPlanned' in b ? parseCount(b.videosPlanned) : undefined;
-  if (count === undefined || next.videosPlanned !== count)
-    patch.videos_planned = next.videosPlanned;
   if (next.note !== was('note')) patch.note = next.note;
   return patch;
 }
