@@ -6,12 +6,16 @@
  * open since the morning is refused instead of wiping what was typed on a
  * phone since. A call that throws (a dropped connection, a stale deploy) is a
  * refusal like any other: the pad keeps saving afterwards.
+ *
+ * Changing month asks the pad to settle() first, so the next month's page
+ * reads the words just typed rather than meeting them as a conflict.
  */
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { createRef, type Ref } from 'react';
 
-import { saveRemarks } from './actions';
-import { RemarksPanel } from './work-tracker';
+import { saveRemarks, type ActionResult } from './actions';
+import { RemarksPanel, type RemarksHandle } from './work-tracker';
 
 jest.mock('./actions', () => ({
   saveRemarks: jest.fn(async () => ({ ok: true })),
@@ -30,11 +34,18 @@ jest.mock('./tracker.module.scss', () => ({}));
 
 const LOADED_AT = '2026-09-25T00:00:00.000000+00:00';
 const CONFLICT =
-  'These remarks were changed on another device. Copy your text, then reload the page.';
+  'These remarks were changed elsewhere. Copy your text, then reload the page.';
 const save = saveRemarks as jest.Mock;
 
-function renderPad(onFail = jest.fn()) {
-  render(<RemarksPanel initial="a" initialAt={LOADED_AT} onFail={onFail} />);
+function renderPad(onFail = jest.fn(), ref?: Ref<RemarksHandle>) {
+  render(
+    <RemarksPanel
+      ref={ref}
+      initial="a"
+      initialAt={LOADED_AT}
+      onFail={onFail}
+    />,
+  );
   return onFail;
 }
 
@@ -87,9 +98,7 @@ describe('RemarksPanel autosave', () => {
     });
     const onFail = renderPad();
     await typeAndSave('ab');
-    expect(
-      screen.getByText('Not saved — changed on another device'),
-    ).toBeTruthy();
+    expect(screen.getByText('Not saved')).toBeTruthy();
     expect(onFail).toHaveBeenCalledTimes(1);
     expect(pad().value).toBe('ab');
 
@@ -97,9 +106,23 @@ describe('RemarksPanel autosave', () => {
     expect(save).toHaveBeenCalledTimes(1);
     expect(pad().value).toBe('abc');
     // Typing on does not hide why nothing saves any more.
-    expect(
-      screen.getByText('Not saved — changed on another device'),
-    ).toBeTruthy();
+    expect(screen.getByText('Not saved')).toBeTruthy();
+  });
+
+  it('a conflict keeps the instruction on screen', async () => {
+    save.mockResolvedValueOnce({
+      ok: false,
+      conflict: true,
+      message: CONFLICT,
+    });
+    renderPad();
+    expect(screen.queryByRole('alert')).toBeNull();
+    await typeAndSave('ab');
+    expect(screen.getByRole('alert').textContent).toBe(CONFLICT);
+
+    // Not a toast: it is still there after more typing.
+    await typeAndSave('abc');
+    expect(screen.getByRole('alert').textContent).toBe(CONFLICT);
   });
 
   it('the next save names the version the last one returned', async () => {
@@ -111,5 +134,107 @@ describe('RemarksPanel autosave', () => {
     await typeAndSave('abc');
     expect(save).toHaveBeenCalledTimes(2);
     expect(save).toHaveBeenNthCalledWith(2, 'abc', 'v2');
+  });
+
+  it('a save whose answer was lost is not taken for a conflict', async () => {
+    // The first save lands, but its answer never comes back.
+    save.mockRejectedValueOnce(new Error('network'));
+    // So the next one finds that very text there under a newer version.
+    save.mockResolvedValueOnce({
+      ok: false,
+      conflict: true,
+      message: CONFLICT,
+      body: 'ab',
+      at: 'v2',
+    });
+    const onFail = renderPad();
+    await typeAndSave('ab');
+    await typeAndSave('abc');
+
+    expect(save).toHaveBeenCalledTimes(3);
+    expect(save).toHaveBeenNthCalledWith(2, 'abc', LOADED_AT);
+    expect(save).toHaveBeenNthCalledWith(3, 'abc', 'v2');
+    expect(screen.getByText('Saved')).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(onFail).toHaveBeenCalledTimes(1); // the lost answer, nothing more
+  });
+});
+
+describe('RemarksPanel settle', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+  });
+
+  it('sends a pending edit and resolves only once it is saved', async () => {
+    let release!: (r: ActionResult) => void;
+    save.mockImplementationOnce(() => new Promise((r) => (release = r)));
+    const handle = createRef<RemarksHandle>();
+    renderPad(jest.fn(), handle);
+    fireEvent.change(pad(), { target: { value: 'ab' } });
+
+    // Well inside the 800 ms autosave delay.
+    let done = false;
+    let settling!: Promise<boolean>;
+    await act(async () => {
+      settling = handle.current!.settle();
+      void settling.then(() => (done = true));
+    });
+    expect(save).toHaveBeenCalledWith('ab', LOADED_AT);
+    expect(done).toBe(false);
+
+    // Typed while that save is on its way: settle waits for this one too.
+    fireEvent.change(pad(), { target: { value: 'abc' } });
+    let ok: boolean | undefined;
+    await act(async () => {
+      release({ ok: true, at: 'v2' });
+      ok = await settling;
+    });
+    expect(ok).toBe(true);
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save).toHaveBeenLastCalledWith('abc', 'v2');
+  });
+
+  it('waits for an autosave already on its way', async () => {
+    let release!: (r: ActionResult) => void;
+    save.mockImplementationOnce(() => new Promise((r) => (release = r)));
+    const handle = createRef<RemarksHandle>();
+    renderPad(jest.fn(), handle);
+    fireEvent.change(pad(), { target: { value: 'ab' } });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(800);
+    });
+    expect(save).toHaveBeenCalledTimes(1);
+
+    let done = false;
+    let settling!: Promise<boolean>;
+    await act(async () => {
+      settling = handle.current!.settle();
+      void settling.then(() => (done = true));
+    });
+    expect(done).toBe(false);
+
+    let ok: boolean | undefined;
+    await act(async () => {
+      release({ ok: true });
+      ok = await settling;
+    });
+    expect(ok).toBe(true);
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves false when the save fails, and keeps the text', async () => {
+    save.mockRejectedValueOnce(new Error('network'));
+    const handle = createRef<RemarksHandle>();
+    const onFail = renderPad(jest.fn(), handle);
+    fireEvent.change(pad(), { target: { value: 'ab' } });
+
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await handle.current!.settle();
+    });
+    expect(ok).toBe(false);
+    expect(onFail).toHaveBeenCalledTimes(1);
+    expect(pad().value).toBe('ab');
   });
 });

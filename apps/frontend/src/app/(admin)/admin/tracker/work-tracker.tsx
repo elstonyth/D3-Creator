@@ -15,13 +15,16 @@ import {
   useCallback,
   useEffect,
   useId,
+  useImperativeHandle,
   useRef,
   useState,
   useTransition,
   type FormEvent,
+  type Ref,
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
+import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { AuroraBackground } from '@gitroom/frontend/components/ui/aurora-background';
 import { cn } from '@gitroom/frontend/lib/utils';
 // clsx where a custom font-size token sits next to a text colour:
@@ -112,8 +115,20 @@ export function WorkTracker({
     });
   }, []);
 
+  const remarks = useRef<RemarksHandle>(null);
+
+  // Remarks still waiting on their autosave go first: the next month's page
+  // reads them. If that save fails the page stays, so the words are not lost.
+  function leaveFor(url: string) {
+    startNav(async () => {
+      if (!(await (remarks.current?.settle() ?? Promise.resolve(true)))) return;
+      // After an await, updates need their own transition to keep navPending.
+      startNav(() => router.push(url));
+    });
+  }
+
   function gotoMonth(delta: number) {
-    startNav(() => router.push(`?month=${addMonths(month, delta)}`));
+    leaveFor(`?month=${addMonths(month, delta)}`);
   }
 
   function pickDay(key: string) {
@@ -121,7 +136,7 @@ export function WorkTracker({
       setSelected(key);
       return;
     }
-    startNav(() => router.push(`?month=${key.slice(0, 7)}&day=${key}`));
+    leaveFor(`?month=${key.slice(0, 7)}&day=${key}`);
   }
 
   const eventsOn = (key: string) => events.filter((e) => e.date === key);
@@ -373,6 +388,7 @@ export function WorkTracker({
             onFail={fail}
           />
           <RemarksPanel
+            ref={remarks}
             initial={initial.remarks}
             initialAt={initial.remarksAt}
             onFail={fail}
@@ -1079,14 +1095,26 @@ function DayList({
 
 // ---- remarks ---------------------------------------------------------------
 
+/** What the board asks of the remarks pad before it changes month. */
+export interface RemarksHandle {
+  /**
+   * Waits for a save on its way, then sends whatever is newer. True once
+   * nothing typed is left unsaved, or when another screen saved first (the
+   * pad already says what to do); false when a save failed.
+   */
+  settle(): Promise<boolean>;
+}
+
 export function RemarksPanel({
   initial,
   initialAt,
   onFail,
+  ref,
 }: {
   initial: string;
   initialAt: string | null;
   onFail: (r: ActionResult, rollback: () => void) => void;
+  ref?: Ref<RemarksHandle>;
 }) {
   const { t } = useI18n();
   const id = useId();
@@ -1094,41 +1122,74 @@ export function RemarksPanel({
   const [state, setState] = useState<
     'idle' | 'dirty' | 'saving' | 'saved' | 'conflict'
   >('idle');
+  // What to do about a conflict, shown under the pad for as long as it holds.
+  const [conflictNote, setConflictNote] = useState('');
   const latest = useRef(initial);
   const lastSaved = useRef(initial);
-  const inFlight = useRef(false);
+  // The save on its way, if any: saves go one at a time, and settle() waits.
+  const inFlight = useRef<Promise<ActionResult> | null>(null);
   // The version this screen last loaded or saved; every save names it.
   const seenAt = useRef(initialAt);
-  // Another device saved first: autosave stops for this page load.
+  // Another screen saved first: autosave stops for this page load.
   const conflicted = useRef(false);
+  // The text of the last save that failed. It may have landed with only the
+  // answer lost; the next save then meets it as a "conflict".
+  const unconfirmed = useRef<string | null>(null);
 
   // One save at a time, always of the newest text; a save that lands on
-  // already-stale text starts the next one. A failed save never rewinds the
-  // textarea — the words stay and the status says so.
+  // already-stale text starts the next one, and its promise covers that one.
+  // A failed save never rewinds the textarea — the words stay and the status
+  // says so.
   const flush = useCallback(
     async function run(): Promise<void> {
       if (inFlight.current || conflicted.current) return;
       const v = latest.current;
       if (v === lastSaved.current) return;
-      inFlight.current = true;
       setState('saving');
-      const r = await safeCall(() => saveRemarks(v, seenAt.current));
-      inFlight.current = false;
+      const call = safeCall(() => saveRemarks(v, seenAt.current));
+      inFlight.current = call;
+      const r = await call;
+      inFlight.current = null;
+      const mine = unconfirmed.current;
       if (r.ok) {
         if (r.at) seenAt.current = r.at;
         lastSaved.current = v;
+        unconfirmed.current = null;
         if (latest.current === v) setState('saved');
-        else void run();
+        else await run();
+      } else if (r.conflict && r.at && mine !== null && r.body === mine) {
+        // What is there is this screen's own failed save: it landed and only
+        // the answer was lost. Carry on from it instead of stopping.
+        seenAt.current = r.at;
+        lastSaved.current = mine;
+        unconfirmed.current = null;
+        if (latest.current === mine) setState('saved');
+        else await run();
       } else if (r.conflict) {
         conflicted.current = true;
+        setConflictNote(r.message ?? 'Could not save. Try again.');
         setState('conflict');
         onFail(r, () => {});
       } else {
+        unconfirmed.current = v;
         setState('dirty');
         onFail(r, () => {});
       }
     },
     [onFail],
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      async settle() {
+        // A save on its way may start the next one; wait until none is.
+        while (inFlight.current) await inFlight.current;
+        await flush();
+        return conflicted.current || latest.current === lastSaved.current;
+      },
+    }),
+    [flush],
   );
 
   // The debounce lives in an effect; the 'dirty' flag is set by the change
@@ -1139,12 +1200,13 @@ export function RemarksPanel({
     return () => window.clearTimeout(timer);
   }, [value, flush]);
 
-  // Month navigation remounts the board: send whatever is still pending.
+  // A month change settles the pad first (leaveFor); any other way out, such
+  // as the sidebar, just unmounts it: send whatever is still pending.
   useEffect(() => () => void flush(), [flush]);
 
   const status =
     state === 'conflict'
-      ? t('Not saved — changed on another device')
+      ? t('Not saved')
       : state === 'saving'
         ? t('Saving…')
         : state === 'saved'
@@ -1189,6 +1251,12 @@ export function RemarksPanel({
           'min-h-[200px] flex-1 resize-y px-4 py-3 text-body leading-relaxed',
         )}
       />
+      {/* Stays up: the toast fades, but the pad will not save again. */}
+      {state === 'conflict' ? (
+        <Alert tone="danger" className="mt-3">
+          {t(conflictNote)}
+        </Alert>
+      ) : null}
     </GlassPanel>
   );
 }

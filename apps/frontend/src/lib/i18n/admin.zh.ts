@@ -453,8 +453,9 @@ export const adminZh: Record<string, string> = {
   'Move {name} down': '下移 {name}',
   'Videos = different videos posted in {month}. The same clip on several platforms counts once.':
     '视频数 = {month} 发布的不同视频数量；同一条视频发在多个平台只算一次。',
-  'These remarks were changed on another device. Copy your text, then reload the page.':
-    '这些备注已在另一台设备上修改。请先复制你的内容，再刷新页面。',
-  'Not saved — changed on another device': '未保存——已在另一台设备上修改',
-  'Invalid remarks version.': '备注版本无效。',
+  'These remarks were changed elsewhere. Copy your text, then reload the page.':
+    '这些备注已在别处修改。请先复制你的内容，再刷新页面。',
+  'Not saved': '未能保存',
+  'This page is out of date. Copy your text, then reload the page.':
+    '此页面已过期。请先复制你的内容，再刷新页面。',
 };
