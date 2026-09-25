@@ -31,11 +31,21 @@ export function SignInForm({ redirectTo, showSignup = true }: SignInFormProps) {
     e.preventDefault();
     setError(null);
     setPending(true);
-    const supabase = getSupabaseBrowser();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: email.trim().toLowerCase(),
-      password,
-    });
+    // Supabase returns most failures, but anything it (or the client lookup)
+    // throws would otherwise leave the button spinning for good.
+    let res;
+    try {
+      const supabase = getSupabaseBrowser();
+      res = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+    } catch {
+      setError('Could not sign in. Check your connection and try again.');
+      setPending(false);
+      return;
+    }
+    const signInError = res.error;
     if (signInError) {
       // Still no Supabase internals and still no enumeration signal: the table
       // maps only codes that say nothing about whether the account exists.
@@ -93,15 +103,15 @@ export function SignInForm({ redirectTo, showSignup = true }: SignInFormProps) {
       </Button>
 
       {showSignup ? (
-      <p className="text-center text-caption text-fg-muted">
-        {t('New here?')}{' '}
-        <Link
-          href="/signup"
-          className="rounded text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
-        >
-          {t('Create an account')}
-        </Link>
-      </p>
+        <p className="text-center text-caption text-fg-muted">
+          {t('New here?')}{' '}
+          <Link
+            href="/signup"
+            className="rounded text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
+          >
+            {t('Create an account')}
+          </Link>
+        </p>
       ) : null}
     </form>
   );

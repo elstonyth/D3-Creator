@@ -99,4 +99,6 @@ export const authZh: Record<string, string> = {
     '员工控制台。创作者与会员请在此登录：',
   'Could not send the link. Try again in a moment.':
     '链接发送失败，请稍后再试。',
+  'Could not sign in. Check your connection and try again.':
+    '登录失败，请检查网络后重试。',
 };
