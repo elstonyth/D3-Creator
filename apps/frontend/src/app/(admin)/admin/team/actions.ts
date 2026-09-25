@@ -236,14 +236,10 @@ export async function setMemberKind(
       .maybeSingle();
     if (readErr) return { ok: false, message: readErr.message };
     if (!row) return { ok: false, message: GONE };
-    const role =
-      kind === 'editor'
-        ? row.role === 'Trader'
-          ? 'Editor'
-          : row.role
-        : row.role === 'Editor'
-          ? 'Trader'
-          : row.role;
+    // Editor in the editor row; Trader on a column (handler or both).
+    let role = row.role;
+    if (kind === 'editor' && role === 'Trader') role = 'Editor';
+    if (kind !== 'editor' && role === 'Editor') role = 'Trader';
     const { data, error } = await admin
       .from('tracker_member')
       .update({ kind, role })
