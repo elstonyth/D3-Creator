@@ -8,7 +8,7 @@ import { getI18n } from '@gitroom/frontend/lib/i18n-server';
  * purpose: one boundary covers the list and the report, so it draws a heading,
  * a large block and a stack of rows rather than either page's exact furniture.
  *
- * Flat blocks, no shimmer sweep — DESIGN.md §8 bans the loop.
+ * Flat blocks, no shimmer sweep — DESIGN.md §5 bans animated gradients.
  */
 
 import type { ReactElement } from 'react';

@@ -48,7 +48,7 @@ export function AuthShell({
         />
       ) : null}
       <div className="flex justify-end px-5 pt-5 sm:px-6">
-        <LanguageSwitcher />
+        <LanguageSwitcher zoomSafe />
       </div>
       <main className="flex flex-1 items-center justify-center px-5 py-12 sm:px-6">
         <div className="w-full max-w-[400px]">

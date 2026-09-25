@@ -109,7 +109,7 @@ export default async function StaffLayout({
               ) : null}
 
               <div className="flex items-center gap-2">
-                <LanguageSwitcher />
+                <LanguageSwitcher zoomSafe />
                 <div className="hidden md:block">
                   <SignOutButton />
                 </div>

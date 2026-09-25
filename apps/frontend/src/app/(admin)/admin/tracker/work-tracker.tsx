@@ -412,15 +412,24 @@ export function WorkTracker({
         </section>
       </div>
 
-      {toast ? (
-        // Pinned by this wrapper: the glass sets its own inline
-        // `position: relative`, which beats a `fixed` class on it.
-        <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2">
-          <GlassPanel role="status" lens className="px-5 py-3 text-body-sm">
+      {/* Always there, so a screen reader reads out each failure put in it.
+          The wrapper pins it: the glass sets its own inline
+          `position: relative`, which beats a `fixed` class on it. Full width
+          less the gutters, so a phone gets a readable box, not half a screen. */}
+      <div
+        role="status"
+        className="pointer-events-none fixed inset-x-4 bottom-5 z-50 flex justify-center"
+      >
+        {toast ? (
+          <GlassPanel
+            key={toast.id}
+            lens
+            className="min-w-0 max-w-md break-words px-5 py-3 text-body-sm"
+          >
             {t(toast.message)}
           </GlassPanel>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 }

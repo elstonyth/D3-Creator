@@ -115,7 +115,7 @@ export async function ClassPlayer({
                   href={driveDownloadUrl(video.driveFileId)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-1 w-fit max-sm:h-10 max-sm:px-4"
+                  className="mt-1 h-10 w-fit px-4 sm:h-8 sm:px-3"
                 >
                   <DownloadGlyph className="h-4 w-4" />
                   {t('Download video')}{' '}

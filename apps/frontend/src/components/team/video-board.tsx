@@ -439,7 +439,7 @@ export function VideoBoard({
         {notice ? (
           <p
             key={notice.id}
-            className="max-w-md break-words rounded-xl border border-line bg-surface px-4 py-3 text-body-sm text-fg shadow-glass"
+            className="min-w-0 max-w-md break-words rounded-xl border border-line bg-surface px-4 py-3 text-body-sm text-fg shadow-glass"
           >
             {notice.text}
           </p>
