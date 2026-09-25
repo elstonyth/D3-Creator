@@ -128,6 +128,10 @@ function optionNames(select: HTMLElement) {
 describe('StaffingBoard remove person', () => {
   beforeEach(() => jest.clearAllMocks());
 
+  // Everything removeMember does, said before it happens.
+  const REMOVE_KEE =
+    'Remove KEE? Their accounts move to Unassigned, accounts they edit go back to Nobody, their open tasks lose their assignee, and any staff login they have stops working. Their history is kept.';
+
   it('confirms inline and never calls window.confirm', async () => {
     const confirmSpy = jest
       .spyOn(window, 'confirm')
@@ -136,9 +140,7 @@ describe('StaffingBoard remove person', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove KEE' }));
     // The inline confirmation, not a native dialog.
-    expect(
-      screen.getByText('Remove KEE? Their accounts move to Unassigned.'),
-    ).toBeTruthy();
+    expect(screen.getByText(REMOVE_KEE)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
 
     await waitFor(() => expect(removeMember).toHaveBeenCalledWith(KEE.id));
@@ -151,11 +153,39 @@ describe('StaffingBoard remove person', () => {
     renderBoard();
     fireEvent.click(screen.getByRole('button', { name: 'Remove KEE' }));
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    expect(
-      screen.queryByText('Remove KEE? Their accounts move to Unassigned.'),
-    ).toBeNull();
+    expect(screen.queryByText(REMOVE_KEE)).toBeNull();
     expect(screen.getByRole('heading', { name: 'KEE' })).toBeTruthy();
     expect(removeMember).not.toHaveBeenCalled();
+  });
+
+  it('says all that removing a handler does, then moves their accounts to Unassigned', async () => {
+    renderBoard([KEE], [card(1, 'Gary', KEE.id, null)]);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove KEE' }));
+    expect(screen.getByText(REMOVE_KEE)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+    await waitFor(() => expect(removeMember).toHaveBeenCalledWith(KEE.id));
+    expect(
+      within(screen.getByRole('region', { name: 'Unassigned' })).getByText(
+        'Gary',
+      ),
+    ).toBeTruthy();
+  });
+
+  it('a column member who edits a card: the confirm says so and the card goes back to Nobody', async () => {
+    // A handler can be picked as an editor too; ZUWEI runs the card, KEE cuts it.
+    renderBoard([KEE, ZUWEI], [card(1, 'Gary', ZUWEI.id, KEE.id)]);
+    expect((screen.getByLabelText('Editor') as HTMLSelectElement).value).toBe(
+      KEE.id,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Remove KEE' }));
+    expect(screen.getByText(REMOVE_KEE)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+
+    await waitFor(() => expect(removeMember).toHaveBeenCalledWith(KEE.id));
+    expect((screen.getByLabelText('Editor') as HTMLSelectElement).value).toBe(
+      '',
+    );
   });
 });
 
@@ -244,7 +274,9 @@ describe('StaffingBoard editors', () => {
     renderBoard([KEE, ALI], [card(1, 'Gary', KEE.id, ALI.id)]);
     fireEvent.click(screen.getByRole('button', { name: 'Remove ALI' }));
     expect(
-      screen.getByText('Remove ALI? Accounts they edit go back to Nobody.'),
+      screen.getByText(
+        'Remove ALI? Accounts they edit go back to Nobody, their open tasks lose their assignee, and any staff login they have stops working. Their history is kept.',
+      ),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
 
