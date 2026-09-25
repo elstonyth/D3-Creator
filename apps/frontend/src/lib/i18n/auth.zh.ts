@@ -95,5 +95,13 @@ export const authZh: Record<string, string> = {
   'Sign in to the admin console': '登录管理控制台',
   'For D3 staff only. This is not the creator or member sign-in — that lives on www.d3creator.com.':
     '仅限 D3 员工。这不是创作者或会员的登录入口，创作者与会员请前往 www.d3creator.com 登录。',
-  'Staff console. Creators and members sign in at': '员工控制台。创作者与会员请在此登录：',
+  'Staff console. Creators and members sign in at':
+    '员工控制台。创作者与会员请在此登录：',
+  'Could not send the link. Try again in a moment.':
+    '链接发送失败，请稍后再试。',
+  'Could not sign in. Check your connection and try again.':
+    '登录失败，请检查网络后重试。',
+  'Your account doesn’t have member access. If you think it should, contact the D3 team.':
+    '你的账号没有会员权限。如果你认为应该有，请联系 D3 团队。',
+  'Classes are for D3 members': '课程仅对 D3 会员开放',
 };

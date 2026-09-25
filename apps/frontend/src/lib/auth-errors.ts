@@ -19,6 +19,7 @@
 export interface AuthErrorish {
   code?: string;
   message?: string;
+  name?: string;
   status?: number;
 }
 
@@ -76,6 +77,13 @@ export function signUpErrorMessage(error: AuthErrorish | null): string {
 }
 
 export function signInErrorMessage(error: AuthErrorish | null): string {
+  // auth-js RETURNS a failed connection instead of throwing it, as an
+  // AuthRetryableFetchError: status 0 when no answer came back, a gateway 5xx
+  // when a proxy answered. That depends only on the network, so naming it is
+  // no enumeration signal — and "Invalid email or password" would send the
+  // user after the wrong fix.
+  if (error && (error.status === 0 || error.name === 'AuthRetryableFetchError'))
+    return 'Could not sign in. Check your connection and try again.';
   return pick(SIGN_IN_MESSAGES, error, 'Invalid email or password.');
 }
 
@@ -84,5 +92,17 @@ export function resetErrorMessage(error: AuthErrorish | null): string {
     RESET_MESSAGES,
     error,
     'Could not update the password. Try again in a moment.',
+  );
+}
+
+/** Sending the reset link. GoTrue answers an unknown address with a 200 before
+ *  it sends anything, so a failed send only ever happens for an address that
+ *  has an account: showing it discloses that much, as a deliberate trade (see
+ *  ForgotPasswordForm). */
+export function sendResetErrorMessage(error: AuthErrorish | null): string {
+  return pick(
+    RESET_MESSAGES,
+    error,
+    'Could not send the link. Try again in a moment.',
   );
 }
