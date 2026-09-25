@@ -194,6 +194,30 @@ it('says a staff Done went through, since the job moves to another list', async 
   );
 });
 
+it('sends share text pasted from an app, words and all', async () => {
+  const share =
+    '7.43 复制打开抖音，看看【作品】https://v.douyin.com/iRNBho6H/ 再次打开';
+  (finishPost as jest.Mock).mockResolvedValue({
+    ok: true,
+    video: {
+      ...TO_POST,
+      postedAt: '2026-09-23T02:00:00Z',
+      postedBy: KEE,
+      postLink: 'https://v.douyin.com/iRNBho6H/',
+    },
+  });
+  renderBoard(KEE);
+  fireEvent.click(screen.getByRole('button', { name: 'Done posting: Reel 2' }));
+  fireEvent.change(screen.getByLabelText('Link to the live post'), {
+    target: { value: share },
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+  });
+  // The server takes the link out of the words around it.
+  expect(finishPost).toHaveBeenCalledWith(TO_POST.id, share);
+});
+
 it('keeps the step open with the reason when the server refuses', async () => {
   (finishPost as jest.Mock).mockResolvedValue({
     ok: false,

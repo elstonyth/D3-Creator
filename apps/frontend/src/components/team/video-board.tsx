@@ -585,7 +585,7 @@ function VideoCard({
           <Field label={t('Link to the edited video')} htmlFor={`edl-${v.id}`}>
             <Input
               id={`edl-${v.id}`}
-              type="url"
+              type="text"
               inputMode="url"
               value={link}
               onChange={(e) => setLink(e.target.value)}
@@ -613,7 +613,7 @@ function VideoCard({
           <Field label={t('Link to the live post')} htmlFor={`pl-${v.id}`}>
             <Input
               id={`pl-${v.id}`}
-              type="url"
+              type="text"
               inputMode="url"
               value={link}
               onChange={(e) => setLink(e.target.value)}

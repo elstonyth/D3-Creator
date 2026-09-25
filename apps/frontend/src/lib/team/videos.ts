@@ -57,19 +57,27 @@ export const LINK_MAX = 500;
 const blank = (v: unknown) =>
   v === null || v === undefined || (typeof v === 'string' && v.trim() === '');
 
+// Share sheets (Douyin, Xiaohongshu) wrap the link in text; take the first web
+// link in what was pasted. Printable ASCII only, so Chinese text and full-width
+// punctuation after the link end it.
+const LINK_IN_TEXT = /https?:\/\/[\x21-\x7e]+/i;
+const TRAILING = /[.,;:!?)\]}'"]+$/;
+
 /**
- * A pasted link: blank = null, an http(s) URL up to 500 characters, else
- * undefined (refused). Only web links — anything else could run script when
- * it is rendered as a link.
+ * A pasted link, or the share text around one: blank = null, the first
+ * http(s) URL in it (up to 500 characters), else undefined (refused). Only
+ * web links — anything else could run script when it is rendered as a link.
  */
 export function parseLink(v: unknown): string | null | undefined {
   if (blank(v)) return null;
   if (typeof v !== 'string') return undefined;
-  const s = v.trim();
-  if (s.length > LINK_MAX) return undefined;
+  const found = v.match(LINK_IN_TEXT)?.[0].replace(TRAILING, '');
+  if (!found || found.length > LINK_MAX) return undefined;
   try {
-    const u = new URL(s);
-    return u.protocol === 'https:' || u.protocol === 'http:' ? s : undefined;
+    const u = new URL(found);
+    return u.protocol === 'https:' || u.protocol === 'http:'
+      ? found
+      : undefined;
   } catch {
     return undefined;
   }
