@@ -67,4 +67,8 @@ export const commonZh: Record<string, string> = {
   Mixed: '混合语言',
   Douyin: '抖音',
   RedNote: '小红书',
+  'This page didn’t load': '页面没有加载出来',
+  'It failed on our side, not yours. Nothing you saved was lost — try again, and if it keeps happening, reload the page.':
+    '问题出在我们这边，不是你的操作。已保存的内容都还在——请重试；如果一直这样，请刷新页面。',
+  'Back to the start': '返回首页',
 };

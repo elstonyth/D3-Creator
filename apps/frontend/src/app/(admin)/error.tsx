@@ -1,0 +1,64 @@
+'use client';
+
+/**
+ * Route-level error boundary for the admin console (admin.d3creator.com).
+ *
+ * The console's loaders throw on any database error. Without this boundary a
+ * failed read fell through to app/global-error.tsx, Next's bare unstyled page:
+ * the header, the nav and the sign-out control all vanished. This renders
+ * inside the console's own layout, so they stay. Mirrors app/(creator)/error.tsx.
+ * Errors thrown by the layout itself still reach global-error.
+ *
+ * Never renders the thrown error's own message: these pages read Supabase
+ * directly, so it can carry a Postgres string. The diagnostic still reaches
+ * the browser console, and server failures reach Sentry via instrumentation.ts.
+ */
+
+import { useEffect } from 'react';
+import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
+import { Button, ButtonLink } from '@gitroom/frontend/components/ui/button';
+import { Container, Section } from '@gitroom/frontend/components/ui/section';
+
+export default function AdminError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  const { t } = useI18n();
+  useEffect(() => console.error('[admin] route error', error), [error]);
+
+  return (
+    <Container className="pb-16">
+      <Section space="sm">
+        <div className="max-w-prose">
+          <p className="text-micro uppercase text-fg-subtle">
+            {t('Something went wrong')}
+          </p>
+          <h1 className="mt-4 text-display-2 text-fg">
+            {t('This page didn’t load')}
+          </h1>
+          <p className="mt-4 text-body-lg text-fg-muted">
+            {t(
+              'It failed on our side, not yours. Nothing you saved was lost — try again, and if it keeps happening, reload the page.',
+            )}
+          </p>
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+            <Button size="lg" onClick={reset}>
+              {t('Try again')}
+            </Button>
+            <ButtonLink href="/" variant="secondary" size="lg">
+              {t('Back to the start')}
+            </ButtonLink>
+          </div>
+          {error.digest ? (
+            <p className="mt-8 text-caption text-fg-subtle">
+              {t('Reference')} <span className="tnum">{error.digest}</span>
+            </p>
+          ) : null}
+        </div>
+      </Section>
+    </Container>
+  );
+}
