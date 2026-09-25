@@ -18,6 +18,7 @@ import { getSupabaseAdmin } from '@d3/database';
 import { isUuid } from '@gitroom/frontend/lib/ids';
 import { isDateKey, monthRange, todayKey } from '@gitroom/frontend/lib/tracker';
 import { asActor, type Actor } from './actor';
+import { dbError } from './db-error';
 import { onBoard } from './on-board';
 import { isTimeKey } from './shoots';
 import { rowToVideo, VIDEO_COLS, type VideoRow } from './video-rows';
@@ -42,7 +43,7 @@ function one(
   },
   miss = NOT_YOURS,
 ): VideoResult {
-  if (res.error) return { ok: false, message: res.error.message };
+  if (res.error) return dbError('video', res.error);
   if (!res.data || res.data.length === 0) return { ok: false, message: miss };
   return { ok: true, video: rowToVideo(res.data[0] as VideoRow) };
 }
@@ -84,7 +85,7 @@ export async function createVideo(input: unknown): Promise<VideoResult> {
       })
       .select(VIDEO_COLS)
       .single();
-    if (error) return { ok: false, message: error.message };
+    if (error) return dbError('createVideo', error);
     return { ok: true, video: rowToVideo(data as VideoRow) };
   });
 }
@@ -114,7 +115,7 @@ export async function updateVideo(
       .select('editor_id, handler_id')
       .eq('id', id)
       .maybeSingle();
-    if (readErr) return { ok: false, message: readErr.message };
+    if (readErr) return dbError('updateVideo', readErr);
     if (!was) return { ok: false, message: GONE };
     // Only someone newly put on the job must be on the board; a job may keep
     // a person who has since left, so its title or day can still be fixed.
@@ -147,7 +148,7 @@ export async function deleteVideo(id: string): Promise<VideoResult> {
       .delete()
       .eq('id', id)
       .select('id');
-    if (error) return { ok: false, message: error.message };
+    if (error) return dbError('deleteVideo', error);
     if (!data || data.length === 0) return { ok: false, message: GONE };
     return { ok: true };
   });
