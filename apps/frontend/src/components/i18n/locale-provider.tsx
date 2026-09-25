@@ -55,7 +55,9 @@ export function LocaleProvider({
   useEffect(() => {
     document.documentElement.lang = localeTag(locale);
     function syncPreference() {
-      const next = readLocaleCookie(document.cookie);
+      // No cookie means no choice yet: keep the server's default (Chinese on
+      // the staff host) rather than reading the absence as English.
+      const next = readLocaleCookie(document.cookie, locale);
       if (next === locale) return;
       startTransition(() => {
         setLocale(next);

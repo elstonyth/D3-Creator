@@ -87,3 +87,12 @@ it('adopts a preference changed in another tab when this tab regains focus', () 
   expect(document.documentElement.lang).toBe('zh-CN');
   expect(refresh).toHaveBeenCalledTimes(1);
 });
+
+it('keeps the server default on focus when no language was ever picked', () => {
+  // The staff host starts in Chinese with no cookie. Reading the missing
+  // cookie as English flipped the form under a Chinese heading.
+  render(<LocaleProvider locale="zh"><Draft /></LocaleProvider>);
+  fireEvent.focus(window);
+  expect(screen.getByLabelText('密码')).toBeTruthy();
+  expect(refresh).not.toHaveBeenCalled();
+});
