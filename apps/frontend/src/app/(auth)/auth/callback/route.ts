@@ -18,14 +18,16 @@ import { safeRedirect } from '@gitroom/frontend/lib/redirects';
 // still confirmed the address server-side by that point, so the honest outcome
 // is "sign in to finish" — not a raw provider error in the query string, which
 // is what this route used to emit and what /login then ignored entirely.
+// The sanitised destination is passed on to /login so it survives the detour.
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
   const redirectTo = safeRedirect(searchParams.get('redirectTo'), '/me');
 
-  function toLogin(notice: string): NextResponse {
+  function toLogin(notice: string, next?: string): NextResponse {
     const url = new URL('/login', origin);
     url.searchParams.set('notice', notice);
+    if (next) url.searchParams.set('redirectTo', next);
     return NextResponse.redirect(url);
   }
 
@@ -42,11 +44,9 @@ export async function GET(request: NextRequest) {
     // A dead reset link and a cross-device confirmation need different advice:
     // one needs a fresh link, the other just needs a sign-in. The destination
     // is the only thing that tells them apart here, and it is our own value.
-    return toLogin(
-      redirectTo.startsWith('/reset-password')
-        ? 'reset_expired'
-        : 'signin_needed',
-    );
+    return redirectTo.startsWith('/reset-password')
+      ? toLogin('reset_expired')
+      : toLogin('signin_needed', redirectTo);
   }
 
   return NextResponse.redirect(new URL(redirectTo, origin));
