@@ -42,6 +42,14 @@ export default async function StaffPendingPage() {
               'Tell your admin you have signed up. This page opens the portal once you are approved — just reload it.',
             )}
           </p>
+          <p className="mt-4">
+            <a
+              href=""
+              className="text-label text-fg underline underline-offset-4 hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focusRing"
+            >
+              {t('Refresh')}
+            </a>
+          </p>
         </div>
       </Section>
     </Container>

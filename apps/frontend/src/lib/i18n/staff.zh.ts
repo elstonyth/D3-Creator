@@ -297,4 +297,7 @@ export const staffZh: Readonly<Record<string, string>> = {
   // ---- Staff sign-up: no job picked for them
   'Choose your job': '请选择职位',
   'Choose your job.': '请选择你的职位。',
+
+  // ---- Waiting page
+  Refresh: '刷新',
 };
