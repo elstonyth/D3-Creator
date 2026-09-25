@@ -176,6 +176,24 @@ it('sends the pasted link with the editor’s Done', async () => {
   expect(within(posting).getByText('Reel 1')).toBeTruthy();
 });
 
+it('says a staff Done went through, since the job moves to another list', async () => {
+  (finishEdit as jest.Mock).mockResolvedValue({
+    ok: true,
+    video: { ...TO_EDIT, editedAt: '2026-09-23T02:00:00Z', editedBy: ALI },
+  });
+  renderBoard(ALI);
+  fireEvent.click(screen.getByRole('button', { name: 'Done editing: Reel 1' }));
+  fireEvent.change(screen.getByLabelText('Link to the edited video'), {
+    target: { value: 'https://drive.google.com/cut' },
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+  });
+  expect((await screen.findByRole('status')).textContent).toContain(
+    'Edit done: “Reel 1” is ready to post.',
+  );
+});
+
 it('keeps the step open with the reason when the server refuses', async () => {
   (finishPost as jest.Mock).mockResolvedValue({
     ok: false,

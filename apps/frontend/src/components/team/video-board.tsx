@@ -10,7 +10,13 @@
  * the job it belongs to, with its step still open.
  */
 
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
@@ -97,6 +103,17 @@ export function VideoBoard({
   const [error, setError] = useState<{ at: string; text: string } | null>(null);
   // Admin filter: 'all', or a person (as editor or handler).
   const [person, setPerson] = useState('all');
+  // What a step just did: its card has usually moved to another list.
+  const [notice, setNotice] = useState<{ id: number; text: string } | null>(
+    null,
+  );
+
+  // Show it for a few seconds, then clear it.
+  useEffect(() => {
+    if (!notice) return;
+    const id = window.setTimeout(() => setNotice(null), 4000);
+    return () => window.clearTimeout(id);
+  }, [notice]);
 
   const byId = useMemo(() => new Map(people.map((p) => [p.id, p])), [people]);
   const accountOf = useMemo(
@@ -151,12 +168,14 @@ export function VideoBoard({
   /**
    * One save. `started` is the form it came from: only that form closes when
    * it succeeds, so a slow one-click step never closes a form opened since.
+   * `done` is what to say once it has saved.
    */
   async function save(
     at: string,
     call: () => Promise<VideoResult>,
     apply: (r: VideoResult) => void,
     started: Open = null,
+    done?: string,
   ) {
     setSaving(true);
     setError(null);
@@ -174,6 +193,7 @@ export function VideoBoard({
       return;
     }
     apply(r);
+    if (done) setNotice({ id: Date.now(), text: done });
     if (started) setOpen((cur) => (cur === started ? null : cur));
     // These actions don't revalidate the page (the board keeps its own
     // state); drop the router's cached copy so Back/Forward can't bring back
@@ -349,10 +369,19 @@ export function VideoBoard({
                             () => finishEdit(v.id, link),
                             replace,
                             open,
+                            t('Edit done: “{title}” is ready to post.', {
+                              title: v.title,
+                            }),
                           )
                         }
                         onUndoEdit={() =>
-                          save(v.id, () => undoEdit(v.id), replace)
+                          save(
+                            v.id,
+                            () => undoEdit(v.id),
+                            replace,
+                            null,
+                            t('Taken back: “{title}”.', { title: v.title }),
+                          )
                         }
                         onSchedule={(day, time) =>
                           save(
@@ -360,6 +389,9 @@ export function VideoBoard({
                             () => schedulePost(v.id, day, time),
                             replace,
                             open,
+                            t('Posting day saved for “{title}”.', {
+                              title: v.title,
+                            }),
                           )
                         }
                         onPostDone={(link) =>
@@ -368,10 +400,17 @@ export function VideoBoard({
                             () => finishPost(v.id, link),
                             replace,
                             open,
+                            t('Posted: “{title}”.', { title: v.title }),
                           )
                         }
                         onUndoPost={() =>
-                          save(v.id, () => undoPost(v.id), replace)
+                          save(
+                            v.id,
+                            () => undoPost(v.id),
+                            replace,
+                            null,
+                            t('Taken back: “{title}”.', { title: v.title }),
+                          )
                         }
                         onDelete={() =>
                           save(
@@ -391,6 +430,18 @@ export function VideoBoard({
           );
         })}
       </div>
+
+      {notice ? (
+        <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2">
+          <p
+            key={notice.id}
+            role="status"
+            className="rounded-xl border border-line bg-surface px-4 py-3 text-body-sm text-fg shadow-glass"
+          >
+            {notice.text}
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

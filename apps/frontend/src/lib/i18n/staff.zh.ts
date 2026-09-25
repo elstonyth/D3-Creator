@@ -283,4 +283,11 @@ export const staffZh: Readonly<Record<string, string>> = {
   Post: '发布',
   'Going out': '当天发布',
   '{count} items': '{count} 项',
+
+  // ---- Video job notices ------------------------------------------------------
+  'Edit done: “{title}” is ready to post.':
+    '剪辑完成：“{title}” 已移到「待发布」。',
+  'Posted: “{title}”.': '已发布：“{title}”。',
+  'Posting day saved for “{title}”.': '已保存“{title}”的发布日期。',
+  'Taken back: “{title}”.': '已撤回：“{title}”。',
 };
