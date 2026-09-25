@@ -1,23 +1,20 @@
 /**
- * Who is calling a team action: an admin (who may act for anyone) or an
- * approved staff member (who may act only as their own board person, taken
- * from their session). Anyone else is refused. Server-only; a plain module so
- * it is not itself a callable action.
+ * Who is calling a shoot or video action: an approved staff member, who acts
+ * only as their own board person, taken from their session. Anyone else — an
+ * admin included, who only looks at this work — is refused. Server-only; a
+ * plain module so it is not itself a callable action.
  */
 
-import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { dbError } from './db-error';
 import { requireStaff } from './staff-context';
 
 export interface Actor {
   userId: string;
-  /** The staff member's own person; null for an admin. */
-  memberId: string | null;
+  /** The staff member's own person on the board. */
+  memberId: string;
 }
 
 export async function getActor(): Promise<Actor> {
-  const auth = await getAuthContext();
-  if (auth?.role === 'admin') return { userId: auth.userId, memberId: null };
   const staff = await requireStaff();
   return { userId: staff.userId, memberId: staff.memberId };
 }

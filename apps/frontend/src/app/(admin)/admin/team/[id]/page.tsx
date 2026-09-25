@@ -13,7 +13,6 @@ import {
   todayKey,
 } from '@gitroom/frontend/lib/tracker';
 import {
-  loadAccountsAt,
   loadPeople,
   loadRoster,
   loadShoots,
@@ -40,8 +39,8 @@ interface PageProps {
 }
 
 /**
- * One person's record for a month: the videos they finished (with the links
- * they pasted), their shoots, the accounts they held and every handover.
+ * One person's record for a month, read-only: their shoots and the videos
+ * they edited or verified, with the editors' links.
  */
 export default async function AdminPersonPage({
   params,
@@ -71,10 +70,9 @@ export default async function AdminPersonPage({
     : '/admin/team';
 
   const admin = getSupabaseAdmin();
-  const [shoots, roster, accounts, videos, login] = await Promise.all([
+  const [shoots, roster, videos, login] = await Promise.all([
     loadShoots(days.from, days.to, id),
     loadRoster(),
-    loadAccountsAt(id, month, people),
     loadVideosDone(
       new Date(from).toISOString(),
       new Date(to).toISOString(),
@@ -87,7 +85,7 @@ export default async function AdminPersonPage({
     ? ((await admin.auth.admin.getUserById(userId)).data.user?.email ?? null)
     : null;
 
-  const { edited, posted } = finishedBy(
+  const { edited, verified } = finishedBy(
     videos,
     id,
     new Date(from).toISOString(),
@@ -129,11 +127,12 @@ export default async function AdminPersonPage({
           monthHref={(m) => `${base}?month=${m}`}
           shoots={shoots}
           accountName={accountName}
-          {...accounts}
+          edited={edited.length}
+          verified={verified.length}
         >
           <PersonVideos
             edited={edited}
-            posted={posted}
+            verified={verified}
             accountName={accountName}
           />
         </HistoryView>

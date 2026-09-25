@@ -23,7 +23,12 @@ import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
 
 type SessionState = 'checking' | 'ready' | 'missing';
 
-export function ResetPasswordForm(): ReactElement {
+export function ResetPasswordForm({
+  redirectTo,
+}: {
+  /** Where the account belongs once the password is set (the page decides). */
+  redirectTo: string;
+}): ReactElement {
   const { t } = useI18n();
   const router = useRouter();
   const [password, setPassword] = useState('');
@@ -69,8 +74,8 @@ export function ResetPasswordForm(): ReactElement {
         return;
       }
       // The session from the reset link is already a real session, so there is
-      // nothing to sign in to — go where a returning member belongs.
-      router.push('/studio/chat');
+      // nothing to sign in to — go where the account belongs on this host.
+      router.push(redirectTo);
       router.refresh();
     } catch {
       setError(resetErrorMessage(null));

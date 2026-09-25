@@ -405,8 +405,9 @@ module.exports = {
         auroraDrift: 'normalFadeIn 0.18s ease-out',
         shimmer: 'normalFadeIn 0.18s ease-out',
         glow: 'normalFadeIn 0.18s ease-out',
-        // The one decorative loop, owner-requested for /admin/tracker's
-        // Aceternity aurora backdrop (components/ui/aurora-background.tsx).
+        // The one decorative loop, owner-requested: the Aceternity aurora
+        // backdrop (components/ui/aurora-background.tsx) behind the admin and
+        // staff sign-in pages.
         // The global prefers-reduced-motion rule still caps it.
         aurora: 'aurora 60s linear infinite',
       },

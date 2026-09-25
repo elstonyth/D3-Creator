@@ -1,16 +1,21 @@
 /**
- * The board's surface.
+ * The work trackers' surface (staff portal home, admin console /tracker).
  *
  * `lens` panels are `@samasante/liquid-glass` in material mode: the wrapper's
  * translucent background (tracker.module.scss `.glass`) is the tint; the
  * library frosts and edge-lights it everywhere and bends the live page behind
- * it in Chrome/Edge. Children render crisp on top.
+ * it in Chrome/Edge. Children render crisp on top. Only the two spotlight
+ * cards use it.
  *
- * The wide panels (calendar, tasks, events, remarks, staffing) are frost-only
- * CSS glass. That is the library's own guidance for very wide surfaces, and
- * it is where the frame budget went: a backdrop SVG displacement filter is
- * re-run for every panel on every frame of the aurora behind it, and seven of
- * them measured at 16 fps against 32 fps with plain blur.
+ * Every other panel is frost-only CSS glass. That is the library's own
+ * guidance for very wide surfaces, and it is where the frame budget went: a
+ * backdrop SVG displacement filter is re-run for every panel on every frame
+ * of the aurora behind it, and seven of them measured at 16 fps against
+ * 32 fps with plain blur.
+ *
+ * Both kinds carry a backdrop-filter, which makes the panel the containing
+ * block of any `position: fixed` inside it: a toast in a panel must be
+ * portalled out (see VideoBoard's notice).
  *
  * The library defaults to `display: inline-block`; every panel here is a
  * column, so that is set explicitly and callers override via `style`.

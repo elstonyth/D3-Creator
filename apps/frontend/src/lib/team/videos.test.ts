@@ -1,9 +1,11 @@
 import {
   doneCounts,
   finishedBy,
+  mySection,
   parseLink,
-  parseVideoInput,
-  posterOf,
+  parsePassInput,
+  parseVideoChange,
+  PASS_REFUSALS,
   safeHref,
   videoPatch,
   videoStage,
@@ -19,44 +21,111 @@ function video(patch: Partial<Video> = {}): Video {
   return {
     id: 'v1',
     creatorId: ACC,
+    shootId: null,
     title: 'CNY reel',
-    note: null,
     editorId: ALI,
     handlerId: KEE,
     editedAt: null,
     editedBy: null,
     editLink: null,
-    postDate: null,
-    postTime: null,
-    postedAt: null,
-    postedBy: null,
-    postLink: null,
+    verifiedAt: null,
+    verifiedBy: null,
     createdAt: '2026-09-20T02:00:00+00:00',
     ...patch,
   };
 }
 
+const EDITED = { editedAt: '2026-09-21T02:00:00Z', editedBy: ALI };
+const VERIFIED = { verifiedAt: '2026-09-22T02:00:00Z', verifiedBy: KEE };
+
 describe('videoStage', () => {
   it('sits with the editor until the edit is done, then with the handler', () => {
     expect(videoStage(video())).toBe('editing');
-    expect(videoStage(video({ editedAt: '2026-09-21T02:00:00Z' }))).toBe(
-      'posting',
-    );
-    expect(
-      videoStage(
-        video({
-          editedAt: '2026-09-21T02:00:00Z',
-          postedAt: '2026-09-22T12:00:00Z',
-        }),
-      ),
-    ).toBe('done');
-  });
-
-  it('goes straight to posting when nobody edits it', () => {
-    expect(videoStage(video({ editorId: null }))).toBe('posting');
+    expect(videoStage(video(EDITED))).toBe('verifying');
+    expect(videoStage(video({ ...EDITED, ...VERIFIED }))).toBe('done');
   });
 });
 
+describe('mySection', () => {
+  const month = '2026-09';
+
+  it('puts each video on the list of whoever holds its next step', () => {
+    const v = video();
+    expect(mySection(v, ALI, month)).toBe('toEdit');
+    expect(mySection(v, KEE, month)).toBe('withEditor');
+    expect(mySection(v, ZU, month)).toBeNull();
+    const cut = video(EDITED);
+    expect(mySection(cut, KEE, month)).toBe('toVerify');
+    // The editor's part is done; it counts toward their month.
+    expect(mySection(cut, ALI, month)).toBe('done');
+    const checked = video({ ...EDITED, ...VERIFIED });
+    expect(mySection(checked, KEE, month)).toBe('done');
+    expect(mySection(checked, ALI, month)).toBe('done');
+  });
+
+  it('shows a video once when one person is both hands', () => {
+    const own = video({ editorId: KEE, handlerId: KEE });
+    expect(mySection(own, KEE, month)).toBe('toEdit');
+    const cut = { ...own, editedAt: EDITED.editedAt, editedBy: KEE };
+    expect(mySection(cut, KEE, month)).toBe('toVerify');
+  });
+
+  it('keeps only this month under done', () => {
+    // 31 Aug in Malaysia: last month's edit, still not verified.
+    const old = video({ editedAt: '2026-08-31T15:00:00Z', editedBy: ALI });
+    expect(mySection(old, ALI, month)).toBeNull();
+    expect(mySection(old, KEE, month)).toBe('toVerify');
+  });
+});
+
+describe('parsePassInput', () => {
+  it('tidies each row', () => {
+    expect(
+      parsePassInput([
+        { title: '  Reel   1 ', editorId: ALI },
+        { title: 'Reel 2', editorId: KEE },
+      ]),
+    ).toEqual({
+      ok: true,
+      value: [
+        { title: 'Reel 1', editorId: ALI },
+        { title: 'Reel 2', editorId: KEE },
+      ],
+    });
+  });
+
+  it('takes 1 to 30 rows', () => {
+    const row = { title: 'Reel', editorId: ALI };
+    expect(parsePassInput([])).toEqual({
+      ok: false,
+      message: PASS_REFUSALS.count,
+    });
+    expect(parsePassInput(Array(30).fill(row))).toMatchObject({ ok: true });
+    expect(parsePassInput(Array(31).fill(row))).toEqual({
+      ok: false,
+      message: PASS_REFUSALS.count,
+    });
+    expect(parsePassInput(null)).toMatchObject({ ok: false });
+    expect(parsePassInput(row)).toMatchObject({ ok: false });
+  });
+
+  it('refuses a row with no title or no editor, in words', () => {
+    expect(parsePassInput([{ title: '  ', editorId: ALI }])).toEqual({
+      ok: false,
+      message: PASS_REFUSALS.title,
+    });
+    const long = { title: 'x'.repeat(201), editorId: ALI };
+    expect(parsePassInput([long])).toEqual({
+      ok: false,
+      message: PASS_REFUSALS.title,
+    });
+    expect(parsePassInput([{ title: 'Reel', editorId: '' }])).toEqual({
+      ok: false,
+      message: PASS_REFUSALS.editor,
+    });
+    expect(parsePassInput(['Reel'])).toMatchObject({ ok: false });
+  });
+});
 describe('parseLink', () => {
   it('keeps web links and refuses everything else', () => {
     expect(parseLink('  https://drive.google.com/file/d/abc/view  ')).toBe(
@@ -128,54 +197,42 @@ describe('parseLink', () => {
   });
 });
 
-describe('parseVideoInput', () => {
-  it('tidies a new video job', () => {
-    expect(
-      parseVideoInput({
-        creatorId: ACC,
-        title: '  CNY   reel ',
-        note: '',
-        editorId: ALI,
-        handlerId: '',
-        postDate: '',
-        postTime: '',
-      }),
-    ).toEqual({
+describe('parseVideoChange', () => {
+  it('tidies a title and keeps a real editor id', () => {
+    expect(parseVideoChange({ title: ' Reel  2 ', editorId: ZU })).toEqual({
       ok: true,
-      value: {
-        creatorId: ACC,
-        title: 'CNY reel',
-        note: null,
-        editorId: ALI,
-        handlerId: null,
-        postDate: null,
-        postTime: null,
-      },
+      value: { title: 'Reel 2', editorId: ZU },
     });
   });
 
   it('refuses what the table would refuse, in words', () => {
-    const ok = { creatorId: ACC, title: 'x', editorId: ALI, handlerId: KEE };
-    expect(parseVideoInput({ ...ok, creatorId: '' })).toMatchObject({
+    expect(parseVideoChange({ title: '', editorId: ZU })).toMatchObject({
       ok: false,
     });
-    expect(parseVideoInput({ ...ok, title: ' ' })).toMatchObject({ ok: false });
-    expect(parseVideoInput({ ...ok, editorId: 'x' })).toMatchObject({
+    expect(parseVideoChange({ title: 'Reel', editorId: 'x' })).toMatchObject({
       ok: false,
     });
-    expect(parseVideoInput({ ...ok, postDate: '2026-02-30' })).toMatchObject({
-      ok: false,
+    expect(parseVideoChange(null)).toMatchObject({ ok: false });
+  });
+});
+
+describe('videoPatch', () => {
+  const form = { title: 'Reel 1', editorId: ALI };
+
+  it('writes only what the form changed', () => {
+    expect(videoPatch(form, form)).toEqual({});
+    expect(videoPatch({ ...form, title: 'Reel 2' }, form)).toEqual({
+      title: 'Reel 2',
     });
-    expect(parseVideoInput({ ...ok, postTime: '8pm' })).toMatchObject({
-      ok: false,
+    expect(videoPatch({ ...form, editorId: ZU }, form)).toEqual({
+      editor_id: ZU,
     });
-    expect(parseVideoInput({ ...ok, postTime: '20:00' })).toMatchObject({
-      ok: false, // a time needs a day
-    });
-    expect(
-      parseVideoInput({ ...ok, editorId: '', handlerId: '' }),
-    ).toMatchObject({
-      ok: false, // somebody has to do it
+  });
+
+  it('writes both when it does not know what the form started with', () => {
+    expect(videoPatch(form, null)).toEqual({
+      title: 'Reel 1',
+      editor_id: ALI,
     });
   });
 });
@@ -186,93 +243,40 @@ describe('doneCounts', () => {
 
   it('counts each Done in the month it was clicked, for whoever it was stamped with', () => {
     const edit = (at: string) => ({ editedAt: at, editedBy: ALI });
-    const post = (at: string) => ({ postedAt: at, postedBy: KEE });
+    const check = (at: string) => ({ verifiedAt: at, verifiedBy: KEE });
     const list = [
       video({
         id: 'a',
         ...edit('2026-09-05T02:00:00Z'),
-        ...post('2026-09-06T02:00:00Z'),
+        ...check('2026-09-06T02:00:00Z'),
       }),
       video({ id: 'b', ...edit('2026-09-30T17:00:00Z') }), // 1 Oct in Malaysia
       video({ id: 'c', ...edit('2026-08-31T15:59:00Z') }), // 31 Aug in Malaysia
-      video({ id: 'd', editorId: null, ...post('2026-09-10T02:00:00Z') }),
+      video({
+        id: 'd',
+        ...edit('2026-08-20T02:00:00Z'),
+        ...check('2026-09-10T02:00:00Z'),
+      }),
     ];
-    expect(doneCounts(list, ALI, from, to)).toEqual({ edited: 1, posted: 0 });
-    expect(doneCounts(list, KEE, from, to)).toEqual({ edited: 0, posted: 2 });
+    expect(doneCounts(list, ALI, from, to)).toEqual({ edited: 1, verified: 0 });
+    expect(doneCounts(list, KEE, from, to)).toEqual({ edited: 0, verified: 2 });
   });
 
-  it('keeps the credit where it was earned when the job changes hands', () => {
-    // ALI finished the edit, then the admin gave the job to someone else.
+  it('keeps the credit where it was earned when the video changes hands', () => {
+    // ALI finished the edit; the video names someone else now.
     const moved = video({
       editorId: ZU,
       handlerId: ZU,
       editedAt: '2026-09-05T02:00:00Z',
       editedBy: ALI,
-      postedAt: '2026-09-06T02:00:00Z',
-      postedBy: KEE,
+      verifiedAt: '2026-09-06T02:00:00Z',
+      verifiedBy: KEE,
     });
     expect(finishedBy([moved], ALI, from, to).edited).toHaveLength(1);
-    expect(finishedBy([moved], KEE, from, to).posted).toHaveLength(1);
-    expect(doneCounts([moved], ZU, from, to)).toEqual({ edited: 0, posted: 0 });
-  });
-});
-
-describe('posterOf', () => {
-  it('is the handler, or the editor on a job with no handler', () => {
-    expect(posterOf(video())).toBe(KEE);
-    expect(posterOf(video({ handlerId: null }))).toBe(ALI);
-    expect(posterOf(video({ handlerId: null, editorId: null }))).toBeNull();
-  });
-});
-
-describe('videoPatch', () => {
-  const form = {
-    creatorId: ACC,
-    title: 'CNY reel',
-    note: '',
-    editorId: ALI,
-    handlerId: KEE,
-    postDate: '',
-    postTime: '',
-  };
-  const next = (patch: Record<string, unknown> = {}) => {
-    const p = parseVideoInput({ ...form, ...patch });
-    if (!p.ok) throw new Error(p.message);
-    return p.value;
-  };
-
-  it('writes only what the form changed, so a newer posting slot survives a title fix', () => {
-    expect(videoPatch(next(), form)).toEqual({});
-    expect(videoPatch(next({ title: 'CNY reel v2' }), form)).toEqual({
-      title: 'CNY reel v2',
+    expect(finishedBy([moved], KEE, from, to).verified).toHaveLength(1);
+    expect(doneCounts([moved], ZU, from, to)).toEqual({
+      edited: 0,
+      verified: 0,
     });
-  });
-
-  it('writes the posting day and time together', () => {
-    expect(
-      videoPatch(next({ postTime: '19:30', postDate: '2026-09-26' }), form),
-    ).toEqual({
-      post_date: '2026-09-26',
-      post_time: '19:30',
-    });
-    const slotted = { ...form, postDate: '2026-09-26', postTime: '19:30' };
-    expect(
-      videoPatch(next({ postDate: '2026-09-26', postTime: '20:00' }), slotted),
-    ).toEqual({
-      post_date: '2026-09-26',
-      post_time: '20:00',
-    });
-  });
-
-  it('writes everything when it does not know what the form started with', () => {
-    expect(Object.keys(videoPatch(next(), undefined)).sort()).toEqual([
-      'creator_id',
-      'editor_id',
-      'handler_id',
-      'note',
-      'post_date',
-      'post_time',
-      'title',
-    ]);
   });
 });

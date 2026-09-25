@@ -41,7 +41,6 @@ describe('parseShootInput', () => {
     time: '19:30',
     title: '  Hotpot   shop ',
     creatorId: '',
-    videosPlanned: '3',
     note: ' bring the ring light ',
   };
 
@@ -53,13 +52,12 @@ describe('parseShootInput', () => {
         time: '19:30',
         title: 'Hotpot shop',
         creatorId: null,
-        videosPlanned: 3,
         note: 'bring the ring light',
       },
     });
   });
 
-  it('lets time, account, count and note be blank', () => {
+  it('lets time, account and note be blank', () => {
     const r = parseShootInput({ date: '2026-09-24', title: 'Furniture shop' });
     expect(r).toEqual({
       ok: true,
@@ -68,15 +66,12 @@ describe('parseShootInput', () => {
         time: null,
         title: 'Furniture shop',
         creatorId: null,
-        videosPlanned: null,
         note: null,
       },
     });
-    expect(
-      parseShootInput({ ...base, time: '', note: '   ', videosPlanned: '' }),
-    ).toMatchObject({
+    expect(parseShootInput({ ...base, time: '', note: '   ' })).toMatchObject({
       ok: true,
-      value: { time: null, note: null, videosPlanned: null },
+      value: { time: null, note: null },
     });
   });
 
@@ -88,9 +83,6 @@ describe('parseShootInput', () => {
     expect(bad({ title: '   ' })).toMatchObject({ ok: false });
     expect(bad({ title: 'x'.repeat(201) })).toMatchObject({ ok: false });
     expect(bad({ creatorId: 'not-a-uuid' })).toMatchObject({ ok: false });
-    expect(bad({ videosPlanned: '100' })).toMatchObject({ ok: false });
-    expect(bad({ videosPlanned: '2.5' })).toMatchObject({ ok: false });
-    expect(bad({ videosPlanned: '-1' })).toMatchObject({ ok: false });
     expect(bad({ note: 'x'.repeat(1001) })).toMatchObject({ ok: false });
     expect(parseShootInput(null)).toMatchObject({ ok: false });
   });
@@ -112,7 +104,6 @@ describe('sortShoots', () => {
     time,
     title: id,
     creatorId: null,
-    videosPlanned: null,
     videosShot: null,
     status: 'planned',
     note: null,
@@ -136,13 +127,12 @@ describe('sortShoots', () => {
 });
 
 describe('shootPatch', () => {
-  // As the form holds it: the count is text.
+  // As the form holds it: blanks are empty strings.
   const form = {
     date: '2026-09-26',
     time: '10:00',
     title: 'Mall shoot',
     creatorId: '',
-    videosPlanned: '3',
     note: '',
   };
   const next = (patch: Record<string, unknown> = {}) => {
@@ -156,9 +146,7 @@ describe('shootPatch', () => {
     expect(shootPatch(next({ note: 'Bring the lights' }), form)).toEqual({
       note: 'Bring the lights',
     });
-    expect(shootPatch(next({ videosPlanned: '4' }), form)).toEqual({
-      videos_planned: 4,
-    });
+    expect(shootPatch(next({ time: '' }), form)).toEqual({ start_time: null });
   });
 
   it('writes everything when it does not know what the form started with', () => {
@@ -168,7 +156,6 @@ describe('shootPatch', () => {
       'shoot_date',
       'start_time',
       'title',
-      'videos_planned',
     ]);
   });
 });

@@ -1,7 +1,7 @@
 /**
  * The videos a person finished in a month — the edits they clicked Done on
- * and the posts they clicked Done on — each with the link they pasted, so
- * the admin can open exactly what was delivered. Server component.
+ * and the cuts they verified — each with the editor's link when one was
+ * given, so the admin can open exactly what was delivered. Server component.
  */
 
 import { getI18n } from '@gitroom/frontend/lib/i18n-server';
@@ -11,11 +11,11 @@ import { safeHref, type Video } from '@gitroom/frontend/lib/team/videos';
 
 export async function PersonVideos({
   edited,
-  posted,
+  verified,
   accountName,
 }: {
   edited: Video[];
-  posted: Video[];
+  verified: Video[];
   accountName: Map<string, string>;
 }) {
   const { t, locale } = await getI18n();
@@ -32,8 +32,6 @@ export async function PersonVideos({
     empty: string,
     items: Video[],
     when: (v: Video) => string | null,
-    link: (v: Video) => string | null,
-    linkLabel: string,
   ) => (
     <section aria-label={title} className="min-w-0">
       <h3 className="mb-2 flex items-baseline justify-between gap-2 text-label text-fg">
@@ -47,7 +45,7 @@ export async function PersonVideos({
       ) : (
         <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
           {items.map((v) => {
-            const href = safeHref(link(v));
+            const href = safeHref(v.editLink);
             const at = when(v);
             return (
               <li key={v.id} className="px-4 py-3 text-body-sm">
@@ -64,7 +62,7 @@ export async function PersonVideos({
                         rel="noopener noreferrer"
                         className="rounded text-fg underline underline-offset-4 hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focusRing"
                       >
-                        {linkLabel}
+                        {t('Edited video')}
                       </a>
                     </>
                   ) : null}
@@ -86,16 +84,12 @@ export async function PersonVideos({
           t('No edits marked done this month.'),
           edited,
           (v) => v.editedAt,
-          (v) => v.editLink,
-          t('Edited video'),
         )}
         {list(
-          t('Posted'),
-          t('No posts marked done this month.'),
-          posted,
-          (v) => v.postedAt,
-          (v) => v.postLink,
-          t('Live post'),
+          t('Verified'),
+          t('Nothing verified yet this month.'),
+          verified,
+          (v) => v.verifiedAt,
         )}
       </div>
     </section>
