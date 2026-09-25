@@ -11,7 +11,7 @@
  */
 
 import { useState, useTransition, type ReactNode } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { AuroraBackground } from '@gitroom/frontend/components/ui/aurora-background';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
@@ -47,7 +47,6 @@ export function useTrackerNav(
   initialDay: string | null,
 ) {
   const router = useRouter();
-  const pathname = usePathname();
   const params = useSearchParams();
   const [pending, startNav] = useTransition();
   const [selected, setSelected] = useState(
@@ -59,7 +58,9 @@ export function useTrackerNav(
     q.set('month', m);
     if (day) q.set('day', day);
     else q.delete('day');
-    startNav(() => router.push(`${pathname}?${q}`));
+    // Relative to the page as the browser sees it: on the portal hosts the
+    // path is rewritten, so this never spells it.
+    startNav(() => router.push(`?${q}`));
   }
 
   return {

@@ -18,7 +18,6 @@ const push = jest.fn();
 const refresh = jest.fn();
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push, refresh }),
-  usePathname: () => '/',
   useSearchParams: () => new URLSearchParams(),
 }));
 jest.mock('next/link', () => ({
@@ -171,7 +170,7 @@ describe('the staff tracker', () => {
     renderStaff();
     const spot = screen.getByRole('region', { name: 'Upcoming' });
     fireEvent.click(within(spot).getAllByRole('button')[1]);
-    expect(push).toHaveBeenCalledWith('/?month=2026-10&day=2026-10-01');
+    expect(push).toHaveBeenCalledWith('?month=2026-10&day=2026-10-01');
   });
 
   it('lists my videos with who edits and who verifies them', () => {
