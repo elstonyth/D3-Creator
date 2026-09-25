@@ -50,8 +50,9 @@ export function SignInForm({ redirectTo, showSignup = true }: SignInFormProps) {
       // Still no Supabase internals and still no enumeration signal: the table
       // maps only codes that say nothing about whether the account exists.
       // `invalid_credentials` and anything unmapped both read "Invalid email or
-      // password"; an unconfirmed address is the one case worth naming, because
-      // the fix is in the user's inbox rather than in the form.
+      // password". Two cases are worth naming because the fix is not in the
+      // form: an unconfirmed address (it is in the inbox) and a failed
+      // connection (try again).
       setError(signInErrorMessage(signInError));
       setPending(false);
       return;

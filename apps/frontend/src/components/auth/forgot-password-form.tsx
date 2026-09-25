@@ -45,9 +45,13 @@ export function ForgotPasswordForm(): ReactElement {
           }/auth/callback?redirectTo=${encodeURIComponent('/reset-password')}`,
         },
       );
-      // Any failure is shown: claiming "check your email" when nothing was sent
-      // strands the user. It is still no enumeration signal — Supabase answers
-      // an unknown address with the same success as a real one.
+      // Any failure is shown, and that does disclose something: GoTrue answers
+      // an unknown address with a 200 before it sends anything, so a failed
+      // send (mail outage, per-address rate limit) only ever happens for an
+      // address that has an account. That is a deliberate trade: the
+      // per-address 429 was shown before this too, sign-up already tells a
+      // registered address apart, and a false "check your email" leaves a real
+      // user waiting on a mail that was never sent.
       if (resetError) {
         setError(sendResetErrorMessage(resetError));
         return;

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSupabaseRoute } from '@gitroom/frontend/lib/supabase-route';
-import { safeRedirect } from '@gitroom/frontend/lib/redirects';
+import { isSafeRedirect, safeRedirect } from '@gitroom/frontend/lib/redirects';
 
 // Email-confirmation (and future OAuth) callback. Supabase redirects here with
 // ?code=… — we exchange the code for a session, then route to redirectTo (or /me).
@@ -18,11 +18,13 @@ import { safeRedirect } from '@gitroom/frontend/lib/redirects';
 // still confirmed the address server-side by that point, so the honest outcome
 // is "sign in to finish" — not a raw provider error in the query string, which
 // is what this route used to emit and what /login then ignored entirely.
-// The sanitised destination is passed on to /login so it survives the detour.
+// A safe redirectTo the link carried is passed on to /login so it survives the
+// detour; without one, /login keeps its own default.
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const redirectTo = safeRedirect(searchParams.get('redirectTo'), '/me');
+  const requested = searchParams.get('redirectTo');
+  const redirectTo = safeRedirect(requested, '/me');
 
   function toLogin(notice: string, next?: string): NextResponse {
     const url = new URL('/login', origin);
@@ -46,7 +48,10 @@ export async function GET(request: NextRequest) {
     // is the only thing that tells them apart here, and it is our own value.
     return redirectTo.startsWith('/reset-password')
       ? toLogin('reset_expired')
-      : toLogin('signin_needed', redirectTo);
+      : toLogin(
+          'signin_needed',
+          isSafeRedirect(requested) ? redirectTo : undefined,
+        );
   }
 
   return NextResponse.redirect(new URL(redirectTo, origin));

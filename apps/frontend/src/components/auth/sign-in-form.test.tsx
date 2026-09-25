@@ -75,6 +75,20 @@ it('still reads a returned credentials error as such', async () => {
   expect(alert.textContent).toContain('Invalid email or password.');
 });
 
+it('names a failed connection instead of blaming the password', async () => {
+  // What auth-js RETURNS (not throws) when the request never got an answer.
+  signInWithPassword.mockResolvedValue({
+    error: { name: 'AuthRetryableFetchError', status: 0 },
+  });
+  render(<SignInForm />);
+  submit('Your password', 'Sign in');
+
+  const alert = await screen.findByRole('alert');
+  expect(alert.textContent).toContain(
+    'Could not sign in. Check your connection and try again.',
+  );
+});
+
 it('has Chinese copy for the thrown failure', async () => {
   // The sentence reaches the page through t(error), which the i18n literal
   // scan cannot see, so this is what proves it is translated.

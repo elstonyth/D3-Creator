@@ -52,7 +52,7 @@ it('never passes on an off-site destination', async () => {
   expect(url.origin).toBe(ORIGIN);
   expect(url.pathname).toBe('/login');
   expect(url.searchParams.get('notice')).toBe('signin_needed');
-  expect(url.searchParams.get('redirectTo')).toBe('/me');
+  expect(url.searchParams.has('redirectTo')).toBe(false);
 });
 
 it('never passes on a destination the URL parser turns off-site', async () => {
@@ -64,6 +64,15 @@ it('never passes on a destination the URL parser turns off-site', async () => {
   expect(url.origin).toBe(ORIGIN);
   expect(url.pathname).toBe('/login');
   expect(url.searchParams.get('notice')).toBe('signin_needed');
+  expect(url.searchParams.has('redirectTo')).toBe(false);
+});
+
+it('forwards no destination when the link carried none', async () => {
+  // /login then keeps its own default ('/' on the admin and staff hosts)
+  // instead of being told /me.
+  const url = new URL(await location('code=c'));
+  expect(url.searchParams.get('notice')).toBe('signin_needed');
+  expect(url.searchParams.has('redirectTo')).toBe(false);
 });
 
 it('reports a link without a code as broken, with no destination', async () => {
