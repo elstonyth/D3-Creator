@@ -120,3 +120,31 @@ export function sortShoots(list: Shoot[]): Shoot[] {
     return a.time < b.time ? -1 : 1;
   });
 }
+
+/**
+ * The columns an edit writes: only the fields that differ from what the form
+ * started with, so the admin's and the staff member's edits to different
+ * fields of one shoot don't undo each other. With no starting point every
+ * field is written.
+ */
+export function shootPatch(
+  next: ShootInput,
+  before: unknown,
+): Record<string, string | number | null> {
+  const b = (before && typeof before === 'object' ? before : {}) as Record<
+    string,
+    unknown
+  >;
+  const was = (k: string) => (k in b ? (blank(b[k]) ? null : b[k]) : undefined);
+  const patch: Record<string, string | number | null> = {};
+  if (next.date !== was('date')) patch.shoot_date = next.date;
+  if (next.time !== was('time')) patch.start_time = next.time;
+  if (next.title !== was('title')) patch.title = next.title;
+  if (next.creatorId !== was('creatorId')) patch.creator_id = next.creatorId;
+  // The form holds the count as text.
+  const count = 'videosPlanned' in b ? parseCount(b.videosPlanned) : undefined;
+  if (count === undefined || next.videosPlanned !== count)
+    patch.videos_planned = next.videosPlanned;
+  if (next.note !== was('note')) patch.note = next.note;
+  return patch;
+}

@@ -57,3 +57,15 @@ it('puts the job back when the change is refused', async () => {
   expect(job.value).toBe('handler');
   expect(refresh).not.toHaveBeenCalled();
 });
+
+it('says so when a new editor’s accounts moved to Unassigned', async () => {
+  (setMemberKind as jest.Mock).mockResolvedValueOnce({
+    ok: true,
+    message: 'Job saved. Their accounts moved to Unassigned.',
+  });
+  render(<TeamManager pending={[]} team={[KEE]} unlinked={[]} />);
+  fireEvent.change(screen.getByLabelText('Job: KEE'), {
+    target: { value: 'editor' },
+  });
+  await screen.findByText('Job saved. Their accounts moved to Unassigned.');
+});

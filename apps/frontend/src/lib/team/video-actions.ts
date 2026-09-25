@@ -21,7 +21,7 @@ import { asActor, type Actor } from './actor';
 import { onBoard } from './on-board';
 import { isTimeKey } from './shoots';
 import { rowToVideo, VIDEO_COLS, type VideoRow } from './video-rows';
-import { parseLink, parseVideoInput, type Video } from './videos';
+import { parseLink, parseVideoInput, videoPatch, type Video } from './videos';
 
 export interface VideoResult {
   ok: boolean;
@@ -92,6 +92,8 @@ export async function createVideo(input: unknown): Promise<VideoResult> {
 export async function updateVideo(
   id: string,
   input: unknown,
+  /** What the form started with; only fields changed from it are written. */
+  before?: unknown,
 ): Promise<VideoResult> {
   return asActor(async (a): Promise<VideoResult> => {
     const refused = adminOnly(a);
@@ -100,7 +102,13 @@ export async function updateVideo(
     const p = parseVideoInput(input);
     if (!p.ok) return p;
     const v = p.value;
+    const patch = videoPatch(v, before);
     const admin = getSupabaseAdmin();
+    if (Object.keys(patch).length === 0)
+      return one(
+        await admin.from('tracker_video').select(VIDEO_COLS).eq('id', id),
+        GONE,
+      );
     const { data: was, error: readErr } = await admin
       .from('tracker_video')
       .select('editor_id, handler_id')
@@ -111,23 +119,17 @@ export async function updateVideo(
     // Only someone newly put on the job must be on the board; a job may keep
     // a person who has since left, so its title or day can still be fixed.
     const added = [
-      v.editorId !== was.editor_id ? v.editorId : null,
-      v.handlerId !== was.handler_id ? v.handlerId : null,
+      'editor_id' in patch && v.editorId !== was.editor_id ? v.editorId : null,
+      'handler_id' in patch && v.handlerId !== was.handler_id
+        ? v.handlerId
+        : null,
     ];
     if (!(await onBoard(added)))
       return { ok: false, message: 'That person is not on the board.' };
     return one(
       await admin
         .from('tracker_video')
-        .update({
-          creator_id: v.creatorId,
-          title: v.title,
-          note: v.note,
-          editor_id: v.editorId,
-          handler_id: v.handlerId,
-          post_date: v.postDate,
-          post_time: v.postTime,
-        })
+        .update(patch)
         .eq('id', id)
         .select(VIDEO_COLS),
       GONE,

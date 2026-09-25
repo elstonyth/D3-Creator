@@ -176,7 +176,7 @@ export function WeekSchedule({
   const edit = (s: Shoot, d: ShootDraft) =>
     save(
       s.id,
-      () => updateShoot(s.id, input(d)),
+      () => updateShoot(s.id, input(d), input(draftOf(s, s.date))),
       (r) => replace(r.shoot!),
       open,
     );

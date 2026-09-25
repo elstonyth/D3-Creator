@@ -15,7 +15,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { getSupabaseAdmin } from '@d3/database';
-import { requireAdmin } from '@gitroom/frontend/lib/auth';
+import { requireAdmin, type AuthContext } from '@gitroom/frontend/lib/auth';
 import { isUuid } from '@gitroom/frontend/lib/ids';
 import {
   cleanTitle,
@@ -28,10 +28,12 @@ export interface TeamResult {
   message?: string;
 }
 
-async function guarded(fn: () => Promise<TeamResult>): Promise<TeamResult> {
+async function guarded(
+  fn: (me: AuthContext) => Promise<TeamResult>,
+): Promise<TeamResult> {
   try {
-    await requireAdmin();
-    const r = await fn();
+    const me = await requireAdmin();
+    const r = await fn(me);
     if (r.ok) revalidatePath('/admin/team');
     return r;
   } catch (e) {
@@ -217,13 +219,15 @@ const GONE = 'That person is no longer on the board.';
 /**
  * Change what someone does: handler, editor, or both. The default title
  * follows the job (Trader on a column, Editor in the editor row); a custom
- * one stays.
+ * one stays. An editor runs no accounts, so the accounts they handled move
+ * to Unassigned, as the board already shows them (and the handover log
+ * records it). Repeating the change finishes a half-done one.
  */
 export async function setMemberKind(
   memberId: string,
   kind: MemberKind,
 ): Promise<TeamResult> {
-  return guarded(async () => {
+  return guarded(async (me) => {
     if (!isUuid(memberId)) return { ok: false, message: 'Invalid person.' };
     if (!MEMBER_KINDS.includes(kind))
       return { ok: false, message: 'Invalid person type.' };
@@ -247,8 +251,16 @@ export async function setMemberKind(
       .is('archived_at', null)
       .select('id');
     if (error) return { ok: false, message: error.message };
-    return data && data.length > 0
-      ? { ok: true }
-      : { ok: false, message: GONE };
+    if (!data || data.length === 0) return { ok: false, message: GONE };
+    if (kind !== 'editor') return { ok: true };
+    const { data: moved, error: moveErr } = await admin
+      .from('tracker_assignment')
+      .update({ handler_id: null, updated_by: me.userId })
+      .eq('handler_id', memberId)
+      .select('creator_id');
+    if (moveErr) return { ok: false, message: moveErr.message };
+    return moved && moved.length > 0
+      ? { ok: true, message: 'Job saved. Their accounts moved to Unassigned.' }
+      : { ok: true };
   });
 }
