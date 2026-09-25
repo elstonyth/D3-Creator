@@ -5,10 +5,11 @@ import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
  * Route-level error boundary for /studio/*. PRD 3 §6.8.
  *
  * Both controls go through the `children` slot: `action`/`secondary` render
- * `<Link href>` and cannot take the `reset` callback, and `children` renders
+ * `<Link href>` and cannot take the `retry` callback, and `children` renders
  * above them, so mixing the two slots would put Try again out of reading order.
  */
 
+import * as Sentry from '@sentry/nextjs';
 import Link from 'next/link';
 import { useEffect, type ReactElement } from 'react';
 
@@ -21,14 +22,19 @@ import { Container, Section } from '@gitroom/frontend/components/ui/section';
 
 export default function StudioError({
   error,
-  reset,
+  retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  retry: () => void;
 }): ReactElement {
   const { t } = useI18n();
-  // Never render error.message; the diagnostic still reaches the console.
-  useEffect(() => console.error('[studio] route error', error), [error]);
+  // Never render error.message; the diagnostic still reaches the console,
+  // and Sentry: client errors are reported here, server errors (which carry
+  // a digest) by onRequestError in instrumentation.ts.
+  useEffect(() => {
+    console.error('[studio] route error', error);
+    if (!error.digest) Sentry.captureException(error);
+  }, [error]);
 
   return (
     <Section space="md">
@@ -45,7 +51,7 @@ export default function StudioError({
           )}
         >
           <div className="mt-1 flex flex-wrap items-center justify-center gap-3">
-            <Button variant="primary" size="md" onClick={reset}>
+            <Button variant="primary" size="md" onClick={retry}>
               {t('Try again')}{' '}
             </Button>
             <Link href="/studio/analyzer" className={secondaryCta}>
