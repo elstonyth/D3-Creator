@@ -93,10 +93,22 @@ export const authZh: Record<string, string> = {
   // ---- Admin console sign-in --------------------------------------------
   'Admin sign in — D3 Creator': '管理员登录 — D3 Creator',
   'Sign in to the admin console': '登录管理控制台',
-  'For D3 staff only. This is not the creator or member sign-in — that lives on www.d3creator.com.':
-    '仅限 D3 员工。这不是创作者或会员的登录入口，创作者与会员请前往 www.d3creator.com 登录。',
-  'Staff console. Creators and members sign in at':
-    '员工控制台。创作者与会员请在此登录：',
+  'Admins only. Staff sign up and sign in at {staff}; creators and members at {www}.':
+    '仅限管理员。员工请在 {staff} 注册和登录；创作者与会员请前往 {www}。',
+  'Admins only. Staff sign in at': '仅限管理员。员工请在此登录：',
+  'Creators and members sign in at': '创作者与会员请在此登录：',
+  // ---- Signed in with the wrong account on a portal host ----------------
+  'Wrong account — D3 Creator': '账号不符 — D3 Creator',
+  'This account can’t be used here': '此账号无法在这里使用',
+  'You’re signed in as {email}.': '当前登录的账号：{email}。',
+  'This is a staff account. Staff work at {staff}.':
+    '这是员工账号。员工请前往 {staff}。',
+  'Go to the staff site': '前往员工门户',
+  'This is the admin account. Admins work at {admin}.':
+    '这是管理员账号。管理员请前往 {admin}。',
+  'Go to the admin console': '前往管理控制台',
+  'This isn’t a staff account. Sign out, then create a staff account at this site. If this email is already registered, use a different one, or ask an admin to remove the old account.':
+    '这不是员工账号。请先退出登录，再在本站注册员工账号。如果此邮箱已注册，请换一个邮箱，或请管理员删除旧账号。',
   'Could not send the link. Try again in a moment.':
     '链接发送失败，请稍后再试。',
   'Could not sign in. Check your connection and try again.':

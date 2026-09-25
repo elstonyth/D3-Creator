@@ -21,13 +21,18 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function ResetPasswordPage() {
   const { t } = await getI18n();
+  const variant = authVariant((await headers()).get('host'));
   return (
     <AuthShell
-      variant={authVariant((await headers()).get('host'))}
+      variant={variant}
       heading={t("Set a new password")}
       subheading={t("The last step of the reset you started by email.")}
     >
-      <ResetPasswordForm />
+      {/* A portal's root is its own people's home (the middleware sends each
+          role on); on www a returning member belongs in the Studio. */}
+      <ResetPasswordForm
+        redirectTo={variant === 'default' ? '/studio/chat' : '/'}
+      />
     </AuthShell>
   );
 }

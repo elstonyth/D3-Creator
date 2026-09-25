@@ -13,8 +13,9 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-// The admin host never gets here (the middleware sends /signup to www), so
-// the form is either the public one or, on staff.d3creator.com, the staff one.
+// The admin host never gets here (the middleware sends /signup to the staff
+// site), so the form is either the public one or, on staff.d3creator.com, the
+// staff one.
 export default async function SignUpPage() {
   const { t } = await getI18n();
   if (isStaffHost((await headers()).get('host'))) {

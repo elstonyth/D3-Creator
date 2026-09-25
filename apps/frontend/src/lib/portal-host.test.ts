@@ -66,6 +66,7 @@ describe('portal-host', () => {
       '/signup',
       '/forgot-password',
       '/reset-password',
+      '/wrong-account',
       '/auth/callback',
       '/api/chat',
       '/me',

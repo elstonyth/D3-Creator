@@ -10,8 +10,16 @@ import { getSupabaseBrowser } from '@gitroom/frontend/lib/supabase-browser';
  * Renders inside the site header and both signed-in layouts, so it stays a
  * single inline control: a small ghost button plus, on failure, one line of
  * text beside it. No Alert here — a bordered box would break the header row.
+ *
+ * After signing out it goes to `/`, which the middleware turns into this
+ * host's sign-in page on the admin and staff hosts.
  */
-export function SignOutButton() {
+export function SignOutButton({
+  primary = false,
+}: {
+  /** The page's main action (the wrong-account page): full width, primary. */
+  primary?: boolean;
+} = {}) {
   const { t } = useI18n();
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -34,8 +42,17 @@ export function SignOutButton() {
   }
 
   return (
-    <div className="inline-flex items-center gap-2">
-      <Button variant="ghost" size="sm" onClick={handle} loading={pending}>
+    <div
+      className={
+        primary ? 'flex flex-col gap-2' : 'inline-flex items-center gap-2'
+      }
+    >
+      <Button
+        variant={primary ? 'primary' : 'ghost'}
+        size={primary ? 'lg' : 'sm'}
+        onClick={handle}
+        loading={pending}
+      >
         {t('Sign out')}
       </Button>
       {error ? (
