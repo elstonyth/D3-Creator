@@ -199,7 +199,9 @@ it('marks a shoot done with how many videos came out of it', async () => {
   });
 
   expect(setShootStatus).toHaveBeenCalledWith(MINE.id, 'done', '2');
-  await waitFor(() => expect(screen.getByText('Done · 2 videos')).toBeTruthy());
+  await waitFor(() =>
+    expect(screen.getByText('Finished · 2 videos')).toBeTruthy(),
+  );
 });
 
 it('lets the admin change anyone and choose the person when adding', () => {

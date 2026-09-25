@@ -45,7 +45,7 @@ export default async function StaffPendingPage() {
           <p className="mt-4">
             <a
               href=""
-              className="text-label text-fg underline underline-offset-4 hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focusRing"
+              className="inline-flex min-h-[44px] items-center rounded text-label text-fg underline underline-offset-4 hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focusRing"
             >
               {t('Refresh')}
             </a>

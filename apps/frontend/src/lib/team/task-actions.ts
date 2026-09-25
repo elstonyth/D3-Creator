@@ -37,6 +37,9 @@ export async function setMyTaskDone(
       return { ok: false, message: 'That task is not yours, or it is gone.' };
     return { ok: true };
   } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : 'Failed.' };
+    // As in asActor: a refusal says so; anything else is logged, not shown.
+    if (e instanceof Error && e.message === 'Not authorized.')
+      return { ok: false, message: e.message };
+    return dbError('setMyTaskDone', e);
   }
 }

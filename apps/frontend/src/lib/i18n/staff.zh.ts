@@ -38,7 +38,6 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Add a shoot on {day}': '在{day}添加拍摄',
   '{count} videos planned': '计划 {count} 条视频',
   Done: '完成',
-  'Done · {count} videos': '已完成 · {count} 条视频',
   Cancelled: '已取消',
   Edit: '编辑',
   'Edit {title}': '编辑 {title}',
@@ -301,4 +300,7 @@ export const staffZh: Readonly<Record<string, string>> = {
 
   // ---- History
   'Accounts handed over during the month.': '本月交接的账号。',
+
+  // ---- A finished shoot's pill, with its count
+  'Finished · {count} videos': '已完成 · {count} 条视频',
 };

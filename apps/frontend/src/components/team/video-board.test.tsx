@@ -182,6 +182,8 @@ it('says a staff Done went through, since the job moves to another list', async 
     video: { ...TO_EDIT, editedAt: '2026-09-23T02:00:00Z', editedBy: ALI },
   });
   renderBoard(ALI);
+  // The live region is there, empty, before anything is said in it.
+  expect(screen.getByRole('status').textContent).toBe('');
   fireEvent.click(screen.getByRole('button', { name: 'Done editing: Reel 1' }));
   fireEvent.change(screen.getByLabelText('Link to the edited video'), {
     target: { value: 'https://drive.google.com/cut' },
@@ -189,7 +191,7 @@ it('says a staff Done went through, since the job moves to another list', async 
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
   });
-  expect((await screen.findByRole('status')).textContent).toContain(
+  expect(screen.getByRole('status').textContent).toContain(
     'Edit done: “Reel 1” is ready to post.',
   );
 });

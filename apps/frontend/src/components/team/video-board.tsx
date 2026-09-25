@@ -431,17 +431,20 @@ export function VideoBoard({
         })}
       </div>
 
-      {notice ? (
-        <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2">
+      {/* Always there, so a screen reader reads out each notice put in it. */}
+      <div
+        role="status"
+        className="pointer-events-none fixed inset-x-4 bottom-5 z-50 flex justify-center"
+      >
+        {notice ? (
           <p
             key={notice.id}
-            role="status"
-            className="rounded-xl border border-line bg-surface px-4 py-3 text-body-sm text-fg shadow-glass"
+            className="max-w-md break-words rounded-xl border border-line bg-surface px-4 py-3 text-body-sm text-fg shadow-glass"
           >
             {notice.text}
           </p>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
     </div>
   );
 }

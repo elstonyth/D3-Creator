@@ -162,7 +162,7 @@ export async function HistoryView({
                         {s.status === 'done' ? (
                           <Pill className="shrink-0">
                             {s.videosShot != null
-                              ? t('Done · {count} videos', {
+                              ? t('Finished · {count} videos', {
                                   count: s.videosShot,
                                 })
                               : t('Finished')}
