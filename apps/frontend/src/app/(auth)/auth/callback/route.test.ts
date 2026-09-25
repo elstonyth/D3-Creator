@@ -55,6 +55,17 @@ it('never passes on an off-site destination', async () => {
   expect(url.searchParams.get('redirectTo')).toBe('/me');
 });
 
+it('never passes on a destination the URL parser turns off-site', async () => {
+  // A tab (like CR or LF) is stripped by the parser, so "/\t/evil.com" would
+  // be read as the protocol-relative "//evil.com".
+  const loc = await location('code=c&redirectTo=%2F%09%2Fevil.com');
+  expect(loc).not.toContain('evil.com');
+  const url = new URL(loc);
+  expect(url.origin).toBe(ORIGIN);
+  expect(url.pathname).toBe('/login');
+  expect(url.searchParams.get('notice')).toBe('signin_needed');
+});
+
 it('reports a link without a code as broken, with no destination', async () => {
   const url = new URL(await location('redirectTo=%2Fstudio%2Fchat'));
   expect(url.origin).toBe(ORIGIN);
