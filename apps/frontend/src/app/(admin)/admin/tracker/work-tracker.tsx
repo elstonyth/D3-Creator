@@ -15,13 +15,16 @@ import {
   useCallback,
   useEffect,
   useId,
+  useImperativeHandle,
   useRef,
   useState,
   useTransition,
   type FormEvent,
+  type Ref,
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
+import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { AuroraBackground } from '@gitroom/frontend/components/ui/aurora-background';
 import { cn } from '@gitroom/frontend/lib/utils';
 // clsx where a custom font-size token sits next to a text colour:
@@ -56,6 +59,7 @@ import {
 } from './actions';
 import { EditableTitle } from './editable-title';
 import { GlassPanel } from './glass-panel';
+import { safeCall } from './safe-call';
 import { StaffingBoard } from './staffing-board';
 import s from './tracker.module.scss';
 
@@ -111,8 +115,20 @@ export function WorkTracker({
     });
   }, []);
 
+  const remarks = useRef<RemarksHandle>(null);
+
+  // Remarks still waiting on their autosave go first: the next month's page
+  // reads them. If that save fails the page stays, so the words are not lost.
+  function leaveFor(url: string) {
+    startNav(async () => {
+      if (!(await (remarks.current?.settle() ?? Promise.resolve(true)))) return;
+      // After an await, updates need their own transition to keep navPending.
+      startNav(() => router.push(url));
+    });
+  }
+
   function gotoMonth(delta: number) {
-    startNav(() => router.push(`?month=${addMonths(month, delta)}`));
+    leaveFor(`?month=${addMonths(month, delta)}`);
   }
 
   function pickDay(key: string) {
@@ -120,7 +136,7 @@ export function WorkTracker({
       setSelected(key);
       return;
     }
-    startNav(() => router.push(`?month=${key.slice(0, 7)}&day=${key}`));
+    leaveFor(`?month=${key.slice(0, 7)}&day=${key}`);
   }
 
   const eventsOn = (key: string) => events.filter((e) => e.date === key);
@@ -371,7 +387,13 @@ export function WorkTracker({
             setEvents={setEvents}
             onFail={fail}
           />
-          <RemarksPanel initial={initial.remarks} onFail={fail} />
+          <RemarksPanel
+            ref={remarks}
+            initial={initial.remarks}
+            initialAt={initial.remarksAt}
+            onFail={fail}
+            readOnly={navPending}
+          />
         </section>
 
         {/* Staffing */}
@@ -502,7 +524,7 @@ function TasksPanel({
     };
     setDraft('');
     setTasks((p) => [...p, temp]);
-    const r = await addTask(title);
+    const r = await safeCall(() => addTask(title));
     if (!r.ok || !r.id) {
       onFail(r, () => setTasks((p) => p.filter((x) => x.id !== tempId)));
       return;
@@ -519,7 +541,7 @@ function TasksPanel({
     setTasks((p) =>
       p.map((x) => (x.id === task.id ? { ...x, done: next } : x)),
     );
-    const r = await setTaskDone(task.id, next);
+    const r = await safeCall(() => setTaskDone(task.id, next));
     if (!r.ok)
       onFail(r, () =>
         setTasks((p) =>
@@ -534,7 +556,7 @@ function TasksPanel({
     setTasks((p) =>
       p.map((x) => (x.id === task.id ? { ...x, assigneeId } : x)),
     );
-    const r = await assignTask(task.id, assigneeId);
+    const r = await safeCall(() => assignTask(task.id, assigneeId));
     if (!r.ok)
       onFail(r, () =>
         setTasks((p) =>
@@ -551,7 +573,7 @@ function TasksPanel({
     if (isTemp(task.id)) return;
     const prev = task.title;
     setTasks((p) => p.map((x) => (x.id === task.id ? { ...x, title } : x)));
-    const r = await updateTask(task.id, title);
+    const r = await safeCall(() => updateTask(task.id, title));
     if (!r.ok)
       onFail(r, () =>
         setTasks((p) =>
@@ -566,7 +588,7 @@ function TasksPanel({
     if (isTemp(task.id)) return;
     const at = tasks.findIndex((x) => x.id === task.id);
     setTasks((p) => p.filter((x) => x.id !== task.id));
-    const r = await deleteTask(task.id);
+    const r = await safeCall(() => deleteTask(task.id));
     // Put back just this item, where it was — never a whole stale snapshot.
     if (!r.ok)
       onFail(r, () =>
@@ -589,7 +611,7 @@ function TasksPanel({
     setTasks((p) => [...reordered, ...p.filter((x) => x.done)]);
     // Only open tasks carry an order; finished ones sit in their own list.
     const ids = reordered.filter((x) => !isTemp(x.id)).map((x) => x.id);
-    void reorderTasks(ids).then((r) => {
+    void safeCall(() => reorderTasks(ids)).then((r) => {
       if (!r.ok)
         onFail(r, () =>
           setTasks((p) => [
@@ -873,7 +895,7 @@ function EventsPanel({
     const tempId = `temp-${Date.now()}`;
     setDraft('');
     setEvents((p) => [...p, { id: tempId, date: dateKey, title }]);
-    const r = await addEvent(dateKey, title);
+    const r = await safeCall(() => addEvent(dateKey, title));
     if (!r.ok || !r.id) {
       onFail(r, () => setEvents((p) => p.filter((x) => x.id !== tempId)));
       return;
@@ -885,7 +907,7 @@ function EventsPanel({
     if (ev.id.startsWith('temp-')) return;
     const prev = ev.title;
     setEvents((p) => p.map((x) => (x.id === ev.id ? { ...x, title } : x)));
-    const r = await updateEvent(ev.id, title);
+    const r = await safeCall(() => updateEvent(ev.id, title));
     if (!r.ok)
       onFail(r, () =>
         setEvents((p) =>
@@ -902,7 +924,7 @@ function EventsPanel({
     // place rather than at the end of the day's list.
     const after = events[events.findIndex((x) => x.id === ev.id) + 1]?.id;
     setEvents((p) => p.filter((x) => x.id !== ev.id));
-    const r = await deleteEvent(ev.id);
+    const r = await safeCall(() => deleteEvent(ev.id));
     if (!r.ok)
       onFail(r, () =>
         setEvents((p) => {
@@ -1074,45 +1096,115 @@ function DayList({
 
 // ---- remarks ---------------------------------------------------------------
 
-function RemarksPanel({
+/** What the board asks of the remarks pad before it changes month. */
+export interface RemarksHandle {
+  /**
+   * Waits for a save on its way, then sends whatever is newer. True once
+   * nothing typed is left unsaved, or when the pad was already stopped by a
+   * conflict before this call (it has said what to do). False when a save
+   * failed, or found a conflict just now: the user stays to read it.
+   */
+  settle(): Promise<boolean>;
+}
+
+export function RemarksPanel({
   initial,
+  initialAt,
   onFail,
+  readOnly,
+  ref,
 }: {
   initial: string;
+  initialAt: string | null;
   onFail: (r: ActionResult, rollback: () => void) => void;
+  /** While the board leaves the page: text typed now would miss the save. */
+  readOnly?: boolean;
+  ref?: Ref<RemarksHandle>;
 }) {
   const { t } = useI18n();
   const id = useId();
   const [value, setValue] = useState(initial);
-  const [state, setState] = useState<'idle' | 'dirty' | 'saving' | 'saved'>(
-    'idle',
-  );
+  const [state, setState] = useState<
+    'idle' | 'dirty' | 'saving' | 'saved' | 'conflict'
+  >('idle');
+  // What to do about a conflict, shown under the pad for as long as it holds.
+  const [conflictNote, setConflictNote] = useState('');
   const latest = useRef(initial);
   const lastSaved = useRef(initial);
-  const inFlight = useRef(false);
+  // The save on its way, if any: saves go one at a time, and settle() waits.
+  const inFlight = useRef<Promise<ActionResult> | null>(null);
+  // The version this screen last loaded or saved; every save names it.
+  const seenAt = useRef(initialAt);
+  // Another screen saved first: autosave stops for this page load.
+  const conflicted = useRef(false);
+  // Every text sent since the last confirmed version. They all named the same
+  // version, so at most one can have landed; a conflict that finds one of
+  // them there is this screen's own write whose answer was lost.
+  const sent = useRef(new Set<string>());
 
   // One save at a time, always of the newest text; a save that lands on
-  // already-stale text starts the next one. A failed save never rewinds the
-  // textarea — the words stay and the status says so.
+  // already-stale text starts the next one, and its promise covers that one.
+  // A failed save never rewinds the textarea — the words stay and the status
+  // says so.
   const flush = useCallback(
     async function run(): Promise<void> {
-      if (inFlight.current) return;
+      if (inFlight.current || conflicted.current) return;
       const v = latest.current;
       if (v === lastSaved.current) return;
-      inFlight.current = true;
       setState('saving');
-      const r = await saveRemarks(v);
-      inFlight.current = false;
+      sent.current.add(v);
+      const call = safeCall(() => saveRemarks(v, seenAt.current));
+      inFlight.current = call;
+      const r = await call;
+      inFlight.current = null;
       if (r.ok) {
+        if (r.at) seenAt.current = r.at;
         lastSaved.current = v;
+        sent.current.clear();
         if (latest.current === v) setState('saved');
-        else void run();
+        else await run();
+      } else if (
+        r.conflict &&
+        r.at &&
+        r.body !== undefined &&
+        sent.current.has(r.body)
+      ) {
+        // What is there is one of this screen's own saves: it landed and only
+        // the answer was lost. Carry on from it instead of stopping.
+        seenAt.current = r.at;
+        lastSaved.current = r.body;
+        sent.current.clear();
+        if (latest.current === r.body) setState('saved');
+        else await run();
+      } else if (r.conflict) {
+        conflicted.current = true;
+        setConflictNote(r.message ?? 'Could not save. Try again.');
+        setState('conflict');
+        onFail(r, () => {});
       } else {
         setState('dirty');
         onFail(r, () => {});
       }
     },
     [onFail],
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      async settle() {
+        // A conflict already on screen has told the user what to do; one
+        // found now has not, so that one keeps them here to read it.
+        const was = conflicted.current;
+        // A save on its way may start the next one; wait until none is.
+        while (inFlight.current) await inFlight.current;
+        await flush();
+        return (
+          was || (!conflicted.current && latest.current === lastSaved.current)
+        );
+      },
+    }),
+    [flush],
   );
 
   // The debounce lives in an effect; the 'dirty' flag is set by the change
@@ -1123,17 +1215,20 @@ function RemarksPanel({
     return () => window.clearTimeout(timer);
   }, [value, flush]);
 
-  // Month navigation remounts the board: send whatever is still pending.
+  // A month change settles the pad first (leaveFor); any other way out, such
+  // as the sidebar, just unmounts it: send whatever is still pending.
   useEffect(() => () => void flush(), [flush]);
 
   const status =
-    state === 'saving'
-      ? t('Saving…')
-      : state === 'saved'
-        ? t('Saved')
-        : state === 'dirty'
-          ? t('Unsaved')
-          : t('Autosaves');
+    state === 'conflict'
+      ? t('Not saved')
+      : state === 'saving'
+        ? t('Saving…')
+        : state === 'saved'
+          ? t('Saved')
+          : state === 'dirty'
+            ? t('Unsaved')
+            : t('Autosaves');
 
   return (
     <GlassPanel className="p-5 sm:p-6 lg:col-span-5">
@@ -1158,8 +1253,10 @@ function RemarksPanel({
         onChange={(e) => {
           setValue(e.target.value);
           latest.current = e.target.value;
-          setState('dirty');
+          // After a conflict the status keeps saying why nothing saves.
+          if (!conflicted.current) setState('dirty');
         }}
+        readOnly={readOnly}
         maxLength={20000}
         rows={8}
         placeholder={t(
@@ -1170,6 +1267,12 @@ function RemarksPanel({
           'min-h-[200px] flex-1 resize-y px-4 py-3 text-body leading-relaxed',
         )}
       />
+      {/* Stays up: the toast fades, but the pad will not save again. */}
+      {state === 'conflict' ? (
+        <Alert tone="danger" className="mt-3">
+          {t(conflictNote)}
+        </Alert>
+      ) : null}
     </GlassPanel>
   );
 }

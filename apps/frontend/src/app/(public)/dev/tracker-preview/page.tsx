@@ -244,6 +244,7 @@ export default async function TrackerPreviewPage() {
       },
     ],
     remarks: 'Studio lights fixed. Colly wants shorter hooks next month.',
+    remarksAt: null,
   };
 
   return (

@@ -132,7 +132,7 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
       .order('created_at'),
     admin
       .from('tracker_note')
-      .select('body')
+      .select('body, updated_at')
       .eq('key', 'remarks')
       .maybeSingle(),
     admin
@@ -289,5 +289,6 @@ export async function loadTrackerData(month: string): Promise<TrackerData> {
     })),
     creators,
     remarks: noteRes.data?.body ?? '',
+    remarksAt: noteRes.data?.updated_at ?? null,
   };
 }

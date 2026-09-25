@@ -23,6 +23,12 @@ export interface ActionResult {
   ok: boolean;
   message?: string;
   id?: string;
+  /** saveRemarks: the note's new `updated_at` (on a conflict, its current one). */
+  at?: string;
+  /** saveRemarks: refused because another screen saved first. */
+  conflict?: boolean;
+  /** saveRemarks conflict: the note's current text. */
+  body?: string;
 }
 
 const PAGE = '/admin/tracker';
@@ -206,7 +212,10 @@ export async function deleteEvent(id: string): Promise<ActionResult> {
 
 // ---- remarks ---------------------------------------------------------------
 
-export async function saveRemarks(body: string): Promise<ActionResult> {
+export async function saveRemarks(
+  body: string,
+  seen: string | null,
+): Promise<ActionResult> {
   return guarded(async () => {
     if (typeof body !== 'string' || body.length > 20000) {
       return {
@@ -214,10 +223,54 @@ export async function saveRemarks(body: string): Promise<ActionResult> {
         message: 'Remarks are limited to 20,000 characters.',
       };
     }
-    const { error } = await getSupabaseAdmin()
+    // A page loaded before versions existed sends none.
+    if (seen !== null && typeof seen !== 'string') {
+      return {
+        ok: false,
+        message:
+          'This page is out of date. Copy your text, then reload the page.',
+      };
+    }
+    const admin = getSupabaseAdmin();
+    if (seen === null) {
+      // No version was loaded (the row was missing): create or replace.
+      const { data, error } = await admin
+        .from('tracker_note')
+        .upsert({ key: 'remarks', body }, { onConflict: 'key' })
+        .select('updated_at')
+        .single();
+      return error
+        ? { ok: false, message: error.message }
+        : { ok: true, at: data.updated_at };
+    }
+    // Only over the version this screen loaded: a tab opened earlier must
+    // not wipe what was typed elsewhere since.
+    const { data, error } = await admin
       .from('tracker_note')
-      .upsert({ key: 'remarks', body }, { onConflict: 'key' });
-    return error ? { ok: false, message: error.message } : { ok: true };
+      .update({ body })
+      .eq('key', 'remarks')
+      .eq('updated_at', seen)
+      .select('updated_at');
+    if (error) return { ok: false, message: error.message };
+    if (!data || data.length === 0) {
+      // Hand back what is there now: if it is this screen's own last save,
+      // whose answer was lost on the way back, the screen carries on from it.
+      // A failed read leaves a plain conflict.
+      const { data: now } = await admin
+        .from('tracker_note')
+        .select('body, updated_at')
+        .eq('key', 'remarks')
+        .maybeSingle();
+      return {
+        ok: false,
+        conflict: true,
+        message:
+          'These remarks were changed elsewhere. Copy your text, then reload the page.',
+        body: now?.body,
+        at: now?.updated_at,
+      };
+    }
+    return { ok: true, at: data[0].updated_at };
   });
 }
 
