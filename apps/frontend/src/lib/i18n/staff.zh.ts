@@ -290,4 +290,7 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Posted: “{title}”.': '已发布：“{title}”。',
   'Posting day saved for “{title}”.': '已保存“{title}”的发布日期。',
   'Taken back: “{title}”.': '已撤回：“{title}”。',
+
+  // ---- A finished job or shoot, apart from the Done button that finishes it
+  Finished: '已完成',
 };

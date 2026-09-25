@@ -165,7 +165,7 @@ export async function HistoryView({
                               ? t('Done · {count} videos', {
                                   count: s.videosShot,
                                 })
-                              : t('Done')}
+                              : t('Finished')}
                           </Pill>
                         ) : s.status === 'cancelled' ? (
                           <Pill tone="muted" className="shrink-0">

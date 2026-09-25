@@ -695,7 +695,7 @@ function VideoCard({
         <>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
             <div className="flex flex-wrap items-center gap-1">
-              {stage === 'done' ? <Pill>{t('Done')}</Pill> : null}
+              {stage === 'done' ? <Pill>{t('Finished')}</Pill> : null}
               {stage === 'editing' && canEdit ? (
                 <Button
                   size="sm"
