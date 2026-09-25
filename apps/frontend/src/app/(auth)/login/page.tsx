@@ -76,7 +76,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             )
           : staff
             ? t(
-                'For the D3 team: your shoot schedule and your accounts. New here? Create a staff account and an admin approves it.',
+                'For the D3 team: your shoot schedule and your videos. New here? Create a staff account and an admin approves it.',
               )
             : t(
                 'One account for the Studio, the class library and your own numbers.',
