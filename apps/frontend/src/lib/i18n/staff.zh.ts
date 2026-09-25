@@ -81,7 +81,7 @@ export const staffZh: Readonly<Record<string, string>> = {
   'That shoot is already gone.': '这条拍摄已被删除。',
   'Shoots before this month are closed. Ask an admin.':
     '本月以前的拍摄已结算，请找管理员。',
-  '{name} (left)': '{name}（已离开）',
+  '{name} (left)': '{name}（已离职）',
   'Invalid status.': '状态无效。',
 
   // ---- Staff portal chrome and pages --------------------------------------
@@ -102,7 +102,7 @@ export const staffZh: Readonly<Record<string, string>> = {
     '本周每个人在哪里、几点拍摄。加上你的行程——团队和管理员马上就能看到。',
   'What you look after': '你负责的账号',
   'Output for {month}, from the scraped posts.':
-    '{month} 的数据，来自抓取的帖子。',
+    '{month} 的数据，按各平台已发布的帖子统计。',
   'Your record': '你的工作记录',
   'Every shoot you logged, the videos that came out of them, and the accounts you held that month.':
     '你记录的每次拍摄、产出的视频，以及当月负责的账号。',
@@ -116,7 +116,7 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Your staff account is set up. An admin has to approve it and link it to your name on the work board before you can see the team’s schedule.':
     '你的员工账号已创建。管理员审批并关联到你在工作看板上的名字后，你才能看到团队行程。',
   'Tell your admin you have signed up. This page opens the portal once you are approved — just reload it.':
-    '请告诉管理员你已注册。审批通过后重新载入此页即可进入门户。',
+    '请告诉管理员你已注册。审批通过后刷新此页即可进入门户。',
   'Your name on the board': '你在看板上的名字',
   'How the team knows you, e.g. KEE.': '团队怎么称呼你，例如 KEE。',
   'Your job': '你的职位',
@@ -155,7 +155,7 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Edited video': '剪好的视频',
   editing: '剪辑中',
   'posted {day}': '{day} 已发布',
-  'Live post': '已发布的帖子',
+  'Live post': '查看帖子',
   'goes out {day}': '{day} 发布',
   'not scheduled': '未排期',
   'Link to the edited video': '剪好视频的链接',
@@ -209,8 +209,6 @@ export const staffZh: Readonly<Record<string, string>> = {
   'No shoots this month.': '本月没有拍摄。',
   Planned: '计划中',
   Handovers: '账号交接',
-  'Accounts given to or taken from this person during the month.':
-    '本月交给此人或从此人手上转走的账号。',
   'No handovers this month.': '本月没有交接。',
   handler: '负责人',
   editor: '剪辑',
@@ -300,4 +298,7 @@ export const staffZh: Readonly<Record<string, string>> = {
 
   // ---- Waiting page
   Refresh: '刷新',
+
+  // ---- History
+  'Accounts handed over during the month.': '本月交接的账号。',
 };
