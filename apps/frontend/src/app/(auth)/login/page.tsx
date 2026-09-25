@@ -2,7 +2,7 @@ import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { headers } from 'next/headers';
-import { authVariant } from '@gitroom/frontend/lib/portal-host';
+import { authVariant, hostInfo } from '@gitroom/frontend/lib/portal-host';
 
 import { AuthShell } from '@gitroom/frontend/components/auth/auth-shell';
 import { SignInForm } from '@gitroom/frontend/components/auth/sign-in-form';
@@ -47,7 +47,9 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const message = notice ? NOTICES[notice] : undefined;
   // admin.d3creator.com and staff.d3creator.com each get their own look so
   // nobody mistakes one sign-in for another (lib/portal-host.ts).
-  const variant = authVariant((await headers()).get('host'));
+  const host = (await headers()).get('host');
+  const variant = authVariant(host);
+  const { site } = hostInfo(host);
   const admin = variant === 'admin';
   const staff = variant === 'staff';
 
@@ -62,13 +64,19 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             : t('Sign in to D3 Creator')
       }
       subheading={
-        admin
+        // Staff kept signing up here and got public member accounts; point
+        // them at their own site. The admin host always has a site.
+        admin && site
           ? t(
-              'For D3 staff only. This is not the creator or member sign-in — that lives on www.d3creator.com.',
+              'Admins only. Staff sign up and sign in at {staff}; creators and members at {www}.',
+              {
+                staff: new URL(site.staff).host,
+                www: new URL(site.public).host,
+              },
             )
           : staff
             ? t(
-                'For the D3 team: your shoot schedule and your accounts. New here? Create a staff account and an admin approves it.',
+                'For the D3 team: your shoot schedule and your videos. New here? Create a staff account and an admin approves it.',
               )
             : t(
                 'One account for the Studio, the class library and your own numbers.',

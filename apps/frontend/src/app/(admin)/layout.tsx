@@ -25,8 +25,6 @@ export const dynamic = 'force-dynamic';
 const NAV = [
   { path: '/', label: 'Overview', exact: true },
   { path: '/tracker', label: 'Tracker' },
-  { path: '/videos', label: 'Videos' },
-  { path: '/schedule', label: 'Schedule' },
   { path: '/team', label: 'Team' },
   { path: '/profiles', label: 'Accounts' },
   { path: '/classes', label: 'Classes' },

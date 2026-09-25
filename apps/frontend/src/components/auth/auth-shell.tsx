@@ -15,8 +15,9 @@ interface AuthShellProps {
   /**
    * `admin` and `staff` are the portals' own sign-ins (admin.d3creator.com,
    * staff.d3creator.com): aurora backdrop, an ADMIN / STAFF mark beside the
-   * logo, a brand-edged card, and a footer that points everyone else back to
-   * the public site — so nobody mistakes either for the creator/member login.
+   * logo, a brand-edged card, and a footer that points everyone else to their
+   * own site — so nobody mistakes either for the creator/member login, or the
+   * console for the staff sign-in.
    */
   variant?: 'default' | 'admin' | 'staff';
 }
@@ -95,9 +96,21 @@ export function AuthShell({
       <footer className="px-5 pb-10 sm:px-6">
         {portal ? (
           <p className="mx-auto max-w-[400px] text-center text-caption text-fg-muted">
-            {variant === 'admin'
-              ? t('Staff console. Creators and members sign in at')
-              : t('D3 team portal. Creators and members sign in at')}{' '}
+            {variant === 'admin' ? (
+              <>
+                {t('Admins only. Staff sign in at')}{' '}
+                <a
+                  href="https://staff.d3creator.com/login"
+                  className="text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"
+                >
+                  staff.d3creator.com
+                </a>
+                <br />
+                {t('Creators and members sign in at')}
+              </>
+            ) : (
+              t('D3 team portal. Creators and members sign in at')
+            )}{' '}
             <a
               href="https://www.d3creator.com/login"
               className="text-fg underline underline-offset-4 transition-colors duration-150 ease-out hover:text-fg-muted focus-visible:outline-none focus-visible:shadow-focus"

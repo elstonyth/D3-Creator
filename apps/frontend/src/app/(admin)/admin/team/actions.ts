@@ -11,11 +11,14 @@
  * "Waiting" is a staff_pending login, or a staff login linked to nobody (an
  * approval whose link step failed). The Team page lists both, and both can
  * be approved or turned away, so no half-done approval is ever stuck.
+ *
+ * The admin also sets each person's job and removes people who left. The
+ * shoots and videos themselves are staff-only; the admin just looks.
  */
 
 import { revalidatePath } from 'next/cache';
 import { getSupabaseAdmin } from '@d3/database';
-import { requireAdmin, type AuthContext } from '@gitroom/frontend/lib/auth';
+import { requireAdmin } from '@gitroom/frontend/lib/auth';
 import { isUuid } from '@gitroom/frontend/lib/ids';
 import {
   cleanTitle,
@@ -28,12 +31,10 @@ export interface TeamResult {
   message?: string;
 }
 
-async function guarded(
-  fn: (me: AuthContext) => Promise<TeamResult>,
-): Promise<TeamResult> {
+async function guarded(fn: () => Promise<TeamResult>): Promise<TeamResult> {
   try {
-    const me = await requireAdmin();
-    const r = await fn(me);
+    await requireAdmin();
+    const r = await fn();
     if (r.ok) revalidatePath('/admin/team');
     return r;
   } catch (e) {
@@ -184,50 +185,18 @@ export async function rejectStaff(userId: string): Promise<TeamResult> {
   });
 }
 
-/**
- * Take a person's login away (they stay on the board, with their history).
- * The login reaches nothing afterwards.
- */
-export async function unlinkStaff(memberId: string): Promise<TeamResult> {
-  return guarded(async () => {
-    if (!isUuid(memberId)) return { ok: false, message: 'Invalid person.' };
-    const admin = getSupabaseAdmin();
-    const { data: person, error: readErr } = await admin
-      .from('tracker_member')
-      .select('user_id')
-      .eq('id', memberId)
-      .maybeSingle();
-    if (readErr) return { ok: false, message: readErr.message };
-    if (!person?.user_id)
-      return { ok: false, message: 'That person has no login.' };
-    const { error: roleErr } = await admin
-      .from('user_role')
-      .update({ role: 'none' })
-      .eq('user_id', person.user_id)
-      .in('role', ['staff', 'staff_pending']);
-    if (roleErr) return { ok: false, message: roleErr.message };
-    const { error } = await admin
-      .from('tracker_member')
-      .update({ user_id: null })
-      .eq('id', memberId);
-    return error ? { ok: false, message: error.message } : { ok: true };
-  });
-}
-
 const GONE = 'That person is no longer on the board.';
 
 /**
  * Change what someone does: handler, editor, or both. The default title
- * follows the job (Trader on a column, Editor in the editor row); a custom
- * one stays. An editor runs no accounts, so the accounts they handled move
- * to Unassigned, as the board already shows them (and the handover log
- * records it). Repeating the change finishes a half-done one.
+ * follows the job (Trader for a handler, Editor for an editor); a custom one
+ * stays. Videos already given to them stay theirs.
  */
 export async function setMemberKind(
   memberId: string,
   kind: MemberKind,
 ): Promise<TeamResult> {
-  return guarded(async (me) => {
+  return guarded(async () => {
     if (!isUuid(memberId)) return { ok: false, message: 'Invalid person.' };
     if (!MEMBER_KINDS.includes(kind))
       return { ok: false, message: 'Invalid person type.' };
@@ -240,7 +209,7 @@ export async function setMemberKind(
       .maybeSingle();
     if (readErr) return { ok: false, message: readErr.message };
     if (!row) return { ok: false, message: GONE };
-    // Editor in the editor row; Trader on a column (handler or both).
+    // Editor for an editor; Trader for a handler (or both).
     let role = row.role;
     if (kind === 'editor' && role === 'Trader') role = 'Editor';
     if (kind !== 'editor' && role === 'Editor') role = 'Trader';
@@ -252,15 +221,50 @@ export async function setMemberKind(
       .select('id');
     if (error) return { ok: false, message: error.message };
     if (!data || data.length === 0) return { ok: false, message: GONE };
-    if (kind !== 'editor') return { ok: true };
-    const { data: moved, error: moveErr } = await admin
-      .from('tracker_assignment')
-      .update({ handler_id: null, updated_by: me.userId })
-      .eq('handler_id', memberId)
-      .select('creator_id');
-    if (moveErr) return { ok: false, message: moveErr.message };
-    return moved && moved.length > 0
-      ? { ok: true, message: 'Job saved. Their accounts moved to Unassigned.' }
-      : { ok: true };
+    return { ok: true };
+  });
+}
+
+/**
+ * Take someone off the team: their login reaches nothing and they leave the
+ * board. Never refused over open work — the admin must always be able to
+ * shut a leaver out. Their shoots and videos stay, under their name marked
+ * as left: a video with them as editor can be given to another editor by its
+ * handler, but one they passed on and nobody verified stays unverified.
+ */
+export async function removePerson(memberId: string): Promise<TeamResult> {
+  return guarded(async () => {
+    if (!isUuid(memberId)) return { ok: false, message: 'Invalid person.' };
+    const admin = getSupabaseAdmin();
+    const { data: person, error: readErr } = await admin
+      .from('tracker_member')
+      .select('user_id')
+      .eq('id', memberId)
+      .is('archived_at', null)
+      .maybeSingle();
+    if (readErr) return { ok: false, message: readErr.message };
+    if (!person) return { ok: false, message: 'That person is already gone.' };
+
+    // Access first: whatever fails below, the login already reaches nothing.
+    if (person.user_id) {
+      const { error: roleErr } = await admin
+        .from('user_role')
+        .update({ role: 'none' })
+        .eq('user_id', person.user_id)
+        .in('role', ['staff', 'staff_pending']);
+      if (roleErr) return { ok: false, message: roleErr.message };
+    }
+
+    // Archived last, so a remove that failed above can simply be retried.
+    const { data, error } = await admin
+      .from('tracker_member')
+      .update({ archived_at: new Date().toISOString(), user_id: null })
+      .eq('id', memberId)
+      .is('archived_at', null)
+      .select('id');
+    if (error) return { ok: false, message: error.message };
+    if (!data || data.length === 0)
+      return { ok: false, message: 'That person is already gone.' };
+    return { ok: true };
   });
 }

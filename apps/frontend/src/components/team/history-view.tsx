@@ -1,21 +1,17 @@
 /**
- * One person's month: the shoots they did (or called off), the videos that
- * came out of them, the accounts they held when the month ended and what
- * those accounts put out, and every handover that touched them. Server
- * component; the staff portal shows your own, the admin's Team page anyone's.
+ * One person's month, read-only: the shoots they did (or called off), how
+ * many videos they passed on from them, and what they edited and verified.
+ * Server component, for the admin's Team page.
  */
 
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
-import { formatCompact } from '@gitroom/frontend/lib/creator-metrics';
-import { addMonths, dateKeyAt } from '@gitroom/frontend/lib/tracker';
+import { addMonths } from '@gitroom/frontend/lib/tracker';
 import { Pill } from './pill';
 import { Stat, StatRow } from '@gitroom/frontend/components/ui/stat';
 import type { Shoot } from '@gitroom/frontend/lib/team/shoots';
-import type { AccountMonth, Handover } from '@gitroom/frontend/lib/team/load';
-import { AccountsView } from './accounts-view';
 
 function fmt(
   key: string,
@@ -33,9 +29,8 @@ export async function HistoryView({
   monthHref,
   shoots,
   accountName,
-  handled,
   edited,
-  handovers,
+  verified,
   children,
 }: {
   /** `YYYY-MM` on screen. */
@@ -46,9 +41,9 @@ export async function HistoryView({
   monthHref: (month: string) => string;
   shoots: Shoot[];
   accountName: Map<string, string>;
-  handled: AccountMonth[];
-  edited: AccountMonth[];
-  handovers: Handover[];
+  /** How many edits and checks were stamped with them this month. */
+  edited: number;
+  verified: number;
   /** Month-scoped extras shown under the totals (the person's videos). */
   children?: ReactNode;
 }) {
@@ -58,8 +53,6 @@ export async function HistoryView({
   const cancelled = shoots.filter((s) => s.status === 'cancelled').length;
   const planned = shoots.length - done.length - cancelled;
   const shot = done.reduce((n, s) => n + (s.videosShot ?? 0), 0);
-  const handledVideos = handled.reduce((n, a) => n + a.videos, 0);
-  const handledViews = handled.reduce((n, a) => n + a.views, 0);
   const days = Array.from(new Set(shoots.map((s) => s.date)));
   const next = addMonths(month, 1);
 
@@ -90,7 +83,7 @@ export async function HistoryView({
         ) : null}
       </nav>
 
-      <StatRow>
+      <StatRow className="lg:grid-cols-4">
         <Stat
           label={t('Shoots done')}
           value={done.length}
@@ -102,16 +95,10 @@ export async function HistoryView({
         <Stat
           label={t('Videos shot')}
           value={shot}
-          meta={t('From shoots marked done')}
+          meta={t('Passed on to the editors')}
         />
-        <Stat
-          label={t('Accounts handled')}
-          value={handled.length}
-          meta={t('{videos} videos · {views} views', {
-            videos: handledVideos,
-            views: formatCompact(handledViews, locale),
-          })}
-        />
+        <Stat label={t('Edited')} value={edited} />
+        <Stat label={t('Verified')} value={verified} />
       </StatRow>
 
       {children}
@@ -161,11 +148,9 @@ export async function HistoryView({
                         </span>
                         {s.status === 'done' ? (
                           <Pill className="shrink-0">
-                            {s.videosShot != null
-                              ? t('Finished · {count} videos', {
-                                  count: s.videosShot,
-                                })
-                              : t('Finished')}
+                            {t('{count} videos passed', {
+                              count: s.videosShot ?? 0,
+                            })}
                           </Pill>
                         ) : s.status === 'cancelled' ? (
                           <Pill tone="muted" className="shrink-0">
@@ -182,44 +167,6 @@ export async function HistoryView({
               </li>
             ))}
           </ol>
-        )}
-      </section>
-
-      <AccountsView handled={handled} edited={edited} />
-
-      <section aria-label={t('Handovers')}>
-        <h2 className="mb-1 text-heading text-fg">{t('Handovers')}</h2>
-        <p className="mb-3 text-caption text-fg-subtle">
-          {t('Accounts handed over during the month.')}
-        </p>
-        {handovers.length === 0 ? (
-          <p className="rounded-2xl border border-line bg-surface p-4 text-body-sm text-fg-muted">
-            {t('No handovers this month.')}
-          </p>
-        ) : (
-          <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
-            {handovers.map((h, i) => (
-              <li
-                key={`${h.creatorId}-${h.at}-${i}`}
-                className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-3 text-body-sm"
-              >
-                <span className="w-16 shrink-0 text-caption tnum text-fg-subtle">
-                  {fmt(dateKeyAt(new Date(h.at)), tag, {
-                    day: 'numeric',
-                    month: 'short',
-                  })}
-                </span>
-                <span className="text-fg">{h.creatorName}</span>
-                <span className="text-fg-muted">
-                  {t('{role}: {from} → {to}', {
-                    role: h.field === 'handler' ? t('handler') : t('editor'),
-                    from: h.from ?? t('nobody'),
-                    to: h.to ?? t('nobody'),
-                  })}
-                </span>
-              </li>
-            ))}
-          </ul>
         )}
       </section>
     </div>
