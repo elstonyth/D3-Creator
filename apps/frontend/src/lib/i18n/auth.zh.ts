@@ -101,4 +101,7 @@ export const authZh: Record<string, string> = {
     '链接发送失败，请稍后再试。',
   'Could not sign in. Check your connection and try again.':
     '登录失败，请检查网络后重试。',
+  'Your account doesn’t have member access. If you think it should, contact the D3 team.':
+    '你的账号没有会员权限。如果你认为应该有，请联系 D3 团队。',
+  'Classes are for D3 members': '课程仅对 D3 会员开放',
 };
