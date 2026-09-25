@@ -8,6 +8,7 @@
 
 import { getSupabaseAdmin } from '@d3/database';
 import { isUuid } from '@gitroom/frontend/lib/ids';
+import { dbError } from './db-error';
 import { requireStaff } from './staff-context';
 
 export interface TaskResult {
@@ -31,11 +32,14 @@ export async function setMyTaskDone(
       .eq('id', id)
       .eq('assignee_id', me.memberId)
       .select('id');
-    if (error) return { ok: false, message: error.message };
+    if (error) return dbError('setMyTaskDone', error);
     if (!data || data.length === 0)
       return { ok: false, message: 'That task is not yours, or it is gone.' };
     return { ok: true };
   } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : 'Failed.' };
+    // As in asActor: a refusal says so; anything else is logged, not shown.
+    if (e instanceof Error && e.message === 'Not authorized.')
+      return { ok: false, message: e.message };
+    return dbError('setMyTaskDone', e);
   }
 }

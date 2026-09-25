@@ -20,6 +20,7 @@ import { getSupabaseAdmin } from '@d3/database';
 import { isUuid } from '@gitroom/frontend/lib/ids';
 import { todayKey } from '@gitroom/frontend/lib/tracker';
 import { asActor } from './actor';
+import { dbError } from './db-error';
 import { rowToShoot, SHOOT_COLS, type ShootRow } from './shoot-rows';
 import {
   isShootStatus,
@@ -62,7 +63,7 @@ export async function addShoot(
         .eq('id', member)
         .is('archived_at', null)
         .maybeSingle();
-      if (error) return { ok: false, message: error.message };
+      if (error) return dbError('addShoot', error);
       if (!data)
         return { ok: false, message: 'That person is not on the board.' };
     }
@@ -83,7 +84,7 @@ export async function addShoot(
       })
       .select(SHOOT_COLS)
       .single();
-    if (error) return { ok: false, message: error.message };
+    if (error) return dbError('addShoot', error);
     return { ok: true, shoot: rowToShoot(data as ShootRow) };
   });
 }
@@ -107,7 +108,7 @@ export async function updateShoot(
       data: unknown[] | null;
       error: { message: string } | null;
     }): ShootResult => {
-      if (res.error) return { ok: false, message: res.error.message };
+      if (res.error) return dbError('updateShoot', res.error);
       if (!res.data || res.data.length === 0)
         return { ok: false, message: a.memberId ? NOT_YOURS : GONE };
       return { ok: true, shoot: rowToShoot(res.data[0] as ShootRow) };
@@ -153,7 +154,7 @@ export async function setShootStatus(
     if (a.memberId)
       q = q.eq('member_id', a.memberId).gte('shoot_date', monthStart());
     const { data, error } = await q.select(SHOOT_COLS);
-    if (error) return { ok: false, message: error.message };
+    if (error) return dbError('setShootStatus', error);
     if (!data || data.length === 0)
       return { ok: false, message: a.memberId ? NOT_YOURS : GONE };
     return { ok: true, shoot: rowToShoot(data[0] as ShootRow) };
@@ -167,7 +168,7 @@ export async function deleteShoot(id: string): Promise<ShootResult> {
     if (a.memberId)
       q = q.eq('member_id', a.memberId).gte('shoot_date', monthStart());
     const { data, error } = await q.select('id');
-    if (error) return { ok: false, message: error.message };
+    if (error) return dbError('deleteShoot', error);
     if (!data || data.length === 0)
       return { ok: false, message: a.memberId ? NOT_YOURS : GONE };
     return { ok: true };

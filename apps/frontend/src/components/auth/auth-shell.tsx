@@ -104,7 +104,6 @@ export function AuthShell({
             >
               www.d3creator.com
             </a>
-            .
           </p>
         ) : (
         <p className="mx-auto max-w-[400px] text-center text-caption text-fg-muted">
@@ -123,7 +122,6 @@ export function AuthShell({
           >
             {t('leaderboard')}
           </Link>
-          .
         </p>
         )}
       </footer>

@@ -79,6 +79,53 @@ describe('parseLink', () => {
     expect(safeHref('javascript:alert(1)')).toBeNull();
     expect(safeHref(null)).toBeNull();
   });
+
+  it('takes the link out of pasted share text', () => {
+    expect(
+      parseLink(
+        '7.43 复制打开抖音，看看【作品】https://v.douyin.com/iRNBho6H/ 再次打开',
+      ),
+    ).toBe('https://v.douyin.com/iRNBho6H/');
+    expect(
+      parseLink('看看这篇笔记 http://xhslink.com/a/AbCdE，复制本条信息'),
+    ).toBe('http://xhslink.com/a/AbCdE');
+    expect(parseLink('see https://example.com/p/1).')).toBe(
+      'https://example.com/p/1',
+    );
+    expect(parseLink('no link here')).toBeUndefined();
+    expect(parseLink('javascript:alert(1) https://ok.com')).toBe(
+      'https://ok.com',
+    );
+    expect(safeHref('看看 https://v.douyin.com/x/')).toBeNull();
+  });
+
+  it('refuses an extracted link over 500 characters', () => {
+    expect(
+      parseLink(`看看 https://x.com/${'a'.repeat(490)} 再次打开`),
+    ).toBeUndefined();
+    expect(
+      parseLink(`看看 https://x.com/${'a'.repeat(600)} 再次打开`),
+    ).toBeUndefined();
+  });
+
+  it('accepts a short link in share text over 500 characters', () => {
+    const words = '7.43 复制打开抖音，看看【作品】'.repeat(40);
+    expect(parseLink(`${words}https://v.douyin.com/iRNBho6H/ 再次打开`)).toBe(
+      'https://v.douyin.com/iRNBho6H/',
+    );
+  });
+
+  it('refuses a run too long to be one link, without stalling on it', () => {
+    const started = Date.now();
+    expect(
+      parseLink(`https://x.com/p/1${'.'.repeat(200_000)}`),
+    ).toBeUndefined();
+    // Punctuation with more after it is what made the old strip slow.
+    expect(
+      parseLink(`https://x.com/p/1${'.'.repeat(200_000)}x`),
+    ).toBeUndefined();
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
 });
 
 describe('parseVideoInput', () => {

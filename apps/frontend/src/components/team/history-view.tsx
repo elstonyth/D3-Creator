@@ -162,10 +162,10 @@ export async function HistoryView({
                         {s.status === 'done' ? (
                           <Pill className="shrink-0">
                             {s.videosShot != null
-                              ? t('Done · {count} videos', {
+                              ? t('Finished · {count} videos', {
                                   count: s.videosShot,
                                 })
-                              : t('Done')}
+                              : t('Finished')}
                           </Pill>
                         ) : s.status === 'cancelled' ? (
                           <Pill tone="muted" className="shrink-0">
@@ -190,7 +190,7 @@ export async function HistoryView({
       <section aria-label={t('Handovers')}>
         <h2 className="mb-1 text-heading text-fg">{t('Handovers')}</h2>
         <p className="mb-3 text-caption text-fg-subtle">
-          {t('Accounts given to or taken from this person during the month.')}
+          {t('Accounts handed over during the month.')}
         </p>
         {handovers.length === 0 ? (
           <p className="rounded-2xl border border-line bg-surface p-4 text-body-sm text-fg-muted">

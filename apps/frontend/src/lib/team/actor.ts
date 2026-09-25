@@ -6,6 +6,7 @@
  */
 
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
+import { dbError } from './db-error';
 import { requireStaff } from './staff-context';
 
 export interface Actor {
@@ -28,6 +29,10 @@ export async function asActor<R extends { ok: boolean; message?: string }>(
   try {
     return await fn(await getActor());
   } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : 'Failed.' };
+    // requireStaff's refusal is the answer; anything else (a failed lookup, a
+    // database error) goes to the server log, not the screen.
+    if (e instanceof Error && e.message === 'Not authorized.')
+      return { ok: false, message: e.message };
+    return dbError('asActor', e);
   }
 }

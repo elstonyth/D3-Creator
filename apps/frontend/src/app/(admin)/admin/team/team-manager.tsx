@@ -195,7 +195,7 @@ export function TeamManager({
                             () => setJobOf((j) => ({ ...j, [m.id]: shown })),
                           );
                         }}
-                        className="h-8 w-auto py-0 pl-3 text-caption"
+                        className="h-8 w-auto py-0 pl-3 text-body-lg sm:text-caption"
                       >
                         <option value="handler">{t('Handler')}</option>
                         <option value="editor">{t('Editor')}</option>
