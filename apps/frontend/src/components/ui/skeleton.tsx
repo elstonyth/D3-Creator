@@ -1,8 +1,8 @@
 import { cn } from '@gitroom/frontend/lib/utils';
 
 /**
- * Loading placeholder. A flat block at low opacity — no shimmer sweep, which
- * DESIGN.md §8 bans along with every other decorative loop.
+ * Loading placeholder. A flat block at low opacity — no shimmer sweep: that is
+ * an animated gradient, which DESIGN.md §5 bans.
  */
 export function Skeleton({ className }: { className?: string }) {
   return (

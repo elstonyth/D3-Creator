@@ -240,6 +240,37 @@ it('lets the handler change the title and editor, sending what it started from',
   expect(screen.getByText('Reel 1b')).toBeTruthy();
 });
 
+it('keeps the current editor pickable, marking only someone who left', () => {
+  const ZED = 'aaaaaaaa-0000-4000-8000-000000000010';
+  const GONE = 'aaaaaaaa-0000-4000-8000-000000000011';
+  render(
+    <VideoBoard
+      videos={[
+        // ZED's job changed to handler; GONE was removed from the team.
+        video('Reel 5', { editorId: ZED }),
+        video('Reel 6', { editorId: GONE }),
+      ]}
+      people={[
+        ...people,
+        { id: ZED, name: 'ZED', kind: 'handler', archived: false },
+        { id: GONE, name: 'GONE', kind: 'editor', archived: true },
+      ]}
+      accounts={accounts}
+      meId={KEE}
+      month="2026-09"
+    />,
+  );
+  const picks = (title: string) => {
+    fireEvent.click(screen.getByRole('button', { name: `Change ${title}` }));
+    const editor = screen.getByLabelText('Editor') as HTMLSelectElement;
+    const texts = [...editor.options].map((o) => o.text);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    return texts;
+  };
+  expect(picks('Reel 5')).toEqual(['ALI', 'MEI', 'ZED']);
+  expect(picks('Reel 6')).toEqual(['ALI', 'MEI', 'GONE (left)']);
+});
+
 it('asks before removing a video, and removes it only on Remove', async () => {
   (deleteVideo as jest.Mock).mockResolvedValue({ ok: true });
   renderBoard(KEE);

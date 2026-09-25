@@ -93,12 +93,12 @@ export default async function CreatorLayout({
                 <span className="max-w-[12ch] truncate text-caption text-fg-subtle">
                   {auth.email}
                 </span>
-                <LanguageSwitcher />
+                <LanguageSwitcher zoomSafe />
                 <SignOutButton />
               </div>
 
               <div className="flex items-center gap-1 justify-self-end lg:hidden">
-                <LanguageSwitcher />
+                <LanguageSwitcher zoomSafe />
                 <MobileNav links={nav} showSignOut />
               </div>
             </div>

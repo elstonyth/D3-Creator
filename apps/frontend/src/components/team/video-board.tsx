@@ -260,7 +260,7 @@ export function VideoBoard({
       {notice ? (
         <p
           key={notice.id}
-          className="max-w-md break-words rounded-xl border border-line bg-surface px-4 py-3 text-body-sm text-fg shadow-glass"
+          className="min-w-0 max-w-md break-words rounded-xl border border-line bg-surface px-4 py-3 text-body-sm text-fg shadow-glass"
         >
           {notice.text}
         </p>
@@ -312,12 +312,20 @@ export function VideoBoard({
             ) : (
               <ul className="space-y-3">
                 {list.map((v) => {
-                  // The current editor stays pickable, even after leaving.
+                  // The current editor stays pickable: after leaving, or
+                  // after their job changed so they no longer edit. Only
+                  // someone who left is marked so.
                   const cur = byId.get(v.editorId);
                   const editorPicks =
                     !cur || editors.some((x) => x.id === cur.id)
                       ? editors
-                      : [...editors, { ...cur, name: left(cur.name) }];
+                      : [
+                          ...editors,
+                          {
+                            ...cur,
+                            name: cur.archived ? left(cur.name) : cur.name,
+                          },
+                        ];
                   return (
                     <VideoCard
                       key={v.id}

@@ -106,7 +106,7 @@ export default async function AdminLayout({
                     {auth.email}
                   </span>
                 ) : null}
-                <LanguageSwitcher />
+                <LanguageSwitcher zoomSafe />
                 <div className="hidden lg:block">
                   <SignOutButton />
                 </div>

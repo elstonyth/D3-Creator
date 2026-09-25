@@ -24,7 +24,7 @@ export default async function SignUpPage() {
         variant="staff"
         heading={t('Create your staff account')}
         subheading={t(
-          'Use your own email. An admin approves new accounts before you see the team’s schedule.',
+          'Use your own email. An admin approves new accounts before you can use your Work Tracker.',
         )}
       >
         <SignUpForm portal="staff" />
