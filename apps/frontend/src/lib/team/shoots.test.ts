@@ -39,7 +39,6 @@ describe('parseShootInput', () => {
   const base = {
     date: '2026-09-23',
     time: '19:30',
-    title: '  Hotpot   shop ',
     creatorId: '',
     note: ' bring the ring light ',
   };
@@ -50,21 +49,19 @@ describe('parseShootInput', () => {
       value: {
         date: '2026-09-23',
         time: '19:30',
-        title: 'Hotpot shop',
         creatorId: null,
         note: 'bring the ring light',
       },
     });
   });
 
-  it('lets time, account and note be blank', () => {
-    const r = parseShootInput({ date: '2026-09-24', title: 'Furniture shop' });
+  it('needs nothing but the day', () => {
+    const r = parseShootInput({ date: '2026-09-24' });
     expect(r).toEqual({
       ok: true,
       value: {
         date: '2026-09-24',
         time: null,
-        title: 'Furniture shop',
         creatorId: null,
         note: null,
       },
@@ -80,11 +77,14 @@ describe('parseShootInput', () => {
       parseShootInput({ ...base, ...patch });
     expect(bad({ date: '2026-02-31' })).toMatchObject({ ok: false });
     expect(bad({ time: '7pm' })).toMatchObject({ ok: false });
-    expect(bad({ title: '   ' })).toMatchObject({ ok: false });
-    expect(bad({ title: 'x'.repeat(201) })).toMatchObject({ ok: false });
     expect(bad({ creatorId: 'not-a-uuid' })).toMatchObject({ ok: false });
     expect(bad({ note: 'x'.repeat(1001) })).toMatchObject({ ok: false });
     expect(parseShootInput(null)).toMatchObject({ ok: false });
+  });
+
+  it('drops a title sent by an old page: the form no longer has one', () => {
+    const r = parseShootInput({ ...base, title: 'Hotpot shop' });
+    expect(r.ok && 'title' in r.value).toBe(false);
   });
 
   it('keeps a real account id', () => {
@@ -131,7 +131,6 @@ describe('shootPatch', () => {
   const form = {
     date: '2026-09-26',
     time: '10:00',
-    title: 'Mall shoot',
     creatorId: '',
     note: '',
   };
@@ -150,12 +149,12 @@ describe('shootPatch', () => {
   });
 
   it('writes everything when it does not know what the form started with', () => {
+    // Never the title: an old shoot keeps the one it was saved with.
     expect(Object.keys(shootPatch(next(), null)).sort()).toEqual([
       'creator_id',
       'note',
       'shoot_date',
       'start_time',
-      'title',
     ]);
   });
 });

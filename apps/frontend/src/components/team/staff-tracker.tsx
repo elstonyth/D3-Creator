@@ -87,16 +87,16 @@ export function StaffTracker({
     key,
     items: shoots
       .filter((x) => x.date === key && x.status !== 'cancelled')
-      .map((x) => ({
-        id: x.id,
-        label: [
-          x.time,
-          x.title,
-          x.creatorId ? accountOf.get(x.creatorId) : null,
-        ]
-          .filter(Boolean)
-          .join(' · '),
-      })),
+      .map((x) => {
+        const account = x.creatorId ? accountOf.get(x.creatorId) : null;
+        return {
+          id: x.id,
+          // An old shoot's own title, else its account, else just "Shoot".
+          label: [x.time, x.title ?? account ?? t('Shoot'), x.title && account]
+            .filter(Boolean)
+            .join(' · '),
+        };
+      }),
   });
 
   return (

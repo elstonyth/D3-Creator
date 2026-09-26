@@ -70,7 +70,6 @@ export async function addShoot(input: unknown): Promise<ShootResult> {
         member_id: a.memberId,
         shoot_date: v.date,
         start_time: v.time,
-        title: v.title,
         creator_id: v.creatorId,
         note: v.note,
         created_by: a.userId,
@@ -82,7 +81,7 @@ export async function addShoot(input: unknown): Promise<ShootResult> {
   });
 }
 
-/** Change what was filled in: day, time, where/what, account, note. */
+/** Change what was filled in: day, time, account, note. */
 export async function updateShoot(
   id: string,
   input: unknown,

@@ -1,11 +1,11 @@
 'use client';
 
 /**
- * Add / edit one shoot. Fields mirror how the team writes its schedule in
- * the group chat: a time if there is one (blank for "afternoon"-style
- * entries — write that in the title), where or what, and optionally which
- * account and a note. The server parses and validates; this form only
- * collects strings.
+ * Add / edit one shoot: the day, a time if there is one (blank for
+ * "afternoon"-style entries — write that in the note), and optionally which
+ * account and a note. It no longer asks where or what (the owner's call); an
+ * old shoot keeps the title it was saved with. The server parses and
+ * validates; this form only collects strings.
  */
 
 import { useId, useState, type FormEvent } from 'react';
@@ -19,7 +19,6 @@ export interface ShootDraft {
   /** `YYYY-MM-DD`; prefilled with the day the form was opened on. */
   date: string;
   time: string;
-  title: string;
   creatorId: string;
   note: string;
 }
@@ -28,7 +27,6 @@ export function draftOf(s: Shoot | null, date: string): ShootDraft {
   return {
     date: s?.date ?? date,
     time: s?.time ?? '',
-    title: s?.title ?? '',
     creatorId: s?.creatorId ?? '',
     note: s?.note ?? '',
   };
@@ -60,7 +58,7 @@ export function ShootForm({
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (!d.date || !d.title.trim()) return;
+    if (!d.date) return;
     onSave(d);
   }
 
@@ -86,22 +84,12 @@ export function ShootForm({
             type="time"
             value={d.time}
             onChange={(e) => set({ time: e.target.value })}
+            // The form opens in place of the button that opened it; focus
+            // lands on the first thing usually filled in.
+            autoFocus
           />
         </Field>
       </div>
-
-      <Field label={t('Where / what')} htmlFor={`${id}-title`}>
-        <Input
-          id={`${id}-title`}
-          value={d.title}
-          onChange={(e) => set({ title: e.target.value })}
-          maxLength={200}
-          required
-          autoFocus
-          autoComplete="off"
-          placeholder={t('e.g. Hotpot shop, JB')}
-        />
-      </Field>
 
       <Field label={t('Creator account')} htmlFor={`${id}-acct`} optional>
         <Select
@@ -134,12 +122,7 @@ export function ShootForm({
         <Button type="button" variant="ghost" size="sm" onClick={onCancel}>
           {t('Cancel')}
         </Button>
-        <Button
-          type="submit"
-          size="sm"
-          loading={saving}
-          disabled={!d.date || !d.title.trim()}
-        >
+        <Button type="submit" size="sm" loading={saving} disabled={!d.date}>
           {t('Save')}
         </Button>
       </div>

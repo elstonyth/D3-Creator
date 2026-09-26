@@ -110,7 +110,7 @@ export default async function StaffPreviewPage({
     memberId: string,
     offset: number,
     time: string | null,
-    title: string,
+    title: string | null,
     extra: Partial<Shoot> = {},
   ): Shoot => ({
     id: `cccccccc-0000-4000-8000-00000000000${n}`,
@@ -143,7 +143,9 @@ export default async function StaffPreviewPage({
       creatorId: acct(3),
       note: 'Bring the gimbal',
     }),
-    shoot(8, HOWEN, 1, '11:30', 'Café visit', { creatorId: acct(4) }),
+    // Since the form stopped asking where / what: named by the account.
+    shoot(8, HOWEN, 1, '11:30', null, { creatorId: acct(4) }),
+    shoot(0, HOWEN, 0, null, null, { note: '下午，带补光灯' }),
     shoot(9, HOWEN, 4, '19:30', '海边', { status: 'cancelled' }),
   ];
 

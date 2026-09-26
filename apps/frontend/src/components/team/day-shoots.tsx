@@ -145,7 +145,6 @@ export function DayShoots({
   const input = (d: ShootDraft) => ({
     date: d.date,
     time: d.time,
-    title: d.title,
     creatorId: d.creatorId,
     note: d.note,
   });
@@ -331,7 +330,17 @@ function ShootItem({
   const { t } = useI18n();
   const cancelled = x.status === 'cancelled';
   const canPass = mine && !cancelled;
-  const meta = [showPerson ? person : null, account].filter(Boolean);
+  // What the shoot is called: an old shoot's own title, else its account.
+  const name = x.title ?? account ?? t('Shoot');
+  const meta = [showPerson ? person : null, x.title ? account : null].filter(
+    Boolean,
+  );
+  // Buttons name an untitled shoot by its time too: a day can hold two
+  // shoots for one account.
+  const label = x.title ?? [x.time, name].filter(Boolean).join(' ');
+  // …and by its note, read out with each button: two untimed shoots for one
+  // account differ only there.
+  const noteId = x.note ? `note-${x.id}` : undefined;
 
   return (
     <li className={cn(s.inset, 'p-3 sm:px-4')}>
@@ -347,7 +356,7 @@ function ShootItem({
                 : 'break-words text-body text-fg'
             }
           >
-            {x.title}
+            {name}
           </p>
           {meta.length > 0 ? (
             <p className="mt-0.5 text-caption text-fg-muted">
@@ -355,7 +364,10 @@ function ShootItem({
             </p>
           ) : null}
           {x.note ? (
-            <p className="mt-1 break-words text-caption text-fg-subtle">
+            <p
+              id={noteId}
+              className="mt-1 break-words text-caption text-fg-subtle"
+            >
               {x.note}
             </p>
           ) : null}
@@ -387,7 +399,8 @@ function ShootItem({
         <div className="mt-3 space-y-2">
           <div
             role="group"
-            aria-label={t('Delete {title}', { title: x.title })}
+            aria-label={t('Delete {title}', { title: label })}
+            aria-describedby={noteId}
             className="flex flex-wrap items-center gap-2 text-caption text-fg"
           >
             <span className="min-w-0 flex-1">
@@ -418,7 +431,8 @@ function ShootItem({
               size="sm"
               variant="ghost"
               onClick={() => onOpen('edit')}
-              aria-label={t('Change {title}', { title: x.title })}
+              aria-label={t('Change {title}', { title: label })}
+              aria-describedby={noteId}
             >
               {t('Change')}
             </Button>
@@ -428,7 +442,8 @@ function ShootItem({
               size="sm"
               variant="secondary"
               onClick={() => onOpen('pass')}
-              aria-label={t('Pass videos: {title}', { title: x.title })}
+              aria-label={t('Pass videos: {title}', { title: label })}
+              aria-describedby={noteId}
             >
               {t('Pass videos')}
             </Button>
@@ -439,7 +454,8 @@ function ShootItem({
               variant="ghost"
               disabled={saving}
               onClick={() => onStatus('cancelled')}
-              aria-label={t('Cancel shoot: {title}', { title: x.title })}
+              aria-label={t('Cancel shoot: {title}', { title: label })}
+              aria-describedby={noteId}
             >
               {t('Cancel shoot')}
             </Button>
@@ -450,7 +466,8 @@ function ShootItem({
               variant="ghost"
               disabled={saving}
               onClick={() => onStatus('planned')}
-              aria-label={t('Reopen {title}', { title: x.title })}
+              aria-label={t('Reopen {title}', { title: label })}
+              aria-describedby={noteId}
             >
               {t('Reopen')}
             </Button>
@@ -460,7 +477,8 @@ function ShootItem({
               size="sm"
               variant="ghost"
               onClick={() => onOpen('delete')}
-              aria-label={t('Delete {title}', { title: x.title })}
+              aria-label={t('Delete {title}', { title: label })}
+              aria-describedby={noteId}
             >
               {t('Delete')}
             </Button>

@@ -10,7 +10,7 @@
  */
 
 import { isUuid } from '@gitroom/frontend/lib/ids';
-import { addDays, cleanTitle, isDateKey } from '@gitroom/frontend/lib/tracker';
+import { addDays, isDateKey } from '@gitroom/frontend/lib/tracker';
 
 export type ShootStatus = 'planned' | 'done' | 'cancelled';
 
@@ -21,8 +21,8 @@ export interface Shoot {
   date: string;
   /** `HH:MM`, or null for "sometime that day". */
   time: string | null;
-  /** Where / what, in the team's own words. */
-  title: string;
+  /** Where / what, from before the form stopped asking; null since. */
+  title: string | null;
   creatorId: string | null;
   /** How many videos have been passed on from it (set when they are). */
   videosShot: number | null;
@@ -32,12 +32,12 @@ export interface Shoot {
 
 /**
  * What a person fills in. The status changes separately: cancelled and back,
- * or done once videos are passed on from it.
+ * or done once videos are passed on from it. There is no title: the form no
+ * longer asks where or what, and an old shoot's title is never written over.
  */
 export interface ShootInput {
   date: string;
   time: string | null;
-  title: string;
   creatorId: string | null;
   note: string | null;
 }
@@ -78,12 +78,6 @@ export function parseShootInput(v: unknown): Parsed<ShootInput> {
   const time = blank(o.time) ? null : o.time;
   if (time !== null && !isTimeKey(time))
     return { ok: false, message: 'Time must look like 19:30.' };
-  const title = cleanTitle(o.title);
-  if (!title)
-    return {
-      ok: false,
-      message: 'Say where or what you are shooting (up to 200 characters).',
-    };
   const creatorId = blank(o.creatorId) ? null : o.creatorId;
   if (creatorId !== null && !isUuid(creatorId))
     return { ok: false, message: 'Invalid account.' };
@@ -94,7 +88,7 @@ export function parseShootInput(v: unknown): Parsed<ShootInput> {
     return { ok: false, message: 'Notes are limited to 1,000 characters.' };
   return {
     ok: true,
-    value: { date: o.date, time, title, creatorId, note },
+    value: { date: o.date, time, creatorId, note },
   };
 }
 
@@ -127,7 +121,6 @@ export function shootPatch(
   const patch: Record<string, string | null> = {};
   if (next.date !== was('date')) patch.shoot_date = next.date;
   if (next.time !== was('time')) patch.start_time = next.time;
-  if (next.title !== was('title')) patch.title = next.title;
   if (next.creatorId !== was('creatorId')) patch.creator_id = next.creatorId;
   if (next.note !== was('note')) patch.note = next.note;
   return patch;

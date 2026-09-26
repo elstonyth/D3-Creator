@@ -6,7 +6,7 @@
 
 import { getSupabaseAdmin } from '@d3/database';
 import { claimAccount, releaseAccount } from './claim-account';
-import { passVideos, updateShoot } from './shoot-actions';
+import { addShoot, passVideos, updateShoot } from './shoot-actions';
 
 jest.mock('@d3/database', () => ({ getSupabaseAdmin: jest.fn() }));
 jest.mock('./on-board', () => ({ onBoard: jest.fn(async () => true) }));
@@ -46,8 +46,12 @@ function fakeDb(shootRows: unknown[], videoRows: unknown[] | null = null) {
     const q: Record<string, unknown> = {
       then: (ok: (v: unknown) => unknown, fail: (e: unknown) => unknown) =>
         done().then(ok, fail),
+      single: () => {
+        call.steps.push(['single']);
+        return Promise.resolve({ data: shootRows[0] ?? null, error: null });
+      },
     };
-    for (const m of ['select', 'update', 'eq', 'gte'])
+    for (const m of ['select', 'insert', 'update', 'eq', 'gte'])
       q[m] = (...args: unknown[]) => {
         call.steps.push([m, ...args]);
         return q;
@@ -60,7 +64,6 @@ function fakeDb(shootRows: unknown[], videoRows: unknown[] | null = null) {
 
 const form = (creatorId: string | null) => ({
   date: '2099-01-05',
-  title: 'Hotpot shop',
   creatorId,
 });
 const row = (creatorId: string | null) => ({
@@ -97,7 +100,7 @@ it('leaves the videos alone when the account did not change', async () => {
   const calls = fakeDb([row(ACC_A)]);
   const r = await updateShoot(
     ID,
-    { ...form(ACC_A), title: 'Noodle bar' },
+    { ...form(ACC_A), note: 'Bring the lights' },
     form(ACC_A),
   );
   expect(r).toMatchObject({ ok: true });
@@ -109,6 +112,31 @@ it('touches no video when the shoot is not the caller’s', async () => {
   const r = await updateShoot(ID, form(ACC_B), form(ACC_A));
   expect(r).toMatchObject({ ok: false });
   expect(calls.some((c) => c.table === 'tracker_video')).toBe(false);
+});
+
+it('adds a shoot without a title, even when an old page sends one', async () => {
+  const calls = fakeDb([{ ...row(ACC_A), title: null }]);
+  const r = await addShoot({ ...form(ACC_A), title: 'Hotpot shop' });
+  expect(r).toMatchObject({ ok: true, shoot: { title: null } });
+  const insert = calls[0].steps.find((s) => s[0] === 'insert');
+  expect(insert?.[1]).not.toHaveProperty('title');
+  expect(insert?.[1]).toMatchObject({
+    member_id: ALI,
+    shoot_date: '2099-01-05',
+    creator_id: ACC_A,
+  });
+});
+
+it('never writes over an old shoot’s title', async () => {
+  const calls = fakeDb([row(ACC_A)]);
+  await updateShoot(
+    ID,
+    { ...form(ACC_A), note: 'x', title: 'Changed' },
+    form(ACC_A),
+  );
+  const update = calls[0].steps.find((s) => s[0] === 'update');
+  expect(update?.[1]).toMatchObject({ note: 'x' });
+  expect(update?.[1]).not.toHaveProperty('title');
 });
 
 describe('correcting a passed shoot’s account moves the board with it', () => {

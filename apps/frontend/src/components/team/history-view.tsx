@@ -138,8 +138,15 @@ export async function HistoryView({
                               : 'min-w-0 flex-1 break-words text-body-sm text-fg'
                           }
                         >
-                          {s.title}
-                          {s.creatorId && accountName.get(s.creatorId) ? (
+                          {/* An old shoot's own title, else its account. */}
+                          {s.title ??
+                            (s.creatorId
+                              ? accountName.get(s.creatorId)
+                              : null) ??
+                            t('Shoot')}
+                          {s.title &&
+                          s.creatorId &&
+                          accountName.get(s.creatorId) ? (
                             <span className="text-fg-muted">
                               {' · '}
                               {accountName.get(s.creatorId)}
