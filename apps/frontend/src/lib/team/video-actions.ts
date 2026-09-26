@@ -20,7 +20,7 @@ import { getSupabaseAdmin } from '@d3/database';
 import { isUuid } from '@gitroom/frontend/lib/ids';
 import { monthRange, todayKey } from '@gitroom/frontend/lib/tracker';
 import { asActor } from './actor';
-import { claimAccount } from './claim-account';
+import { claimAccount, releaseAccount } from './claim-account';
 import { dbError } from './db-error';
 import { onBoard } from './on-board';
 import { rowToVideo, VIDEO_COLS, type VideoRow } from './video-rows';
@@ -119,12 +119,27 @@ export async function updateVideo(
 export async function deleteVideo(id: string): Promise<VideoResult> {
   return asActor(async (a): Promise<VideoResult> => {
     if (!isUuid(id)) return { ok: false, message: 'Invalid video.' };
-    const { data, error } = await getSupabaseAdmin().rpc(
-      'tracker_remove_video',
-      { p_video_id: id, p_member_id: a.memberId },
-    );
+    const admin = getSupabaseAdmin();
+    // Its account, for the board: read before it is gone.
+    const { data: before } = await admin
+      .from('tracker_video')
+      .select('creator_id')
+      .eq('id', id)
+      .eq('handler_id', a.memberId)
+      .maybeSingle();
+    const { data, error } = await admin.rpc('tracker_remove_video', {
+      p_video_id: id,
+      p_member_id: a.memberId,
+    });
     if (error) return dbError('deleteVideo', error);
     if (data !== true) return { ok: false, message: NOT_YOURS };
+    // Taken back: if that was the last of this work on the account, the
+    // account goes back to whoever held it before (releaseAccount checks).
+    await releaseAccount(
+      (before as { creator_id: string | null } | null)?.creator_id ?? null,
+      a.memberId,
+      a.userId,
+    );
     return { ok: true };
   });
 }

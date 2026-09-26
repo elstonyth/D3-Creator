@@ -4,13 +4,14 @@
  */
 
 import { getSupabaseAdmin } from '@d3/database';
-import { claimAccount } from './claim-account';
-import { updateVideo } from './video-actions';
+import { claimAccount, releaseAccount } from './claim-account';
+import { deleteVideo, updateVideo } from './video-actions';
 
 jest.mock('@d3/database', () => ({ getSupabaseAdmin: jest.fn() }));
 jest.mock('./on-board', () => ({ onBoard: jest.fn(async () => true) }));
 jest.mock('./claim-account', () => ({
   claimAccount: jest.fn(async () => undefined),
+  releaseAccount: jest.fn(async () => undefined),
 }));
 jest.mock('./staff-context', () => ({
   requireStaff: jest.fn(async () => ({
@@ -73,4 +74,33 @@ it('leaves the board alone for a title fix or a video not the caller’s', async
   videoDb(null);
   await updateVideo(ID, { title: 'Reel 1', editorId: MEI }, before);
   expect(claimAccount).not.toHaveBeenCalled();
+});
+
+describe('taking a video back', () => {
+  function removeDb(account: string | null, removed: boolean) {
+    const q: Record<string, unknown> = {};
+    for (const m of ['select', 'eq']) q[m] = () => q;
+    q.maybeSingle = async () => ({
+      data: account === undefined ? null : { creator_id: account },
+      error: null,
+    });
+    (getSupabaseAdmin as jest.Mock).mockReturnValue({
+      from: () => q,
+      rpc: jest.fn(async () => ({ data: removed, error: null })),
+    });
+  }
+
+  it('gives the account back if that was the last of this work on it', async () => {
+    removeDb(ACC, true);
+    const r = await deleteVideo(ID);
+    expect(r).toMatchObject({ ok: true });
+    expect(releaseAccount).toHaveBeenCalledWith(ACC, KEE, 'u1');
+  });
+
+  it('touches nothing when the video was not the caller’s to take back', async () => {
+    removeDb(ACC, false);
+    const r = await deleteVideo(ID);
+    expect(r).toMatchObject({ ok: false });
+    expect(releaseAccount).not.toHaveBeenCalled();
+  });
 });
