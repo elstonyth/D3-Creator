@@ -309,7 +309,9 @@ describe('the admin’s tracker', () => {
   it('shows who handles and who edits each account', () => {
     renderAdmin();
     const board = within(accountBoard());
-    const zuwei = within(board.getByRole('region', { name: 'ZUWEI' }));
+    const zuwei = within(
+      board.getByRole('region', { name: 'ZUWEI’s accounts' }),
+    );
     const gary = zuwei.getByRole('article');
     expect(within(gary).getByText('Gary')).toBeTruthy();
     expect(
@@ -324,7 +326,7 @@ describe('the admin’s tracker', () => {
         .getAttribute('aria-checked'),
     ).toBe('true');
     // MEI does both: a column of their own, and the one editing Gary.
-    const mei = within(board.getByRole('region', { name: 'MEI' }));
+    const mei = within(board.getByRole('region', { name: 'MEI’s accounts' }));
     expect(mei.getByText('Edits 1 account · 12 videos')).toBeTruthy();
   });
 
@@ -340,8 +342,7 @@ describe('the admin’s tracker', () => {
 
   it('gives each person a column: editing now, to verify, their profile', () => {
     renderAdmin();
-    // The Team panel's columns come first; the account board has its own.
-    const [kee] = screen.getAllByRole('region', { name: 'KEE' });
+    const kee = screen.getByRole('region', { name: 'KEE' });
     // Waiting on KEE's check: Reel 2, cut by MEI.
     expect(within(kee).getByText('Reel 2')).toBeTruthy();
     expect(
@@ -349,7 +350,7 @@ describe('the admin’s tracker', () => {
         .getByRole('link', { name: /Open profile/ })
         .getAttribute('href'),
     ).toBe(`/team/${KEE}`);
-    const [mei] = screen.getAllByRole('region', { name: 'MEI' });
+    const mei = screen.getByRole('region', { name: 'MEI' });
     // MEI is cutting Reel 1 for KEE.
     expect(within(mei).getByText('Reel 1')).toBeTruthy();
     expect(within(mei).getByText('Handler & editor')).toBeTruthy();

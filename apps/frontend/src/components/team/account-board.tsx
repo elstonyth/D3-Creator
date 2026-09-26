@@ -246,10 +246,11 @@ export function AccountBoard({
       }
       confirmed.current = now;
       saving.current = false;
+      // Drop the router's cached copy after every save that landed, so
+      // Back/Forward can't bring back the board as it was before it — even
+      // if a save queued behind this one is refused.
+      router.refresh();
       if (latest.current !== now) void run();
-      // Drop the router's cached copy, so Back/Forward can't bring back the
-      // board as it was before this save.
-      else router.refresh();
     },
     [fail, router],
   );
@@ -437,7 +438,13 @@ export function AccountBoard({
             return (
               <section
                 key={col.id}
-                aria-label={col.name}
+                // Not just the name: the Team panel above has a region per
+                // person too.
+                aria-label={
+                  col.member
+                    ? t('{name}’s accounts', { name: col.name })
+                    : t('Unassigned accounts')
+                }
                 onDragOver={(e) => {
                   if (!dragId) return;
                   e.preventDefault();
@@ -647,6 +654,8 @@ function CreatorCard({
   const initials = creator.name.slice(0, 1).toUpperCase();
   const handlerId = `h-${creator.id}`;
   const editorId = `e-${creator.id}`;
+  // Every card's controls share their labels; each names its account too.
+  const nameId = `n-${creator.id}`;
 
   return (
     <article
@@ -680,7 +689,9 @@ function CreatorCard({
           }
         />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-label text-fg">{creator.name}</p>
+          <p id={nameId} className="truncate text-label text-fg">
+            {creator.name}
+          </p>
           <div className="mt-1 flex items-center gap-1.5 text-fg-muted">
             {creator.platforms.map((p) => {
               const key = platformKey(p);
@@ -746,6 +757,7 @@ function CreatorCard({
           </span>
           <select
             id={handlerId}
+            aria-describedby={nameId}
             value={creator.handlerId ?? ''}
             onChange={(e) => onHandler(e.target.value || null)}
             className={cn(s.field, 'mt-1 h-9 w-full px-2.5 text-body-sm')}
@@ -764,6 +776,7 @@ function CreatorCard({
           </span>
           <select
             id={editorId}
+            aria-describedby={nameId}
             value={creator.editorId ?? ''}
             onChange={(e) => onEditor(e.target.value || null)}
             className={cn(s.field, 'mt-1 h-9 w-full px-2.5 text-body-sm')}
@@ -808,6 +821,7 @@ function CreatorCard({
           role="switch"
           aria-checked={creator.scheduledPosting}
           aria-label={t('Scheduled posting')}
+          aria-describedby={nameId}
           onClick={onToggleScheduled}
           className={s.switch}
         />

@@ -288,6 +288,8 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Videos = different videos posted in {month}. The same clip on several platforms counts once.':
     '视频数 = {month} 发布的不同视频数量；同一条视频发在多个平台只算一次。',
   Unassigned: '未分配',
+  '{name}’s accounts': '{name} 的账号',
+  'Unassigned accounts': '未分配的账号',
   Editors: '剪辑人员',
   Handlers: '负责人',
   'No editors yet.': '还没有剪辑人员。',

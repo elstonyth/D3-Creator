@@ -102,7 +102,7 @@ function renderBoard(people: Person[] = [KEE], accounts: AccountCard[] = []) {
 
 /** Card names in the order KEE's column shows them. */
 function keeOrder() {
-  return within(screen.getByRole('region', { name: 'KEE' }))
+  return within(screen.getByRole('region', { name: 'KEE’s accounts' }))
     .getAllByRole('article')
     .map((a) => a.querySelector('p')?.textContent);
 }
@@ -158,7 +158,7 @@ describe('the account board’s people', () => {
 
   it('shows who handles and who edits each account', () => {
     renderBoard([KEE, ZUWEI, ALI], [card(1, 'Gary', ZUWEI.id, ALI.id)]);
-    const zuwei = screen.getByRole('region', { name: 'ZUWEI' });
+    const zuwei = screen.getByRole('region', { name: 'ZUWEI’s accounts' });
     const gary = within(zuwei).getByRole('article');
     expect(
       (within(gary).getByLabelText('Handler') as HTMLSelectElement).value,
@@ -167,7 +167,7 @@ describe('the account board’s people', () => {
       (within(gary).getByLabelText('Editor') as HTMLSelectElement).value,
     ).toBe(ALI.id);
     expect(
-      within(screen.getByRole('region', { name: 'KEE' })).getByText(
+      within(screen.getByRole('region', { name: 'KEE’s accounts' })).getByText(
         'Drop an account here.',
       ),
     ).toBeTruthy();
@@ -186,9 +186,9 @@ describe('the account board’s people', () => {
       'KEE',
     ]);
     expect(
-      within(screen.getByRole('region', { name: 'Unassigned' })).getByText(
-        'Gary',
-      ),
+      within(
+        screen.getByRole('region', { name: 'Unassigned accounts' }),
+      ).getByText('Gary'),
     ).toBeTruthy();
   });
 
@@ -237,6 +237,25 @@ describe('a card’s own controls', () => {
       '',
     );
     expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('names the account on each card’s own controls', () => {
+    renderBoard(
+      [KEE],
+      [card(1, 'Gary', KEE.id, null), card(2, 'Amy', KEE.id, null)],
+    );
+    for (const name of ['Gary', 'Amy']) {
+      const c = within(cardOf(name));
+      for (const el of [
+        c.getByLabelText('Handler'),
+        c.getByLabelText('Editor'),
+        c.getByRole('switch', { name: 'Scheduled posting' }),
+      ])
+        expect(
+          document.getElementById(el.getAttribute('aria-describedby') ?? '')
+            ?.textContent,
+        ).toBe(name);
+    }
   });
 
   it('switches scheduled posting', async () => {
@@ -318,6 +337,29 @@ describe('card order', () => {
     expect(placeCards).toHaveBeenCalledTimes(1);
   });
 
+  it('refreshes after a save that landed, even when the next one is refused', async () => {
+    const settle = holdNextSave();
+    // The second, queued save is refused.
+    (placeCards as jest.Mock).mockResolvedValueOnce({
+      ok: false,
+      message: 'Not authorized.',
+    });
+    renderBoard([KEE], [A, B, C]);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move Cat up' }));
+    await waitFor(() => expect(placeCards).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Move Cat up' }));
+
+    await settle({ ok: true });
+    await waitFor(() =>
+      expect(screen.getByRole('status').textContent).toBe('Not authorized.'),
+    );
+    // The first save landed: the page is refreshed for it, and the board
+    // goes back to that save, not to before it.
+    expect(refresh).toHaveBeenCalled();
+    expect(keeOrder()).toEqual(['Amy', 'Cat', 'Bob']);
+  });
+
   it('a thrown save rolls back and still saves the next move', async () => {
     // A dropped connection: the call throws instead of returning a refusal.
     (placeCards as jest.Mock).mockRejectedValueOnce(new Error('network'));
@@ -346,13 +388,15 @@ describe('card order', () => {
     );
     expect(placeCards).toHaveBeenCalledTimes(1); // KEE only lost a card
     expect(
-      within(screen.getByRole('region', { name: 'ZUWEI' })).getByText('Amy'),
+      within(
+        screen.getByRole('region', { name: 'ZUWEI’s accounts' }),
+      ).getByText('Amy'),
     ).toBeTruthy();
   });
 
   it('totals each column: accounts, videos, views', () => {
     renderBoard([KEE, ZUWEI], [A, B, card(4, 'Zed', ZUWEI.id, null)]);
-    const kee = within(screen.getByRole('region', { name: 'KEE' }));
+    const kee = within(screen.getByRole('region', { name: 'KEE’s accounts' }));
     const cells = kee.getAllByRole('definition').map((d) => d.textContent);
     expect(cells).toEqual(['2', '8', '2K']);
   });
