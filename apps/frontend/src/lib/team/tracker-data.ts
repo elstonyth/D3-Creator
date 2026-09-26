@@ -11,8 +11,10 @@
  */
 
 import { addDays, monthRange } from '@gitroom/frontend/lib/tracker';
+import { boardOf, type AccountCard } from './accounts';
 import {
   loadPeople,
+  loadPlacements,
   loadRoster,
   loadShoots,
   loadVideos,
@@ -85,23 +87,30 @@ export interface AdminTrackerData extends Common {
   /** The whole team's edits and checks in the viewed month. */
   edited: number;
   verified: number;
+  /** Every account, who handles and edits it, and its viewed-month output. */
+  board: AccountCard[];
 }
 
-/** Everyone's work, for the admin's read-only tracker. */
+/**
+ * Everyone's work, for the admin's tracker: read-only, but for the account
+ * board, which only the admin sets.
+ */
 export async function loadAdminTracker(
   month: string,
   today: string,
 ): Promise<AdminTrackerData> {
   const days = monthDays(month);
   const { from, to } = monthRange(month);
-  const [shoots, soon, videos, done, people, roster] = await Promise.all([
-    loadShoots(days.from, days.to),
-    loadShoots(today, addDays(today, 2)),
-    loadVideos(iso(monthRange(today.slice(0, 7)).from)),
-    loadVideosDone(iso(from), iso(to)),
-    loadPeople(),
-    loadRoster(),
-  ]);
+  const [shoots, soon, videos, done, people, roster, placements] =
+    await Promise.all([
+      loadShoots(days.from, days.to),
+      loadShoots(today, addDays(today, 2)),
+      loadVideos(iso(monthRange(today.slice(0, 7)).from)),
+      loadVideosDone(iso(from), iso(to)),
+      loadPeople(),
+      loadRoster(),
+      loadPlacements(month),
+    ]);
   const start = Date.parse(from);
   const end = Date.parse(to);
   const inside = (at: string | null) =>
@@ -116,5 +125,11 @@ export async function loadAdminTracker(
     verified: done.filter((v) => inside(v.verifiedAt)).length,
     people,
     accounts: roster.map(({ id, name }) => ({ id, name })),
+    board: boardOf(
+      roster,
+      placements.assignments,
+      placements.stats,
+      new Set(people.filter((p) => !p.archived).map((p) => p.id)),
+    ),
   };
 }

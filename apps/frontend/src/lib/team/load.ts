@@ -12,9 +12,11 @@ import { fetchAllRows } from '@gitroom/frontend/lib/queries';
 import { resolveMediaUrl } from '@gitroom/frontend/lib/media-url';
 import {
   addMonths,
+  monthRange,
   parseMemberKind,
   type MemberKind,
 } from '@gitroom/frontend/lib/tracker';
+import type { AssignmentRow, MonthStatsRow } from './accounts';
 import { rowToShoot, SHOOT_COLS, type ShootRow } from './shoot-rows';
 import { sortShoots, type Shoot } from './shoots';
 import { rowToVideo, VIDEO_COLS, type VideoRow } from './video-rows';
@@ -89,6 +91,30 @@ export async function loadRoster(): Promise<RosterAccount[]> {
         new Set((c.profile ?? []).map((p) => p.platform)),
       ).sort(),
     }));
+}
+
+/**
+ * Who handles and edits each account, and every account's output in the
+ * month (`tracker_creator_month_stats`), for the admin's account board.
+ */
+export async function loadPlacements(month: string): Promise<{
+  assignments: AssignmentRow[];
+  stats: MonthStatsRow[];
+}> {
+  const admin = getSupabaseAdmin();
+  const { from, to } = monthRange(month);
+  const [assignRes, statsRes] = await Promise.all([
+    admin
+      .from('tracker_assignment')
+      .select(
+        'creator_id, handler_id, editor_id, scheduled_posting, sort_order',
+      ),
+    admin.rpc('tracker_creator_month_stats', { p_from: from, p_to: to }),
+  ]);
+  return {
+    assignments: must<AssignmentRow[]>(assignRes, 'assignments'),
+    stats: must<MonthStatsRow[]>(statsRes, 'month stats'),
+  };
 }
 
 /** Shoots on days [from, to), everyone's or one person's, in schedule order. */

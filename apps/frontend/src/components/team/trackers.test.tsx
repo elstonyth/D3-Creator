@@ -2,7 +2,7 @@
 /**
  * The two Work Trackers put together: the staff one shows the person's own
  * work and lets them act on it; the admin's shows everyone's and offers
- * nothing that writes.
+ * nothing that writes to it — only the account board, which is the admin's.
  */
 
 import { fireEvent, render, screen, within } from '@testing-library/react';
@@ -14,6 +14,10 @@ import { StaffTracker } from './staff-tracker';
 
 jest.mock('@gitroom/frontend/lib/team/shoot-actions', () => ({}));
 jest.mock('@gitroom/frontend/lib/team/video-actions', () => ({}));
+jest.mock('@gitroom/frontend/lib/team/account-actions', () => ({
+  placeCards: jest.fn(async () => ({ ok: true })),
+  setAssignment: jest.fn(async () => ({ ok: true })),
+}));
 const push = jest.fn();
 const refresh = jest.fn();
 jest.mock('next/navigation', () => ({
@@ -258,19 +262,70 @@ describe('the admin’s tracker', () => {
         verified={3}
         people={people}
         accounts={accounts}
+        board={[
+          {
+            id: ACC,
+            name: 'Gary',
+            avatarUrl: null,
+            platforms: ['tiktok'],
+            handlerId: ZUWEI,
+            editorId: MEI,
+            scheduledPosting: true,
+            sortOrder: 0,
+            videos: 12,
+            posts: 30,
+            views: 250000,
+          },
+        ]}
         profileBase="/team"
       />,
     );
   }
 
-  it('offers nothing that writes', () => {
+  const accountBoard = () =>
+    screen.getByRole('region', { name: 'Personnel & client configuration' });
+
+  it('offers nothing that writes to the staff’s shoots and videos', () => {
     renderAdmin();
-    // What is left to press only moves around: days, months, the cards.
+    // What is left to press only moves around: days, months, the cards —
+    // apart from the account board, which the admin sets.
     const writes =
       /^(\+ add|pass videos|change|cancel shoot|reopen|delete|done|verify|remove|undo|save)/i;
-    for (const b of screen.getAllByRole('button'))
+    const board = accountBoard();
+    for (const b of screen.getAllByRole('button')) {
+      if (board.contains(b)) continue;
       expect(b.getAttribute('aria-label') ?? b.textContent).not.toMatch(writes);
+    }
     expect(screen.queryAllByRole('textbox')).toHaveLength(0);
+    // Outside the board, the only select filters the video list.
+    expect(
+      screen
+        .getAllByRole('combobox')
+        .filter((c) => !board.contains(c))
+        .map((c) => c.id),
+    ).toEqual(['videos-person']);
+  });
+
+  it('shows who handles and who edits each account', () => {
+    renderAdmin();
+    const board = within(accountBoard());
+    const zuwei = within(board.getByRole('region', { name: 'ZUWEI' }));
+    const gary = zuwei.getByRole('article');
+    expect(within(gary).getByText('Gary')).toBeTruthy();
+    expect(
+      (within(gary).getByLabelText('Handler') as HTMLSelectElement).value,
+    ).toBe(ZUWEI);
+    expect(
+      (within(gary).getByLabelText('Editor') as HTMLSelectElement).value,
+    ).toBe(MEI);
+    expect(
+      within(gary)
+        .getByRole('switch', { name: 'Scheduled posting' })
+        .getAttribute('aria-checked'),
+    ).toBe('true');
+    // MEI does both: a column of their own, and the one editing Gary.
+    const mei = within(board.getByRole('region', { name: 'MEI' }));
+    expect(mei.getByText('Edits 1 account · 12 videos')).toBeTruthy();
   });
 
   it('shows everyone’s day and the videos in hand', () => {
@@ -285,7 +340,8 @@ describe('the admin’s tracker', () => {
 
   it('gives each person a column: editing now, to verify, their profile', () => {
     renderAdmin();
-    const kee = screen.getByRole('region', { name: 'KEE' });
+    // The Team panel's columns come first; the account board has its own.
+    const [kee] = screen.getAllByRole('region', { name: 'KEE' });
     // Waiting on KEE's check: Reel 2, cut by MEI.
     expect(within(kee).getByText('Reel 2')).toBeTruthy();
     expect(
@@ -293,7 +349,7 @@ describe('the admin’s tracker', () => {
         .getByRole('link', { name: /Open profile/ })
         .getAttribute('href'),
     ).toBe(`/team/${KEE}`);
-    const mei = screen.getByRole('region', { name: 'MEI' });
+    const [mei] = screen.getAllByRole('region', { name: 'MEI' });
     // MEI is cutting Reel 1 for KEE.
     expect(within(mei).getByText('Reel 1')).toBeTruthy();
     expect(within(mei).getByText('Handler & editor')).toBeTruthy();
