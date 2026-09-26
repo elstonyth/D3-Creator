@@ -10,6 +10,7 @@
  */
 import {
   loadPeople,
+  loadPlacements,
   loadRoster,
   loadShoots,
   loadVideos,
@@ -18,6 +19,7 @@ import {
 } from '@gitroom/frontend/lib/team/load';
 import { addDays, monthRange, todayKey } from '@gitroom/frontend/lib/tracker';
 import { weekStart } from '@gitroom/frontend/lib/team/shoots';
+import { loadAdminTracker } from '@gitroom/frontend/lib/team/tracker-data';
 
 // Counts only: a list's length, or each list inside a result object.
 const size = (v: unknown): string => {
@@ -54,6 +56,9 @@ await step('roster', () => loadRoster());
 await step('week of shoots', () => loadShoots(monday, addDays(monday, 7)));
 await step('videos, everyone', () => loadVideos(start));
 await step('videos done, everyone', () => loadVideosDone(start, end));
+// The admin's account board: assignments and the month-stats RPC.
+await step('account board placements', () => loadPlacements(month));
+await step('admin tracker', () => loadAdminTracker(month, todayKey()));
 if (someone) {
   await step('shoots, one person', () =>
     loadShoots(days.from, days.to, someone),
