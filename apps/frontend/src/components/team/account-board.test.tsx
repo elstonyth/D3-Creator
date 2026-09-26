@@ -142,7 +142,14 @@ it('puts accounts nobody handles, or whose handler is now an editor, in Unassign
   const pool = column('Unassigned accounts');
   expect(pool.getByText('Gary')).toBeTruthy();
   expect(pool.getByText('Amy')).toBeTruthy();
+  // The card agrees with its column, though EX is still on the team.
+  expect(whoOf('Amy')).toEqual({ handler: 'Unassigned', editor: 'Nobody' });
   expect(column('KEE’s accounts').getByText('No accounts yet.')).toBeTruthy();
+});
+
+it('names each account’s platforms for screen readers', () => {
+  renderBoard([KEE], [card(1, 'Gary', KEE.id, null)]);
+  expect(screen.getByRole('img', { name: 'Instagram' })).toBeTruthy();
 });
 
 it('totals each column: accounts, videos, views', () => {

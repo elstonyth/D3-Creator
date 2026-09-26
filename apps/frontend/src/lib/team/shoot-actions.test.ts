@@ -5,7 +5,7 @@
  */
 
 import { getSupabaseAdmin } from '@d3/database';
-import { claimAccount } from './claim-account';
+import { claimAccount, releaseAccount } from './claim-account';
 import { passVideos, updateShoot } from './shoot-actions';
 
 jest.mock('@d3/database', () => ({ getSupabaseAdmin: jest.fn() }));
@@ -13,6 +13,7 @@ jest.mock('./on-board', () => ({ onBoard: jest.fn(async () => true) }));
 jest.mock('./claim-account', () => ({
   ...jest.requireActual('./claim-account'),
   claimAccount: jest.fn(async () => undefined),
+  releaseAccount: jest.fn(async () => undefined),
 }));
 jest.mock('./staff-context', () => ({
   requireStaff: jest.fn(async () => ({
@@ -28,15 +29,18 @@ const ACC_B = 'bbbbbbbb-0000-4000-8000-000000000002';
 
 type Step = [string, ...unknown[]];
 
-/** Records every query; the shoot update answers with `shootRows`. */
-function fakeDb(shootRows: unknown[]) {
+/**
+ * Records every query; the shoot update answers with `shootRows`, a read of
+ * the shoot's videos with `videoRows`.
+ */
+function fakeDb(shootRows: unknown[], videoRows: unknown[] | null = null) {
   const calls: { table: string; steps: Step[] }[] = [];
   const from = (table: string) => {
     const call = { table, steps: [] as Step[] };
     calls.push(call);
     const done = () =>
       Promise.resolve({
-        data: table === 'tracker_shoot' ? shootRows : null,
+        data: table === 'tracker_shoot' ? shootRows : videoRows,
         error: null,
       });
     const q: Record<string, unknown> = {
@@ -78,7 +82,9 @@ it('moves the videos to the corrected account, or off one', async () => {
     const calls = fakeDb([row(next)]);
     const r = await updateShoot(ID, form(next), form(ACC_A));
     expect(r).toMatchObject({ ok: true, shoot: { creatorId: next } });
-    const videos = calls.find((c) => c.table === 'tracker_video');
+    const videos = calls.find(
+      (c) => c.table === 'tracker_video' && c.steps[0][0] === 'update',
+    );
     expect(videos?.steps).toEqual([
       ['update', { creator_id: next }],
       ['eq', 'shoot_id', ID],
@@ -103,6 +109,43 @@ it('touches no video when the shoot is not the caller’s', async () => {
   const r = await updateShoot(ID, form(ACC_B), form(ACC_A));
   expect(r).toMatchObject({ ok: false });
   expect(calls.some((c) => c.table === 'tracker_video')).toBe(false);
+});
+
+describe('correcting a passed shoot’s account moves the board with it', () => {
+  const MEI = 'aaaaaaaa-0000-4000-8000-000000000003';
+  const KIM = 'aaaaaaaa-0000-4000-8000-000000000004';
+  const onA = (editor_id: string) => ({ creator_id: ACC_A, editor_id });
+
+  it('gives back the account the videos left and claims the new one', async () => {
+    fakeDb([row(ACC_B)], [onA(KIM), onA(MEI), onA(MEI)]);
+    const r = await updateShoot(ID, form(ACC_B), form(ACC_A));
+    expect(r).toMatchObject({ ok: true });
+    expect(releaseAccount).toHaveBeenCalledWith(ACC_A, ALI, 'u1');
+    expect(claimAccount).toHaveBeenCalledWith(
+      ACC_B,
+      { handlerId: ALI, editorId: MEI },
+      'u1',
+    );
+  });
+
+  it('only gives back when the account is taken off', async () => {
+    fakeDb([row(null)], [onA(MEI)]);
+    await updateShoot(ID, form(null), form(ACC_A));
+    expect(releaseAccount).toHaveBeenCalledWith(ACC_A, ALI, 'u1');
+    // claimAccount ignores a null account.
+    expect(claimAccount).toHaveBeenCalledWith(
+      null,
+      { handlerId: ALI, editorId: MEI },
+      'u1',
+    );
+  });
+
+  it('touches the board for no shoot that has not been passed on yet', async () => {
+    fakeDb([row(ACC_B)], []);
+    await updateShoot(ID, form(ACC_B), form(ACC_A));
+    expect(releaseAccount).not.toHaveBeenCalled();
+    expect(claimAccount).not.toHaveBeenCalled();
+  });
 });
 
 describe('passing videos on keeps the account board up to date', () => {

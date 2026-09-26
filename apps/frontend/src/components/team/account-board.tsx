@@ -22,6 +22,7 @@ import { formatCompact } from '@gitroom/frontend/lib/creator-metrics';
 import { ImageWithFallback } from '@gitroom/frontend/components/ui/image-with-fallback';
 import {
   PLATFORM_ICONS,
+  PLATFORM_LABELS,
   type PlatformKey,
 } from '@gitroom/frontend/components/ui/platform-icons';
 import type { MemberKind } from '@gitroom/frontend/lib/tracker';
@@ -222,8 +223,12 @@ export function AccountBoard({
                       <AccountItem
                         key={c.id}
                         account={c}
+                        // As the column says: a card in Unassigned has no
+                        // handler, even if its old one is still on the team.
                         handler={
-                          c.handlerId ? (nameOf.get(c.handlerId) ?? null) : null
+                          col.member
+                            ? (nameOf.get(col.member.id) ?? null)
+                            : null
                         }
                         editor={
                           c.editorId ? (nameOf.get(c.editorId) ?? null) : null
@@ -283,8 +288,16 @@ function AccountItem({
               const key = platformKey(p);
               if (!key) return null;
               const Icon = PLATFORM_ICONS[key];
+              // The icons are aria-hidden by default; these carry meaning.
               return (
-                <Icon key={p} size={12} className="shrink-0" aria-label={p} />
+                <Icon
+                  key={p}
+                  size={12}
+                  className="shrink-0"
+                  role="img"
+                  aria-hidden={false}
+                  aria-label={PLATFORM_LABELS[key]}
+                />
               );
             })}
           </div>

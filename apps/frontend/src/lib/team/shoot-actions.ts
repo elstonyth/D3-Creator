@@ -22,7 +22,7 @@ import { getSupabaseAdmin } from '@d3/database';
 import { isUuid } from '@gitroom/frontend/lib/ids';
 import { todayKey } from '@gitroom/frontend/lib/tracker';
 import { asActor } from './actor';
-import { claimAccount, mainEditor } from './claim-account';
+import { claimAccount, mainEditor, releaseAccount } from './claim-account';
 import { dbError } from './db-error';
 import { onBoard } from './on-board';
 import { rowToShoot, SHOOT_COLS, type ShootRow } from './shoot-rows';
@@ -119,12 +119,38 @@ export async function updateShoot(
     if (!saved.ok || !('creator_id' in patch)) return saved;
     // Its videos were given the shoot's account when passed on; a corrected
     // account reaches them too. The caller handles every one of them.
+    const passed = await admin
+      .from('tracker_video')
+      .select('creator_id, editor_id')
+      .eq('shoot_id', id)
+      .eq('handler_id', a.memberId);
+    if (passed.error) return dbError('updateShoot', passed.error);
     const { error } = await admin
       .from('tracker_video')
       .update({ creator_id: patch.creator_id })
       .eq('shoot_id', id)
       .eq('handler_id', a.memberId);
     if (error) return dbError('updateShoot', error);
+    const moved = (passed.data ?? []) as {
+      creator_id: string | null;
+      editor_id: string;
+    }[];
+    if (moved.length > 0) {
+      // The account board follows the videos: the account they left goes
+      // back to whoever held it (if this was a mistaken pick), and the new
+      // one is the caller's, with the editor given most of them.
+      for (const left of new Set(moved.map((v) => v.creator_id)))
+        if (left !== patch.creator_id)
+          await releaseAccount(left, a.memberId, a.userId);
+      await claimAccount(
+        patch.creator_id,
+        {
+          handlerId: a.memberId,
+          editorId: mainEditor(moved.map((v) => v.editor_id)) ?? undefined,
+        },
+        a.userId,
+      );
+    }
     return saved;
   });
 }
