@@ -22,6 +22,7 @@ import { getSupabaseAdmin } from '@d3/database';
 import { isUuid } from '@gitroom/frontend/lib/ids';
 import { todayKey } from '@gitroom/frontend/lib/tracker';
 import { asActor } from './actor';
+import { claimAccount, mainEditor } from './claim-account';
 import { dbError } from './db-error';
 import { onBoard } from './on-board';
 import { rowToShoot, SHOOT_COLS, type ShootRow } from './shoot-rows';
@@ -175,6 +176,10 @@ export async function deleteShoot(id: string): Promise<ShootResult> {
  * The caller becomes every video's handler, and the shoot is marked done
  * with how many videos have come out of it. Passing again adds more.
  *
+ * The shoot's account follows the work on the admin's account board: the
+ * caller becomes its handler (if they run accounts) and the editor given
+ * most of these videos its editor (claimAccount).
+ *
  * tracker_pass_shoot does all of it in one transaction and re-checks
  * everything: that the shoot is the caller's and not cancelled, the rows,
  * and that each editor is on the team and cuts video.
@@ -216,9 +221,18 @@ export async function passVideos(
       .eq('id', shootId)
       .single();
     if (shoot.error) return dbError('passVideos', shoot.error);
+    const passed = rowToShoot(shoot.data as ShootRow);
+    await claimAccount(
+      passed.creatorId,
+      {
+        handlerId: a.memberId,
+        editorId: mainEditor(rows.map((r) => r.editorId)) ?? undefined,
+      },
+      a.userId,
+    );
     return {
       ok: true,
-      shoot: rowToShoot(shoot.data as ShootRow),
+      shoot: passed,
       videos: ((data ?? []) as VideoRow[]).map(rowToVideo),
     };
   });

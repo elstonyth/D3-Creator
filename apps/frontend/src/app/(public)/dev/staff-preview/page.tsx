@@ -70,7 +70,6 @@ const board: AccountCard[] = [
   platforms: platforms as string[],
   handlerId: handlerId as string | null,
   editorId: editorId as string | null,
-  scheduledPosting: i === 2,
   sortOrder: i,
   videos: videos as number,
   posts: posts as number,

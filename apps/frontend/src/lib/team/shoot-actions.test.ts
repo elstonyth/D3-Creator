@@ -5,9 +5,15 @@
  */
 
 import { getSupabaseAdmin } from '@d3/database';
-import { updateShoot } from './shoot-actions';
+import { claimAccount } from './claim-account';
+import { passVideos, updateShoot } from './shoot-actions';
 
 jest.mock('@d3/database', () => ({ getSupabaseAdmin: jest.fn() }));
+jest.mock('./on-board', () => ({ onBoard: jest.fn(async () => true) }));
+jest.mock('./claim-account', () => ({
+  ...jest.requireActual('./claim-account'),
+  claimAccount: jest.fn(async () => undefined),
+}));
 jest.mock('./staff-context', () => ({
   requireStaff: jest.fn(async () => ({
     userId: 'u1',
@@ -97,4 +103,48 @@ it('touches no video when the shoot is not the caller’s', async () => {
   const r = await updateShoot(ID, form(ACC_B), form(ACC_A));
   expect(r).toMatchObject({ ok: false });
   expect(calls.some((c) => c.table === 'tracker_video')).toBe(false);
+});
+
+describe('passing videos on keeps the account board up to date', () => {
+  const MEI = 'aaaaaaaa-0000-4000-8000-000000000003';
+  const KIM = 'aaaaaaaa-0000-4000-8000-000000000004';
+  const rows = [
+    { title: 'Reel 1', editorId: KIM },
+    { title: 'Reel 2', editorId: MEI },
+    { title: 'Reel 3', editorId: MEI },
+  ];
+
+  function passDb(account: string | null) {
+    const q: Record<string, unknown> = {};
+    q.select = () => q;
+    q.eq = () => q;
+    q.single = async () => ({ data: row(account), error: null });
+    (getSupabaseAdmin as jest.Mock).mockReturnValue({
+      rpc: jest.fn(async () => ({ data: [], error: null })),
+      from: () => q,
+    });
+  }
+
+  it('makes the passer the handler and the main editor the editor', async () => {
+    passDb(ACC_A);
+    const r = await passVideos(ID, rows);
+    expect(r).toMatchObject({ ok: true });
+    expect(claimAccount).toHaveBeenCalledWith(
+      ACC_A,
+      { handlerId: ALI, editorId: MEI },
+      'u1',
+    );
+  });
+
+  it('claims nothing when the pass is refused', async () => {
+    (getSupabaseAdmin as jest.Mock).mockReturnValue({
+      rpc: jest.fn(async () => ({
+        data: null,
+        error: { message: 'That shoot is already gone.' },
+      })),
+    });
+    const r = await passVideos(ID, rows);
+    expect(r).toMatchObject({ ok: false });
+    expect(claimAccount).not.toHaveBeenCalled();
+  });
 });

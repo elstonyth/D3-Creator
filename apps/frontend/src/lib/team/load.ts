@@ -106,9 +106,7 @@ export async function loadPlacements(month: string): Promise<{
   const [assignRes, statsRes] = await Promise.all([
     admin
       .from('tracker_assignment')
-      .select(
-        'creator_id, handler_id, editor_id, scheduled_posting, sort_order',
-      ),
+      .select('creator_id, handler_id, editor_id, sort_order'),
     admin.rpc('tracker_creator_month_stats', { p_from: from, p_to: to }),
   ]);
   return {

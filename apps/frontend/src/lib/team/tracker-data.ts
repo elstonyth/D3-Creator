@@ -91,10 +91,7 @@ export interface AdminTrackerData extends Common {
   board: AccountCard[];
 }
 
-/**
- * Everyone's work, for the admin's tracker: read-only, but for the account
- * board, which only the admin sets.
- */
+/** Everyone's work, for the admin's read-only tracker. */
 export async function loadAdminTracker(
   month: string,
   today: string,

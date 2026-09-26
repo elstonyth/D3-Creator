@@ -14,10 +14,6 @@ import { StaffTracker } from './staff-tracker';
 
 jest.mock('@gitroom/frontend/lib/team/shoot-actions', () => ({}));
 jest.mock('@gitroom/frontend/lib/team/video-actions', () => ({}));
-jest.mock('@gitroom/frontend/lib/team/account-actions', () => ({
-  placeCards: jest.fn(async () => ({ ok: true })),
-  setAssignment: jest.fn(async () => ({ ok: true })),
-}));
 const push = jest.fn();
 const refresh = jest.fn();
 jest.mock('next/navigation', () => ({
@@ -270,7 +266,6 @@ describe('the admin’s tracker', () => {
             platforms: ['tiktok'],
             handlerId: ZUWEI,
             editorId: MEI,
-            scheduledPosting: true,
             sortOrder: 0,
             videos: 12,
             posts: 30,
@@ -282,49 +277,36 @@ describe('the admin’s tracker', () => {
     );
   }
 
-  const accountBoard = () =>
-    screen.getByRole('region', { name: 'Personnel & client configuration' });
-
-  it('offers nothing that writes to the staff’s shoots and videos', () => {
+  it('offers nothing that writes', () => {
     renderAdmin();
-    // What is left to press only moves around: days, months, the cards —
-    // apart from the account board, which the admin sets.
+    // What is left to press only moves around: days, months, the cards.
     const writes =
-      /^(\+ add|pass videos|change|cancel shoot|reopen|delete|done|verify|remove|undo|save)/i;
-    const board = accountBoard();
-    for (const b of screen.getAllByRole('button')) {
-      if (board.contains(b)) continue;
+      /^(\+ add|pass videos|change|cancel shoot|reopen|delete|done|verify|remove|undo|save|move)/i;
+    for (const b of screen.getAllByRole('button'))
       expect(b.getAttribute('aria-label') ?? b.textContent).not.toMatch(writes);
-    }
     expect(screen.queryAllByRole('textbox')).toHaveLength(0);
-    // Outside the board, the only select filters the video list.
-    expect(
-      screen
-        .getAllByRole('combobox')
-        .filter((c) => !board.contains(c))
-        .map((c) => c.id),
-    ).toEqual(['videos-person']);
+    expect(screen.queryAllByRole('switch')).toHaveLength(0);
+    // The only select filters the video list.
+    expect(screen.getAllByRole('combobox').map((c) => c.id)).toEqual([
+      'videos-person',
+    ]);
   });
 
   it('shows who handles and who edits each account', () => {
     renderAdmin();
-    const board = within(accountBoard());
+    const board = within(
+      screen.getByRole('region', { name: 'Personnel & client configuration' }),
+    );
     const zuwei = within(
       board.getByRole('region', { name: 'ZUWEI’s accounts' }),
     );
-    const gary = zuwei.getByRole('article');
+    const gary = zuwei.getByRole('listitem');
     expect(within(gary).getByText('Gary')).toBeTruthy();
     expect(
-      (within(gary).getByLabelText('Handler') as HTMLSelectElement).value,
-    ).toBe(ZUWEI);
-    expect(
-      (within(gary).getByLabelText('Editor') as HTMLSelectElement).value,
-    ).toBe(MEI);
-    expect(
       within(gary)
-        .getByRole('switch', { name: 'Scheduled posting' })
-        .getAttribute('aria-checked'),
-    ).toBe('true');
+        .getAllByRole('definition')
+        .map((d) => d.textContent),
+    ).toEqual(['ZUWEI', 'MEI']);
     // MEI does both: a column of their own, and the one editing Gary.
     const mei = within(board.getByRole('region', { name: 'MEI’s accounts' }));
     expect(mei.getByText('Edits 1 account · 12 videos')).toBeTruthy();

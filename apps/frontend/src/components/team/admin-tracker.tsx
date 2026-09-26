@@ -4,13 +4,11 @@
  * The admin console's Work Tracker: everyone's shoots and videos, read-only,
  * as staff update them in their own trackers. The same board as the staff
  * one — spotlight, calendar, the picked day — plus the team, one column a
- * person (what they are editing now and what waits on their check), the
- * account board, and every video in hand.
+ * person (what they are editing now and what waits on their check), who
+ * handles and edits each account, and every video in hand.
  *
- * The shoots and videos are the staff's: the admin only looks (the server
- * refuses an admin's writes to them too, lib/team/actor.ts). The account
- * board — who handles and who edits each account — is the one thing here
- * the admin sets.
+ * Nothing here changes anything: the admin only looks (the server refuses
+ * an admin's writes too, lib/team/actor.ts).
  */
 
 import Link from 'next/link';
