@@ -1,0 +1,11 @@
+-- A shoot no longer asks where or what: the owner dropped that field from the
+-- form. A shoot is its day, its time if there is one, its account and a note.
+-- Shoots saved with a title keep it; new ones are saved without.
+--
+-- The length check stays as it is: a check passes on NULL, and any title
+-- still written must be 1–200 characters.
+--
+-- Apply BEFORE deploying the app that stops sending a title: until then the
+-- insert of a shoot without one fails the NOT NULL. The old app always sends
+-- one, so applying first breaks nothing.
+alter table public.tracker_shoot alter column title drop not null;

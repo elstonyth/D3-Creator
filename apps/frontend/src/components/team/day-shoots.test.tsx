@@ -54,14 +54,15 @@ const people = [
   { id: ALI, name: 'ALI', kind: 'editor' as const, archived: false },
   { id: MEI, name: 'MEI', kind: 'both' as const, archived: false },
 ];
-const accounts = [{ id: 'bbbbbbbb-0000-4000-8000-000000000001', name: 'Gary' }];
+const GARY = 'bbbbbbbb-0000-4000-8000-000000000001';
+const accounts = [{ id: GARY, name: 'Gary' }];
 
 function shoot(
   n: number,
   memberId: string,
   date: string,
   time: string | null,
-  title: string,
+  title: string | null,
   extra: Partial<Shoot> = {},
 ): Shoot {
   return {
@@ -129,29 +130,69 @@ it('lets staff change only their own shoots, and names the others', () => {
 it('adds a shoot for the day it was opened on', async () => {
   (addShoot as jest.Mock).mockResolvedValue({
     ok: true,
-    shoot: shoot(3, KEE, DAY, '11:30', 'Café visit'),
+    shoot: shoot(3, KEE, DAY, '11:30', null, { creatorId: GARY }),
   });
   render(<Tracker initial={[MINE]} meId={KEE} />);
   fireEvent.click(screen.getByRole('button', { name: '+ Add a shoot' }));
+  // The form no longer asks where or what.
+  expect(screen.queryByLabelText(/Where/)).toBeNull();
+  expect(screen.queryByRole('textbox', { name: /what/i })).toBeNull();
   fireEvent.change(screen.getByLabelText(/Time/), {
     target: { value: '11:30' },
   });
-  fireEvent.change(screen.getByLabelText('Where / what'), {
-    target: { value: 'Café visit' },
+  fireEvent.change(screen.getByLabelText(/Creator account/), {
+    target: { value: GARY },
   });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-  await waitFor(() => expect(screen.getByText('Café visit')).toBeTruthy());
+  // Named by its account.
+  await waitFor(() => expect(screen.getByText('Gary')).toBeTruthy());
   // Staff never choose the person; the server uses theirs.
   expect(addShoot).toHaveBeenCalledWith({
     date: DAY,
     time: '11:30',
-    title: 'Café visit',
-    creatorId: '',
+    creatorId: GARY,
     note: '',
   });
   expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
   expect(refresh).toHaveBeenCalledTimes(1);
+});
+
+it('saves a shoot with nothing but its day', async () => {
+  (addShoot as jest.Mock).mockResolvedValue({
+    ok: true,
+    shoot: shoot(3, KEE, DAY, null, null),
+  });
+  render(<Tracker initial={[]} meId={KEE} />);
+  fireEvent.click(screen.getByRole('button', { name: '+ Add a shoot' }));
+  const save = screen.getByRole('button', { name: 'Save' });
+  expect((save as HTMLButtonElement).disabled).toBe(false);
+  fireEvent.click(save);
+  await waitFor(() =>
+    expect(addShoot).toHaveBeenCalledWith({
+      date: DAY,
+      time: '',
+      creatorId: '',
+      note: '',
+    }),
+  );
+  expect(await screen.findByText('Shoot')).toBeTruthy();
+});
+
+it('names an untitled shoot by its account, and its buttons by time too', () => {
+  const a = shoot(4, KEE, DAY, '10:00', null, { creatorId: GARY });
+  const b = shoot(5, KEE, DAY, '15:00', null, { creatorId: GARY });
+  render(<Tracker initial={[a, b]} meId={KEE} />);
+  expect(screen.getAllByText('Gary')).toHaveLength(2);
+  expect(button('Change 10:00 Gary')).toBeTruthy();
+  expect(button('Change 15:00 Gary')).toBeTruthy();
+});
+
+it('keeps an old shoot’s title, with its account beside it', () => {
+  render(<Tracker initial={[{ ...MINE, creatorId: GARY }]} meId={KEE} />);
+  expect(screen.getByText('Hotpot shop')).toBeTruthy();
+  expect(screen.getByText('Gary')).toBeTruthy();
+  expect(button('Change Hotpot shop')).toBeTruthy();
 });
 
 it('keeps the form open and says why when the server refuses', async () => {
@@ -161,9 +202,6 @@ it('keeps the form open and says why when the server refuses', async () => {
   });
   render(<Tracker initial={[]} meId={KEE} />);
   fireEvent.click(screen.getByRole('button', { name: '+ Add a shoot' }));
-  fireEvent.change(screen.getByLabelText('Where / what'), {
-    target: { value: 'Café visit' },
-  });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
   expect((await screen.findByRole('alert')).textContent).toContain(

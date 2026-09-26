@@ -64,7 +64,7 @@ function shoot(
   n: number,
   memberId: string,
   date: string,
-  title: string,
+  title: string | null,
   extra: Partial<Shoot> = {},
 ): Shoot {
   return {
@@ -132,6 +132,29 @@ describe('the staff tracker', () => {
       />,
     );
   }
+
+  it('names an untitled shoot on the spotlight by its account', () => {
+    render(
+      <StaffTracker
+        month="2026-09"
+        today={TODAY}
+        initialDay={null}
+        shoots={[
+          shoot(4, KEE, TODAY, null, { creatorId: ACC }),
+          shoot(5, KEE, TODAY, null, { time: null }),
+        ]}
+        videos={[]}
+        edited={0}
+        verified={0}
+        people={people}
+        accounts={accounts}
+        meId={KEE}
+      />,
+    );
+    const spot = screen.getByRole('region', { name: 'Upcoming' });
+    expect(within(spot).getByText('10:00 · Gary')).toBeTruthy();
+    expect(within(spot).getByText('Shoot')).toBeTruthy();
+  });
 
   it('puts my shoots and my queue on the spotlight', () => {
     renderStaff();

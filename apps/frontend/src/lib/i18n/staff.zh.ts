@@ -37,6 +37,7 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Reopen {title}': '恢复 {title}',
   'Delete {title}': '删除 {title}',
   'Delete this shoot for good?': '确定永久删除这条拍摄？',
+  Shoot: '拍摄',
   'Videos shot': '实际拍摄数',
 
   // ---- Shoot form ---------------------------------------------------------
@@ -44,8 +45,6 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Choose…': '请选择…',
   Day: '日期',
   Time: '时间',
-  'Where / what': '地点 / 内容',
-  'e.g. Hotpot shop, JB': '例如：火锅店，新山',
   'Creator account': '创作者账号',
   'No account': '不指定账号',
   Note: '备注',
@@ -53,8 +52,6 @@ export const staffZh: Readonly<Record<string, string>> = {
   // ---- Shoot actions (server messages, shown through t()) ---------------
   'Pick a day.': '请选择日期。',
   'Time must look like 19:30.': '时间格式应为 19:30。',
-  'Say where or what you are shooting (up to 200 characters).':
-    '请填写拍摄地点或内容（最多 200 字）。',
   'Invalid account.': '账号无效。',
   'Invalid note.': '备注无效。',
   'Notes are limited to 1,000 characters.': '备注最多 1000 字。',

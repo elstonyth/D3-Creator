@@ -13,7 +13,7 @@ export interface ShootRow {
   member_id: string;
   shoot_date: string;
   start_time: string | null;
-  title: string;
+  title: string | null;
   creator_id: string | null;
   videos_shot: number | null;
   status: string;
