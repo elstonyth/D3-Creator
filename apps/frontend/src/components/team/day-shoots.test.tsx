@@ -145,8 +145,13 @@ it('adds a shoot for the day it was opened on', async () => {
   });
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-  // Named by its account.
-  await waitFor(() => expect(screen.getByText('Gary')).toBeTruthy());
+  // Saved, the form closes, and the new shoot is named by its account (the
+  // form's own "Gary" option is gone by then, so it can't answer for it).
+  await waitFor(() =>
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull(),
+  );
+  expect(button('Change 11:30 Gary')).toBeTruthy();
+  expect(screen.getByText('Gary').tagName).toBe('P');
   // Staff never choose the person; the server uses theirs.
   expect(addShoot).toHaveBeenCalledWith({
     date: DAY,
