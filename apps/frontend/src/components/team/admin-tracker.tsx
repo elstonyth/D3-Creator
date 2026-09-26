@@ -4,8 +4,8 @@
  * The admin console's Work Tracker: everyone's shoots and videos, read-only,
  * as staff update them in their own trackers. The same board as the staff
  * one — spotlight, calendar, the picked day — plus the team, one column a
- * person (what they are editing now and what waits on their check), and
- * every video in hand.
+ * person (what they are editing now and what waits on their check), who
+ * handles and edits each account, and every video in hand.
  *
  * Nothing here changes anything: the admin only looks (the server refuses
  * an admin's writes too, lib/team/actor.ts).
@@ -21,6 +21,7 @@ import { cn } from '@gitroom/frontend/lib/utils';
 // clsx where a custom font-size token sits next to a text colour:
 // tailwind-merge would drop the size (see tracker-shell.tsx).
 import clsx from 'clsx';
+import { AccountBoard } from './account-board';
 import { DayShoots } from './day-shoots';
 import { GlassPanel } from './glass-panel';
 import {
@@ -55,6 +56,7 @@ export function AdminTracker({
   verified,
   people,
   accounts,
+  board,
   profileBase,
 }: AdminTrackerProps) {
   const { t, locale } = useI18n();
@@ -255,6 +257,8 @@ export function AdminTracker({
             })}
         </div>
       </GlassPanel>
+
+      <AccountBoard monthLabel={monthLabel} people={people} accounts={board} />
 
       <GlassPanel className="mt-4 p-4 sm:p-6 md:mt-6">
         <div className="mb-5">

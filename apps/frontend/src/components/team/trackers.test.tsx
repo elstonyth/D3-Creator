@@ -2,7 +2,7 @@
 /**
  * The two Work Trackers put together: the staff one shows the person's own
  * work and lets them act on it; the admin's shows everyone's and offers
- * nothing that writes.
+ * nothing that writes to it — only the account board, which is the admin's.
  */
 
 import { fireEvent, render, screen, within } from '@testing-library/react';
@@ -258,6 +258,20 @@ describe('the admin’s tracker', () => {
         verified={3}
         people={people}
         accounts={accounts}
+        board={[
+          {
+            id: ACC,
+            name: 'Gary',
+            avatarUrl: null,
+            platforms: ['tiktok'],
+            handlerId: ZUWEI,
+            editorId: MEI,
+            sortOrder: 0,
+            videos: 12,
+            posts: 30,
+            views: 250000,
+          },
+        ]}
         profileBase="/team"
       />,
     );
@@ -267,10 +281,35 @@ describe('the admin’s tracker', () => {
     renderAdmin();
     // What is left to press only moves around: days, months, the cards.
     const writes =
-      /^(\+ add|pass videos|change|cancel shoot|reopen|delete|done|verify|remove|undo|save)/i;
+      /^(\+ add|pass videos|change|cancel shoot|reopen|delete|done|verify|remove|undo|save|move)/i;
     for (const b of screen.getAllByRole('button'))
       expect(b.getAttribute('aria-label') ?? b.textContent).not.toMatch(writes);
     expect(screen.queryAllByRole('textbox')).toHaveLength(0);
+    expect(screen.queryAllByRole('switch')).toHaveLength(0);
+    // The only select filters the video list.
+    expect(screen.getAllByRole('combobox').map((c) => c.id)).toEqual([
+      'videos-person',
+    ]);
+  });
+
+  it('shows who handles and who edits each account', () => {
+    renderAdmin();
+    const board = within(
+      screen.getByRole('region', { name: 'Personnel & client configuration' }),
+    );
+    const zuwei = within(
+      board.getByRole('region', { name: 'ZUWEI’s accounts' }),
+    );
+    const gary = zuwei.getByRole('listitem');
+    expect(within(gary).getByText('Gary')).toBeTruthy();
+    expect(
+      within(gary)
+        .getAllByRole('definition')
+        .map((d) => d.textContent),
+    ).toEqual(['ZUWEI', 'MEI']);
+    // MEI does both: a column of their own, and the one editing Gary.
+    const mei = within(board.getByRole('region', { name: 'MEI’s accounts' }));
+    expect(mei.getByText('Edits 1 account · 12 videos')).toBeTruthy();
   });
 
   it('shows everyone’s day and the videos in hand', () => {

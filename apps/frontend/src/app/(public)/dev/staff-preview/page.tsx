@@ -8,6 +8,7 @@ import {
   monthRange,
   todayKey,
 } from '@gitroom/frontend/lib/tracker';
+import type { AccountCard } from '@gitroom/frontend/lib/team/accounts';
 import type { Shoot } from '@gitroom/frontend/lib/team/shoots';
 import {
   doneCounts,
@@ -50,13 +51,38 @@ const accounts = [
   { id: acct(4), name: 'Provisa小老板' },
 ];
 
+// The admin's account board: who handles and edits each account.
+const board: AccountCard[] = [
+  [KEE, null, 31, 52, 851_200, ['douyin', 'facebook', 'instagram', 'tiktok']],
+  [KEE, MEI, 15, 19, 70_500, ['douyin', 'facebook', 'instagram']],
+  [ZUWEI, HOWEN, 13, 16, 311_900, ['facebook', 'instagram', 'tiktok']],
+  [
+    null,
+    null,
+    29,
+    29,
+    4_300_000,
+    ['douyin', 'facebook', 'instagram', 'tiktok'],
+  ],
+].map(([handlerId, editorId, videos, posts, views, platforms], i) => ({
+  ...accounts[i],
+  avatarUrl: null,
+  platforms: platforms as string[],
+  handlerId: handlerId as string | null,
+  editorId: editorId as string | null,
+  sortOrder: i,
+  videos: videos as number,
+  posts: posts as number,
+  views: views as number,
+}));
+
 /**
  * Scratch preview of the two Work Trackers and the admin's team pages on
  * sample data, so the screens can be looked at without a session. The staff
  * tracker is signed in as HOWEN, who both shoots and edits, so every list
  * has something in it. Saves go to the real server actions and are refused
- * (no staff session), which also shows the refusal state. Dev only: 404 in
- * production.
+ * (no staff or admin session), which also shows the refusal state. Dev only:
+ * 404 in production.
  */
 export default async function StaffPreviewPage({
   searchParams,
@@ -238,6 +264,7 @@ export default async function StaffPreviewPage({
           verified={videos.filter((v) => v.verifiedAt).length}
           people={people}
           accounts={accounts}
+          board={board}
           // The preview has one sample profile; the id rides along unused.
           profileBase="/dev/staff-preview?view=person&of="
         />

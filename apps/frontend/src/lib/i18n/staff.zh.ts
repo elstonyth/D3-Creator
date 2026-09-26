@@ -280,4 +280,23 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Nothing in their hands.': '手上没有视频。',
   'Nothing waiting on them.': '没有等他们审核的视频。',
   'not verified yet': '尚未审核',
+
+  // ---- Admin tracker: the account board ---------------------------------------
+  'Personnel & client configuration': '人员与客户分配',
+  'Who handles and who edits each account, updated as staff pass their videos on. Output is for {month}.':
+    '每个账号由谁负责、谁剪辑，随员工交出视频自动更新。数据统计月份：{month}。',
+  'No accounts yet.': '还没有账号。',
+  'Videos = different videos posted in {month}. The same clip on several platforms counts once.':
+    '视频数 = {month} 发布的不同视频数量；同一条视频发在多个平台只算一次。',
+  Unassigned: '未分配',
+  '{name}’s accounts': '{name} 的账号',
+  'Unassigned accounts': '未分配的账号',
+  Editors: '剪辑人员',
+  'No editors yet.': '还没有剪辑人员。',
+  'Edits {count} accounts · {videos} videos':
+    '剪辑 {count} 个账号 · {videos} 条视频',
+  'Edits 1 account · {videos} videos': '剪辑 1 个账号 · {videos} 条视频',
+  'Every account has a handler.': '所有账号都已分配负责人。',
+  '{views} views · {posts} posts': '{views} 播放 · {posts} 条发布',
+  Nobody: '无',
 };

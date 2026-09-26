@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
+  loadPlacements,
   loadShoots,
   loadVideos,
   loadVideosDone,
@@ -22,6 +23,7 @@ jest.mock('@gitroom/frontend/lib/team/load', () => ({
   loadVideosDone: jest.fn(async () => []),
   loadPeople: jest.fn(async () => []),
   loadRoster: jest.fn(async () => []),
+  loadPlacements: jest.fn(async () => ({ assignments: [], stats: [] })),
   monthDays: (m: string) => ({ from: `${m}-01`, to: `${m}-31` }),
 }));
 
@@ -40,6 +42,13 @@ it('scopes every shoot and video read to the person', async () => {
   for (const call of shoots) expect(call[2]).toBe(ME);
   for (const call of videos) expect(call[1]).toBe(ME);
   for (const call of done) expect(call[2]).toBe(ME);
+});
+
+it('never hands staff the account board', async () => {
+  // Who handles and edits which account is the admin's to see and set.
+  const data = await loadStaffTracker(ME, '2026-09', '2026-09-30');
+  expect(loadPlacements).not.toHaveBeenCalled();
+  expect(data).not.toHaveProperty('board');
 });
 
 it('refuses to read without a person', async () => {
@@ -70,4 +79,6 @@ it('reads everyone’s work for the admin', async () => {
   for (const call of (loadShoots as jest.Mock).mock.calls)
     expect(call[2]).toBeUndefined();
   expect((loadVideos as jest.Mock).mock.calls[0][1]).toBeUndefined();
+  // The account board follows the viewed month.
+  expect(loadPlacements).toHaveBeenCalledWith('2026-09');
 });
