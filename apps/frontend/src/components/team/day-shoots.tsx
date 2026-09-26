@@ -338,6 +338,9 @@ function ShootItem({
   // Buttons name an untitled shoot by its time too: a day can hold two
   // shoots for one account.
   const label = x.title ?? [x.time, name].filter(Boolean).join(' ');
+  // …and by its note, read out with each button: two untimed shoots for one
+  // account differ only there.
+  const noteId = x.note ? `note-${x.id}` : undefined;
 
   return (
     <li className={cn(s.inset, 'p-3 sm:px-4')}>
@@ -361,7 +364,10 @@ function ShootItem({
             </p>
           ) : null}
           {x.note ? (
-            <p className="mt-1 break-words text-caption text-fg-subtle">
+            <p
+              id={noteId}
+              className="mt-1 break-words text-caption text-fg-subtle"
+            >
               {x.note}
             </p>
           ) : null}
@@ -394,6 +400,7 @@ function ShootItem({
           <div
             role="group"
             aria-label={t('Delete {title}', { title: label })}
+            aria-describedby={noteId}
             className="flex flex-wrap items-center gap-2 text-caption text-fg"
           >
             <span className="min-w-0 flex-1">
@@ -425,6 +432,7 @@ function ShootItem({
               variant="ghost"
               onClick={() => onOpen('edit')}
               aria-label={t('Change {title}', { title: label })}
+              aria-describedby={noteId}
             >
               {t('Change')}
             </Button>
@@ -435,6 +443,7 @@ function ShootItem({
               variant="secondary"
               onClick={() => onOpen('pass')}
               aria-label={t('Pass videos: {title}', { title: label })}
+              aria-describedby={noteId}
             >
               {t('Pass videos')}
             </Button>
@@ -446,6 +455,7 @@ function ShootItem({
               disabled={saving}
               onClick={() => onStatus('cancelled')}
               aria-label={t('Cancel shoot: {title}', { title: label })}
+              aria-describedby={noteId}
             >
               {t('Cancel shoot')}
             </Button>
@@ -457,6 +467,7 @@ function ShootItem({
               disabled={saving}
               onClick={() => onStatus('planned')}
               aria-label={t('Reopen {title}', { title: label })}
+              aria-describedby={noteId}
             >
               {t('Reopen')}
             </Button>
@@ -467,6 +478,7 @@ function ShootItem({
               variant="ghost"
               onClick={() => onOpen('delete')}
               aria-label={t('Delete {title}', { title: label })}
+              aria-describedby={noteId}
             >
               {t('Delete')}
             </Button>

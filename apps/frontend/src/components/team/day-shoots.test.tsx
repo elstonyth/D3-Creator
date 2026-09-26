@@ -188,6 +188,26 @@ it('names an untitled shoot by its account, and its buttons by time too', () => 
   expect(button('Change 15:00 Gary')).toBeTruthy();
 });
 
+it('reads out the note with the buttons of two untimed shoots for one account', () => {
+  const a = shoot(4, KEE, DAY, null, null, {
+    creatorId: GARY,
+    note: 'afternoon, bring the fill light',
+  });
+  const b = shoot(5, KEE, DAY, null, null, {
+    creatorId: GARY,
+    note: 'evening, JB',
+  });
+  render(<Tracker initial={[a, b]} meId={KEE} />);
+  const described = screen
+    .getAllByRole('button', { name: 'Delete Gary' })
+    .map(
+      (el) =>
+        document.getElementById(el.getAttribute('aria-describedby') ?? '')
+          ?.textContent,
+    );
+  expect(described).toEqual(['afternoon, bring the fill light', 'evening, JB']);
+});
+
 it('keeps an old shoot’s title, with its account beside it', () => {
   render(<Tracker initial={[{ ...MINE, creatorId: GARY }]} meId={KEE} />);
   expect(screen.getByText('Hotpot shop')).toBeTruthy();
