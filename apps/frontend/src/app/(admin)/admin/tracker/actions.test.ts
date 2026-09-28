@@ -1,14 +1,15 @@
 /**
  * The admin's two writes on the Work Tracker. Remove runs the handler's own
  * remove as the video's handler: only before the editor's Done, with the
- * shoot's count kept true, and it never writes to the account board. The
- * handover sets who handles an account and nothing else.
+ * shoot's count kept true, and it never writes to the account board. A drop
+ * on the board writes a column's order, and who handles only the card that
+ * changed column.
  */
 
 import { getSupabaseAdmin } from '@d3/database';
 import { requireAdmin } from '@gitroom/frontend/lib/auth';
 import { onBoard } from '@gitroom/frontend/lib/team/on-board';
-import { removeVideo, setHandler } from './actions';
+import { placeAccount, removeVideo } from './actions';
 
 jest.mock('@d3/database', () => ({ getSupabaseAdmin: jest.fn() }));
 jest.mock('@gitroom/frontend/lib/auth', () => ({
@@ -76,7 +77,9 @@ it('refuses anyone but the admin, and a bad id, before reading', async () => {
   expect(from).not.toHaveBeenCalled();
 });
 
-describe('the handover', () => {
+describe('a drop on the account board', () => {
+  const ACC2 = 'bbbbbbbb-0000-4000-8000-000000000002';
+
   function boardDb() {
     const upsert = jest.fn(async () => ({ error: null }));
     const from = jest.fn(() => ({ upsert }));
@@ -84,23 +87,53 @@ describe('the handover', () => {
     return { from, upsert };
   }
 
-  it('writes only who handles the account, stamped with the admin', async () => {
+  it('hands the moved card over, and only places the others', async () => {
     const { from, upsert } = boardDb();
-    await expect(setHandler(ACC, ZUWEI)).resolves.toEqual({ ok: true });
+    await expect(
+      placeAccount([ACC2, ACC], { creatorId: ACC, handlerId: ZUWEI }),
+    ).resolves.toEqual({ ok: true });
     expect(onBoard).toHaveBeenCalledWith([ZUWEI], ['handler', 'both']);
     expect(from).toHaveBeenCalledWith('tracker_assignment');
-    // No editor, no order: those stay as they are.
-    expect(upsert).toHaveBeenCalledWith(
-      { creator_id: ACC, handler_id: ZUWEI, updated_by: 'admin-1' },
+    expect(upsert).toHaveBeenNthCalledWith(
+      1,
+      [{ creator_id: ACC2, sort_order: 0 }],
+      { onConflict: 'creator_id' },
+    );
+    expect(upsert).toHaveBeenNthCalledWith(
+      2,
+      {
+        creator_id: ACC,
+        handler_id: ZUWEI,
+        sort_order: 1,
+        updated_by: 'admin-1',
+      },
       { onConflict: 'creator_id' },
     );
   });
 
-  it('puts an account back in Unassigned', async () => {
+  it('reorders without writing who handles anything', async () => {
     const { upsert } = boardDb();
-    await expect(setHandler(ACC, null)).resolves.toEqual({ ok: true });
+    await expect(placeAccount([ACC, ACC2])).resolves.toEqual({ ok: true });
+    expect(upsert).toHaveBeenCalledTimes(1);
     expect(upsert).toHaveBeenCalledWith(
-      { creator_id: ACC, handler_id: null, updated_by: 'admin-1' },
+      [
+        { creator_id: ACC, sort_order: 0 },
+        { creator_id: ACC2, sort_order: 1 },
+      ],
+      { onConflict: 'creator_id' },
+    );
+  });
+
+  it('puts an account in Unassigned', async () => {
+    const { upsert } = boardDb();
+    await placeAccount([ACC], { creatorId: ACC, handlerId: null });
+    expect(upsert).toHaveBeenCalledWith(
+      {
+        creator_id: ACC,
+        handler_id: null,
+        sort_order: 0,
+        updated_by: 'admin-1',
+      },
       { onConflict: 'creator_id' },
     );
   });
@@ -108,28 +141,35 @@ describe('the handover', () => {
   it('refuses someone who left, or only edits', async () => {
     const { upsert } = boardDb();
     (onBoard as jest.Mock).mockResolvedValueOnce(false);
-    await expect(setHandler(ACC, ZUWEI)).resolves.toEqual({
+    await expect(
+      placeAccount([ACC], { creatorId: ACC, handlerId: ZUWEI }),
+    ).resolves.toEqual({
       ok: false,
       message: 'That person is not on the board, or does not handle accounts.',
     });
     expect(upsert).not.toHaveBeenCalled();
   });
 
-  it('refuses anyone but the admin, and bad ids, before writing', async () => {
+  it('refuses anyone but the admin, and a bad order, before writing', async () => {
     const { from } = boardDb();
     (requireAdmin as jest.Mock).mockRejectedValueOnce(
       new Error('Not authorized.'),
     );
-    await expect(setHandler(ACC, ZUWEI)).resolves.toEqual({
+    await expect(placeAccount([ACC])).resolves.toEqual({
       ok: false,
       message: 'Not authorized.',
     });
-    await expect(setHandler('nope', ZUWEI)).resolves.toMatchObject({
-      ok: false,
-    });
-    await expect(setHandler(ACC, 'nope')).resolves.toMatchObject({
-      ok: false,
-    });
+    for (const [order, move] of [
+      [[], null],
+      [['nope'], null],
+      [[ACC, ACC], null],
+      [[ACC], { creatorId: ACC2, handlerId: null }],
+      [[ACC], { creatorId: ACC, handlerId: 'nope' }],
+      [Array.from({ length: 501 }, () => ACC), null],
+    ] as const)
+      await expect(
+        placeAccount(order as unknown as string[], move),
+      ).resolves.toMatchObject({ ok: false });
     expect(from).not.toHaveBeenCalled();
   });
 });

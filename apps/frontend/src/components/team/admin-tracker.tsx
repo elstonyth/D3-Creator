@@ -7,9 +7,10 @@
  * (what they are editing now and what waits on their check), who handles
  * and edits each account, and every video in hand.
  *
- * The admin sets who handles each account (moveAccount) and can remove a
- * video still being edited (removeVideo); everything else is staff's to
- * move, and staff's actions refuse an admin (lib/team/actor.ts).
+ * The admin sets who handles each account and each column's order by
+ * dragging cards (placeAccount), and can remove a video still being edited
+ * (removeVideo); everything else is staff's to move, and staff's actions
+ * refuse an admin (lib/team/actor.ts).
  */
 
 import Link from 'next/link';
@@ -47,10 +48,10 @@ export interface AdminTrackerProps extends AdminTrackerData {
   profileBase: string;
   /** The admin's Remove, for a video still being edited. */
   removeVideo?: (id: string) => Promise<VideoResult>;
-  /** The admin's handover: who handles an account (null = Unassigned). */
-  moveAccount?: (
-    creatorId: string,
-    handlerId: string | null,
+  /** The account board's drop: a column's new order, and a handover. */
+  placeAccount?: (
+    order: string[],
+    move?: { creatorId: string; handlerId: string | null } | null,
   ) => Promise<{ ok: boolean; message?: string }>;
 }
 
@@ -68,7 +69,7 @@ export function AdminTracker({
   board,
   profileBase,
   removeVideo,
-  moveAccount,
+  placeAccount,
 }: AdminTrackerProps) {
   const { t, locale } = useI18n();
   const tag = localeTag(locale);
@@ -273,7 +274,7 @@ export function AdminTracker({
         monthLabel={monthLabel}
         people={people}
         accounts={board}
-        onMove={moveAccount}
+        onPlace={placeAccount}
       />
 
       <GlassPanel className="mt-4 p-4 sm:p-6 md:mt-6">

@@ -7,7 +7,7 @@ import { isAdminHost } from '@gitroom/frontend/lib/portal-host';
 import { isDateKey, isMonthKey, todayKey } from '@gitroom/frontend/lib/tracker';
 import { loadAdminTracker } from '@gitroom/frontend/lib/team/tracker-data';
 import { AdminTracker } from '@gitroom/frontend/components/team/admin-tracker';
-import { removeVideo, setHandler } from './actions';
+import { placeAccount, removeVideo } from './actions';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -52,7 +52,7 @@ export default async function AdminTrackerPage({ searchParams }: PageProps) {
       initialDay={day}
       profileBase={profileBase}
       removeVideo={removeVideo}
-      moveAccount={setHandler}
+      placeAccount={placeAccount}
     />
   );
 }

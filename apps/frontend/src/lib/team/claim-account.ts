@@ -4,7 +4,7 @@
  * account's editor; giving a video to another editor moves the account's
  * editor with it; moving a passed shoot to another account moves the claim
  * with it. Who handles an account is the admin's to set when a new client
- * comes in (setHandler), and staff work never moves it.
+ * comes in (placeAccount, by dragging), and staff work never moves it.
  *
  * Server-only, called by staff actions after their own write has landed — a
  * plain module, so it is not an endpoint of its own. The board is a

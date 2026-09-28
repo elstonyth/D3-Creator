@@ -332,7 +332,7 @@ describe('the admin’s tracker', () => {
         ]}
         profileBase="/team"
         removeVideo={jest.fn()}
-        moveAccount={jest.fn()}
+        placeAccount={jest.fn()}
       />,
     );
   }
@@ -368,7 +368,13 @@ describe('the admin’s tracker', () => {
     );
     const gary = zuwei.getByRole('listitem');
     expect(within(gary).getByText('Gary')).toBeTruthy();
-    // The admin picks the handler; the editor is the staff's choice.
+    // The admin drags the handler (a hidden select for the keyboard); the
+    // editor is the staff's choice.
+    expect(
+      within(gary)
+        .getAllByRole('definition')
+        .map((d) => d.textContent),
+    ).toEqual(['ZUWEI', 'MEI']);
     expect(
       (
         within(gary).getByRole('combobox', {
@@ -376,11 +382,6 @@ describe('the admin’s tracker', () => {
         }) as HTMLSelectElement
       ).value,
     ).toBe(ZUWEI);
-    expect(
-      within(gary)
-        .getAllByRole('definition')
-        .map((d) => d.textContent),
-    ).toEqual(['MEI']);
     // MEI does both: a column of their own, and the one editing Gary.
     const mei = within(board.getByRole('region', { name: 'MEI’s accounts' }));
     expect(mei.getByText('Edits 1 account · 12 videos')).toBeTruthy();

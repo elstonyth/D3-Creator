@@ -23,7 +23,7 @@ import { PersonVideos } from '@gitroom/frontend/components/team/person-videos';
 import { TeamManager } from '@gitroom/frontend/app/(admin)/admin/team/team-manager';
 import {
   removeVideo,
-  setHandler,
+  placeAccount,
 } from '@gitroom/frontend/app/(admin)/admin/tracker/actions';
 
 export const metadata: Metadata = {
@@ -283,7 +283,7 @@ export default async function StaffPreviewPage({
           // The preview has one sample profile; the id rides along unused.
           profileBase="/dev/staff-preview?view=person&of="
           removeVideo={removeVideo}
-          moveAccount={setHandler}
+          placeAccount={placeAccount}
         />
       ),
     },

@@ -284,8 +284,10 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Personnel & client configuration': '人员与客户分配',
   'Who handles and who edits each account. Output is for {month}.':
     '每个账号由谁负责、谁剪辑。数据统计月份：{month}。',
-  'Drag an account onto the person who handles it, or pick them on its card. Editors follow what staff choose when they pass videos on.':
-    '把账号拖到负责人那一栏，或在账号卡片上选择负责人。剪辑由员工交出视频时自己选。',
+  'Drag an account onto the person who handles it, and up or down to set the order. Editors follow what staff choose when they pass videos on.':
+    '把账号拖到负责人那一栏，上下拖动可调整顺序。剪辑由员工交出视频时自己选。',
+  'Drag to move': '拖动以移动',
+  'Invalid order.': '顺序无效。',
   'Handler for {account}': '{account} 的负责人',
   'You handle no accounts yet. Ask the admin to assign one.':
     '你还没有负责的账号。请管理员给你分配。',
