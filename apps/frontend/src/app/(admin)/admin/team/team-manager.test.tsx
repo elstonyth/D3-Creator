@@ -3,15 +3,16 @@
  * The admin sets what someone does (handler, editor, or both) from the team
  * list; the choice shows at once and goes back if the server refuses it.
  * Removing someone asks first, then shows the server's refusal on their row.
+ * A signup with the name of someone already on the board is offered as them.
  */
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
-import { removePerson, setMemberKind } from './actions';
-import { TeamManager, type TeamRow } from './team-manager';
+import { approveStaff, removePerson, setMemberKind } from './actions';
+import { TeamManager, type PendingSignup, type TeamRow } from './team-manager';
 
 jest.mock('./actions', () => ({
-  approveStaff: jest.fn(),
+  approveStaff: jest.fn(async () => ({ ok: true })),
   rejectStaff: jest.fn(),
   removePerson: jest.fn(async () => ({ ok: true })),
   setMemberKind: jest.fn(async () => ({ ok: true })),
@@ -92,4 +93,63 @@ it('shows this month’s shoots, edits and checks', () => {
   expect(screen.getByText('Shoots').nextSibling?.textContent).toBe('1');
   expect(screen.getByText('Edited').nextSibling?.textContent).toBe('0');
   expect(screen.getByText('Verified').nextSibling?.textContent).toBe('3');
+});
+
+describe('approving a signup', () => {
+  const signup = (name: string): PendingSignup => ({
+    userId: 'bbbbbbbb-0000-4000-8000-000000000001',
+    email: 'kee@example.com',
+    name,
+    kind: 'both',
+    signedUpAt: '2026-09-26T05:00:00Z',
+    confirmed: true,
+    approved: false,
+  });
+  const ZUWEI = { id: 'aaaaaaaa-0000-4000-8000-000000000002', name: 'ZUWEI' };
+
+  // Approving them as a new person would leave the old person's accounts
+  // with nobody on the admin's board.
+  it('offers the person already on the board with the same name', async () => {
+    render(
+      <TeamManager
+        pending={[signup(' kee ')]}
+        team={[]}
+        unlinked={[ZUWEI, { id: KEE.id, name: 'KEE' }]}
+      />,
+    );
+    expect(
+      screen
+        .getByRole('button', { name: 'Someone already on the board' })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+    expect((screen.getByLabelText('Person') as HTMLSelectElement).value).toBe(
+      KEE.id,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    await waitFor(() =>
+      expect(approveStaff).toHaveBeenCalledWith(signup('').userId, {
+        memberId: KEE.id,
+      }),
+    );
+  });
+
+  it('offers a new person when nobody on the board has the name', async () => {
+    render(
+      <TeamManager pending={[signup('MEI')]} team={[]} unlinked={[ZUWEI]} />,
+    );
+    expect(
+      screen
+        .getByRole('button', { name: 'New person' })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    await waitFor(() =>
+      expect(approveStaff).toHaveBeenCalledWith(signup('').userId, {
+        name: 'MEI',
+        kind: 'both',
+      }),
+    );
+  });
 });
