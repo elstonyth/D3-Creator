@@ -142,7 +142,7 @@ describe('shootPatch', () => {
 
   it('writes only what the form changed', () => {
     expect(shootPatch(next(), form)).toEqual({});
-    // Taking a shoot's time away moves it: it says why (here, nothing yet).
+    // Any change says why (here, nothing yet: the action refuses that).
     expect(shootPatch(next({ time: '' }), form)).toEqual({
       start_time: null,
       moved_reason: null,
@@ -155,6 +155,7 @@ describe('shootPatch', () => {
     // Never the title or note: an old shoot keeps what it was saved with.
     expect(Object.keys(shootPatch(next(), null)).sort()).toEqual([
       'creator_id',
+      'moved_reason',
       'shoot_date',
       'start_time',
     ]);
@@ -229,7 +230,7 @@ describe('moving a shoot', () => {
     );
   });
 
-  it('writes why only with a move', () => {
+  it('writes why with every change, and nothing when nothing changed', () => {
     const form = { date: '2026-09-29', time: '17:00', creatorId: '' };
     const next = (patch: Record<string, unknown>) => {
       const p = parseShootInput({ ...form, ...patch });
@@ -239,15 +240,23 @@ describe('moving a shoot', () => {
     expect(
       shootPatch(next({ time: '19:00', reason: 'Client changed it' }), form),
     ).toEqual({ start_time: '19:00', moved_reason: 'Client changed it' });
-    // A move with no reason still says so; the action refuses it.
+    // A change with no reason still says so; the action refuses it.
     expect(shootPatch(next({ date: '2026-09-30' }), form)).toEqual({
       shoot_date: '2026-09-30',
       moved_reason: null,
     });
-    // Not a move: the reason is never written.
+    // Not a move, still a change: a first time, another account.
+    expect(
+      shootPatch(next({ time: '10:00', reason: 'Time set' }), {
+        ...form,
+        time: '',
+      }),
+    ).toEqual({ start_time: '10:00', moved_reason: 'Time set' });
+    const acct = 'bbbbbbbb-0000-4000-8000-000000000001';
+    expect(
+      shootPatch(next({ creatorId: acct, reason: 'Wrong account' }), form),
+    ).toEqual({ creator_id: acct, moved_reason: 'Wrong account' });
+    // Nothing changed: nothing written, a reason or not.
     expect(shootPatch(next({ reason: 'x' }), form)).toEqual({});
-    expect(shootPatch(next({ time: '10:00' }), { ...form, time: '' })).toEqual({
-      start_time: '10:00',
-    });
   });
 });

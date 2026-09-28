@@ -98,6 +98,29 @@ export function monthGrid(monthKey: string): (string | null)[][] {
 }
 
 /**
+ * A `YYYY-MM-DD` day worded for `tag`, read in UTC so no device's time zone
+ * shifts it. Chinese runs the weekday into the date (9月28日星期一); a space
+ * sets it apart, as English's comma does.
+ */
+export function fmtDate(
+  key: string,
+  tag: 'en' | 'zh-CN',
+  opts: Intl.DateTimeFormatOptions,
+): string {
+  const parts = new Intl.DateTimeFormat(tag, {
+    timeZone: 'UTC',
+    ...opts,
+  }).formatToParts(new Date(`${key}T00:00:00Z`));
+  return parts
+    .map((p, i) =>
+      p.type === 'weekday' && i > 0 && !/\s$/.test(parts[i - 1].value)
+        ? ` ${p.value}`
+        : p.value,
+    )
+    .join('');
+}
+
+/**
  * One line of user text for a title-like column: whitespace collapsed,
  * trimmed, 1..`max` characters — or null when it does not fit. Actions check
  * this before the table's own constraint so a refusal reads as a sentence.

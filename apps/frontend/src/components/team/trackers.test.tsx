@@ -293,7 +293,7 @@ describe('the staff tracker', () => {
     expect((screen.getByLabelText('Day') as HTMLInputElement).value).toBe(
       '2026-10-01',
     );
-    expect(screen.getByLabelText('Why is it moving?')).toBeTruthy();
+    expect(screen.getByLabelText('Why the change?')).toBeTruthy();
     Object.assign(document, { elementFromPoint: undefined });
   });
 

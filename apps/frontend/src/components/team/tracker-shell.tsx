@@ -20,7 +20,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { AuroraBackground } from '@gitroom/frontend/components/ui/aurora-background';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
-import { addMonths, monthGrid } from '@gitroom/frontend/lib/tracker';
+import { addMonths, fmtDate, monthGrid } from '@gitroom/frontend/lib/tracker';
 import { cn } from '@gitroom/frontend/lib/utils';
 // clsx where a custom font-size token sits next to a text colour:
 // tailwind-merge reads `text-label` / `text-metric-lg` as colours and
@@ -31,15 +31,8 @@ import s from './tracker.module.scss';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export function fmtDate(
-  key: string,
-  tag: 'en' | 'zh-CN',
-  opts: Intl.DateTimeFormatOptions,
-): string {
-  return new Intl.DateTimeFormat(tag, { timeZone: 'UTC', ...opts }).format(
-    new Date(`${key}T00:00:00Z`),
-  );
-}
+// The trackers' pieces take it from here.
+export { fmtDate };
 
 const MINUTE = 60_000;
 

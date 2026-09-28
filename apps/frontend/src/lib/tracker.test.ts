@@ -2,6 +2,7 @@ import {
   addDays,
   addMonths,
   dateKeyAt,
+  fmtDate,
   isDateKey,
   isMonthKey,
   monthGrid,
@@ -9,6 +10,26 @@ import {
 } from './tracker';
 
 describe('tracker date helpers', () => {
+  it('words a day, a Chinese weekday set apart from its date', () => {
+    const day = '2026-09-28';
+    const long = {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    } as const;
+    expect(fmtDate(day, 'zh-CN', long)).toBe('2026年9月28日 星期一');
+    expect(fmtDate(day, 'en', long)).toBe('Monday, September 28, 2026');
+    const short = { weekday: 'short', day: 'numeric', month: 'short' } as const;
+    expect(fmtDate(day, 'zh-CN', short)).toBe('9月28日 周一');
+    expect(fmtDate(day, 'en', short)).toBe('Mon, Sep 28');
+    // A weekday alone, or no weekday: nothing added.
+    expect(fmtDate(day, 'zh-CN', { weekday: 'short' })).toBe('周一');
+    expect(fmtDate(day, 'zh-CN', { month: 'long', year: 'numeric' })).toBe(
+      '2026年9月',
+    );
+  });
+
   it('keys dates in Malaysia time, not UTC', () => {
     // 23:30 UTC on the 21st is already the 22nd in +08:00.
     expect(dateKeyAt(new Date('2026-09-21T23:30:00Z'))).toBe('2026-09-22');
