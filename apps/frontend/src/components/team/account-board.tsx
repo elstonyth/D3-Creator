@@ -140,7 +140,14 @@ export function AccountBoard({
       setBusy(false);
     }
     if (!r.ok) {
-      place(card.handlerId);
+      // Only if still where this move put it: a refresh since has newer.
+      setAccounts((p) =>
+        p.map((c) =>
+          c.id === creatorId && c.handlerId === handlerId
+            ? { ...c, handlerId: card.handlerId }
+            : c,
+        ),
+      );
       setNotice({
         id: Date.now(),
         text: t(r.message ?? 'Could not save. Try again.'),

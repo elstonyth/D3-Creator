@@ -237,7 +237,7 @@ export function Spotlight({
                         <span className="min-w-0 break-words">
                           {e.label}
                           {e.due ? (
-                            <span className="ml-2 text-caption text-brand">
+                            <span className="ml-2 text-caption text-fg-muted">
                               {t('Time to pass videos')}
                             </span>
                           ) : null}

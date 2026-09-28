@@ -124,11 +124,18 @@ export function WorkAlerts({
   const nameOf = new Map(people.map((p) => [p.id, p.name]));
   const accountOf = new Map(accounts.map((a) => [a.id, a.name]));
 
+  // A shoot from a closed month can no longer be cancelled, so once put
+  // away it stays away on this device; this month's keep asking each visit.
+  const closed = (x: Shoot) => x.date < `${today.slice(0, 7)}-01`;
   const due =
     now === null
       ? []
       : shoots.filter(
-          (x) => isDue(x, meId, now) && !later.includes(`shoot:${x.id}`),
+          (x) =>
+            isDue(x, meId, now) &&
+            !(closed(x)
+              ? known(`shoot:${x.id}`)
+              : later.includes(`shoot:${x.id}`)),
         );
   const toEdit = videos.filter((v) => mySection(v, meId, month) === 'toEdit');
   // A cut of their own is no news to them.
@@ -151,6 +158,7 @@ export function WorkAlerts({
     const keys = [
       ...toEdit.map((v) => `edit:${v.id}`),
       ...toVerify.map((v) => `verify:${v.id}`),
+      ...due.filter(closed).map((x) => `shoot:${x.id}`),
     ];
     try {
       window.localStorage.setItem(
@@ -214,10 +222,13 @@ export function WorkAlerts({
     <dialog
       ref={dialogRef}
       aria-labelledby={open ? titleId : undefined}
-      // Escape is Later.
+      // Escape closes an open pass form (keeping the pop-up), else is Later.
       onCancel={(e) => {
         e.preventDefault();
-        putAway();
+        if (passing) {
+          setPassing(null);
+          setError(null);
+        } else putAway();
       }}
       className="m-auto w-[min(94vw,560px)] max-w-[560px] bg-transparent p-0 text-fg backdrop:bg-scrim"
     >
@@ -229,12 +240,12 @@ export function WorkAlerts({
 
           {due.length > 0 ? (
             <section className="mt-4">
-              <h3 className="text-label text-brand">
+              <h3 className="text-label text-fg">
                 {t('Shoot time is up — pass the videos on')}
               </h3>
               <ul className="mt-2 space-y-2">
                 {due.map((x) => (
-                  <li key={x.id} className={cn(s.inset, s.due, 'p-3')}>
+                  <li key={x.id} className={cn(s.inset, 'p-3')}>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="min-w-0 break-words text-body">
                         {shootLabel(x)}
@@ -322,6 +333,7 @@ export function WorkAlerts({
               <Button
                 variant="secondary"
                 onClick={() => {
+                  dialogRef.current?.close();
                   putAway();
                   document
                     .getElementById('my-videos')

@@ -253,3 +253,42 @@ it('shows nothing before the page is in the browser', () => {
   );
   expect(dialog()).toBeNull();
 });
+
+it('asks about a closed month’s shoot once per device, since it can’t be cancelled', () => {
+  // 29 Sep, seen on 1 Oct: September is closed.
+  const lastMonth = shoot(1, '17:00');
+  const october = { now: Date.parse('2026-10-01T09:00:00+08:00') };
+  const view = (extra = {}) => (
+    <WorkAlerts
+      meId={KEE}
+      month="2026-10"
+      today="2026-10-01"
+      now={october.now}
+      shoots={[lastMonth]}
+      videos={[]}
+      people={people}
+      accounts={accounts}
+      editors={[{ id: MEI, name: 'MEI' }]}
+      onPassed={jest.fn()}
+      {...extra}
+    />
+  );
+  const { unmount } = render(view());
+  fireEvent.click(screen.getByRole('button', { name: 'Later' }));
+  unmount();
+  render(view());
+  expect(dialog()).toBeNull();
+});
+
+it('closes an open pass form on Escape, keeping the pop-up', () => {
+  render(alerts({ shoots: [shoot(1, '17:00')] }));
+  fireEvent.click(
+    within(dialog()!).getByRole('button', { name: /^Pass videos: / }),
+  );
+  expect(within(dialog()!).getByLabelText('Video 1 title')).toBeTruthy();
+  fireEvent(dialog()!, new Event('cancel', { cancelable: true }));
+  expect(dialog()).not.toBeNull();
+  expect(within(dialog()!).queryByLabelText('Video 1 title')).toBeNull();
+  fireEvent(dialog()!, new Event('cancel', { cancelable: true }));
+  expect(dialog()).toBeNull();
+});
