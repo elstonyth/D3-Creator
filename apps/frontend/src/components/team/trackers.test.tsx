@@ -128,6 +128,7 @@ describe('the staff tracker', () => {
         verified={5}
         people={people}
         accounts={accounts}
+        handled={[ACC]}
         meId={KEE}
       />,
     );
@@ -148,6 +149,7 @@ describe('the staff tracker', () => {
         verified={0}
         people={people}
         accounts={accounts}
+        handled={[ACC]}
         meId={KEE}
       />,
     );
@@ -210,6 +212,7 @@ describe('the staff tracker', () => {
         verified={5}
         people={people}
         accounts={accounts}
+        handled={[ACC]}
         meId={KEE}
       />,
     );

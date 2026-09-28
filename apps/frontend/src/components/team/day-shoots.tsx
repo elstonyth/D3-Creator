@@ -59,7 +59,13 @@ export interface DayShootsProps {
    * editors a shoot's videos can be passed to.
    */
   people: { id: string; name: string; kind: MemberKind; archived: boolean }[];
+  /** Every account, for the names on the shoots. */
   accounts: { id: string; name: string }[];
+  /**
+   * The accounts the staff member handles: the only ones a shoot's form
+   * offers (plus the one a shoot already has). Absent = every account.
+   */
+  handled?: string[];
   /** The staff member's own person; null on the admin's view. */
   meId: string | null;
   /** The tracker's whole list. Absent = read-only (the admin's view). */
@@ -76,6 +82,7 @@ export function DayShoots({
   shoots,
   people,
   accounts,
+  handled,
   meId,
   setShoots,
   className,
@@ -92,6 +99,11 @@ export function DayShoots({
 
   const nameOf = new Map(people.map((p) => [p.id, p.name]));
   const accountOf = new Map(accounts.map((a) => [a.id, a.name]));
+  // What a shoot's form offers: the accounts this person handles, and the
+  // one the shoot already has, so a change never drops it.
+  const mine = handled ? new Set(handled) : null;
+  const pickable = (keep: string | null) =>
+    mine ? accounts.filter((a) => mine.has(a.id) || a.id === keep) : accounts;
   const editors = people.filter((p) => !p.archived && isEditorKind(p.kind));
   const archived = new Set(people.filter((p) => p.archived).map((p) => p.id));
   const personName = (id: string) => {
@@ -224,7 +236,8 @@ export function DayShoots({
           <div className="mb-3">
             <ShootForm
               initial={draftOf(null, day)}
-              accounts={accounts}
+              accounts={pickable(null)}
+              onlyHandled={!!mine}
               minDate={monthStart}
               saving={saving}
               error={errorAt('add')}
@@ -245,7 +258,8 @@ export function DayShoots({
                 <li key={x.id}>
                   <ShootForm
                     initial={draftOf(x, x.date)}
-                    accounts={accounts}
+                    accounts={pickable(x.creatorId)}
+                    onlyHandled={!!mine}
                     minDate={monthStart}
                     saving={saving}
                     error={errorAt(x.id)}

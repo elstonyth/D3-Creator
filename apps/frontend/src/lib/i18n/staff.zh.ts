@@ -289,6 +289,9 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Drag an account onto the person who handles it, or pick them on its card. Editors follow what staff choose when they pass videos on.':
     '把账号拖到负责人那一栏，或在账号卡片上选择负责人。剪辑由员工交出视频时自己选。',
   'Handler for {account}': '{account} 的负责人',
+  'You handle no accounts yet. Ask the admin to assign one.':
+    '你还没有负责的账号。请管理员给你分配。',
+  'Only the accounts you handle.': '只列出你负责的账号。',
   '{account} is now handled by {name}.': '{account} 现在由 {name} 负责。',
   '{account} is now unassigned.': '{account} 现在未分配。',
   'That person is not on the board, or does not handle accounts.':

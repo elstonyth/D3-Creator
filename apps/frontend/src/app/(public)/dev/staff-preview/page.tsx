@@ -53,6 +53,7 @@ const accounts = [
   { id: acct(2), name: '做火锅的老黄' },
   { id: acct(3), name: '老头子阿玮' },
   { id: acct(4), name: 'Provisa小老板' },
+  { id: acct(5), name: '做家私的祥哥' },
 ];
 
 // The admin's account board: who handles and edits each account.
@@ -61,13 +62,15 @@ const board: AccountCard[] = [
   [KEE, MEI, 15, 19, 70_500, ['douyin', 'facebook', 'instagram']],
   [ZUWEI, HOWEN, 13, 16, 311_900, ['facebook', 'instagram', 'tiktok']],
   [
-    null,
+    HOWEN,
     null,
     29,
     29,
     4_300_000,
     ['douyin', 'facebook', 'instagram', 'tiktok'],
   ],
+  // A new client: the admin has not picked who handles it yet.
+  [null, null, 0, 0, 0, ['tiktok']],
 ].map(([handlerId, editorId, videos, posts, views, platforms], i) => ({
   ...accounts[i],
   avatarUrl: null,
@@ -246,6 +249,9 @@ export default async function StaffPreviewPage({
           verified={howenDone.verified.length}
           people={people}
           accounts={accounts}
+          handled={board
+            .filter((c) => c.handlerId === HOWEN)
+            .map((c) => c.id)}
           meId={HOWEN}
         />
       ),

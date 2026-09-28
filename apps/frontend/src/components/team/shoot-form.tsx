@@ -35,6 +35,7 @@ export function draftOf(s: Shoot | null, date: string): ShootDraft {
 export function ShootForm({
   initial,
   accounts,
+  onlyHandled = false,
   minDate,
   saving,
   error,
@@ -43,6 +44,8 @@ export function ShootForm({
 }: {
   initial: ShootDraft;
   accounts: { id: string; name: string }[];
+  /** `accounts` is only the ones this person handles: say so. */
+  onlyHandled?: boolean;
   /** Earliest day that can be picked (staff: the first of this month). */
   minDate?: string;
   saving: boolean;
@@ -91,11 +94,23 @@ export function ShootForm({
         </Field>
       </div>
 
-      <Field label={t('Creator account')} htmlFor={`${id}-acct`} optional>
+      <Field
+        label={t('Creator account')}
+        htmlFor={`${id}-acct`}
+        optional
+        hint={
+          !onlyHandled
+            ? undefined
+            : accounts.length === 0
+              ? t('You handle no accounts yet. Ask the admin to assign one.')
+              : t('Only the accounts you handle.')
+        }
+      >
         <Select
           id={`${id}-acct`}
           value={d.creatorId}
           onChange={(e) => set({ creatorId: e.target.value })}
+          aria-describedby={onlyHandled ? `${id}-acct-hint` : undefined}
         >
           <option value="">{t('No account')}</option>
           {accounts.map((a) => (

@@ -55,7 +55,11 @@ const people = [
   { id: MEI, name: 'MEI', kind: 'both' as const, archived: false },
 ];
 const GARY = 'bbbbbbbb-0000-4000-8000-000000000001';
-const accounts = [{ id: GARY, name: 'Gary' }];
+const AMY = 'bbbbbbbb-0000-4000-8000-000000000002';
+const accounts = [
+  { id: GARY, name: 'Gary' },
+  { id: AMY, name: 'Amy' },
+];
 
 function shoot(
   n: number,
@@ -63,7 +67,7 @@ function shoot(
   date: string,
   time: string | null,
   title: string | null,
-  extra: Partial<Shoot> = {},
+  extra: Partial<Shoot> = {}
 ): Shoot {
   return {
     id: `cccccccc-0000-4000-8000-00000000000${n}`,
@@ -90,12 +94,14 @@ function Tracker({
   day = DAY,
   today = '2026-09-23',
   readOnly = false,
+  handled,
 }: {
   initial: Shoot[];
   meId: string | null;
   day?: string;
   today?: string;
   readOnly?: boolean;
+  handled?: string[];
 }) {
   const [shoots, setShoots] = useState(initial);
   return (
@@ -105,6 +111,7 @@ function Tracker({
       shoots={shoots.filter((s) => s.date === day)}
       people={people}
       accounts={accounts}
+      handled={handled}
       meId={meId}
       setShoots={readOnly ? undefined : setShoots}
     />
@@ -148,7 +155,7 @@ it('adds a shoot for the day it was opened on', async () => {
   // Saved, the form closes, and the new shoot is named by its account (the
   // form's own "Gary" option is gone by then, so it can't answer for it).
   await waitFor(() =>
-    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull(),
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull()
   );
   expect(button('Change 11:30 Gary')).toBeTruthy();
   expect(screen.getByText('Gary').tagName).toBe('P');
@@ -179,7 +186,7 @@ it('saves a shoot with nothing but its day', async () => {
       time: '',
       creatorId: '',
       note: '',
-    }),
+    })
   );
   expect(await screen.findByText('Shoot')).toBeTruthy();
 });
@@ -208,7 +215,7 @@ it('reads out the note with the buttons of two untimed shoots for one account', 
     .map(
       (el) =>
         document.getElementById(el.getAttribute('aria-describedby') ?? '')
-          ?.textContent,
+          ?.textContent
     );
   expect(described).toEqual(['afternoon, bring the fill light', 'evening, JB']);
 });
@@ -218,6 +225,37 @@ it('keeps an old shoot’s title, with its account beside it', () => {
   expect(screen.getByText('Hotpot shop')).toBeTruthy();
   expect(screen.getByText('Gary')).toBeTruthy();
   expect(button('Change Hotpot shop')).toBeTruthy();
+});
+
+it('offers only the accounts the person handles, and keeps a shoot’s own', () => {
+  const onAmy = shoot(4, KEE, DAY, '10:00', null, { creatorId: AMY });
+  render(<Tracker initial={[onAmy]} meId={KEE} handled={[GARY]} />);
+  const options = () =>
+    [
+      ...(screen.getByLabelText(/Creator account/) as HTMLSelectElement)
+        .options,
+    ].map((o) => o.text);
+  fireEvent.click(screen.getByRole('button', { name: '+ Add a shoot' }));
+  expect(options()).toEqual(['No account', 'Gary']);
+  expect(screen.getByText('Only the accounts you handle.')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  // A shoot already on someone else's account keeps it on a change.
+  fireEvent.click(screen.getByRole('button', { name: 'Change 10:00 Amy' }));
+  expect(options()).toEqual(['No account', 'Gary', 'Amy']);
+});
+
+it('says so when the person handles no account yet', () => {
+  render(<Tracker initial={[]} meId={KEE} handled={[]} />);
+  fireEvent.click(screen.getByRole('button', { name: '+ Add a shoot' }));
+  expect(
+    [
+      ...(screen.getByLabelText(/Creator account/) as HTMLSelectElement)
+        .options,
+    ].map((o) => o.text)
+  ).toEqual(['No account']);
+  expect(
+    screen.getByText('You handle no accounts yet. Ask the admin to assign one.')
+  ).toBeTruthy();
 });
 
 it('keeps the form open and says why when the server refuses', async () => {
@@ -230,7 +268,7 @@ it('keeps the form open and says why when the server refuses', async () => {
   fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
   expect((await screen.findByRole('alert')).textContent).toContain(
-    'Time must look like 19:30.',
+    'Time must look like 19:30.'
   );
   expect(screen.getByRole('button', { name: 'Save' })).toBeTruthy();
 });
@@ -243,7 +281,7 @@ it('passes a shoot’s videos on, one row per video, to the editors', async () =
   });
   render(<Tracker initial={[MINE]} meId={KEE} />);
   fireEvent.click(
-    screen.getByRole('button', { name: 'Pass videos: Hotpot shop' }),
+    screen.getByRole('button', { name: 'Pass videos: Hotpot shop' })
   );
   // Only people who cut video can be given one.
   const first = screen.getByLabelText('Video 1 editor') as HTMLSelectElement;
@@ -258,7 +296,7 @@ it('passes a shoot’s videos on, one row per video, to the editors', async () =
   fireEvent.click(screen.getByRole('button', { name: '+ Add video' }));
   // A new row starts with the editor above it.
   expect(
-    (screen.getByLabelText('Video 2 editor') as HTMLSelectElement).value,
+    (screen.getByLabelText('Video 2 editor') as HTMLSelectElement).value
   ).toBe(MEI);
   fireEvent.change(screen.getByLabelText('Video 2 title'), {
     target: { value: 'Reel 2' },
@@ -283,7 +321,7 @@ it('passes a shoot’s videos on, one row per video, to the editors', async () =
 it('keeps each row’s text when a row above it is removed', () => {
   render(<Tracker initial={[MINE]} meId={KEE} />);
   fireEvent.click(
-    screen.getByRole('button', { name: 'Pass videos: Hotpot shop' }),
+    screen.getByRole('button', { name: 'Pass videos: Hotpot shop' })
   );
   fireEvent.change(screen.getByLabelText('Video 1 title'), {
     target: { value: 'Reel 1' },
@@ -294,7 +332,7 @@ it('keeps each row’s text when a row above it is removed', () => {
   });
   fireEvent.click(screen.getByRole('button', { name: 'Remove video 1' }));
   expect(
-    (screen.getByLabelText('Video 1 title') as HTMLInputElement).value,
+    (screen.getByLabelText('Video 1 title') as HTMLInputElement).value
   ).toBe('Reel 2');
 });
 
@@ -338,7 +376,7 @@ it('keeps last month closed, except for passing its videos on', () => {
       meId={KEE}
       day="2026-08-31"
       today="2026-09-02"
-    />,
+    />
   );
   expect(button('Pass videos: Café visit')).toBeTruthy();
   expect(button('Change Café visit')).toBeNull();
@@ -354,7 +392,7 @@ it('keeps last month closed, except for passing its videos on', () => {
       meId={KEE}
       day="2026-09-01"
       today="2026-09-02"
-    />,
+    />
   );
   expect(button('Change Hotpot shop')).toBeTruthy();
   expect(button('+ Add a shoot')).toBeTruthy();
@@ -368,7 +406,7 @@ it('cancels a planned shoot with one click', async () => {
   render(<Tracker initial={[MINE]} meId={KEE} />);
   await act(async () => {
     fireEvent.click(
-      screen.getByRole('button', { name: 'Cancel shoot: Hotpot shop' }),
+      screen.getByRole('button', { name: 'Cancel shoot: Hotpot shop' })
     );
   });
   expect(setShootStatus).toHaveBeenCalledWith(MINE.id, 'cancelled');
@@ -383,27 +421,27 @@ it('shows a refused one-click change on that shoot', async () => {
   render(<Tracker initial={[MINE]} meId={KEE} />);
   await act(async () => {
     fireEvent.click(
-      screen.getByRole('button', { name: 'Cancel shoot: Hotpot shop' }),
+      screen.getByRole('button', { name: 'Cancel shoot: Hotpot shop' })
     );
   });
   const card = screen.getByText('Hotpot shop').closest('li')!;
   expect(card.querySelector('[role="alert"]')?.textContent).toContain(
-    'has moved on',
+    'has moved on'
   );
 });
 
 it('frees the panel and says why when an action throws', async () => {
   (setShootStatus as jest.Mock).mockRejectedValue(
-    new TypeError('Failed to fetch'),
+    new TypeError('Failed to fetch')
   );
   render(<Tracker initial={[MINE]} meId={KEE} />);
   await act(async () => {
     fireEvent.click(
-      screen.getByRole('button', { name: 'Cancel shoot: Hotpot shop' }),
+      screen.getByRole('button', { name: 'Cancel shoot: Hotpot shop' })
     );
   });
   expect(screen.getByRole('alert').textContent).toContain(
-    'Could not save. Try again.',
+    'Could not save. Try again.'
   );
   const cancel = screen.getByRole('button', {
     name: 'Cancel shoot: Hotpot shop',

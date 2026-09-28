@@ -50,6 +50,7 @@ export function StaffTracker({
   verified,
   people,
   accounts,
+  handled,
   meId,
 }: StaffTrackerProps) {
   const { t, locale } = useI18n();
@@ -167,6 +168,7 @@ export function StaffTracker({
           shoots={shoots.filter((x) => x.date === nav.selected)}
           people={people}
           accounts={accounts}
+          handled={handled}
           meId={meId}
           setShoots={setShoots}
           className="lg:col-span-12"

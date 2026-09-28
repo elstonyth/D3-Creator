@@ -115,6 +115,18 @@ export async function loadPlacements(month: string): Promise<{
   };
 }
 
+/** The accounts one person handles (the admin assigns them), by id. */
+export async function loadHandled(memberId: string): Promise<string[]> {
+  const rows = must<{ creator_id: string }[]>(
+    await getSupabaseAdmin()
+      .from('tracker_assignment')
+      .select('creator_id')
+      .eq('handler_id', memberId),
+    'handled accounts',
+  );
+  return rows.map((r) => r.creator_id);
+}
+
 /** Shoots on days [from, to), everyone's or one person's, in schedule order. */
 export async function loadShoots(
   from: string,
