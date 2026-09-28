@@ -348,6 +348,7 @@ describe('the admin’s drag and drop', () => {
       'ZUWEI',
       'MEI',
     ]);
+    pick.focus();
     await act(async () => {
       fireEvent.change(pick, { target: { value: '' } });
     });
@@ -356,5 +357,11 @@ describe('the admin’s drag and drop', () => {
       handlerId: null,
     });
     expect(column('Unassigned accounts').getByText('Gary')).toBeTruthy();
+    // The card moved column; focus went with it.
+    expect(document.activeElement).toBe(
+      column('Unassigned accounts').getByRole('combobox', {
+        name: 'Handler for Gary',
+      }),
+    );
   });
 });

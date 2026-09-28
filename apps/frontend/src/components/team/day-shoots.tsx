@@ -447,7 +447,7 @@ function ShootItem({
         s.inset,
         due && s.due,
         'p-3 sm:px-4',
-        movable && 'cursor-grab select-none active:cursor-grabbing',
+        movable && 'cursor-grab active:cursor-grabbing',
         dragging && 'opacity-40',
       )}
     >

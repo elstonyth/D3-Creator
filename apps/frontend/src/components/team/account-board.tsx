@@ -113,6 +113,16 @@ export function AccountBoard({
   // it can come before the render that shows it.
   const [slot, setSlot] = useState<Slot | null>(null);
   const slotRef = useRef<Slot | null>(null);
+  // The card whose Handler select was just used: it moves column, which
+  // remounts it, so focus is put back on it there — once the save is done,
+  // as the select is disabled until then.
+  const refocus = useRef<string | null>(null);
+  useEffect(() => {
+    const id = refocus.current;
+    if (!id || busy) return;
+    refocus.current = null;
+    document.querySelector<HTMLSelectElement>(`[data-pick="${id}"]`)?.focus();
+  });
   // What the last drop did, or why it was refused.
   const [notice, setNotice] = useState<{ id: number; text: string } | null>(
     null,
@@ -402,7 +412,10 @@ export function AccountBoard({
                           onPointerDown={(e) => {
                             if (onPlace && !busy) drag.start(c.id, e);
                           }}
-                          onPick={(to) => void place(c.id, to, null)}
+                          onPick={(to) => {
+                            refocus.current = c.id;
+                            void place(c.id, to, null);
+                          }}
                         />
                       </Fragment>
                     ))}
@@ -466,7 +479,7 @@ function AccountItem({
       className={cn(
         s.inset,
         'p-3',
-        movable && 'cursor-grab select-none active:cursor-grabbing',
+        movable && 'cursor-grab active:cursor-grabbing',
         dragging && 'opacity-40',
       )}
     >
@@ -544,6 +557,7 @@ function AccountItem({
           </label>
           <Select
             id={pickId}
+            data-pick={c.id}
             aria-label={t('Handler for {account}', { account: c.name })}
             value={column === UNASSIGNED ? '' : column}
             onChange={(e) => onPick(e.target.value || UNASSIGNED)}

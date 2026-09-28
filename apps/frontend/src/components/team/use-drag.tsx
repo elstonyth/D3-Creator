@@ -13,8 +13,9 @@
  * - While dragging, a ghost label follows the pointer, the page scrolls
  *   itself near the top and bottom edges, and the drop target under the
  *   pointer — any element with `data-drop="…"` that `accepts` — is marked
- *   `data-drop-over`. Escape, leaving the window, or a mouse button let go
- *   outside it cancels; the click a drop would fire is swallowed.
+ *   `data-drop-over`. Escape, leaving the window or the tab, or a mouse
+ *   button let go outside it cancels; the click a drop would fire is
+ *   swallowed. Text can't be selected while a drag is on (only then).
  */
 
 import {
@@ -106,14 +107,14 @@ export function useDrag({
   }
 
   function start(id: string, e: ReactPointerEvent) {
-    if (session.current) return;
     const target = e.target as Element;
     if (target.closest(INTERACTIVE)) return;
     if (e.pointerType === 'mouse') {
       if (e.button !== 0) return;
-      // No text selection while dragging.
-      e.preventDefault();
     } else if (!target.closest('[data-drag-handle]')) return;
+    // A new press means the last one is over, even if its release never
+    // reached the page (a touch lost to the system, say).
+    stop.current();
 
     const s: Session = {
       id,
@@ -132,10 +133,9 @@ export function useDrag({
     // a pointer held still (no pointermove fires then).
     function tick() {
       const step = edgeScroll(s.y, window.innerHeight);
-      if (step !== 0) {
-        window.scrollBy(0, step);
-        place(s);
-      }
+      const was = window.scrollY;
+      if (step !== 0) window.scrollBy(0, step);
+      if (window.scrollY !== was) place(s);
       s.frame = requestAnimationFrame(tick);
     }
     function move(ev: PointerEvent) {
@@ -149,6 +149,8 @@ export function useDrag({
         if (Math.hypot(s.x - s.x0, s.y - s.y0) < SLOP) return;
         s.dragging = true;
         setDragId(id);
+        document.body.style.userSelect = 'none';
+        window.getSelection()?.removeAllRanges();
         s.frame = requestAnimationFrame(tick);
       }
       ev.preventDefault();
@@ -166,6 +168,9 @@ export function useDrag({
     function blur() {
       end(false);
     }
+    function hidden() {
+      if (document.visibilityState === 'hidden') end(false);
+    }
     // The click a drop fires lands on whatever is under the pointer.
     function swallow(ev: Event) {
       ev.stopPropagation();
@@ -179,6 +184,8 @@ export function useDrag({
       window.removeEventListener('pointercancel', cancel);
       window.removeEventListener('keydown', escape);
       window.removeEventListener('blur', blur);
+      document.removeEventListener('visibilitychange', hidden);
+      if (s.dragging) document.body.style.userSelect = '';
       session.current = null;
       stop.current = () => {};
       setDragId(null);
@@ -199,6 +206,7 @@ export function useDrag({
     window.addEventListener('pointercancel', cancel);
     window.addEventListener('keydown', escape);
     window.addEventListener('blur', blur);
+    document.addEventListener('visibilitychange', hidden);
     stop.current = cleanup;
   }
 

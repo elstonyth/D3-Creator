@@ -637,4 +637,57 @@ describe('dragging a shoot onto another day', () => {
     const day25 = screen.getByRole('button', { name: '2026-09-25' });
     expect(await drop(card('Furniture shop'), day25)).toBe(false);
   });
+
+  it('never starts from a button in the card, and blocks text selection only mid-drag', async () => {
+    const day25 = withDay('2026-09-25');
+    Object.assign(document, { elementFromPoint: () => day25 });
+    fireEvent.pointerDown(
+      screen.getByRole('button', { name: 'Change Hotpot shop' }),
+      { button: 0, clientX: 10, clientY: 300 },
+    );
+    fireEvent.pointerMove(window, { clientX: 60, clientY: 320, buttons: 1 });
+    expect(day25.hasAttribute('data-drop-over')).toBe(false);
+    fireEvent.pointerUp(window, { clientX: 60, clientY: 320 });
+
+    fireEvent.pointerDown(card('Hotpot shop'), {
+      button: 0,
+      clientX: 10,
+      clientY: 300,
+    });
+    fireEvent.pointerMove(window, { clientX: 60, clientY: 320, buttons: 1 });
+    expect(document.body.style.userSelect).toBe('none');
+    fireEvent.pointerUp(window, { clientX: 60, clientY: 320 });
+    expect(document.body.style.userSelect).toBe('');
+  });
+
+  it('drops nothing when the window loses focus mid-drag', () => {
+    const day25 = withDay('2026-09-25');
+    Object.assign(document, { elementFromPoint: () => day25 });
+    fireEvent.pointerDown(card('Hotpot shop'), {
+      button: 0,
+      clientX: 10,
+      clientY: 300,
+    });
+    fireEvent.pointerMove(window, { clientX: 60, clientY: 320, buttons: 1 });
+    expect(day25.hasAttribute('data-drop-over')).toBe(true);
+    fireEvent.blur(window);
+    expect(day25.hasAttribute('data-drop-over')).toBe(false);
+    fireEvent.pointerUp(window, { clientX: 60, clientY: 320 });
+    expect(screen.queryByLabelText('Why is it moving?')).toBeNull();
+  });
+
+  it('lets a new press through when a finger’s release never came', async () => {
+    const day25 = withDay('2026-09-25');
+    const grip = card('Hotpot shop').querySelector('[data-drag-handle]')!;
+    // A touch whose release the page never hears…
+    fireEvent.pointerDown(grip, {
+      pointerId: 7,
+      pointerType: 'touch',
+      clientX: 10,
+      clientY: 300,
+    });
+    // …does not block the next drag.
+    expect(await drop(card('Hotpot shop'), day25)).toBe(true);
+    expect(screen.getByLabelText('Why is it moving?')).toBeTruthy();
+  });
 });
