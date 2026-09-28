@@ -134,6 +134,31 @@ describe('approving a signup', () => {
     );
   });
 
+  it('makes the admin choose when two people have the name', () => {
+    render(
+      <TeamManager
+        pending={[signup('KEE')]}
+        team={[]}
+        unlinked={[
+          { id: KEE.id, name: 'KEE' },
+          { id: ZUWEI.id, name: 'kee' },
+        ]}
+      />,
+    );
+    expect(
+      screen
+        .getByRole('button', { name: 'Someone already on the board' })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+    expect((screen.getByLabelText('Person') as HTMLSelectElement).value).toBe(
+      '',
+    );
+    expect(
+      (screen.getByRole('button', { name: 'Approve' }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
   it('offers a new person when nobody on the board has the name', async () => {
     render(
       <TeamManager pending={[signup('MEI')]} team={[]} unlinked={[ZUWEI]} />,
