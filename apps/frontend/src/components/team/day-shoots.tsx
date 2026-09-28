@@ -18,9 +18,19 @@
  * Staff change, cancel and delete from this month on; earlier shoots are
  * closed (the server enforces it too), because a counted month stays put.
  * Passing videos on has no such limit.
+ *
+ * A shoot of theirs can also be dragged onto another day — a calendar day or
+ * a spotlight card (anything marked data-drop="day:…", use-drag.tsx). That
+ * opens its Change form on the new day, which asks why it is moving.
  */
 
-import { useState, type Dispatch, type SetStateAction } from 'react';
+import {
+  useState,
+  type Dispatch,
+  type PointerEvent as ReactPointerEvent,
+  type SetStateAction,
+} from 'react';
+import { GripVertical } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
@@ -50,6 +60,7 @@ import { PassVideosForm } from './pass-videos-form';
 import { Pill } from './pill';
 import { GlassPanel } from './glass-panel';
 import { fmtDate } from './tracker-shell';
+import { useDrag } from './use-drag';
 import s from './tracker.module.scss';
 
 export interface DayShootsProps {
@@ -79,11 +90,17 @@ export interface DayShootsProps {
    * has come; null or absent marks none.
    */
   now?: number | null;
+  /** Show another day: where a shoot just moved to. */
+  onPick?: (day: string) => void;
   className?: string;
 }
 
 type ItemStep = 'edit' | 'pass' | 'delete';
-type Open = { kind: 'add' } | { kind: ItemStep; id: string } | null;
+/** A Change opened by a drop carries the day it was dropped on. */
+type Open =
+  | { kind: 'add' }
+  | { kind: ItemStep; id: string; date?: string }
+  | null;
 
 export function DayShoots({
   day,
@@ -95,6 +112,7 @@ export function DayShoots({
   meId,
   setShoots,
   now = null,
+  onPick,
   className,
 }: DayShootsProps) {
   const { t, locale } = useI18n();
@@ -125,6 +143,23 @@ export function DayShoots({
   const monthStart = `${today.slice(0, 7)}-01`;
   const canAdd = me !== null && day >= monthStart;
   const adding = open?.kind === 'add';
+  // A shoot that can be moved: the person's own, not cancelled, not closed.
+  const movable = (x: Shoot) =>
+    x.memberId === me && x.date >= monthStart && x.status !== 'cancelled';
+
+  const drag = useDrag({
+    accepts: (id, key) => {
+      const x = shoots.find((y) => y.id === id);
+      const to = key.startsWith('day:') ? key.slice(4) : '';
+      return !!x && movable(x) && to >= monthStart && to !== x.date;
+    },
+    // Dropped on a day: its Change form, on that day, asks why.
+    onDrop: (id, key) => {
+      setError(null);
+      setOpen({ kind: 'edit', id, date: key.slice(4) });
+    },
+  });
+  const dragged = shoots.find((x) => x.id === drag.dragId);
 
   /**
    * One save. A refusal is shown where it belongs, the form still open.
@@ -184,7 +219,11 @@ export function DayShoots({
     save(
       x.id,
       () => updateShoot(x.id, input(d), input(draftOf(x, x.date))),
-      (r) => replace(r.shoot!),
+      (r) => {
+        replace(r.shoot!);
+        // Moved to another day: show it there.
+        if (r.shoot!.date !== x.date) onPick?.(r.shoot!.date);
+      },
       open,
     );
   // Cancel shoot and Reopen are one click.
@@ -224,6 +263,11 @@ export function DayShoots({
               {t('Shoots for')}
             </p>
             <h2 className="mt-1 text-heading text-fg">{label}</h2>
+            {shoots.some(movable) ? (
+              <p className="mt-1 text-caption text-fg-subtle">
+                {t('Drag a shoot onto a day on the calendar to move it.')}
+              </p>
+            ) : null}
           </div>
           {adding || !canAdd ? null : (
             <button
@@ -268,6 +312,7 @@ export function DayShoots({
                 <li key={x.id}>
                   <ShootForm
                     initial={draftOf(x, x.date)}
+                    startDate={open.date}
                     editing
                     accounts={pickable(x.creatorId)}
                     onlyHandled={!!mine}
@@ -292,6 +337,11 @@ export function DayShoots({
                   // Change, cancel, reopen, delete: from this month on.
                   // Passing videos on: any day.
                   changeable={x.memberId === me && x.date >= monthStart}
+                  movable={movable(x)}
+                  dragging={drag.dragId === x.id}
+                  onPointerDown={(e) => {
+                    if (movable(x) && !saving) drag.start(x.id, e);
+                  }}
                   editors={editors}
                   open={
                     open && 'id' in open && open.id === x.id ? open.kind : null
@@ -312,6 +362,18 @@ export function DayShoots({
           </ul>
         )}
       </section>
+      {drag.ghostOf(
+        dragged
+          ? [
+              dragged.time,
+              dragged.title ??
+                (dragged.creatorId ? accountOf.get(dragged.creatorId) : null) ??
+                t('Shoot'),
+            ]
+              .filter(Boolean)
+              .join(' · ')
+          : null,
+      )}
     </GlassPanel>
   );
 }
@@ -324,6 +386,9 @@ function ShootItem({
   mine,
   due,
   changeable,
+  movable,
+  dragging,
+  onPointerDown,
   editors,
   open,
   saving,
@@ -344,6 +409,10 @@ function ShootItem({
   due: boolean;
   /** Mine and not in a closed month: can be changed, cancelled, deleted. */
   changeable: boolean;
+  /** Can be dragged onto another day. */
+  movable: boolean;
+  dragging: boolean;
+  onPointerDown: (e: ReactPointerEvent) => void;
   /** Who its videos can be given to. */
   editors: { id: string; name: string }[];
   open: ItemStep | null;
@@ -372,8 +441,27 @@ function ShootItem({
   const noteId = x.note ? `note-${x.id}` : undefined;
 
   return (
-    <li className={cn(s.inset, due && s.due, 'p-3 sm:px-4')}>
+    <li
+      onPointerDown={movable ? onPointerDown : undefined}
+      className={cn(
+        s.inset,
+        due && s.due,
+        'p-3 sm:px-4',
+        movable && 'cursor-grab select-none active:cursor-grabbing',
+        dragging && 'opacity-40',
+      )}
+    >
       <div className="flex items-start gap-3">
+        {movable ? (
+          // The grip: where a finger picks the shoot up.
+          <span
+            data-drag-handle
+            title={t('Drag to move')}
+            className="-ml-1 flex h-6 w-5 shrink-0 touch-none items-center justify-center text-fg-subtle"
+          >
+            <GripVertical size={16} aria-hidden />
+          </span>
+        ) : null}
         <span className="w-12 shrink-0 pt-0.5 text-label tnum text-fg-muted">
           {x.time ?? '—'}
         </span>

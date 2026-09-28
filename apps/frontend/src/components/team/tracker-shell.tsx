@@ -193,7 +193,12 @@ export function Spotlight({
             <button
               type="button"
               onClick={() => onPick(key)}
-              className="flex flex-1 items-stretch gap-4 rounded-[inherit] p-5 text-left focus-visible:outline-none focus-visible:shadow-focus sm:gap-5 sm:p-6"
+              // A shoot can be dropped here (day-shoots.tsx).
+              data-drop={`day:${key}`}
+              className={cn(
+                s.dropZone,
+                'flex flex-1 items-stretch gap-4 rounded-[inherit] p-5 text-left focus-visible:outline-none focus-visible:shadow-focus sm:gap-5 sm:p-6',
+              )}
             >
               <div className="flex w-12 shrink-0 flex-col items-center justify-center sm:w-16">
                 <span
@@ -381,9 +386,12 @@ function DayCell({
       aria-pressed={isSelected}
       aria-current={isToday ? 'date' : undefined}
       onClick={onPick}
+      // A shoot can be dropped here (day-shoots.tsx).
+      data-drop={`day:${dateKey}`}
       className={clsx(
         s.inset,
         s.insetHover,
+        s.dropZone,
         'relative flex aspect-square flex-col items-center justify-center text-label focus-visible:outline-none focus-visible:shadow-focus sm:aspect-[1.35]',
         isSelected && '!border-brand/60 !bg-brand/15',
         isToday && !isSelected && s.today,

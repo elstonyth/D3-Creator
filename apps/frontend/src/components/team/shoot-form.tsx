@@ -42,6 +42,7 @@ export function draftOf(s: Shoot | null, date: string): ShootDraft {
 
 export function ShootForm({
   initial,
+  startDate,
   editing = false,
   accounts,
   onlyHandled = false,
@@ -52,6 +53,11 @@ export function ShootForm({
   onCancel,
 }: {
   initial: ShootDraft;
+  /**
+   * The day it opens on, when not `initial`'s: a shoot dropped on another
+   * day. `initial` stays what a move is measured from.
+   */
+  startDate?: string;
   /** Changing a saved shoot (not adding one): a move asks why. */
   editing?: boolean;
   accounts: { id: string; name: string }[];
@@ -67,7 +73,7 @@ export function ShootForm({
 }) {
   const { t, locale } = useI18n();
   const id = useId();
-  const [d, setD] = useState(initial);
+  const [d, setD] = useState({ ...initial, date: startDate ?? initial.date });
   const set = (patch: Partial<ShootDraft>) => setD((p) => ({ ...p, ...patch }));
   const moving =
     editing &&
@@ -118,8 +124,9 @@ export function ShootForm({
             value={d.time}
             onChange={(e) => set({ time: e.target.value })}
             // The form opens in place of the button that opened it; focus
-            // lands on the first thing usually filled in.
-            autoFocus
+            // lands on the first thing usually filled in — or, opened by a
+            // drop, on why it is moving.
+            autoFocus={!startDate}
           />
         </Field>
       </div>
@@ -166,6 +173,7 @@ export function ShootForm({
             maxLength={REASON_MAX}
             aria-describedby={`${id}-reason-hint`}
             autoComplete="off"
+            autoFocus={!!startDate}
             required
           />
           <datalist id={`${id}-reasons`}>

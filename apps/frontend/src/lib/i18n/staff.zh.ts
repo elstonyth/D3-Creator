@@ -287,6 +287,8 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Drag an account onto the person who handles it, and up or down to set the order. Editors follow what staff choose when they pass videos on.':
     '把账号拖到负责人那一栏，上下拖动可调整顺序。剪辑由员工交出视频时自己选。',
   'Drag to move': '拖动以移动',
+  'Drag a shoot onto a day on the calendar to move it.':
+    '把拍摄拖到日历上的某一天即可改期。',
   'Invalid order.': '顺序无效。',
   'Handler for {account}': '{account} 的负责人',
   'You handle no accounts yet. Ask the admin to assign one.':

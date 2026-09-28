@@ -97,6 +97,7 @@ function Tracker({
   readOnly = false,
   handled,
   now,
+  onPick,
 }: {
   initial: Shoot[];
   meId: string | null;
@@ -105,6 +106,7 @@ function Tracker({
   readOnly?: boolean;
   handled?: string[];
   now?: number;
+  onPick?: (day: string) => void;
 }) {
   const [shoots, setShoots] = useState(initial);
   return (
@@ -118,6 +120,7 @@ function Tracker({
       meId={meId}
       setShoots={readOnly ? undefined : setShoots}
       now={now}
+      onPick={onPick}
     />
   );
 }
@@ -527,5 +530,111 @@ describe('the admin’s view', () => {
   it('stays read-only even when given a person', () => {
     render(<Tracker initial={[MINE]} meId={KEE} readOnly />);
     expect(screen.queryAllByRole('button')).toHaveLength(0);
+  });
+});
+
+describe('dragging a shoot onto another day', () => {
+  // jsdom has neither pointer events nor hit-testing.
+  class FakePointerEvent extends MouseEvent {
+    pointerId: number;
+    pointerType: string;
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init);
+      this.pointerId = init.pointerId ?? 1;
+      this.pointerType = init.pointerType ?? 'mouse';
+    }
+  }
+  beforeAll(() => {
+    Object.assign(window, { PointerEvent: FakePointerEvent });
+  });
+  afterEach(() => {
+    Object.assign(document, { elementFromPoint: undefined });
+  });
+
+  /** The day panel beside a calendar day to drop on. */
+  function withDay(
+    dateKey: string,
+    props: Partial<Parameters<typeof Tracker>[0]> = {},
+  ) {
+    render(
+      <>
+        <Tracker initial={[MINE, THEIRS]} meId={KEE} {...props} />
+        <button type="button" data-drop={`day:${dateKey}`}>
+          {dateKey}
+        </button>
+      </>,
+    );
+    return screen.getByRole('button', { name: dateKey });
+  }
+
+  /** Drop `card` on `target`; the tick after lets the drop's click pass. */
+  async function drop(card: Element, target: Element) {
+    Object.assign(document, { elementFromPoint: () => target });
+    fireEvent.pointerDown(card, { button: 0, clientX: 10, clientY: 300 });
+    fireEvent.pointerMove(window, { clientX: 60, clientY: 320 });
+    const marked = target.hasAttribute('data-drop-over');
+    await act(async () => {
+      fireEvent.pointerUp(window, { clientX: 60, clientY: 320 });
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    return marked;
+  }
+
+  const card = (title: string) => screen.getByText(title).closest('li')!;
+
+  it('opens the shoot’s Change on the day it is dropped on, asking why', async () => {
+    const onPick = jest.fn();
+    (updateShoot as jest.Mock).mockResolvedValue({
+      ok: true,
+      shoot: { ...MINE, date: '2026-09-25', movedReason: 'Client asked' },
+    });
+    const day25 = withDay('2026-09-25', { onPick });
+    expect(await drop(card('Hotpot shop'), day25)).toBe(true);
+    expect(day25.hasAttribute('data-drop-over')).toBe(false);
+    expect((screen.getByLabelText('Day') as HTMLInputElement).value).toBe(
+      '2026-09-25',
+    );
+    const why = screen.getByLabelText('Why is it moving?');
+    expect(document.activeElement).toBe(why);
+    fireEvent.change(why, { target: { value: 'Client asked' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    });
+    expect(updateShoot).toHaveBeenCalledWith(
+      MINE.id,
+      {
+        date: '2026-09-25',
+        time: '19:30',
+        creatorId: '',
+        reason: 'Client asked',
+      },
+      { date: DAY, time: '19:30', creatorId: '', reason: '' },
+    );
+    // Saved: the tracker shows the day it moved to.
+    expect(onPick).toHaveBeenCalledWith('2026-09-25');
+  });
+
+  it('never takes a drop on the shoot’s own day', async () => {
+    const same = withDay(DAY);
+    expect(await drop(card('Hotpot shop'), same)).toBe(false);
+    expect(screen.queryByLabelText('Why is it moving?')).toBeNull();
+  });
+
+  it('never moves a shoot into a closed month', async () => {
+    const august = withDay('2026-08-31');
+    expect(await drop(card('Hotpot shop'), august)).toBe(false);
+    expect(screen.queryByLabelText('Day')).toBeNull();
+  });
+
+  it('offers no grip on someone else’s shoot', async () => {
+    withDay('2026-09-25');
+    expect(
+      card('Hotpot shop').querySelector('[data-drag-handle]'),
+    ).not.toBeNull();
+    expect(
+      card('Furniture shop').querySelector('[data-drag-handle]'),
+    ).toBeNull();
+    const day25 = screen.getByRole('button', { name: '2026-09-25' });
+    expect(await drop(card('Furniture shop'), day25)).toBe(false);
   });
 });

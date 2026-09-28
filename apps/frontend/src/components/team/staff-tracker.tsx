@@ -201,6 +201,7 @@ export function StaffTracker({
           meId={meId}
           setShoots={setShoots}
           now={now}
+          onPick={nav.pick}
           className="lg:col-span-12"
         />
       </section>
