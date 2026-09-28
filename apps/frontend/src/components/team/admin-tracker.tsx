@@ -1,14 +1,14 @@
 'use client';
 
 /**
- * The admin console's Work Tracker: everyone's shoots and videos, read-only,
- * as staff update them in their own trackers. The same board as the staff
- * one — spotlight, calendar, the picked day — plus the team, one column a
- * person (what they are editing now and what waits on their check), who
- * handles and edits each account, and every video in hand.
+ * The admin console's Work Tracker: everyone's shoots and videos, as staff
+ * update them in their own trackers. The same board as the staff one —
+ * spotlight, calendar, the picked day — plus the team, one column a person
+ * (what they are editing now and what waits on their check), who handles
+ * and edits each account, and every video in hand.
  *
- * Nothing here changes anything: the admin only looks (the server refuses
- * an admin's writes too, lib/team/actor.ts).
+ * The admin only looks (staff's actions refuse an admin, lib/team/actor.ts),
+ * bar removing a video still being edited (removeVideo).
  */
 
 import Link from 'next/link';
@@ -17,6 +17,7 @@ import { localeTag } from '@gitroom/frontend/lib/i18n';
 import { addDays } from '@gitroom/frontend/lib/tracker';
 import { videoStage, type Video } from '@gitroom/frontend/lib/team/videos';
 import type { AdminTrackerData } from '@gitroom/frontend/lib/team/tracker-data';
+import type { VideoResult } from '@gitroom/frontend/lib/team/video-actions';
 import { cn } from '@gitroom/frontend/lib/utils';
 // clsx where a custom font-size token sits next to a text colour:
 // tailwind-merge would drop the size (see tracker-shell.tsx).
@@ -43,6 +44,8 @@ export interface AdminTrackerProps extends AdminTrackerData {
   initialDay: string | null;
   /** Where a person's profile lives on this host (`/team` or `/admin/team`). */
   profileBase: string;
+  /** The admin's Remove, for a video still being edited. */
+  removeVideo?: (id: string) => Promise<VideoResult>;
 }
 
 export function AdminTracker({
@@ -58,6 +61,7 @@ export function AdminTracker({
   accounts,
   board,
   profileBase,
+  removeVideo,
 }: AdminTrackerProps) {
   const { t, locale } = useI18n();
   const tag = localeTag(locale);
@@ -276,6 +280,7 @@ export function AdminTracker({
           meId={null}
           month={thisMonth}
           readOnly
+          adminRemove={removeVideo}
         />
       </GlassPanel>
     </TrackerScene>

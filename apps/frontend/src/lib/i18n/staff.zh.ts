@@ -210,6 +210,10 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Remove {title}': '移除 {title}',
   'Remove this video? It leaves the editor’s list too.':
     '移除这条视频？剪辑的列表里也会一并移除。',
+  'Remove this video? It leaves the handler’s and editor’s lists too.':
+    '移除这条视频？负责人和剪辑的列表里也会一并移除。',
+  'That video is already gone, or its editor is done.':
+    '这条视频已不在，或剪辑已完成。',
   'Edit done: “{title}” is waiting to be verified.':
     '剪辑完成：“{title}” 正在等待审核。',
   'Verified: “{title}”.': '已审核：“{title}”。',

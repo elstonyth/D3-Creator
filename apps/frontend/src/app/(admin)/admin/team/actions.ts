@@ -13,7 +13,8 @@
  * be approved or turned away, so no half-done approval is ever stuck.
  *
  * The admin also sets each person's job and removes people who left. The
- * shoots and videos themselves are staff-only; the admin just looks.
+ * shoots and videos themselves are staff's; the admin just looks, bar
+ * removing a video still being edited (../tracker/actions.ts).
  */
 
 import { revalidatePath } from 'next/cache';

@@ -2,8 +2,9 @@
 
 /**
  * Video job mutations. Staff only: videos are made by passing them on from a
- * shoot (passVideos in shoot-actions.ts), and the admin console only looks,
- * so an admin is refused here like anyone else who is not staff (asActor).
+ * shoot (passVideos in shoot-actions.ts), so an admin is refused here like
+ * anyone else who is not staff (asActor). The admin's one write, removing a
+ * video still being edited, is app/(admin)/admin/tracker/actions.ts.
  *
  * Each person moves only their own step. The handler — who passed the video
  * on — may change its title or editor, or remove it, until the editor clicks

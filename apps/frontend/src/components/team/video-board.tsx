@@ -4,8 +4,9 @@
  * Video jobs, grouped by where each one is. A staff member sees their own:
  * videos to edit, cuts to verify, videos they passed on that are still with
  * the editor, and what they finished this month — and moves only their own
- * step. The admin sees everyone's, read-only: who is editing what now, what
- * waits to be verified, and what was verified this month.
+ * step. The admin sees everyone's: who is editing what now, what waits to
+ * be verified, and what was verified this month — and can only remove a
+ * video still being edited.
  *
  * Saves wait for the server (each is one small write). A refusal is shown on
  * the video it belongs to, with its step still open. It sits in a work
@@ -68,8 +69,13 @@ export interface VideoBoardProps {
    * and the Done they can still take back are from this month only.
    */
   month: string;
-  /** The admin's view: everyone's videos, with nothing to change. */
+  /** The admin's view: everyone's videos, with nothing to change but Remove. */
   readOnly?: boolean;
+  /**
+   * The admin's Remove, on their view only: offered on each video still
+   * being edited. Without it the admin's view has nothing to press.
+   */
+  adminRemove?: (id: string) => Promise<VideoResult>;
 }
 
 type Step = 'editDone' | 'change' | 'remove';
@@ -98,12 +104,19 @@ export function VideoBoard({
   meId,
   month,
   readOnly = false,
+  adminRemove,
 }: VideoBoardProps) {
   const { t, locale } = useI18n();
   const router = useRouter();
   const tag = localeTag(locale);
   // Whose steps can be moved here: nobody's on the admin's view.
   const me = readOnly ? null : meId;
+  // Remove: the handler's own, or the admin's on their view.
+  const remove = me === null ? adminRemove : deleteVideo;
+  const removeAsk =
+    me === null
+      ? t('Remove this video? It leaves the handler’s and editor’s lists too.')
+      : t('Remove this video? It leaves the editor’s list too.');
   const [videos, setVideos] = useState(initialVideos);
   // A refresh brings the server's list again (videos just passed on from a
   // shoot on the same page, a step taken elsewhere): it replaces this copy.
@@ -345,6 +358,12 @@ export function VideoBoard({
                       editors={editorPicks}
                       canEditDone={v.editorId === me && !v.editedAt}
                       canChange={v.handlerId === me && !v.editedAt}
+                      canRemove={
+                        !!remove &&
+                        !v.editedAt &&
+                        (me === null || v.handlerId === me)
+                      }
+                      removeAsk={removeAsk}
                       canVerify={
                         v.handlerId === me && !!v.editedAt && !v.verifiedAt
                       }
@@ -398,9 +417,10 @@ export function VideoBoard({
                         )
                       }
                       onRemove={() =>
+                        remove &&
                         save(
                           v.id,
-                          () => deleteVideo(v.id),
+                          () => remove(v.id),
                           () =>
                             setVideos((p) => p.filter((x) => x.id !== v.id)),
                           open,
@@ -472,6 +492,8 @@ function VideoCard({
   editors,
   canEditDone,
   canChange,
+  canRemove,
+  removeAsk,
   canVerify,
   canUndoEdit,
   canUndoVerify,
@@ -496,6 +518,9 @@ function VideoCard({
   editors: { id: string; name: string }[];
   canEditDone: boolean;
   canChange: boolean;
+  canRemove: boolean;
+  /** The question Remove asks first. */
+  removeAsk: string;
   canVerify: boolean;
   canUndoEdit: boolean;
   canUndoVerify: boolean;
@@ -654,16 +679,14 @@ function VideoCard({
             </Button>
           </div>
         </form>
-      ) : open === 'remove' && canChange ? (
+      ) : open === 'remove' && canRemove ? (
         <div className="mt-3 space-y-2">
           <div
             role="group"
             aria-label={t('Remove {title}', { title: v.title })}
             className="flex flex-wrap items-center gap-2 text-caption text-fg"
           >
-            <span className="min-w-0 flex-1">
-              {t('Remove this video? It leaves the editor’s list too.')}
-            </span>
+            <span className="min-w-0 flex-1">{removeAsk}</span>
             <Button
               size="sm"
               variant="danger"
@@ -680,6 +703,7 @@ function VideoCard({
         </div>
       ) : canEditDone ||
         canChange ||
+        canRemove ||
         canVerify ||
         canUndoEdit ||
         canUndoVerify ? (
@@ -710,29 +734,29 @@ function VideoCard({
               </Button>
             ) : null}
             {canChange ? (
-              <>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    // Start from what is saved, not an abandoned draft.
-                    setTitle(v.title);
-                    setEditorId(v.editorId);
-                    onOpen('change');
-                  }}
-                  aria-label={t('Change {title}', { title: v.title })}
-                >
-                  {t('Change')}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => onOpen('remove')}
-                  aria-label={t('Remove {title}', { title: v.title })}
-                >
-                  {t('Remove')}
-                </Button>
-              </>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  // Start from what is saved, not an abandoned draft.
+                  setTitle(v.title);
+                  setEditorId(v.editorId);
+                  onOpen('change');
+                }}
+                aria-label={t('Change {title}', { title: v.title })}
+              >
+                {t('Change')}
+              </Button>
+            ) : null}
+            {canRemove ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => onOpen('remove')}
+                aria-label={t('Remove {title}', { title: v.title })}
+              >
+                {t('Remove')}
+              </Button>
             ) : null}
             {canUndoEdit ? (
               <Button

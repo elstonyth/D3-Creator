@@ -1,8 +1,8 @@
 /** @jest-environment jsdom */
 /**
  * The two Work Trackers put together: the staff one shows the person's own
- * work and lets them act on it; the admin's shows everyone's and offers
- * nothing that writes to it — only the account board, which is the admin's.
+ * work and lets them act on it; the admin's shows everyone's and offers no
+ * write but removing a video still being edited.
  */
 
 import { fireEvent, render, screen, within } from '@testing-library/react';
@@ -296,17 +296,22 @@ describe('the admin’s tracker', () => {
           },
         ]}
         profileBase="/team"
+        removeVideo={jest.fn()}
       />,
     );
   }
 
-  it('offers nothing that writes', () => {
+  it('offers no write but removing a video still being edited', () => {
     renderAdmin();
-    // What is left to press only moves around: days, months, the cards.
+    // The rest only moves around: days, months, the cards.
     const writes =
       /^(\+ add|pass videos|change|cancel shoot|reopen|delete|done|verify|remove|undo|save|move)/i;
-    for (const b of screen.getAllByRole('button'))
-      expect(b.getAttribute('aria-label') ?? b.textContent).not.toMatch(writes);
+    expect(
+      screen
+        .getAllByRole('button')
+        .map((b) => b.getAttribute('aria-label') ?? b.textContent ?? '')
+        .filter((name) => writes.test(name)),
+    ).toEqual(['Remove Reel 1']);
     expect(screen.queryAllByRole('textbox')).toHaveLength(0);
     expect(screen.queryAllByRole('switch')).toHaveLength(0);
     // The only select filters the video list.

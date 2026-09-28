@@ -21,6 +21,7 @@ import { AdminTracker } from '@gitroom/frontend/components/team/admin-tracker';
 import { HistoryView } from '@gitroom/frontend/components/team/history-view';
 import { PersonVideos } from '@gitroom/frontend/components/team/person-videos';
 import { TeamManager } from '@gitroom/frontend/app/(admin)/admin/team/team-manager';
+import { removeVideo } from '@gitroom/frontend/app/(admin)/admin/tracker/actions';
 
 export const metadata: Metadata = {
   title: 'Staff portal preview — D3 Creator',
@@ -269,6 +270,7 @@ export default async function StaffPreviewPage({
           board={board}
           // The preview has one sample profile; the id rides along unused.
           profileBase="/dev/staff-preview?view=person&of="
+          removeVideo={removeVideo}
         />
       ),
     },
