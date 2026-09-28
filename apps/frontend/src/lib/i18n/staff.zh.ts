@@ -284,8 +284,15 @@ export const staffZh: Readonly<Record<string, string>> = {
 
   // ---- Admin tracker: the account board ---------------------------------------
   'Personnel & client configuration': '人员与客户分配',
-  'Who handles and who edits each account, updated as staff pass their videos on. Output is for {month}.':
-    '每个账号由谁负责、谁剪辑，随员工交出视频自动更新。数据统计月份：{month}。',
+  'Who handles and who edits each account. Output is for {month}.':
+    '每个账号由谁负责、谁剪辑。数据统计月份：{month}。',
+  'Drag an account onto the person who handles it, or pick them on its card. Editors follow what staff choose when they pass videos on.':
+    '把账号拖到负责人那一栏，或在账号卡片上选择负责人。剪辑由员工交出视频时自己选。',
+  'Handler for {account}': '{account} 的负责人',
+  '{account} is now handled by {name}.': '{account} 现在由 {name} 负责。',
+  '{account} is now unassigned.': '{account} 现在未分配。',
+  'That person is not on the board, or does not handle accounts.':
+    '此人已不在看板上，或不负责账号。',
   'No accounts yet.': '还没有账号。',
   'Videos = different videos posted in {month}. The same clip on several platforms counts once.':
     '视频数 = {month} 发布的不同视频数量；同一条视频发在多个平台只算一次。',

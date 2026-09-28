@@ -65,7 +65,7 @@ it('moves the account’s editor to the new editor', async () => {
   videoDb({ editor_id: MEI, creator_id: ACC });
   const r = await updateVideo(ID, { title: 'Reel 1', editorId: MEI }, before);
   expect(r).toMatchObject({ ok: true });
-  expect(claimAccount).toHaveBeenCalledWith(ACC, { editorId: MEI }, 'u1');
+  expect(claimAccount).toHaveBeenCalledWith(ACC, MEI, 'u1');
 });
 
 it('leaves the board alone for a title fix or a video not the caller’s', async () => {
@@ -90,11 +90,11 @@ describe('taking a video back', () => {
     });
   }
 
-  it('gives the account back if that was the last of this work on it', async () => {
+  it('gives the account’s editor back if that was the last of this work on it', async () => {
     removeDb(ACC, true);
     const r = await deleteVideo(ID);
     expect(r).toMatchObject({ ok: true });
-    expect(releaseAccount).toHaveBeenCalledWith(ACC, KEE, 'u1');
+    expect(releaseAccount).toHaveBeenCalledWith(ACC, 'u1');
   });
 
   it('touches nothing when the video was not the caller’s to take back', async () => {

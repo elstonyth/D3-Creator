@@ -1,14 +1,13 @@
 /**
- * Staff work keeps the admin's account board up to date. What is written,
- * and that a failure never reaches the staff member's save.
+ * Staff work keeps the editor on the admin's account board up to date —
+ * never the handler, which is the admin's to set. What is written, and that a
+ * failure never reaches the staff member's save.
  */
 
 import { getSupabaseAdmin } from '@d3/database';
 import { claimAccount, mainEditor, releaseAccount } from './claim-account';
-import { onBoard } from './on-board';
 
 jest.mock('@d3/database', () => ({ getSupabaseAdmin: jest.fn() }));
-jest.mock('./on-board', () => ({ onBoard: jest.fn(async () => true) }));
 
 const upsert = jest.fn(async () => ({ error: null as unknown }));
 beforeEach(() => {
@@ -31,87 +30,56 @@ describe('mainEditor', () => {
 });
 
 describe('claimAccount', () => {
-  it('writes only what was claimed, stamped with who did it', async () => {
-    await claimAccount('acc', { handlerId: 'kee', editorId: 'ali' }, 'u1');
+  it('writes the editor only, stamped with who did it', async () => {
+    await claimAccount('acc', 'ali', 'u1');
     expect(upsert).toHaveBeenLastCalledWith(
-      {
-        creator_id: 'acc',
-        handler_id: 'kee',
-        editor_id: 'ali',
-        updated_by: 'u1',
-      },
-      { onConflict: 'creator_id' },
-    );
-    // An editor change leaves the handler alone.
-    await claimAccount('acc', { editorId: 'mei' }, 'u2');
-    expect(upsert).toHaveBeenLastCalledWith(
-      { creator_id: 'acc', editor_id: 'mei', updated_by: 'u2' },
+      { creator_id: 'acc', editor_id: 'ali', updated_by: 'u1' },
       { onConflict: 'creator_id' },
     );
   });
 
-  it('never makes someone who only edits the handler', async () => {
-    (onBoard as jest.Mock).mockResolvedValueOnce(false);
-    await claimAccount('acc', { handlerId: 'ali', editorId: 'mei' }, 'u1');
-    expect(onBoard).toHaveBeenCalledWith(['ali'], ['handler', 'both']);
-    expect(upsert).toHaveBeenLastCalledWith(
-      { creator_id: 'acc', editor_id: 'mei', updated_by: 'u1' },
-      { onConflict: 'creator_id' },
-    );
-    // Nothing left to write: no write at all.
-    (onBoard as jest.Mock).mockResolvedValueOnce(false);
-    upsert.mockClear();
-    await claimAccount('acc', { handlerId: 'ali' }, 'u1');
-    expect(upsert).not.toHaveBeenCalled();
-  });
-
-  it('does nothing without an account or a claim', async () => {
-    await claimAccount(null, { handlerId: 'kee' }, 'u1');
-    await claimAccount('acc', {}, 'u1');
+  it('does nothing without an account or an editor', async () => {
+    await claimAccount(null, 'ali', 'u1');
+    await claimAccount('acc', null, 'u1');
     expect(upsert).not.toHaveBeenCalled();
   });
 
   it('never fails the staff member’s save', async () => {
     const log = jest.spyOn(console, 'error').mockImplementation(() => {});
     upsert.mockResolvedValueOnce({ error: { message: 'boom' } });
-    await expect(
-      claimAccount('acc', { editorId: 'ali' }, 'u1'),
-    ).resolves.toBeUndefined();
+    await expect(claimAccount('acc', 'ali', 'u1')).resolves.toBeUndefined();
     upsert.mockRejectedValueOnce(new Error('network'));
-    await expect(
-      claimAccount('acc', { editorId: 'ali' }, 'u1'),
-    ).resolves.toBeUndefined();
-    // The "runs accounts?" lookup failing is swallowed too.
-    (onBoard as jest.Mock).mockRejectedValueOnce(new Error('db down'));
-    await expect(
-      claimAccount('acc', { handlerId: 'kee' }, 'u1'),
-    ).resolves.toBeUndefined();
-    expect(log).toHaveBeenCalledTimes(3);
+    await expect(claimAccount('acc', 'ali', 'u1')).resolves.toBeUndefined();
+    expect(log).toHaveBeenCalledTimes(2);
     log.mockRestore();
   });
 });
 
 describe('releaseAccount', () => {
-  const ME = 'kee';
   type Log = {
-    field: string;
     old_value: string | null;
     new_value: string | null;
     changed_by: string | null;
   };
 
-  /** A board where the account is held as `now`, with `log` newest first. */
+  /** A board where the account's editor is `now`, with `log` newest first. */
   function board(
-    now: { handler_id: string | null; editor_id: string | null } | null,
+    now: { editor_id: string | null } | null,
     log: Log[],
-    videos: { handler_id: string; editor_id: string }[] = [],
+    videos: { editor_id: string }[] = [],
   ) {
     const update = jest.fn(() => ({
       eq: jest.fn(async () => ({ error: null })),
     }));
-    const read = (data: unknown) => {
+    const reads: Record<string, [string, ...unknown[]][]> = {};
+    const read = (table: string, data: unknown) => {
+      const steps: [string, ...unknown[]][] = (reads[table] = []);
       const q: Record<string, unknown> = {};
-      for (const m of ['select', 'eq', 'in', 'order']) q[m] = () => q;
+      for (const m of ['select', 'eq', 'in', 'order'])
+        q[m] = (...args: unknown[]) => {
+          steps.push([m, ...args]);
+          return q;
+        };
       q.maybeSingle = async () => ({ data, error: null });
       q.limit = async () => ({ data, error: null });
       q.then = (ok: (v: unknown) => unknown) =>
@@ -121,64 +89,59 @@ describe('releaseAccount', () => {
     (getSupabaseAdmin as jest.Mock).mockReturnValue({
       from: (table: string) => {
         if (table === 'tracker_assignment')
-          return { ...(read(now) as object), update };
-        if (table === 'tracker_assignment_log') return read(log);
-        return read(videos);
+          return { ...(read(table, now) as object), update };
+        if (table === 'tracker_assignment_log') return read(table, log);
+        return read(table, videos);
       },
     });
-    return update;
+    return { update, reads };
   }
 
-  const claim = (
-    field: string,
-    old_value: string | null,
-    new_value: string,
-  ) => ({
-    field,
+  const claim = (old_value: string | null, new_value: string): Log => ({
     old_value,
     new_value,
     changed_by: 'u1',
   });
 
-  it('puts back who held the account before a mistaken pick', async () => {
-    const update = board({ handler_id: ME, editor_id: 'mei' }, [
-      claim('editor', null, 'mei'),
-      claim('handler', 'zuwei', ME),
+  it('puts back the editor from before a mistaken pick', async () => {
+    const { update, reads } = board({ editor_id: 'mei' }, [
+      claim('ali', 'mei'),
     ]);
-    await releaseAccount('acc', ME, 'u1');
-    expect(update).toHaveBeenCalledWith({
-      handler_id: 'zuwei',
-      editor_id: null,
-      updated_by: 'u1',
-    });
+    await releaseAccount('acc', 'u1');
+    expect(update).toHaveBeenCalledWith({ editor_id: 'ali', updated_by: 'u1' });
+    // Only the editor's history is read: the handler is never taken back.
+    expect(reads.tracker_assignment_log).toContainEqual([
+      'eq',
+      'field',
+      'editor',
+    ]);
   });
 
-  it('keeps a real handover: more of this person’s work is on the account', async () => {
-    const update = board(
-      { handler_id: ME, editor_id: 'mei' },
-      [claim('editor', null, 'mei'), claim('handler', 'zuwei', ME)],
-      [{ handler_id: ME, editor_id: 'mei' }],
+  it('keeps a real handover: more of that editor’s work is on the account', async () => {
+    const { update } = board(
+      { editor_id: 'mei' },
+      [claim(null, 'mei')],
+      [{ editor_id: 'mei' }],
     );
-    await releaseAccount('acc', ME, 'u1');
+    await releaseAccount('acc', 'u1');
     expect(update).not.toHaveBeenCalled();
   });
 
   it('leaves a claim someone else has made since', async () => {
-    const update = board({ handler_id: 'sk', editor_id: null }, [
-      { ...claim('handler', ME, 'sk'), changed_by: 'u9' },
-      claim('handler', 'zuwei', ME),
+    const { update } = board({ editor_id: 'sk' }, [
+      { ...claim('mei', 'sk'), changed_by: 'u9' },
     ]);
-    await releaseAccount('acc', ME, 'u1');
+    await releaseAccount('acc', 'u1');
     expect(update).not.toHaveBeenCalled();
   });
 
   it('does nothing for no account, and never throws', async () => {
-    await releaseAccount(null, ME, 'u1');
+    await releaseAccount(null, 'u1');
     const log = jest.spyOn(console, 'error').mockImplementation(() => {});
     (getSupabaseAdmin as jest.Mock).mockImplementation(() => {
       throw new Error('db down');
     });
-    await expect(releaseAccount('acc', ME, 'u1')).resolves.toBeUndefined();
+    await expect(releaseAccount('acc', 'u1')).resolves.toBeUndefined();
     expect(log).toHaveBeenCalled();
     log.mockRestore();
   });

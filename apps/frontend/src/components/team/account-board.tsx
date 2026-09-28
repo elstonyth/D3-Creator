@@ -2,9 +2,14 @@
 
 /**
  * The account board on the admin's Work Tracker: who handles each creator
- * account and who edits its videos. Read-only — staff work sets it: passing
- * a shoot's videos on makes its owner the account's handler and the editor
- * they chose its editor (lib/team/claim-account.ts). The admin only looks.
+ * account and who edits its videos.
+ *
+ * Who handles an account is the admin's to set, once, when a new client
+ * comes in: drag its card onto a person's column, or pick them in the card's
+ * Handler select (drag and drop does not exist on touch screens). Staff work
+ * never moves it. The editor is the staff's to choose — passing a shoot's
+ * videos on sets it (lib/team/claim-account.ts) — so it only shows here.
+ * Without `onMove` the board is read-only.
  *
  * One column per person who runs accounts (a handler, or someone who does
  * both) plus "Unassigned". Editors are not columns: they sit in a row of
@@ -12,7 +17,8 @@
  * comes from the scraped snapshots and follows the calendar's month.
  */
 
-import { useId } from 'react';
+import { useEffect, useId, useState, type DragEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { cn } from '@gitroom/frontend/lib/utils';
 // clsx where a custom font-size token sits next to a text colour:
@@ -20,6 +26,7 @@ import { cn } from '@gitroom/frontend/lib/utils';
 import clsx from 'clsx';
 import { formatCompact } from '@gitroom/frontend/lib/creator-metrics';
 import { ImageWithFallback } from '@gitroom/frontend/components/ui/image-with-fallback';
+import { Select } from '@gitroom/frontend/components/ui/input';
 import {
   PLATFORM_ICONS,
   PLATFORM_LABELS,
@@ -53,15 +60,46 @@ interface EditedStats {
 export function AccountBoard({
   monthLabel,
   people,
-  accounts,
+  accounts: initialAccounts,
+  onMove,
 }: {
   monthLabel: string;
   /** Everyone who is or was on the board; only those still on it get a place. */
   people: Person[];
   accounts: AccountCard[];
+  /** The admin's handover: who handles an account (null = Unassigned). */
+  onMove?: (
+    creatorId: string,
+    handlerId: string | null,
+  ) => Promise<{ ok: boolean; message?: string }>;
 }) {
   const { t, locale } = useI18n();
+  const router = useRouter();
   const titleId = useId();
+  const [accounts, setAccounts] = useState(initialAccounts);
+  // A refresh brings the server's board again: it replaces this copy. The
+  // page hands the same array through until then.
+  const [fromServer, setFromServer] = useState(initialAccounts);
+  if (fromServer !== initialAccounts) {
+    setFromServer(initialAccounts);
+    setAccounts(initialAccounts);
+  }
+  // One handover at a time: a second can't land before a refused first
+  // is put back.
+  const [busy, setBusy] = useState(false);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overCol, setOverCol] = useState<string | null>(null);
+  // What the last handover did, or why it was refused.
+  const [notice, setNotice] = useState<{ id: number; text: string } | null>(
+    null,
+  );
+
+  // Show it for a few seconds, then clear it.
+  useEffect(() => {
+    if (!notice) return;
+    const id = window.setTimeout(() => setNotice(null), 4000);
+    return () => window.clearTimeout(id);
+  }, [notice]);
 
   const members = people.filter((p) => !p.archived);
   const nameOf = new Map(members.map((m) => [m.id, m.name]));
@@ -82,6 +120,45 @@ export function AccountBoard({
       ? c.handlerId
       : UNASSIGNED;
 
+  async function move(creatorId: string, col: string) {
+    const card = accounts.find((c) => c.id === creatorId);
+    if (!onMove || busy || !card || columnOf(card) === col) return;
+    const handlerId = col === UNASSIGNED ? null : col;
+    const place = (id: string | null) =>
+      setAccounts((p) =>
+        p.map((c) => (c.id === creatorId ? { ...c, handlerId: id } : c)),
+      );
+    place(handlerId);
+    setBusy(true);
+    let r: { ok: boolean; message?: string };
+    try {
+      r = await onMove(creatorId, handlerId);
+    } catch {
+      // A dropped connection or a stale deploy: a refusal, not a stuck card.
+      r = { ok: false, message: 'Could not save. Try again.' };
+    } finally {
+      setBusy(false);
+    }
+    if (!r.ok) {
+      place(card.handlerId);
+      setNotice({
+        id: Date.now(),
+        text: t(r.message ?? 'Could not save. Try again.'),
+      });
+      return;
+    }
+    setNotice({
+      id: Date.now(),
+      text: handlerId
+        ? t('{account} is now handled by {name}.', {
+            account: card.name,
+            name: nameOf.get(handlerId) ?? '—',
+          })
+        : t('{account} is now unassigned.', { account: card.name }),
+    });
+    router.refresh();
+  }
+
   const edited = new Map<string, EditedStats>(
     members.map((m) => [m.id, { edits: 0, editedVideos: 0 }]),
   );
@@ -101,6 +178,29 @@ export function AccountBoard({
           videos: st.editedVideos,
         });
 
+  const dropOn = (col: string) =>
+    onMove
+      ? {
+          onDragOver: (e: DragEvent) => {
+            if (!dragId) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (overCol !== col) setOverCol(col);
+          },
+          onDragLeave: (e: DragEvent) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+              setOverCol((c) => (c === col ? null : c));
+          },
+          onDrop: (e: DragEvent) => {
+            e.preventDefault();
+            const id = dragId;
+            setDragId(null);
+            setOverCol(null);
+            if (id) void move(id, col);
+          },
+        }
+      : {};
+
   return (
     <GlassPanel className="mt-4 p-4 sm:p-6 md:mt-6">
       <section aria-labelledby={titleId}>
@@ -110,15 +210,25 @@ export function AccountBoard({
           </h2>
           <p className="mt-1 text-body-sm text-fg-muted">
             {t(
-              'Who handles and who edits each account, updated as staff pass their videos on. Output is for {month}.',
+              'Who handles and who edits each account. Output is for {month}.',
               { month: monthLabel },
             )}
           </p>
+          {onMove ? (
+            <p className="mt-1 text-body-sm text-fg-muted">
+              {t(
+                'Drag an account onto the person who handles it, or pick them on its card. Editors follow what staff choose when they pass videos on.',
+              )}
+            </p>
+          ) : null}
           <p className="mt-1 text-caption text-fg-subtle">
             {t(
               'Videos = different videos posted in {month}. The same clip on several platforms counts once.',
               { month: monthLabel },
             )}
+          </p>
+          <p role="status" className="mt-2 text-body-sm text-fg">
+            {notice?.text}
           </p>
         </div>
 
@@ -167,7 +277,12 @@ export function AccountBoard({
                     ? t('{name}’s accounts', { name: col.name })
                     : t('Unassigned accounts')
                 }
-                className={cn(s.inset, 'flex min-w-0 flex-col p-3')}
+                {...dropOn(col.id)}
+                className={cn(
+                  s.inset,
+                  'flex min-w-0 flex-col p-3 transition-shadow',
+                  overCol === col.id && 'ring-2 ring-brand/60',
+                )}
               >
                 <header className="mb-3 px-1">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -233,6 +348,22 @@ export function AccountBoard({
                         editor={
                           c.editorId ? (nameOf.get(c.editorId) ?? null) : null
                         }
+                        column={col.id}
+                        handlers={handlers}
+                        movable={!!onMove}
+                        busy={busy}
+                        dragging={dragId === c.id}
+                        onPick={(to) => void move(c.id, to)}
+                        onDragStart={(e) => {
+                          e.dataTransfer.effectAllowed = 'move';
+                          // Firefox starts no drag without data.
+                          e.dataTransfer.setData('text/plain', c.id);
+                          setDragId(c.id);
+                        }}
+                        onDragEnd={() => {
+                          setDragId(null);
+                          setOverCol(null);
+                        }}
                       />
                     ))}
                   </ul>
@@ -261,15 +392,45 @@ function AccountItem({
   account: c,
   handler,
   editor,
+  column,
+  handlers,
+  movable,
+  busy,
+  dragging,
+  onPick,
+  onDragStart,
+  onDragEnd,
 }: {
   account: AccountCard;
   handler: string | null;
   editor: string | null;
+  /** The column it sits in: a handler's id, or Unassigned. */
+  column: string;
+  /** Who can be picked to handle it. */
+  handlers: { id: string; name: string }[];
+  movable: boolean;
+  /** A handover is being saved. */
+  busy: boolean;
+  dragging: boolean;
+  onPick: (column: string) => void;
+  onDragStart: (e: DragEvent) => void;
+  onDragEnd: () => void;
 }) {
   const { t, locale } = useI18n();
+  const pickId = useId();
 
   return (
-    <li className={cn(s.inset, 'p-3')}>
+    <li
+      draggable={movable && !busy}
+      onDragStart={movable ? onDragStart : undefined}
+      onDragEnd={movable ? onDragEnd : undefined}
+      className={cn(
+        s.inset,
+        'p-3',
+        movable && 'cursor-grab active:cursor-grabbing',
+        dragging && 'opacity-50',
+      )}
+    >
       <div className="flex items-center gap-3">
         <ImageWithFallback
           src={c.avatarUrl}
@@ -317,10 +478,43 @@ function AccountItem({
         })}
       </p>
 
-      <dl className="mt-3 grid grid-cols-2 gap-2">
-        <Who label={t('Handler')} name={handler ?? t('Unassigned')} />
-        <Who label={t('Editor')} name={editor ?? t('Nobody')} />
-      </dl>
+      {movable ? (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="min-w-0">
+            <label
+              htmlFor={pickId}
+              className="text-micro uppercase tracking-[0.1em] text-fg-subtle"
+            >
+              {t('Handler')}
+            </label>
+            <Select
+              id={pickId}
+              aria-label={t('Handler for {account}', { account: c.name })}
+              value={column === UNASSIGNED ? '' : column}
+              onChange={(e) => onPick(e.target.value || UNASSIGNED)}
+              disabled={busy}
+              // No text size here: cn() would read it as a colour and drop
+              // the control's own (see tracker-shell.tsx).
+              className="mt-0.5 h-9"
+            >
+              <option value="">{t('Unassigned')}</option>
+              {handlers.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <dl className="min-w-0">
+            <Who label={t('Editor')} name={editor ?? t('Nobody')} />
+          </dl>
+        </div>
+      ) : (
+        <dl className="mt-3 grid grid-cols-2 gap-2">
+          <Who label={t('Handler')} name={handler ?? t('Unassigned')} />
+          <Who label={t('Editor')} name={editor ?? t('Nobody')} />
+        </dl>
+      )}
     </li>
   );
 }

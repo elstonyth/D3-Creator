@@ -1,17 +1,21 @@
 /** @jest-environment jsdom */
 /**
  * The admin's account board: who handles each account and who edits it.
- * Staff work sets it; the admin only looks, so it offers nothing to press.
+ * The admin sets who handles each one — a select on every card, or a drag
+ * onto a column; the editor follows the staff's choices and only shows.
+ * Without a handover to call, the board only looks.
  *
  * Editors cut video; they sit in a row of chips and are never a column —
  * only people who run accounts own columns.
  */
 
-import { render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 
 import type { AccountCard } from '@gitroom/frontend/lib/team/accounts';
 import { AccountBoard } from './account-board';
 
+const refresh = jest.fn();
+jest.mock('next/navigation', () => ({ useRouter: () => ({ refresh }) }));
 // The liquid-glass dist is ESM-only; the panel is chrome, not behaviour.
 jest.mock('./glass-panel', () => ({
   GlassPanel: ({
@@ -102,7 +106,7 @@ it('shows who handles and who edits each account', () => {
   expect(whoOf('Amy')).toEqual({ handler: 'KEE', editor: 'Nobody' });
 });
 
-it('offers nothing to change: the admin only looks', () => {
+it('offers nothing to change without a handover to call', () => {
   renderBoard([KEE, ALI], [card(1, 'Gary', KEE.id, ALI.id)]);
   expect(screen.queryAllByRole('button')).toHaveLength(0);
   expect(screen.queryAllByRole('combobox')).toHaveLength(0);
@@ -166,4 +170,87 @@ it('totals each column: accounts, videos, views', () => {
     .slice(0, 3)
     .map((d) => d.textContent);
   expect(cells).toEqual(['2', '8', '2K']);
+});
+
+describe('the admin’s handover', () => {
+  const GARY = card(1, 'Gary', KEE.id, ALI.id);
+
+  function renderMovable(
+    onMove: jest.Mock,
+    accounts: AccountCard[] = [GARY],
+  ) {
+    return render(
+      <AccountBoard
+        monthLabel="September 2026"
+        people={[KEE, ZUWEI, ALI, MEI]}
+        accounts={accounts}
+        onMove={onMove}
+      />,
+    );
+  }
+
+  beforeEach(() => jest.clearAllMocks());
+
+  it('moves an account to the person picked on its card', async () => {
+    const onMove = jest.fn(async () => ({ ok: true }));
+    renderMovable(onMove);
+    const pick = screen.getByRole('combobox', {
+      name: 'Handler for Gary',
+    }) as HTMLSelectElement;
+    // People who run accounts, and Unassigned — never someone who only edits.
+    expect([...pick.options].map((o) => o.text)).toEqual([
+      'Unassigned',
+      'KEE',
+      'ZUWEI',
+      'MEI',
+    ]);
+    await act(async () => {
+      fireEvent.change(pick, { target: { value: ZUWEI.id } });
+    });
+    expect(onMove).toHaveBeenCalledWith(GARY.id, ZUWEI.id);
+    expect(column('ZUWEI’s accounts').getByText('Gary')).toBeTruthy();
+    expect(column('KEE’s accounts').getByText('No accounts yet.')).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toBe(
+      'Gary is now handled by ZUWEI.',
+    );
+    expect(refresh).toHaveBeenCalledTimes(1);
+    // The editor is the staff's choice: it only shows.
+    expect(screen.queryByRole('combobox', { name: /Editor/ })).toBeNull();
+  });
+
+  it('puts an account back and says why when the handover is refused', async () => {
+    const onMove = jest.fn(async () => ({
+      ok: false,
+      message: 'That person is not on the board, or does not handle accounts.',
+    }));
+    renderMovable(onMove);
+    await act(async () => {
+      fireEvent.change(
+        screen.getByRole('combobox', { name: 'Handler for Gary' }),
+        { target: { value: '' } },
+      );
+    });
+    expect(onMove).toHaveBeenCalledWith(GARY.id, null);
+    expect(column('KEE’s accounts').getByText('Gary')).toBeTruthy();
+    expect(screen.getByRole('status').textContent).toContain(
+      'does not handle accounts',
+    );
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it('moves a card dragged onto another column', async () => {
+    const onMove = jest.fn(async () => ({ ok: true }));
+    renderMovable(onMove);
+    const item = column('KEE’s accounts').getByRole('listitem');
+    expect(item.draggable).toBe(true);
+    const dataTransfer = { setData: jest.fn(), effectAllowed: '', dropEffect: '' };
+    fireEvent.dragStart(item, { dataTransfer });
+    const target = screen.getByRole('region', { name: 'MEI’s accounts' });
+    fireEvent.dragOver(target, { dataTransfer });
+    await act(async () => {
+      fireEvent.drop(target, { dataTransfer });
+    });
+    expect(onMove).toHaveBeenCalledWith(GARY.id, MEI.id);
+    expect(column('MEI’s accounts').getByText('Gary')).toBeTruthy();
+  });
 });

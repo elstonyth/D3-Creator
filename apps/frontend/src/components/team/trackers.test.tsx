@@ -297,11 +297,12 @@ describe('the admin’s tracker', () => {
         ]}
         profileBase="/team"
         removeVideo={jest.fn()}
+        moveAccount={jest.fn()}
       />,
     );
   }
 
-  it('offers no write but removing a video still being edited', () => {
+  it('offers no write but who handles each account and removing a video still being edited', () => {
     renderAdmin();
     // The rest only moves around: days, months, the cards.
     const writes =
@@ -314,10 +315,12 @@ describe('the admin’s tracker', () => {
     ).toEqual(['Remove Reel 1']);
     expect(screen.queryAllByRole('textbox')).toHaveLength(0);
     expect(screen.queryAllByRole('switch')).toHaveLength(0);
-    // The only select filters the video list.
-    expect(screen.getAllByRole('combobox').map((c) => c.id)).toEqual([
-      'videos-person',
-    ]);
+    // The selects: who handles each account, and the video list's filter.
+    expect(
+      screen
+        .getAllByRole('combobox')
+        .map((c) => c.getAttribute('aria-label') ?? c.id),
+    ).toEqual(['Handler for Gary', 'videos-person']);
   });
 
   it('shows who handles and who edits each account', () => {
@@ -330,11 +333,19 @@ describe('the admin’s tracker', () => {
     );
     const gary = zuwei.getByRole('listitem');
     expect(within(gary).getByText('Gary')).toBeTruthy();
+    // The admin picks the handler; the editor is the staff's choice.
+    expect(
+      (
+        within(gary).getByRole('combobox', {
+          name: 'Handler for Gary',
+        }) as HTMLSelectElement
+      ).value,
+    ).toBe(ZUWEI);
     expect(
       within(gary)
         .getAllByRole('definition')
         .map((d) => d.textContent),
-    ).toEqual(['ZUWEI', 'MEI']);
+    ).toEqual(['MEI']);
     // MEI does both: a column of their own, and the one editing Gary.
     const mei = within(board.getByRole('region', { name: 'MEI’s accounts' }));
     expect(mei.getByText('Edits 1 account · 12 videos')).toBeTruthy();

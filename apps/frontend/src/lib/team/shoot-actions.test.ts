@@ -139,33 +139,26 @@ it('never writes over an old shoot’s title', async () => {
   expect(update?.[1]).not.toHaveProperty('title');
 });
 
-describe('correcting a passed shoot’s account moves the board with it', () => {
+describe('correcting a passed shoot’s account moves the board’s editor with it', () => {
   const MEI = 'aaaaaaaa-0000-4000-8000-000000000003';
   const KIM = 'aaaaaaaa-0000-4000-8000-000000000004';
   const onA = (editor_id: string) => ({ creator_id: ACC_A, editor_id });
 
-  it('gives back the account the videos left and claims the new one', async () => {
+  it('gives back the account the videos left and claims the new one’s editor', async () => {
     fakeDb([row(ACC_B)], [onA(KIM), onA(MEI), onA(MEI)]);
     const r = await updateShoot(ID, form(ACC_B), form(ACC_A));
     expect(r).toMatchObject({ ok: true });
-    expect(releaseAccount).toHaveBeenCalledWith(ACC_A, ALI, 'u1');
-    expect(claimAccount).toHaveBeenCalledWith(
-      ACC_B,
-      { handlerId: ALI, editorId: MEI },
-      'u1',
-    );
+    expect(releaseAccount).toHaveBeenCalledWith(ACC_A, 'u1');
+    // The editor only: who handles an account is the admin's to set.
+    expect(claimAccount).toHaveBeenCalledWith(ACC_B, MEI, 'u1');
   });
 
   it('only gives back when the account is taken off', async () => {
     fakeDb([row(null)], [onA(MEI)]);
     await updateShoot(ID, form(null), form(ACC_A));
-    expect(releaseAccount).toHaveBeenCalledWith(ACC_A, ALI, 'u1');
+    expect(releaseAccount).toHaveBeenCalledWith(ACC_A, 'u1');
     // claimAccount ignores a null account.
-    expect(claimAccount).toHaveBeenCalledWith(
-      null,
-      { handlerId: ALI, editorId: MEI },
-      'u1',
-    );
+    expect(claimAccount).toHaveBeenCalledWith(null, MEI, 'u1');
   });
 
   it('touches the board for no shoot that has not been passed on yet', async () => {
@@ -196,15 +189,11 @@ describe('passing videos on keeps the account board up to date', () => {
     });
   }
 
-  it('makes the passer the handler and the main editor the editor', async () => {
+  it('makes the main editor the editor, and never moves the handler', async () => {
     passDb(ACC_A);
     const r = await passVideos(ID, rows);
     expect(r).toMatchObject({ ok: true });
-    expect(claimAccount).toHaveBeenCalledWith(
-      ACC_A,
-      { handlerId: ALI, editorId: MEI },
-      'u1',
-    );
+    expect(claimAccount).toHaveBeenCalledWith(ACC_A, MEI, 'u1');
   });
 
   it('claims nothing when the pass is refused', async () => {

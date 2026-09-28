@@ -7,8 +7,9 @@
  * (what they are editing now and what waits on their check), who handles
  * and edits each account, and every video in hand.
  *
- * The admin only looks (staff's actions refuse an admin, lib/team/actor.ts),
- * bar removing a video still being edited (removeVideo).
+ * The admin sets who handles each account (moveAccount) and can remove a
+ * video still being edited (removeVideo); everything else is staff's to
+ * move, and staff's actions refuse an admin (lib/team/actor.ts).
  */
 
 import Link from 'next/link';
@@ -46,6 +47,11 @@ export interface AdminTrackerProps extends AdminTrackerData {
   profileBase: string;
   /** The admin's Remove, for a video still being edited. */
   removeVideo?: (id: string) => Promise<VideoResult>;
+  /** The admin's handover: who handles an account (null = Unassigned). */
+  moveAccount?: (
+    creatorId: string,
+    handlerId: string | null,
+  ) => Promise<{ ok: boolean; message?: string }>;
 }
 
 export function AdminTracker({
@@ -62,6 +68,7 @@ export function AdminTracker({
   board,
   profileBase,
   removeVideo,
+  moveAccount,
 }: AdminTrackerProps) {
   const { t, locale } = useI18n();
   const tag = localeTag(locale);
@@ -262,7 +269,12 @@ export function AdminTracker({
         </div>
       </GlassPanel>
 
-      <AccountBoard monthLabel={monthLabel} people={people} accounts={board} />
+      <AccountBoard
+        monthLabel={monthLabel}
+        people={people}
+        accounts={board}
+        onMove={moveAccount}
+      />
 
       <GlassPanel className="mt-4 p-4 sm:p-6 md:mt-6">
         <div className="mb-5">

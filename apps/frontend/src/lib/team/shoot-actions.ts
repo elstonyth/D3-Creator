@@ -135,18 +135,14 @@ export async function updateShoot(
       editor_id: string;
     }[];
     if (moved.length > 0) {
-      // The account board follows the videos: the account they left goes
-      // back to whoever held it (if this was a mistaken pick), and the new
-      // one is the caller's, with the editor given most of them.
+      // The board's editor follows the videos: the account they left gets
+      // its editor back (if this was a mistaken pick), and the new one takes
+      // the editor given most of them. Who handles either stays the admin's.
       for (const left of new Set(moved.map((v) => v.creator_id)))
-        if (left !== patch.creator_id)
-          await releaseAccount(left, a.memberId, a.userId);
+        if (left !== patch.creator_id) await releaseAccount(left, a.userId);
       await claimAccount(
         patch.creator_id,
-        {
-          handlerId: a.memberId,
-          editorId: mainEditor(moved.map((v) => v.editor_id)) ?? undefined,
-        },
+        mainEditor(moved.map((v) => v.editor_id)),
         a.userId,
       );
     }
@@ -201,9 +197,9 @@ export async function deleteShoot(id: string): Promise<ShootResult> {
  * The caller becomes every video's handler, and the shoot is marked done
  * with how many videos have come out of it. Passing again adds more.
  *
- * The shoot's account follows the work on the admin's account board: the
- * caller becomes its handler (if they run accounts) and the editor given
- * most of these videos its editor (claimAccount).
+ * On the admin's account board, the editor given most of these videos
+ * becomes the shoot's account's editor (claimAccount). Who handles the
+ * account is the admin's to set; passing videos never moves it.
  *
  * tracker_pass_shoot does all of it in one transaction and re-checks
  * everything: that the shoot is the caller's and not cancelled, the rows,
@@ -249,10 +245,7 @@ export async function passVideos(
     const passed = rowToShoot(shoot.data as ShootRow);
     await claimAccount(
       passed.creatorId,
-      {
-        handlerId: a.memberId,
-        editorId: mainEditor(rows.map((r) => r.editorId)) ?? undefined,
-      },
+      mainEditor(rows.map((r) => r.editorId)),
       a.userId,
     );
     return {
