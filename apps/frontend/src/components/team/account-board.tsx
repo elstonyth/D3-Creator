@@ -280,8 +280,8 @@ export function AccountBoard({
                 {...dropOn(col.id)}
                 className={cn(
                   s.inset,
-                  'flex min-w-0 flex-col p-3 transition-shadow',
-                  overCol === col.id && 'ring-2 ring-brand/60',
+                  'flex min-w-0 flex-col p-3',
+                  overCol === col.id && s.dropTarget,
                 )}
               >
                 <header className="mb-3 px-1">

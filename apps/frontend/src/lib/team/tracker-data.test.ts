@@ -67,9 +67,9 @@ it('refuses to read without a person', async () => {
   expect(loadHandled).not.toHaveBeenCalled();
 });
 
-it('reads today and tomorrow even when they are in the next month', async () => {
-  await loadStaffTracker(ME, '2026-09', '2026-09-30');
-  expect(loadShoots).toHaveBeenCalledWith('2026-09-30', '2026-10-02', ME);
+it('reads tomorrow and the last two weeks even across a month’s end', async () => {
+  await loadStaffTracker(ME, '2026-10', '2026-10-01');
+  expect(loadShoots).toHaveBeenCalledWith('2026-09-17', '2026-10-03', ME);
 });
 
 it('keeps the staff page on the scoped loader', () => {

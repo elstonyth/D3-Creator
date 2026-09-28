@@ -1,6 +1,8 @@
 import {
+  isDue,
   isTimeKey,
   parseShootInput,
+  shootDueAt,
   shootPatch,
   sortShoots,
   weekDays,
@@ -149,5 +151,43 @@ describe('shootPatch', () => {
       'shoot_date',
       'start_time',
     ]);
+  });
+});
+
+describe('when a shoot is due', () => {
+  const at = (iso: string) => Date.parse(iso);
+  const s = (patch: Partial<Shoot>): Shoot => ({
+    id: 'x',
+    memberId: 'kee',
+    date: '2026-09-30',
+    time: '17:00',
+    title: null,
+    creatorId: null,
+    videosShot: null,
+    status: 'planned',
+    note: null,
+    ...patch,
+  });
+
+  it('is its start time in Malaysia, or the end of its day with no time', () => {
+    expect(shootDueAt(s({}))).toBe(at('2026-09-30T09:00:00Z'));
+    // No time: once the day is over — here across a month's end.
+    expect(shootDueAt(s({ time: null }))).toBe(at('2026-09-30T16:00:00Z'));
+  });
+
+  it('asks only the owner, only while planned, only once the time has come', () => {
+    const after = at('2026-09-30T17:00:00+08:00');
+    const before = after - 60_000;
+    expect(isDue(s({}), 'kee', after)).toBe(true);
+    expect(isDue(s({}), 'kee', before)).toBe(false);
+    expect(isDue(s({}), 'mei', after)).toBe(false);
+    expect(isDue(s({ status: 'done' }), 'kee', after)).toBe(false);
+    expect(isDue(s({ status: 'cancelled' }), 'kee', after)).toBe(false);
+    expect(
+      isDue(s({ time: null }), 'kee', at('2026-10-01T00:00:00+08:00')),
+    ).toBe(true);
+    expect(
+      isDue(s({ time: null }), 'kee', at('2026-09-30T23:59:00+08:00')),
+    ).toBe(false);
   });
 });

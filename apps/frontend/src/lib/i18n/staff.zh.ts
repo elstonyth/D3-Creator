@@ -290,6 +290,18 @@ export const staffZh: Readonly<Record<string, string>> = {
   'You handle no accounts yet. Ask the admin to assign one.':
     '你还没有负责的账号。请管理员给你分配。',
   'Only the accounts you handle.': '只列出你负责的账号。',
+
+  // ---- What needs you now: the pop-up and the due shoots ----------------------
+  'Time to pass videos': '该交出视频了',
+  'Waiting for you': '有事等你处理',
+  'Shoot time is up — pass the videos on': '拍摄时间到了——请交出视频',
+  'New videos to edit': '新的剪辑任务',
+  'Edited — ready for you to verify': '剪好了，等你审核',
+  'From {name}': '来自 {name}',
+  'Cut by {name}': '{name} 剪辑',
+  'Go to my videos': '去我的视频',
+  Later: '稍后',
+  'Got it': '知道了',
   '{account} is now handled by {name}.': '{account} 现在由 {name} 负责。',
   '{account} is now unassigned.': '{account} 现在未分配。',
   'That person is not on the board, or does not handle accounts.':

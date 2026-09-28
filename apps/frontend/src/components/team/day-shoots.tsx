@@ -27,7 +27,11 @@ import { localeTag } from '@gitroom/frontend/lib/i18n';
 import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { Button } from '@gitroom/frontend/components/ui/button';
 import type { MemberKind } from '@gitroom/frontend/lib/tracker';
-import { sortShoots, type Shoot } from '@gitroom/frontend/lib/team/shoots';
+import {
+  isDue,
+  sortShoots,
+  type Shoot,
+} from '@gitroom/frontend/lib/team/shoots';
 import { isEditorKind, type PassRow } from '@gitroom/frontend/lib/team/videos';
 import {
   addShoot,
@@ -70,6 +74,11 @@ export interface DayShootsProps {
   meId: string | null;
   /** The tracker's whole list. Absent = read-only (the admin's view). */
   setShoots?: Dispatch<SetStateAction<Shoot[]>>;
+  /**
+   * The time now (useNow), for marking the staff member's shoots whose time
+   * has come; null or absent marks none.
+   */
+  now?: number | null;
   className?: string;
 }
 
@@ -85,6 +94,7 @@ export function DayShoots({
   handled,
   meId,
   setShoots,
+  now = null,
   className,
 }: DayShootsProps) {
   const { t, locale } = useI18n();
@@ -276,6 +286,7 @@ export function DayShoots({
                   }
                   showPerson={x.memberId !== me}
                   mine={x.memberId === me}
+                  due={me !== null && now !== null && isDue(x, me, now)}
                   // Change, cancel, reopen, delete: from this month on.
                   // Passing videos on: any day.
                   changeable={x.memberId === me && x.date >= monthStart}
@@ -309,6 +320,7 @@ function ShootItem({
   account,
   showPerson,
   mine,
+  due,
   changeable,
   editors,
   open,
@@ -326,6 +338,8 @@ function ShootItem({
   showPerson: boolean;
   /** Mine: its videos can be passed on, unless it was cancelled. */
   mine: boolean;
+  /** Mine, planned, and its time has come: its videos wait to be passed on. */
+  due: boolean;
   /** Mine and not in a closed month: can be changed, cancelled, deleted. */
   changeable: boolean;
   /** Who its videos can be given to. */
@@ -356,7 +370,7 @@ function ShootItem({
   const noteId = x.note ? `note-${x.id}` : undefined;
 
   return (
-    <li className={cn(s.inset, 'p-3 sm:px-4')}>
+    <li className={cn(s.inset, due && s.due, 'p-3 sm:px-4')}>
       <div className="flex items-start gap-3">
         <span className="w-12 shrink-0 pt-0.5 text-label tnum text-fg-muted">
           {x.time ?? '—'}
@@ -392,6 +406,10 @@ function ShootItem({
         ) : cancelled ? (
           <Pill tone="muted" className="shrink-0">
             {t('Cancelled')}
+          </Pill>
+        ) : due ? (
+          <Pill tone="brand" className="shrink-0">
+            {t('Time to pass videos')}
           </Pill>
         ) : (
           <Pill tone="muted" className="shrink-0">

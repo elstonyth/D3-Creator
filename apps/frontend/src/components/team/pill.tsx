@@ -11,14 +11,16 @@ export function Pill({
   className = '',
   children,
 }: {
-  tone?: 'neutral' | 'muted';
+  tone?: 'neutral' | 'muted' | 'brand';
   className?: string;
   children: ReactNode;
 }) {
   const colours =
     tone === 'muted'
       ? 'bg-white/[0.04] text-fg-subtle'
-      : 'bg-white/[0.06] text-fg';
+      : tone === 'brand'
+        ? 'bg-brand/[0.14] text-brand'
+        : 'bg-white/[0.06] text-fg';
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-caption leading-none ${colours} ${className}`}

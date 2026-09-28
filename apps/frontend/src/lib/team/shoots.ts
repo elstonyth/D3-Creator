@@ -10,7 +10,11 @@
  */
 
 import { isUuid } from '@gitroom/frontend/lib/ids';
-import { addDays, isDateKey } from '@gitroom/frontend/lib/tracker';
+import {
+  addDays,
+  isDateKey,
+  TRACKER_TZ_OFFSET,
+} from '@gitroom/frontend/lib/tracker';
 
 export type ShootStatus = 'planned' | 'done' | 'cancelled';
 
@@ -81,6 +85,25 @@ export function parseShootInput(v: unknown): Parsed<ShootInput> {
   if (creatorId !== null && !isUuid(creatorId))
     return { ok: false, message: 'Invalid account.' };
   return { ok: true, value: { date: o.date, time, creatorId } };
+}
+
+/**
+ * When a shoot is due to have happened (epoch ms, Malaysia time): at its
+ * start time, or — for one with no time, "sometime that day" — once its day
+ * is over.
+ */
+export function shootDueAt(s: Pick<Shoot, 'date' | 'time'>): number {
+  return s.time
+    ? Date.parse(`${s.date}T${s.time}:00${TRACKER_TZ_OFFSET}`)
+    : Date.parse(`${addDays(s.date, 1)}T00:00:00${TRACKER_TZ_OFFSET}`);
+}
+
+/**
+ * One of `me`'s shoots that has happened but still has no videos passed on:
+ * planned, and its time has come. Its owner is asked to pass them on.
+ */
+export function isDue(s: Shoot, me: string, now: number): boolean {
+  return s.memberId === me && s.status === 'planned' && now >= shootDueAt(s);
 }
 
 /** By day, then time; a shoot with no time goes last in its day. Stable. */

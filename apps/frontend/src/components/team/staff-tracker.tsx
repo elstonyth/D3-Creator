@@ -7,16 +7,26 @@
  * edit, to verify, passed on and still with the editor, done this month —
  * each naming who edits it and who verifies it.
  *
+ * What needs them now pops up (WorkAlerts): a shoot whose time has come,
+ * glowing on the spotlight and the day too, and new videos to edit or
+ * verify. The page reads itself again every minute while it is on screen,
+ * so new work arrives without a reload.
+ *
  * Everything here is the signed-in person's already (the page reads it
  * scoped, lib/team/tracker-data.ts); nothing is filtered to them here.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
 import { addDays } from '@gitroom/frontend/lib/tracker';
-import type { Shoot } from '@gitroom/frontend/lib/team/shoots';
-import { mySection } from '@gitroom/frontend/lib/team/videos';
+import {
+  isDue,
+  sortShoots,
+  type Shoot,
+} from '@gitroom/frontend/lib/team/shoots';
+import { isEditorKind, mySection } from '@gitroom/frontend/lib/team/videos';
 import type { StaffTrackerData } from '@gitroom/frontend/lib/team/tracker-data';
 import { DayShoots } from './day-shoots';
 import { GlassPanel } from './glass-panel';
@@ -26,9 +36,11 @@ import {
   StatsPanel,
   TrackerCalendar,
   TrackerScene,
+  useNow,
   useTrackerNav,
 } from './tracker-shell';
 import { VideoBoard } from './video-board';
+import { WorkAlerts } from './work-alerts';
 
 export interface StaffTrackerProps extends StaffTrackerData {
   /** `YYYY-MM` on the calendar. */
@@ -54,6 +66,8 @@ export function StaffTracker({
   meId,
 }: StaffTrackerProps) {
   const { t, locale } = useI18n();
+  const router = useRouter();
+  const now = useNow();
   const [shoots, setShoots] = useState<Shoot[]>(initialShoots);
   // A refresh brings the server's list again (a video taken back on the
   // board below can turn its shoot back to planned): it replaces this copy.
@@ -65,6 +79,20 @@ export function StaffTracker({
   }
   const nav = useTrackerNav(month, today, initialDay);
   const thisMonth = today.slice(0, 7);
+
+  // New work shows up without a reload: the page is read again every
+  // minute while it is on screen, and as soon as it comes back into view.
+  useEffect(() => {
+    const reread = () => {
+      if (document.visibilityState === 'visible') router.refresh();
+    };
+    const id = window.setInterval(reread, 60_000);
+    document.addEventListener('visibilitychange', reread);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', reread);
+    };
+  }, [router]);
 
   const accountOf = new Map(accounts.map((a) => [a.id, a.name]));
   // The month on the calendar; the list also carries today's and
@@ -96,6 +124,7 @@ export function StaffTracker({
           label: [x.time, x.title ?? account ?? t('Shoot'), x.title && account]
             .filter(Boolean)
             .join(' · '),
+          due: now !== null && isDue(x, meId, now),
         };
       }),
   });
@@ -171,13 +200,16 @@ export function StaffTracker({
           handled={handled}
           meId={meId}
           setShoots={setShoots}
+          now={now}
           className="lg:col-span-12"
         />
       </section>
 
       <GlassPanel className="mt-4 p-4 sm:p-6 md:mt-6">
         <div className="mb-5">
-          <h2 className="text-heading text-fg">{t('My videos')}</h2>
+          <h2 id="my-videos" className="scroll-mt-6 text-heading text-fg">
+            {t('My videos')}
+          </h2>
           <p className="mt-1 text-body-sm text-fg-muted">
             {t(
               'Edit a video, then click Done. Videos you passed on come back here to verify once their editor is done.',
@@ -194,6 +226,23 @@ export function StaffTracker({
           month={thisMonth}
         />
       </GlassPanel>
+
+      <WorkAlerts
+        meId={meId}
+        month={thisMonth}
+        today={today}
+        now={now}
+        shoots={shoots}
+        videos={videos}
+        people={people}
+        accounts={accounts}
+        editors={people.filter((p) => !p.archived && isEditorKind(p.kind))}
+        onPassed={(next) =>
+          setShoots((p) =>
+            sortShoots(p.map((x) => (x.id === next.id ? next : x))),
+          )
+        }
+      />
     </TrackerScene>
   );
 }

@@ -95,6 +95,7 @@ function Tracker({
   today = '2026-09-23',
   readOnly = false,
   handled,
+  now,
 }: {
   initial: Shoot[];
   meId: string | null;
@@ -102,6 +103,7 @@ function Tracker({
   today?: string;
   readOnly?: boolean;
   handled?: string[];
+  now?: number;
 }) {
   const [shoots, setShoots] = useState(initial);
   return (
@@ -114,6 +116,7 @@ function Tracker({
       handled={handled}
       meId={meId}
       setShoots={readOnly ? undefined : setShoots}
+      now={now}
     />
   );
 }
@@ -258,6 +261,18 @@ it('says so when the person handles no account yet', () => {
       'You handle no accounts yet. Ask the admin to assign one.',
     ),
   ).toBeTruthy();
+});
+
+it('marks my planned shoot whose time has come, and only that one', () => {
+  // 22 Sep, 20:00 in Malaysia: MINE was at 19:30.
+  const now = Date.parse('2026-09-22T20:00:00+08:00');
+  const later = shoot(6, KEE, DAY, '21:00', 'Night market');
+  render(<Tracker initial={[MINE, THEIRS, later]} meId={KEE} now={now} />);
+  const card = (title: string) => screen.getByText(title).closest('li')!;
+  expect(card('Hotpot shop').textContent).toContain('Time to pass videos');
+  expect(card('Night market').textContent).toContain('Planned');
+  // Someone else's shoot is theirs to pass on.
+  expect(card('Furniture shop').textContent).toContain('Planned');
 });
 
 it('keeps the form open and says why when the server refuses', async () => {

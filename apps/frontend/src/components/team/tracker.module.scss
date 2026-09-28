@@ -91,3 +91,56 @@
     border-color: rgba(255, 255, 255, 0.2);
   }
 }
+
+// A shoot whose time has come and whose videos are not passed on yet: a
+// slow, soft glow — noticeable, never a flash (the owner: not too showy).
+// Still for anyone who asks for reduced motion.
+.due {
+  animation: due-glow 2.8s ease-in-out infinite;
+}
+
+.dueDot {
+  animation: due-dot 2.8s ease-in-out infinite;
+}
+
+@keyframes due-glow {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 0 1px rgba(242, 230, 0, 0.28),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 1px rgba(242, 230, 0, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07),
+      0 0 18px rgba(242, 230, 0, 0.14);
+  }
+}
+
+@keyframes due-dot {
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(242, 230, 0, 0.45);
+  }
+  50% {
+    opacity: 0.55;
+    box-shadow: 0 0 0 4px rgba(242, 230, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .due,
+  .dueDot {
+    animation: none;
+  }
+}
+
+// The account board's column a card is being dragged over. A module class,
+// like .today: a Tailwind ring would lose to .inset's own box-shadow.
+.dropTarget {
+  box-shadow:
+    inset 0 0 0 2px rgba(242, 230, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}

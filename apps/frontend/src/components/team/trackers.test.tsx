@@ -46,6 +46,22 @@ jest.mock('./glass-panel', () => ({
   }) => <div className={className}>{children}</div>,
 }));
 jest.mock('./tracker.module.scss', () => ({}));
+// The trackers' clock, pinned: 30 Sep, 08:00 in Malaysia — before the
+// sample shoots, so none is due whatever day the tests run on.
+jest.mock('./tracker-shell', () => ({
+  ...jest.requireActual('./tracker-shell'),
+  useNow: () => Date.parse('2026-09-30T08:00:00+08:00'),
+}));
+
+// jsdom has <dialog> but not its modal methods.
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+    this.setAttribute('open', '');
+  };
+  HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+    this.removeAttribute('open');
+  };
+});
 
 const KEE = 'aaaaaaaa-0000-4000-8000-000000000001';
 const ZUWEI = 'aaaaaaaa-0000-4000-8000-000000000002';
@@ -232,6 +248,22 @@ describe('the staff tracker', () => {
     const spot = screen.getByRole('region', { name: 'Upcoming' });
     fireEvent.click(within(spot).getAllByRole('button')[1]);
     expect(push).toHaveBeenCalledWith('?month=2026-10&day=2026-10-01');
+  });
+
+  it('pops up the work waiting for me, once', () => {
+    window.localStorage.clear();
+    const { unmount } = renderStaff();
+    const box = within(document.querySelector<HTMLElement>('dialog[open]')!);
+    // KEE edits Reel 1 and verifies Reel 2, cut by MEI.
+    expect(box.getByText('New videos to edit')).toBeTruthy();
+    expect(box.getByText('Reel 1')).toBeTruthy();
+    expect(box.getByText('Edited — ready for you to verify')).toBeTruthy();
+    expect(box.getByText('Reel 2')).toBeTruthy();
+    fireEvent.click(box.getByRole('button', { name: 'Got it' }));
+    expect(document.querySelector('dialog[open]')).toBeNull();
+    unmount();
+    renderStaff();
+    expect(document.querySelector('dialog[open]')).toBeNull();
   });
 
   it('lists my videos with who edits and who verifies them', () => {

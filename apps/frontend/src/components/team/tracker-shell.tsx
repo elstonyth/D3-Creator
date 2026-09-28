@@ -10,7 +10,12 @@
  * on the month, so state resets cleanly); a day inside the month is local.
  */
 
-import { useState, useTransition, type ReactNode } from 'react';
+import {
+  useState,
+  useSyncExternalStore,
+  useTransition,
+  type ReactNode,
+} from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { AuroraBackground } from '@gitroom/frontend/components/ui/aurora-background';
@@ -33,6 +38,25 @@ export function fmtDate(
 ): string {
   return new Intl.DateTimeFormat(tag, { timeZone: 'UTC', ...opts }).format(
     new Date(`${key}T00:00:00Z`),
+  );
+}
+
+const MINUTE = 60_000;
+
+function everyFewSeconds(tick: () => void) {
+  const id = window.setInterval(tick, 15_000);
+  return () => window.clearInterval(id);
+}
+
+/**
+ * The time now, to the minute, in the browser; null on the server and while
+ * hydrating, so nothing that depends on the clock renders there.
+ */
+export function useNow(): number | null {
+  return useSyncExternalStore(
+    everyFewSeconds,
+    () => Math.floor(Date.now() / MINUTE) * MINUTE,
+    () => null,
   );
 }
 
@@ -131,8 +155,11 @@ export function TrackerScene({
 
 export interface SpotDay {
   key: string;
-  /** One line per thing that day, already worded. */
-  items: { id: string; label: string }[];
+  /**
+   * One line per thing that day, already worded; `due` = a shoot whose time
+   * has come and whose videos wait to be passed on (its dot glows).
+   */
+  items: { id: string; label: string; due?: boolean }[];
   /** A line under the list (today's queue), if any. */
   note?: string | null;
 }
@@ -203,10 +230,18 @@ export function Spotlight({
                           aria-hidden
                           className={cn(
                             'mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full',
-                            isToday ? 'bg-brand' : 'bg-fg-muted',
+                            isToday || e.due ? 'bg-brand' : 'bg-fg-muted',
+                            e.due && s.dueDot,
                           )}
                         />
-                        <span className="min-w-0 break-words">{e.label}</span>
+                        <span className="min-w-0 break-words">
+                          {e.label}
+                          {e.due ? (
+                            <span className="ml-2 text-caption text-brand">
+                              {t('Time to pass videos')}
+                            </span>
+                          ) : null}
+                        </span>
                       </li>
                     ))}
                     {items.length > 4 ? (
