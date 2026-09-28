@@ -322,10 +322,19 @@ function PendingCard({
   onReject: () => void;
 }) {
   const { t } = useI18n();
-  const [mode, setMode] = useState<'new' | 'link'>('new');
+  // Someone on the board with their name and no login is almost always them
+  // signing up: approved as a new person instead, the old person's accounts
+  // are left with nobody on the account board. Offered, never forced; with
+  // two of that name, the admin picks which.
+  const same = unlinked.filter(
+    (m) => m.name.trim().toLowerCase() === p.name.trim().toLowerCase(),
+  );
+  const [mode, setMode] = useState<'new' | 'link'>(
+    same.length > 0 ? 'link' : 'new',
+  );
   const [name, setName] = useState(p.name);
   const [kind, setKind] = useState<MemberKind>(p.kind);
-  const [memberId, setMemberId] = useState('');
+  const [memberId, setMemberId] = useState(same.length === 1 ? same[0].id : '');
   const [rejecting, setRejecting] = useState(false);
   const ready = mode === 'new' ? name.trim() !== '' : memberId !== '';
 
