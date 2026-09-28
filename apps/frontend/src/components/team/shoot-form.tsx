@@ -4,9 +4,9 @@
  * Add / edit one shoot: the day, a time if there is one, and optionally
  * which account — all staff need to know is when and where to be. It no
  * longer asks where or what, or for a note (the owner's calls); an old shoot
- * keeps the title and note it was saved with. Moving a shoot to another day
- * or time asks why (the client changed it, and so on). The server parses and
- * validates; this form only collects strings.
+ * keeps the title and note it was saved with. Every change to a saved shoot
+ * asks why (the client changed the time, and so on) — the owner's call too.
+ * The server parses and validates; this form only collects strings.
  */
 
 import { useId, useState, type FormEvent, type MouseEvent } from 'react';
@@ -27,7 +27,7 @@ export interface ShootDraft {
   date: string;
   time: string;
   creatorId: string;
-  /** Why it is moving: asked only when a change moves it. */
+  /** Why it changed: asked of every change to a saved shoot. */
   reason: string;
 }
 
@@ -70,7 +70,7 @@ export function ShootForm({
    * day. `initial` stays what a move is measured from.
    */
   startDate?: string;
-  /** Changing a saved shoot (not adding one): a move asks why. */
+  /** Changing a saved shoot (not adding one): it asks why. */
   editing?: boolean;
   accounts: { id: string; name: string }[];
   /** `accounts` is only the ones this person handles: say so. */
@@ -87,19 +87,18 @@ export function ShootForm({
   const id = useId();
   const [d, setD] = useState({ ...initial, date: startDate ?? initial.date });
   const set = (patch: Partial<ShootDraft>) => setD((p) => ({ ...p, ...patch }));
+  // Only for the hint: what it is moving from.
   const moving =
     editing &&
     isMove(
       { date: initial.date, time: initial.time || null },
       { date: d.date, time: d.time || null },
     );
-  const ready = !!d.date && (!moving || !!d.reason.trim());
+  const ready = !!d.date && (!editing || !!d.reason.trim());
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    if (!ready) return;
-    // A reason only goes with a move.
-    onSave(moving ? d : { ...d, reason: '' });
+    if (ready) onSave(d);
   }
 
   const was = [
@@ -172,11 +171,11 @@ export function ShootForm({
         </Select>
       </Field>
 
-      {moving ? (
+      {editing ? (
         <Field
-          label={t('Why is it moving?')}
+          label={t('Why the change?')}
           htmlFor={`${id}-reason`}
-          hint={t('Moving from {when}.', { when: was })}
+          hint={moving ? t('Moving from {when}.', { when: was }) : undefined}
         >
           <Input
             id={`${id}-reason`}
@@ -185,7 +184,7 @@ export function ShootForm({
             list={`${id}-reasons`}
             placeholder={t('The client changed the time')}
             maxLength={REASON_MAX}
-            aria-describedby={`${id}-reason-hint`}
+            aria-describedby={moving ? `${id}-reason-hint` : undefined}
             autoComplete="off"
             autoFocus={!!startDate}
             required

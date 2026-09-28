@@ -47,7 +47,7 @@ export interface ShootInput {
   date: string;
   time: string | null;
   creatorId: string | null;
-  /** Why it is moving, when a change moves it (isMove). */
+  /** Why it changed: every change to a saved shoot says why. */
   reason: string | null;
 }
 
@@ -91,7 +91,7 @@ export function parseShootInput(v: unknown): Parsed<ShootInput> {
   if (creatorId !== null && !isUuid(creatorId))
     return { ok: false, message: 'Invalid account.' };
   if (!blank(o.reason) && typeof o.reason !== 'string')
-    return { ok: false, message: 'Say why the shoot is moving.' };
+    return { ok: false, message: 'Say why the shoot is changing.' };
   const reason = blank(o.reason)
     ? null
     : (o.reason as string).replace(/\s+/g, ' ').trim();
@@ -148,8 +148,8 @@ export function isMove(
  * The columns an edit writes: only the fields that differ from what the form
  * started with, so a form left open in another tab doesn't undo a newer
  * change to a field it never touched. With no starting point every field is
- * written. A move (isMove) also writes why — the caller refuses one without
- * a reason.
+ * written. Any change also writes why — the caller refuses one without a
+ * reason (the owner's call).
  */
 export function shootPatch(
   next: ShootInput,
@@ -164,13 +164,6 @@ export function shootPatch(
   if (next.date !== was('date')) patch.shoot_date = next.date;
   if (next.time !== was('time')) patch.start_time = next.time;
   if (next.creatorId !== was('creatorId')) patch.creator_id = next.creatorId;
-  const date = was('date');
-  const time = was('time');
-  if (
-    typeof date === 'string' &&
-    time !== undefined &&
-    isMove({ date, time: time as string | null }, next)
-  )
-    patch.moved_reason = next.reason;
+  if (Object.keys(patch).length > 0) patch.moved_reason = next.reason;
   return patch;
 }

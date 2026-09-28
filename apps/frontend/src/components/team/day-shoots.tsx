@@ -487,7 +487,7 @@ function ShootItem({
           ) : null}
           {x.movedReason ? (
             <p className="mt-1 break-words text-caption text-fg-muted">
-              {t('Moved: {reason}', { reason: x.movedReason })}
+              {t('Changed: {reason}', { reason: x.movedReason })}
             </p>
           ) : null}
           {x.note ? (

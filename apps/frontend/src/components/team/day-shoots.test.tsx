@@ -153,6 +153,8 @@ it('adds a shoot for the day it was opened on', async () => {
   expect(screen.queryByLabelText(/Where/)).toBeNull();
   expect(screen.queryByRole('textbox', { name: /what/i })).toBeNull();
   expect(screen.queryByLabelText(/Note/)).toBeNull();
+  // A new shoot has nothing to explain.
+  expect(screen.queryByLabelText('Why the change?')).toBeNull();
   fireEvent.change(screen.getByLabelText(/Time/), {
     target: { value: '11:30' },
   });
@@ -281,7 +283,7 @@ it('marks my planned shoot whose time has come, and only that one', () => {
   expect(card('Furniture shop').textContent).toContain('Planned');
 });
 
-it('asks why when a shoot moves to another day or time, and says it moved', async () => {
+it('asks why before any change to a saved shoot is saved, and shows why', async () => {
   (updateShoot as jest.Mock).mockResolvedValue({
     ok: true,
     shoot: {
@@ -292,17 +294,19 @@ it('asks why when a shoot moves to another day or time, and says it moved', asyn
   });
   render(<Tracker initial={[MINE]} meId={KEE} />);
   fireEvent.click(screen.getByRole('button', { name: 'Change Hotpot shop' }));
-  // Nothing moved yet: no reason asked for.
-  expect(screen.queryByLabelText('Why is it moving?')).toBeNull();
-  fireEvent.change(screen.getByLabelText(/Time/), {
-    target: { value: '21:00' },
-  });
+  // Asked from the start: whatever changes, nothing saves without it.
   const save = screen.getByRole('button', {
     name: 'Save',
   }) as HTMLButtonElement;
+  expect(screen.getByLabelText('Why the change?')).toBeTruthy();
+  expect(save.disabled).toBe(true);
+  expect(screen.queryByText(/Moving from/)).toBeNull();
+  fireEvent.change(screen.getByLabelText(/Time/), {
+    target: { value: '21:00' },
+  });
   expect(save.disabled).toBe(true);
   expect(screen.getByText(/Moving from .*19:30\./)).toBeTruthy();
-  fireEvent.change(screen.getByLabelText('Why is it moving?'), {
+  fireEvent.change(screen.getByLabelText('Why the change?'), {
     target: { value: 'The client changed the time' },
   });
   expect(save.disabled).toBe(false);
@@ -319,7 +323,7 @@ it('asks why when a shoot moves to another day or time, and says it moved', asyn
     },
     { date: DAY, time: '19:30', creatorId: '', reason: '' },
   );
-  expect(screen.getByText('Moved: The client changed the time')).toBeTruthy();
+  expect(screen.getByText('Changed: The client changed the time')).toBeTruthy();
 });
 
 it('opens the day’s and the time’s picker on a click, adding or changing', () => {
@@ -623,7 +627,7 @@ describe('dragging a shoot onto another day', () => {
     expect((screen.getByLabelText('Day') as HTMLInputElement).value).toBe(
       '2026-09-25',
     );
-    const why = screen.getByLabelText('Why is it moving?');
+    const why = screen.getByLabelText('Why the change?');
     expect(document.activeElement).toBe(why);
     fireEvent.change(why, { target: { value: 'Client asked' } });
     await act(async () => {
@@ -646,14 +650,14 @@ describe('dragging a shoot onto another day', () => {
   it('never takes a drop on the shoot’s own day', async () => {
     const same = withDay(DAY);
     expect(await drop(card('Hotpot shop'), same)).toBe(false);
-    expect(screen.queryByLabelText('Why is it moving?')).toBeNull();
+    expect(screen.queryByLabelText('Why the change?')).toBeNull();
   });
 
   it('never drags a shoot into the past', async () => {
     // Today is the 23rd in these tests.
     const earlier = withDay('2026-09-21');
     expect(await drop(card('Hotpot shop'), earlier)).toBe(false);
-    expect(screen.queryByLabelText('Why is it moving?')).toBeNull();
+    expect(screen.queryByLabelText('Why the change?')).toBeNull();
   });
 
   it('never moves a shoot into a closed month', async () => {
@@ -709,7 +713,7 @@ describe('dragging a shoot onto another day', () => {
     fireEvent.blur(window);
     expect(day25.hasAttribute('data-drop-over')).toBe(false);
     fireEvent.pointerUp(window, { clientX: 60, clientY: 320 });
-    expect(screen.queryByLabelText('Why is it moving?')).toBeNull();
+    expect(screen.queryByLabelText('Why the change?')).toBeNull();
   });
 
   it('lets a new press through when a finger’s release never came', async () => {
@@ -724,6 +728,6 @@ describe('dragging a shoot onto another day', () => {
     });
     // …does not block the next drag.
     expect(await drop(card('Hotpot shop'), day25)).toBe(true);
-    expect(screen.getByLabelText('Why is it moving?')).toBeTruthy();
+    expect(screen.getByLabelText('Why the change?')).toBeTruthy();
   });
 });

@@ -65,6 +65,7 @@ function fakeDb(shootRows: unknown[], videoRows: unknown[] | null = null) {
 const form = (creatorId: string | null) => ({
   date: '2099-01-05',
   creatorId,
+  reason: 'Wrong account',
 });
 const row = (creatorId: string | null) => ({
   id: ID,
@@ -86,6 +87,11 @@ it('moves the videos to the corrected account, or off one', async () => {
     const calls = fakeDb([row(next)]);
     const r = await updateShoot(ID, form(next), form(ACC_A));
     expect(r).toMatchObject({ ok: true, shoot: { creatorId: next } });
+    // An account-only change says why too.
+    expect(calls[0].steps.find((s) => s[0] === 'update')?.[1]).toMatchObject({
+      creator_id: next,
+      moved_reason: 'Wrong account',
+    });
     const videos = calls.find(
       (c) => c.table === 'tracker_video' && c.steps[0][0] === 'update',
     );
@@ -212,13 +218,21 @@ describe('passing videos on keeps the account board up to date', () => {
   });
 });
 
-describe('moving a shoot', () => {
+describe('changing a shoot', () => {
   const at = { date: '2099-01-05', time: '17:00', creatorId: ACC_A };
 
-  it('refuses a move that does not say why, before writing', async () => {
+  it('refuses any change that does not say why, before writing', async () => {
     const calls = fakeDb([row(ACC_A)]);
-    const r = await updateShoot(ID, { ...at, time: '19:00' }, at);
-    expect(r).toEqual({ ok: false, message: 'Say why the shoot is moving.' });
+    for (const [next, before] of [
+      [{ ...at, time: '19:00' }, at],
+      [{ ...at, creatorId: ACC_B }, at],
+      // Not told what the form started with: still refused.
+      [{ ...at, date: '2099-01-06' }, undefined],
+    ])
+      expect(await updateShoot(ID, next, before)).toEqual({
+        ok: false,
+        message: 'Say why the shoot is changing.',
+      });
     expect(calls).toHaveLength(0);
   });
 
