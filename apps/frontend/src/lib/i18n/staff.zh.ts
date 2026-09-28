@@ -310,6 +310,7 @@ export const staffZh: Readonly<Record<string, string>> = {
   // ---- Changing a shoot: why -------------------------------------------------
   'Why the change?': '为什么修改？',
   'The client changed the time': '顾客改了时间',
+  'e.g. the client changed the time': '例如：顾客改了时间',
   'Moving from {when}.': '原定 {when}。',
   'Say why the shoot is changing.': '请说明修改的原因。',
   'Keep the reason under 200 characters.': '原因最多 200 字。',

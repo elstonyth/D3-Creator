@@ -182,7 +182,7 @@ export function ShootForm({
             value={d.reason}
             onChange={(e) => set({ reason: e.target.value })}
             list={`${id}-reasons`}
-            placeholder={t('The client changed the time')}
+            placeholder={t('e.g. the client changed the time')}
             maxLength={REASON_MAX}
             aria-describedby={moving ? `${id}-reason-hint` : undefined}
             autoComplete="off"
