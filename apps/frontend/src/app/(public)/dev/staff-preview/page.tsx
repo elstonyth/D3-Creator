@@ -21,6 +21,10 @@ import { AdminTracker } from '@gitroom/frontend/components/team/admin-tracker';
 import { HistoryView } from '@gitroom/frontend/components/team/history-view';
 import { PersonVideos } from '@gitroom/frontend/components/team/person-videos';
 import { TeamManager } from '@gitroom/frontend/app/(admin)/admin/team/team-manager';
+import {
+  removeVideo,
+  placeAccount,
+} from '@gitroom/frontend/app/(admin)/admin/tracker/actions';
 
 export const metadata: Metadata = {
   title: 'Staff portal preview — D3 Creator',
@@ -49,6 +53,7 @@ const accounts = [
   { id: acct(2), name: '做火锅的老黄' },
   { id: acct(3), name: '老头子阿玮' },
   { id: acct(4), name: 'Provisa小老板' },
+  { id: acct(5), name: '做家私的祥哥' },
 ];
 
 // The admin's account board: who handles and edits each account.
@@ -57,13 +62,15 @@ const board: AccountCard[] = [
   [KEE, MEI, 15, 19, 70_500, ['douyin', 'facebook', 'instagram']],
   [ZUWEI, HOWEN, 13, 16, 311_900, ['facebook', 'instagram', 'tiktok']],
   [
-    null,
+    HOWEN,
     null,
     29,
     29,
     4_300_000,
     ['douyin', 'facebook', 'instagram', 'tiktok'],
   ],
+  // A new client: the admin has not picked who handles it yet.
+  [null, null, 0, 0, 0, ['tiktok']],
 ].map(([handlerId, editorId, videos, posts, views, platforms], i) => ({
   ...accounts[i],
   avatarUrl: null,
@@ -123,6 +130,7 @@ export default async function StaffPreviewPage({
     videosShot: null,
     status: 'planned',
     note: null,
+    movedReason: null,
     ...extra,
   });
   const shoots: Shoot[] = [
@@ -144,7 +152,11 @@ export default async function StaffPreviewPage({
       note: 'Bring the gimbal',
     }),
     // Since the form stopped asking where / what: named by the account.
-    shoot(8, HOWEN, 1, '11:30', null, { creatorId: acct(4) }),
+    // Moved from another time, with why.
+    shoot(8, HOWEN, 1, '11:30', null, {
+      creatorId: acct(4),
+      movedReason: '顾客改了时间',
+    }),
     shoot(0, HOWEN, 0, null, null, { note: '下午，带补光灯' }),
     shoot(9, HOWEN, 4, '19:30', '海边', { status: 'cancelled' }),
   ];
@@ -242,6 +254,7 @@ export default async function StaffPreviewPage({
           verified={howenDone.verified.length}
           people={people}
           accounts={accounts}
+          handled={board.filter((c) => c.handlerId === HOWEN).map((c) => c.id)}
           meId={HOWEN}
         />
       ),
@@ -269,6 +282,8 @@ export default async function StaffPreviewPage({
           board={board}
           // The preview has one sample profile; the id rides along unused.
           profileBase="/dev/staff-preview?view=person&of="
+          removeVideo={removeVideo}
+          placeAccount={placeAccount}
         />
       ),
     },

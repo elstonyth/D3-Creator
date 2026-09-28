@@ -1,6 +1,9 @@
 import {
+  isDue,
+  isMove,
   isTimeKey,
   parseShootInput,
+  shootDueAt,
   shootPatch,
   sortShoots,
   weekDays,
@@ -40,7 +43,6 @@ describe('parseShootInput', () => {
     date: '2026-09-23',
     time: '19:30',
     creatorId: '',
-    note: ' bring the ring light ',
   };
 
   it('tidies a good entry', () => {
@@ -50,7 +52,7 @@ describe('parseShootInput', () => {
         date: '2026-09-23',
         time: '19:30',
         creatorId: null,
-        note: 'bring the ring light',
+        reason: null,
       },
     });
   });
@@ -63,12 +65,12 @@ describe('parseShootInput', () => {
         date: '2026-09-24',
         time: null,
         creatorId: null,
-        note: null,
+        reason: null,
       },
     });
-    expect(parseShootInput({ ...base, time: '', note: '   ' })).toMatchObject({
+    expect(parseShootInput({ ...base, time: '' })).toMatchObject({
       ok: true,
-      value: { time: null, note: null },
+      value: { time: null },
     });
   });
 
@@ -78,13 +80,12 @@ describe('parseShootInput', () => {
     expect(bad({ date: '2026-02-31' })).toMatchObject({ ok: false });
     expect(bad({ time: '7pm' })).toMatchObject({ ok: false });
     expect(bad({ creatorId: 'not-a-uuid' })).toMatchObject({ ok: false });
-    expect(bad({ note: 'x'.repeat(1001) })).toMatchObject({ ok: false });
     expect(parseShootInput(null)).toMatchObject({ ok: false });
   });
 
-  it('drops a title sent by an old page: the form no longer has one', () => {
-    const r = parseShootInput({ ...base, title: 'Hotpot shop' });
-    expect(r.ok && 'title' in r.value).toBe(false);
+  it('drops a title or note sent by an old page: the form has neither', () => {
+    const r = parseShootInput({ ...base, title: 'Hotpot shop', note: 'x' });
+    expect(r.ok && ('title' in r.value || 'note' in r.value)).toBe(false);
   });
 
   it('keeps a real account id', () => {
@@ -132,7 +133,6 @@ describe('shootPatch', () => {
     date: '2026-09-26',
     time: '10:00',
     creatorId: '',
-    note: '',
   };
   const next = (patch: Record<string, unknown> = {}) => {
     const p = parseShootInput({ ...form, ...patch });
@@ -142,19 +142,112 @@ describe('shootPatch', () => {
 
   it('writes only what the form changed', () => {
     expect(shootPatch(next(), form)).toEqual({});
-    expect(shootPatch(next({ note: 'Bring the lights' }), form)).toEqual({
-      note: 'Bring the lights',
+    // Taking a shoot's time away moves it: it says why (here, nothing yet).
+    expect(shootPatch(next({ time: '' }), form)).toEqual({
+      start_time: null,
+      moved_reason: null,
     });
-    expect(shootPatch(next({ time: '' }), form)).toEqual({ start_time: null });
+    // An old note is never written over.
+    expect(shootPatch(next({ note: 'Bring the lights' }), form)).toEqual({});
   });
 
   it('writes everything when it does not know what the form started with', () => {
-    // Never the title: an old shoot keeps the one it was saved with.
+    // Never the title or note: an old shoot keeps what it was saved with.
     expect(Object.keys(shootPatch(next(), null)).sort()).toEqual([
       'creator_id',
-      'note',
       'shoot_date',
       'start_time',
     ]);
+  });
+});
+
+describe('when a shoot is due', () => {
+  const at = (iso: string) => Date.parse(iso);
+  const s = (patch: Partial<Shoot>): Shoot => ({
+    id: 'x',
+    memberId: 'kee',
+    date: '2026-09-30',
+    time: '17:00',
+    title: null,
+    creatorId: null,
+    videosShot: null,
+    status: 'planned',
+    note: null,
+    ...patch,
+  });
+
+  it('is its start time in Malaysia, or the end of its day with no time', () => {
+    expect(shootDueAt(s({}))).toBe(at('2026-09-30T09:00:00Z'));
+    // No time: once the day is over — here across a month's end.
+    expect(shootDueAt(s({ time: null }))).toBe(at('2026-09-30T16:00:00Z'));
+  });
+
+  it('asks only the owner, only while planned, only once the time has come', () => {
+    const after = at('2026-09-30T17:00:00+08:00');
+    const before = after - 60_000;
+    expect(isDue(s({}), 'kee', after)).toBe(true);
+    expect(isDue(s({}), 'kee', before)).toBe(false);
+    expect(isDue(s({}), 'mei', after)).toBe(false);
+    expect(isDue(s({ status: 'done' }), 'kee', after)).toBe(false);
+    expect(isDue(s({ status: 'cancelled' }), 'kee', after)).toBe(false);
+    expect(
+      isDue(s({ time: null }), 'kee', at('2026-10-01T00:00:00+08:00')),
+    ).toBe(true);
+    expect(
+      isDue(s({ time: null }), 'kee', at('2026-09-30T23:59:00+08:00')),
+    ).toBe(false);
+  });
+});
+
+describe('moving a shoot', () => {
+  it('is another day, or another time than the one it had', () => {
+    const at = { date: '2026-09-29', time: '17:00' };
+    expect(isMove(at, { date: '2026-09-30', time: '17:00' })).toBe(true);
+    expect(isMove(at, { date: '2026-09-29', time: '19:00' })).toBe(true);
+    expect(isMove(at, { date: '2026-09-29', time: null })).toBe(true);
+    expect(isMove(at, at)).toBe(false);
+    // Giving an untimed shoot its first time is no move.
+    expect(
+      isMove(
+        { date: '2026-09-29', time: null },
+        { date: '2026-09-29', time: '10:00' },
+      ),
+    ).toBe(false);
+  });
+
+  it('tidies the reason, and refuses a long one', () => {
+    const base = { date: '2026-09-29', time: '17:00', creatorId: '' };
+    expect(
+      parseShootInput({ ...base, reason: '  client   changed it ' }),
+    ).toMatchObject({ ok: true, value: { reason: 'client changed it' } });
+    expect(parseShootInput({ ...base, reason: '   ' })).toMatchObject({
+      ok: true,
+      value: { reason: null },
+    });
+    expect(parseShootInput({ ...base, reason: 'x'.repeat(201) })).toMatchObject(
+      { ok: false },
+    );
+  });
+
+  it('writes why only with a move', () => {
+    const form = { date: '2026-09-29', time: '17:00', creatorId: '' };
+    const next = (patch: Record<string, unknown>) => {
+      const p = parseShootInput({ ...form, ...patch });
+      if (!p.ok) throw new Error(p.message);
+      return p.value;
+    };
+    expect(
+      shootPatch(next({ time: '19:00', reason: 'Client changed it' }), form),
+    ).toEqual({ start_time: '19:00', moved_reason: 'Client changed it' });
+    // A move with no reason still says so; the action refuses it.
+    expect(shootPatch(next({ date: '2026-09-30' }), form)).toEqual({
+      shoot_date: '2026-09-30',
+      moved_reason: null,
+    });
+    // Not a move: the reason is never written.
+    expect(shootPatch(next({ reason: 'x' }), form)).toEqual({});
+    expect(shootPatch(next({ time: '10:00' }), { ...form, time: '' })).toEqual({
+      start_time: '10:00',
+    });
   });
 });

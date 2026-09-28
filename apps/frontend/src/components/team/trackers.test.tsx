@@ -1,11 +1,11 @@
 /** @jest-environment jsdom */
 /**
  * The two Work Trackers put together: the staff one shows the person's own
- * work and lets them act on it; the admin's shows everyone's and offers
- * nothing that writes to it — only the account board, which is the admin's.
+ * work and lets them act on it; the admin's shows everyone's and offers no
+ * write but removing a video still being edited.
  */
 
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 
 import type { Shoot } from '@gitroom/frontend/lib/team/shoots';
 import type { Video } from '@gitroom/frontend/lib/team/videos';
@@ -46,6 +46,22 @@ jest.mock('./glass-panel', () => ({
   }) => <div className={className}>{children}</div>,
 }));
 jest.mock('./tracker.module.scss', () => ({}));
+// The trackers' clock, pinned: 30 Sep, 08:00 in Malaysia — before the
+// sample shoots, so none is due whatever day the tests run on.
+jest.mock('./tracker-shell', () => ({
+  ...jest.requireActual('./tracker-shell'),
+  useNow: () => Date.parse('2026-09-30T08:00:00+08:00'),
+}));
+
+// jsdom has <dialog> but not its modal methods.
+beforeAll(() => {
+  HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+    this.setAttribute('open', '');
+  };
+  HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+    this.removeAttribute('open');
+  };
+});
 
 const KEE = 'aaaaaaaa-0000-4000-8000-000000000001';
 const ZUWEI = 'aaaaaaaa-0000-4000-8000-000000000002';
@@ -128,6 +144,7 @@ describe('the staff tracker', () => {
         verified={5}
         people={people}
         accounts={accounts}
+        handled={[ACC]}
         meId={KEE}
       />,
     );
@@ -148,6 +165,7 @@ describe('the staff tracker', () => {
         verified={0}
         people={people}
         accounts={accounts}
+        handled={[ACC]}
         meId={KEE}
       />,
     );
@@ -210,6 +228,7 @@ describe('the staff tracker', () => {
         verified={5}
         people={people}
         accounts={accounts}
+        handled={[ACC]}
         meId={KEE}
       />,
     );
@@ -229,6 +248,53 @@ describe('the staff tracker', () => {
     const spot = screen.getByRole('region', { name: 'Upcoming' });
     fireEvent.click(within(spot).getAllByRole('button')[1]);
     expect(push).toHaveBeenCalledWith('?month=2026-10&day=2026-10-01');
+  });
+
+  it('pops up the work waiting for me, once', () => {
+    window.localStorage.clear();
+    const { unmount } = renderStaff();
+    const box = within(document.querySelector<HTMLElement>('dialog[open]')!);
+    // KEE edits Reel 1 and verifies Reel 2, cut by MEI.
+    expect(box.getByText('New videos to edit')).toBeTruthy();
+    expect(box.getByText('Reel 1')).toBeTruthy();
+    expect(box.getByText('Edited — ready for you to verify')).toBeTruthy();
+    expect(box.getByText('Reel 2')).toBeTruthy();
+    fireEvent.click(box.getByRole('button', { name: 'Got it' }));
+    expect(document.querySelector('dialog[open]')).toBeNull();
+    unmount();
+    renderStaff();
+    expect(document.querySelector('dialog[open]')).toBeNull();
+  });
+
+  it('takes a shoot dropped on a spotlight day, asking why it moves', async () => {
+    class FakePointerEvent extends MouseEvent {
+      pointerId = 1;
+      pointerType = 'mouse';
+    }
+    Object.assign(window, { PointerEvent: FakePointerEvent });
+    window.localStorage.clear();
+    renderStaff();
+    // Every calendar day takes a drop too.
+    expect(
+      document.querySelector('[data-drop="day:2026-09-15"]'),
+    ).not.toBeNull();
+    const tomorrow = document.querySelector('[data-drop="day:2026-10-01"]')!;
+    Object.assign(document, { elementFromPoint: () => tomorrow });
+    const hotpot = screen
+      .getByRole('button', { name: 'Change Hotpot shop' })
+      .closest('li')!;
+    fireEvent.pointerDown(hotpot, { button: 0, clientX: 10, clientY: 300 });
+    fireEvent.pointerMove(window, { clientX: 60, clientY: 320, buttons: 1 });
+    expect(tomorrow.hasAttribute('data-drop-over')).toBe(true);
+    await act(async () => {
+      fireEvent.pointerUp(window, { clientX: 60, clientY: 320 });
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect((screen.getByLabelText('Day') as HTMLInputElement).value).toBe(
+      '2026-10-01',
+    );
+    expect(screen.getByLabelText('Why is it moving?')).toBeTruthy();
+    Object.assign(document, { elementFromPoint: undefined });
   });
 
   it('lists my videos with who edits and who verifies them', () => {
@@ -296,23 +362,31 @@ describe('the admin’s tracker', () => {
           },
         ]}
         profileBase="/team"
+        removeVideo={jest.fn()}
+        placeAccount={jest.fn()}
       />,
     );
   }
 
-  it('offers nothing that writes', () => {
+  it('offers no write but who handles each account and removing a video still being edited', () => {
     renderAdmin();
-    // What is left to press only moves around: days, months, the cards.
+    // The rest only moves around: days, months, the cards.
     const writes =
       /^(\+ add|pass videos|change|cancel shoot|reopen|delete|done|verify|remove|undo|save|move)/i;
-    for (const b of screen.getAllByRole('button'))
-      expect(b.getAttribute('aria-label') ?? b.textContent).not.toMatch(writes);
+    expect(
+      screen
+        .getAllByRole('button')
+        .map((b) => b.getAttribute('aria-label') ?? b.textContent ?? '')
+        .filter((name) => writes.test(name)),
+    ).toEqual(['Remove Reel 1']);
     expect(screen.queryAllByRole('textbox')).toHaveLength(0);
     expect(screen.queryAllByRole('switch')).toHaveLength(0);
-    // The only select filters the video list.
-    expect(screen.getAllByRole('combobox').map((c) => c.id)).toEqual([
-      'videos-person',
-    ]);
+    // The selects: who handles each account, and the video list's filter.
+    expect(
+      screen
+        .getAllByRole('combobox')
+        .map((c) => c.getAttribute('aria-label') ?? c.id),
+    ).toEqual(['Handler for Gary', 'videos-person']);
   });
 
   it('shows who handles and who edits each account', () => {
@@ -325,11 +399,20 @@ describe('the admin’s tracker', () => {
     );
     const gary = zuwei.getByRole('listitem');
     expect(within(gary).getByText('Gary')).toBeTruthy();
+    // The admin drags the handler (a hidden select for the keyboard); the
+    // editor is the staff's choice.
     expect(
       within(gary)
         .getAllByRole('definition')
         .map((d) => d.textContent),
     ).toEqual(['ZUWEI', 'MEI']);
+    expect(
+      (
+        within(gary).getByRole('combobox', {
+          name: 'Handler for Gary',
+        }) as HTMLSelectElement
+      ).value,
+    ).toBe(ZUWEI);
     // MEI does both: a column of their own, and the one editing Gary.
     const mei = within(board.getByRole('region', { name: 'MEI’s accounts' }));
     expect(mei.getByText('Edits 1 account · 12 videos')).toBeTruthy();

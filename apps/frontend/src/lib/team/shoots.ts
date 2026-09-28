@@ -10,7 +10,11 @@
  */
 
 import { isUuid } from '@gitroom/frontend/lib/ids';
-import { addDays, isDateKey } from '@gitroom/frontend/lib/tracker';
+import {
+  addDays,
+  isDateKey,
+  TRACKER_TZ_OFFSET,
+} from '@gitroom/frontend/lib/tracker';
 
 export type ShootStatus = 'planned' | 'done' | 'cancelled';
 
@@ -27,22 +31,27 @@ export interface Shoot {
   /** How many videos have been passed on from it (set when they are). */
   videosShot: number | null;
   status: ShootStatus;
+  /** A note from before the form stopped asking for one; shown, never written. */
   note: string | null;
+  /** Why it was last moved to another day or time; null if never. */
+  movedReason: string | null;
 }
 
 /**
- * What a person fills in. The status changes separately: cancelled and back,
- * or done once videos are passed on from it. There is no title: the form no
- * longer asks where or what, and an old shoot's title is never written over.
+ * What a person fills in: when, and optionally for which account. The status
+ * changes separately: cancelled and back, or done once videos are passed on
+ * from it. There is no title and no note: the form no longer asks for them
+ * (the owner's call), and an old shoot's are never written over.
  */
 export interface ShootInput {
   date: string;
   time: string | null;
   creatorId: string | null;
-  note: string | null;
+  /** Why it is moving, when a change moves it (isMove). */
+  reason: string | null;
 }
 
-export const NOTE_MAX = 1000;
+export const REASON_MAX = 200;
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -81,15 +90,33 @@ export function parseShootInput(v: unknown): Parsed<ShootInput> {
   const creatorId = blank(o.creatorId) ? null : o.creatorId;
   if (creatorId !== null && !isUuid(creatorId))
     return { ok: false, message: 'Invalid account.' };
-  if (!blank(o.note) && typeof o.note !== 'string')
-    return { ok: false, message: 'Invalid note.' };
-  const note = blank(o.note) ? null : (o.note as string).trim();
-  if (note !== null && note.length > NOTE_MAX)
-    return { ok: false, message: 'Notes are limited to 1,000 characters.' };
-  return {
-    ok: true,
-    value: { date: o.date, time, creatorId, note },
-  };
+  if (!blank(o.reason) && typeof o.reason !== 'string')
+    return { ok: false, message: 'Say why the shoot is moving.' };
+  const reason = blank(o.reason)
+    ? null
+    : (o.reason as string).replace(/\s+/g, ' ').trim();
+  if (reason !== null && reason.length > REASON_MAX)
+    return { ok: false, message: 'Keep the reason under 200 characters.' };
+  return { ok: true, value: { date: o.date, time, creatorId, reason } };
+}
+
+/**
+ * When a shoot is due to have happened (epoch ms, Malaysia time): at its
+ * start time, or — for one with no time, "sometime that day" — once its day
+ * is over.
+ */
+export function shootDueAt(s: Pick<Shoot, 'date' | 'time'>): number {
+  return s.time
+    ? Date.parse(`${s.date}T${s.time}:00${TRACKER_TZ_OFFSET}`)
+    : Date.parse(`${addDays(s.date, 1)}T00:00:00${TRACKER_TZ_OFFSET}`);
+}
+
+/**
+ * One of `me`'s shoots that has happened but still has no videos passed on:
+ * planned, and its time has come. Its owner is asked to pass them on.
+ */
+export function isDue(s: Shoot, me: string, now: number): boolean {
+  return s.memberId === me && s.status === 'planned' && now >= shootDueAt(s);
 }
 
 /** By day, then time; a shoot with no time goes last in its day. Stable. */
@@ -104,10 +131,25 @@ export function sortShoots(list: Shoot[]): Shoot[] {
 }
 
 /**
+ * Whether a change moves a shoot: to another day, or to another time than the
+ * one it had. Giving a shoot with no time its first time is no move.
+ */
+export function isMove(
+  before: { date: string; time: string | null },
+  next: { date: string; time: string | null },
+): boolean {
+  return (
+    next.date !== before.date ||
+    (before.time !== null && next.time !== before.time)
+  );
+}
+
+/**
  * The columns an edit writes: only the fields that differ from what the form
  * started with, so a form left open in another tab doesn't undo a newer
  * change to a field it never touched. With no starting point every field is
- * written.
+ * written. A move (isMove) also writes why — the caller refuses one without
+ * a reason.
  */
 export function shootPatch(
   next: ShootInput,
@@ -122,6 +164,13 @@ export function shootPatch(
   if (next.date !== was('date')) patch.shoot_date = next.date;
   if (next.time !== was('time')) patch.start_time = next.time;
   if (next.creatorId !== was('creatorId')) patch.creator_id = next.creatorId;
-  if (next.note !== was('note')) patch.note = next.note;
+  const date = was('date');
+  const time = was('time');
+  if (
+    typeof date === 'string' &&
+    time !== undefined &&
+    isMove({ date, time: time as string | null }, next)
+  )
+    patch.moved_reason = next.reason;
   return patch;
 }

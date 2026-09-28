@@ -1,4 +1,4 @@
-import { boardOf } from './accounts';
+import { boardOf, orderWith, slotBefore } from './accounts';
 
 describe('boardOf', () => {
   const roster = [
@@ -47,5 +47,25 @@ describe('boardOf', () => {
     );
     expect(card.handlerId).toBeNull();
     expect(card.editorId).toBeNull();
+  });
+});
+
+describe('where a dragged card lands', () => {
+  const at = (id: string, top: number) => ({ id, top, bottom: top + 60 });
+  const column = [at('a', 0), at('b', 70), at('c', 140)];
+
+  it('goes before the first card whose middle is below the pointer', () => {
+    expect(slotBefore(10, column)).toBe('a');
+    expect(slotBefore(31, column)).toBe('b');
+    expect(slotBefore(171, column)).toBeNull();
+    expect(slotBefore(500, [])).toBeNull();
+  });
+
+  it('gives the column its new order', () => {
+    expect(orderWith(['a', 'b', 'c'], 'c', 'a')).toEqual(['c', 'a', 'b']);
+    expect(orderWith(['a', 'b', 'c'], 'a', null)).toEqual(['b', 'c', 'a']);
+    // From another column, or before a card that has left: at the end.
+    expect(orderWith(['a', 'b'], 'x', 'b')).toEqual(['a', 'x', 'b']);
+    expect(orderWith(['a', 'b'], 'x', 'gone')).toEqual(['a', 'b', 'x']);
   });
 });

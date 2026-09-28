@@ -2,9 +2,17 @@
 
 /**
  * The account board on the admin's Work Tracker: who handles each creator
- * account and who edits its videos. Read-only — staff work sets it: passing
- * a shoot's videos on makes its owner the account's handler and the editor
- * they chose its editor (lib/team/claim-account.ts). The admin only looks.
+ * account and who edits its videos.
+ *
+ * Who handles an account is the admin's to set, once, when a new client
+ * comes in: drag its card onto a person's column — with a mouse anywhere on
+ * the card, with a finger by its grip (use-drag.tsx). A card dropped between
+ * two others lands there: the order of each column is the admin's too.
+ * Staff work never moves a card. For the keyboard, each card has a Handler
+ * select that shows only when tabbed to (there is no keyboard reorder). The
+ * editor is the staff's to choose — passing a shoot's videos on sets it
+ * (lib/team/claim-account.ts) — so it only shows here. Without `onPlace` the
+ * board is read-only.
  *
  * One column per person who runs accounts (a handler, or someone who does
  * both) plus "Unassigned". Editors are not columns: they sit in a row of
@@ -12,7 +20,16 @@
  * comes from the scraped snapshots and follows the calendar's month.
  */
 
-import { useId } from 'react';
+import {
+  Fragment,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
+import { useRouter } from 'next/navigation';
+import { GripVertical } from 'lucide-react';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { cn } from '@gitroom/frontend/lib/utils';
 // clsx where a custom font-size token sits next to a text colour:
@@ -20,14 +37,20 @@ import { cn } from '@gitroom/frontend/lib/utils';
 import clsx from 'clsx';
 import { formatCompact } from '@gitroom/frontend/lib/creator-metrics';
 import { ImageWithFallback } from '@gitroom/frontend/components/ui/image-with-fallback';
+import { Select } from '@gitroom/frontend/components/ui/input';
 import {
   PLATFORM_ICONS,
   PLATFORM_LABELS,
   type PlatformKey,
 } from '@gitroom/frontend/components/ui/platform-icons';
 import type { MemberKind } from '@gitroom/frontend/lib/tracker';
-import type { AccountCard } from '@gitroom/frontend/lib/team/accounts';
+import {
+  orderWith,
+  slotBefore,
+  type AccountCard,
+} from '@gitroom/frontend/lib/team/accounts';
 import { GlassPanel } from './glass-panel';
+import { useDrag } from './use-drag';
 import s from './tracker.module.scss';
 
 const UNASSIGNED = '__unassigned__';
@@ -38,6 +61,15 @@ interface Person {
   kind: MemberKind;
   archived: boolean;
 }
+
+/** A column's new order after a drop, and the card that changed column. */
+export type PlaceAccount = (
+  order: string[],
+  move?: { creatorId: string; handlerId: string | null } | null,
+) => Promise<{ ok: boolean; message?: string }>;
+
+/** Where a dragged card would land: its column, before which card. */
+type Slot = { col: string; before: string | null };
 
 function platformKey(p: string): PlatformKey | null {
   if (p === 'rednote') return 'xiaohongshu';
@@ -53,15 +85,55 @@ interface EditedStats {
 export function AccountBoard({
   monthLabel,
   people,
-  accounts,
+  accounts: initialAccounts,
+  onPlace,
 }: {
   monthLabel: string;
   /** Everyone who is or was on the board; only those still on it get a place. */
   people: Person[];
   accounts: AccountCard[];
+  /** The admin's drop: a column's new order, and a handover if any. */
+  onPlace?: PlaceAccount;
 }) {
   const { t, locale } = useI18n();
+  const router = useRouter();
   const titleId = useId();
+  const [accounts, setAccounts] = useState(initialAccounts);
+  // A refresh brings the server's board again: it replaces this copy. The
+  // page hands the same array through until then.
+  const [fromServer, setFromServer] = useState(initialAccounts);
+  if (fromServer !== initialAccounts) {
+    setFromServer(initialAccounts);
+    setAccounts(initialAccounts);
+  }
+  // One drop at a time: a second can't land before a refused first is put
+  // back.
+  const [busy, setBusy] = useState(false);
+  // Where the dragged card would land; the ref is what a drop reads, since
+  // it can come before the render that shows it.
+  const [slot, setSlot] = useState<Slot | null>(null);
+  const slotRef = useRef<Slot | null>(null);
+  // The card whose Handler select was just used: it moves column, which
+  // remounts it, so focus is put back on it there — once the save is done,
+  // as the select is disabled until then.
+  const refocus = useRef<string | null>(null);
+  useEffect(() => {
+    const id = refocus.current;
+    if (!id || busy) return;
+    refocus.current = null;
+    document.querySelector<HTMLSelectElement>(`[data-pick="${id}"]`)?.focus();
+  });
+  // What the last drop did, or why it was refused.
+  const [notice, setNotice] = useState<{ id: number; text: string } | null>(
+    null,
+  );
+
+  // Show it for a few seconds, then clear it.
+  useEffect(() => {
+    if (!notice) return;
+    const id = window.setTimeout(() => setNotice(null), 4000);
+    return () => window.clearTimeout(id);
+  }, [notice]);
 
   const members = people.filter((p) => !p.archived);
   const nameOf = new Map(members.map((m) => [m.id, m.name]));
@@ -82,6 +154,90 @@ export function AccountBoard({
       ? c.handlerId
       : UNASSIGNED;
 
+  /** Put `id` in column `col`, before `before` (null = at the end). */
+  async function place(id: string, col: string, before: string | null) {
+    const card = accounts.find((c) => c.id === id);
+    if (!onPlace || busy || !card) return;
+    const was = accounts.filter((c) => columnOf(c) === col).map((c) => c.id);
+    const order = orderWith(was, id, before);
+    const moving = columnOf(card) !== col;
+    if (!moving && order.join() === was.join()) return;
+    const handlerId = col === UNASSIGNED ? null : col;
+    const byId = new Map(accounts.map((c) => [c.id, c]));
+    const prior = accounts;
+    const after = [
+      ...accounts.filter((c) => !order.includes(c.id)),
+      ...order.map((cid, i) => ({
+        ...byId.get(cid)!,
+        sortOrder: i,
+        ...(cid === id ? { handlerId } : {}),
+      })),
+    ];
+    setAccounts(after);
+    setBusy(true);
+    let r: { ok: boolean; message?: string };
+    try {
+      r = await onPlace(order, moving ? { creatorId: id, handlerId } : null);
+    } catch {
+      // A dropped connection or a stale deploy: a refusal, not a stuck card.
+      r = { ok: false, message: 'Could not save. Try again.' };
+    } finally {
+      setBusy(false);
+    }
+    if (!r.ok) {
+      // Back as it was — unless a refresh since has brought newer.
+      setAccounts((cur) => (cur === after ? prior : cur));
+      setNotice({
+        id: Date.now(),
+        text: t(r.message ?? 'Could not save. Try again.'),
+      });
+      return;
+    }
+    if (moving)
+      setNotice({
+        id: Date.now(),
+        text: handlerId
+          ? t('{account} is now handled by {name}.', {
+              account: card.name,
+              name: nameOf.get(handlerId) ?? '—',
+            })
+          : t('{account} is now unassigned.', { account: card.name }),
+      });
+    router.refresh();
+  }
+
+  const drag = useDrag({
+    accepts: (_id, key) => !!onPlace && !busy && key.startsWith('col:'),
+    onOver: (id, over, y) => {
+      let next: Slot | null = null;
+      if (over) {
+        // The column's other cards, where they are on screen right now.
+        const cards = Array.from(
+          over.el.querySelectorAll<HTMLElement>('[data-card]'),
+        )
+          .filter((n) => n.dataset.card !== id)
+          .map((n) => {
+            const r = n.getBoundingClientRect();
+            return { id: n.dataset.card!, top: r.top, bottom: r.bottom };
+          });
+        next = { col: over.key.slice(4), before: slotBefore(y, cards) };
+      }
+      const cur = slotRef.current;
+      if (cur?.col === next?.col && cur?.before === next?.before) return;
+      slotRef.current = next;
+      setSlot(next);
+    },
+    onDrop: (id, key) => {
+      const col = key.slice(4);
+      const at = slotRef.current;
+      slotRef.current = null;
+      setSlot(null);
+      void place(id, col, at?.col === col ? at.before : null);
+    },
+  });
+  // A cancelled drag leaves no line behind.
+  const line = drag.dragId ? slot : null;
+
   const edited = new Map<string, EditedStats>(
     members.map((m) => [m.id, { edits: 0, editedVideos: 0 }]),
   );
@@ -101,6 +257,8 @@ export function AccountBoard({
           videos: st.editedVideos,
         });
 
+  const insertLine = <li aria-hidden className="h-0.5 rounded-full bg-brand" />;
+
   return (
     <GlassPanel className="mt-4 p-4 sm:p-6 md:mt-6">
       <section aria-labelledby={titleId}>
@@ -110,15 +268,25 @@ export function AccountBoard({
           </h2>
           <p className="mt-1 text-body-sm text-fg-muted">
             {t(
-              'Who handles and who edits each account, updated as staff pass their videos on. Output is for {month}.',
+              'Who handles and who edits each account. Output is for {month}.',
               { month: monthLabel },
             )}
           </p>
+          {onPlace ? (
+            <p className="mt-1 text-body-sm text-fg-muted">
+              {t(
+                'Drag an account onto the person who handles it, and up or down to set the order. Editors follow what staff choose when they pass videos on.',
+              )}
+            </p>
+          ) : null}
           <p className="mt-1 text-caption text-fg-subtle">
             {t(
               'Videos = different videos posted in {month}. The same clip on several platforms counts once.',
               { month: monthLabel },
             )}
+          </p>
+          <p role="status" className="mt-2 text-body-sm text-fg">
+            {notice?.text}
           </p>
         </div>
 
@@ -157,6 +325,7 @@ export function AccountBoard({
           {columns.map((col) => {
             const cards = accounts.filter((c) => columnOf(c) === col.id);
             const ed = col.member ? edited.get(col.member.id) : undefined;
+            const lineHere = line?.col === col.id ? line : null;
             return (
               <section
                 key={col.id}
@@ -167,7 +336,8 @@ export function AccountBoard({
                     ? t('{name}’s accounts', { name: col.name })
                     : t('Unassigned accounts')
                 }
-                className={cn(s.inset, 'flex min-w-0 flex-col p-3')}
+                data-drop={onPlace ? `col:${col.id}` : undefined}
+                className={cn(s.inset, s.dropZone, 'flex min-w-0 flex-col p-3')}
               >
                 <header className="mb-3 px-1">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -220,21 +390,36 @@ export function AccountBoard({
                 ) : (
                   <ul className="flex flex-col gap-2">
                     {cards.map((c) => (
-                      <AccountItem
-                        key={c.id}
-                        account={c}
-                        // As the column says: a card in Unassigned has no
-                        // handler, even if its old one is still on the team.
-                        handler={
-                          col.member
-                            ? (nameOf.get(col.member.id) ?? null)
-                            : null
-                        }
-                        editor={
-                          c.editorId ? (nameOf.get(c.editorId) ?? null) : null
-                        }
-                      />
+                      <Fragment key={c.id}>
+                        {lineHere?.before === c.id ? insertLine : null}
+                        <AccountItem
+                          account={c}
+                          // As the column says: a card in Unassigned has no
+                          // handler, even if its old one is still on the team.
+                          handler={
+                            col.member
+                              ? (nameOf.get(col.member.id) ?? null)
+                              : null
+                          }
+                          editor={
+                            c.editorId ? (nameOf.get(c.editorId) ?? null) : null
+                          }
+                          column={col.id}
+                          handlers={handlers}
+                          movable={!!onPlace}
+                          busy={busy}
+                          dragging={drag.dragId === c.id}
+                          onPointerDown={(e) => {
+                            if (onPlace && !busy) drag.start(c.id, e);
+                          }}
+                          onPick={(to) => {
+                            refocus.current = c.id;
+                            void place(c.id, to, null);
+                          }}
+                        />
+                      </Fragment>
                     ))}
+                    {lineHere && lineHere.before === null ? insertLine : null}
                   </ul>
                 )}
               </section>
@@ -242,6 +427,7 @@ export function AccountBoard({
           })}
         </div>
       </section>
+      {drag.ghostOf(accounts.find((c) => c.id === drag.dragId)?.name)}
     </GlassPanel>
   );
 }
@@ -261,20 +447,58 @@ function AccountItem({
   account: c,
   handler,
   editor,
+  column,
+  handlers,
+  movable,
+  busy,
+  dragging,
+  onPointerDown,
+  onPick,
 }: {
   account: AccountCard;
   handler: string | null;
   editor: string | null;
+  /** The column it sits in: a handler's id, or Unassigned. */
+  column: string;
+  /** Who can be picked to handle it. */
+  handlers: { id: string; name: string }[];
+  movable: boolean;
+  /** A drop is being saved. */
+  busy: boolean;
+  dragging: boolean;
+  onPointerDown: (e: ReactPointerEvent) => void;
+  onPick: (column: string) => void;
 }) {
   const { t, locale } = useI18n();
+  const pickId = useId();
 
   return (
-    <li className={cn(s.inset, 'p-3')}>
+    <li
+      data-card={c.id}
+      onPointerDown={movable ? onPointerDown : undefined}
+      className={cn(
+        s.inset,
+        'p-3',
+        movable && 'cursor-grab active:cursor-grabbing',
+        dragging && 'opacity-40',
+      )}
+    >
       <div className="flex items-center gap-3">
+        {movable ? (
+          // The grip: where a finger picks the card up (the page scrolls
+          // under a finger anywhere else).
+          <span
+            data-drag-handle
+            title={t('Drag to move')}
+            className="-ml-1 flex h-10 w-6 shrink-0 touch-none items-center justify-center text-fg-subtle"
+          >
+            <GripVertical size={16} aria-hidden />
+          </span>
+        ) : null}
         <ImageWithFallback
           src={c.avatarUrl}
           alt=""
-          className="h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-white/15"
+          className="pointer-events-none h-10 w-10 shrink-0 rounded-full object-cover ring-1 ring-white/15"
           fallback={
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-label text-fg ring-1 ring-white/15">
               {c.name.slice(0, 1).toUpperCase()}
@@ -321,6 +545,36 @@ function AccountItem({
         <Who label={t('Handler')} name={handler ?? t('Unassigned')} />
         <Who label={t('Editor')} name={editor ?? t('Nobody')} />
       </dl>
+
+      {movable ? (
+        // For the keyboard: hidden until tabbed to (drag is pointer-only).
+        <div className="sr-only focus-within:not-sr-only focus-within:mt-3 focus-within:block">
+          <label
+            htmlFor={pickId}
+            className="text-micro uppercase tracking-[0.1em] text-fg-subtle"
+          >
+            {t('Handler')}
+          </label>
+          <Select
+            id={pickId}
+            data-pick={c.id}
+            aria-label={t('Handler for {account}', { account: c.name })}
+            value={column === UNASSIGNED ? '' : column}
+            onChange={(e) => onPick(e.target.value || UNASSIGNED)}
+            disabled={busy}
+            // No text size here: cn() would read it as a colour and drop
+            // the control's own (see tracker-shell.tsx).
+            className="mt-0.5 h-9"
+          >
+            <option value="">{t('Unassigned')}</option>
+            {handlers.map((h) => (
+              <option key={h.id} value={h.id}>
+                {h.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      ) : null}
     </li>
   );
 }

@@ -53,8 +53,6 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Pick a day.': '请选择日期。',
   'Time must look like 19:30.': '时间格式应为 19:30。',
   'Invalid account.': '账号无效。',
-  'Invalid note.': '备注无效。',
-  'Notes are limited to 1,000 characters.': '备注最多 1000 字。',
   'Invalid shoot.': '拍摄记录无效。',
   'That shoot is already gone.': '这条拍摄已被删除。',
   '{name} (left)': '{name}（已离职）',
@@ -210,6 +208,10 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Remove {title}': '移除 {title}',
   'Remove this video? It leaves the editor’s list too.':
     '移除这条视频？剪辑的列表里也会一并移除。',
+  'Remove this video? It leaves the handler’s and editor’s lists too.':
+    '移除这条视频？负责人和剪辑的列表里也会一并移除。',
+  'That video is already gone, or its editor is done.':
+    '这条视频已不在，或剪辑已完成。',
   'Edit done: “{title}” is waiting to be verified.':
     '剪辑完成：“{title}” 正在等待审核。',
   'Verified: “{title}”.': '已审核：“{title}”。',
@@ -280,8 +282,42 @@ export const staffZh: Readonly<Record<string, string>> = {
 
   // ---- Admin tracker: the account board ---------------------------------------
   'Personnel & client configuration': '人员与客户分配',
-  'Who handles and who edits each account, updated as staff pass their videos on. Output is for {month}.':
-    '每个账号由谁负责、谁剪辑，随员工交出视频自动更新。数据统计月份：{month}。',
+  'Who handles and who edits each account. Output is for {month}.':
+    '每个账号由谁负责、谁剪辑。数据统计月份：{month}。',
+  'Drag an account onto the person who handles it, and up or down to set the order. Editors follow what staff choose when they pass videos on.':
+    '把账号拖到负责人那一栏，上下拖动可调整顺序。剪辑由员工交出视频时自己选。',
+  'Drag to move': '拖动以移动',
+  'Drag a shoot (on a phone, by its ⠿ grip) onto a day on the calendar to move it.':
+    '把拍摄拖到日历上的某一天即可改期（手机上请按住 ⠿ 拖动）。',
+  'Invalid order.': '顺序无效。',
+  'Handler for {account}': '{account} 的负责人',
+  'You handle no accounts yet. Ask the admin to assign one.':
+    '你还没有负责的账号。请管理员给你分配。',
+  'Only the accounts you handle.': '只列出你负责的账号。',
+
+  // ---- What needs you now: the pop-up and the due shoots ----------------------
+  'Time to pass videos': '该交出视频了',
+  'Waiting for you': '有事等你处理',
+  'Shoot time is up — pass the videos on': '拍摄时间到了——请交出视频',
+  'New videos to edit': '新的剪辑任务',
+  'Edited — ready for you to verify': '剪好了，等你审核',
+  'From {name}': '来自 {name}',
+  'Cut by {name}': '{name} 剪辑',
+  'Go to my videos': '去我的视频',
+  Later: '稍后',
+  'Got it': '知道了',
+
+  // ---- Moving a shoot: why ---------------------------------------------------
+  'Why is it moving?': '为什么改期？',
+  'The client changed the time': '顾客改了时间',
+  'Moving from {when}.': '原定 {when}。',
+  'Say why the shoot is moving.': '请说明改期的原因。',
+  'Keep the reason under 200 characters.': '原因最多 200 字。',
+  'Moved: {reason}': '已改期：{reason}',
+  '{account} is now handled by {name}.': '{account} 现在由 {name} 负责。',
+  '{account} is now unassigned.': '{account} 现在未分配。',
+  'That person is not on the board, or does not handle accounts.':
+    '此人已不在看板上，或不负责账号。',
   'No accounts yet.': '还没有账号。',
   'Videos = different videos posted in {month}. The same clip on several platforms counts once.':
     '视频数 = {month} 发布的不同视频数量；同一条视频发在多个平台只算一次。',

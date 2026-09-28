@@ -7,6 +7,7 @@ import { isAdminHost } from '@gitroom/frontend/lib/portal-host';
 import { isDateKey, isMonthKey, todayKey } from '@gitroom/frontend/lib/tracker';
 import { loadAdminTracker } from '@gitroom/frontend/lib/team/tracker-data';
 import { AdminTracker } from '@gitroom/frontend/components/team/admin-tracker';
+import { placeAccount, removeVideo } from './actions';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -21,8 +22,10 @@ interface PageProps {
 }
 
 /**
- * Everyone's Work Tracker, read-only: the shoots staff schedule, the videos
- * they pass on, who edits and who verifies each, as they update their own.
+ * Everyone's Work Tracker: the shoots staff schedule, the videos they pass
+ * on, who edits and who verifies each, as they update their own. The admin
+ * sets who handles each account and can remove a video still being edited
+ * (./actions); the rest is staff's.
  */
 export default async function AdminTrackerPage({ searchParams }: PageProps) {
   const auth = await getAuthContext();
@@ -48,6 +51,8 @@ export default async function AdminTrackerPage({ searchParams }: PageProps) {
       today={today}
       initialDay={day}
       profileBase={profileBase}
+      removeVideo={removeVideo}
+      placeAccount={placeAccount}
     />
   );
 }

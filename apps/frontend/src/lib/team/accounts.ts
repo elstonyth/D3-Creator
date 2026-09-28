@@ -1,8 +1,9 @@
 /**
  * The account board on the admin's Work Tracker: every creator account (an
- * IP), who handles it and who edits its videos — fixed per account, set by
- * staff work (claim-account.ts) — with the viewed month's output. Pure:
- * shared by the board (client) and its loader.
+ * IP), who handles it (the admin's to set, by dragging) and who edits its
+ * videos (staff's choice, claim-account.ts), in the order the admin keeps,
+ * with the viewed month's output. Pure: shared by the board (client) and
+ * its loader.
  */
 
 import type { RosterAccount } from './load';
@@ -69,4 +70,29 @@ export function boardOf(
       // Stable: cards the team never ordered keep the roster's name order.
       .sort((a, b) => a.sortOrder - b.sortOrder)
   );
+}
+
+/**
+ * Where a card dragged over a column lands: before the first card whose
+ * middle is below the pointer, or at the end (null). `cards` are the
+ * column's others, top to bottom, as they sit on screen now.
+ */
+export function slotBefore(
+  y: number,
+  cards: { id: string; top: number; bottom: number }[],
+): string | null {
+  for (const c of cards) if (y < (c.top + c.bottom) / 2) return c.id;
+  return null;
+}
+
+/** A column's order once `id` lands before `before` (null = at the end). */
+export function orderWith(
+  column: string[],
+  id: string,
+  before: string | null,
+): string[] {
+  const rest = column.filter((x) => x !== id);
+  const at = before === null ? -1 : rest.indexOf(before);
+  const i = at === -1 ? rest.length : at;
+  return [...rest.slice(0, i), id, ...rest.slice(i)];
 }

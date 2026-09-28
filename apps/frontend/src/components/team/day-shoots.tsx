@@ -18,16 +18,30 @@
  * Staff change, cancel and delete from this month on; earlier shoots are
  * closed (the server enforces it too), because a counted month stays put.
  * Passing videos on has no such limit.
+ *
+ * A shoot of theirs can also be dragged onto another day — a calendar day or
+ * a spotlight card (anything marked data-drop="day:…", use-drag.tsx). That
+ * opens its Change form on the new day, which asks why it is moving.
  */
 
-import { useState, type Dispatch, type SetStateAction } from 'react';
+import {
+  useState,
+  type Dispatch,
+  type PointerEvent as ReactPointerEvent,
+  type SetStateAction,
+} from 'react';
+import { GripVertical } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
 import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { Button } from '@gitroom/frontend/components/ui/button';
 import type { MemberKind } from '@gitroom/frontend/lib/tracker';
-import { sortShoots, type Shoot } from '@gitroom/frontend/lib/team/shoots';
+import {
+  isDue,
+  sortShoots,
+  type Shoot,
+} from '@gitroom/frontend/lib/team/shoots';
 import { isEditorKind, type PassRow } from '@gitroom/frontend/lib/team/videos';
 import {
   addShoot,
@@ -46,6 +60,7 @@ import { PassVideosForm } from './pass-videos-form';
 import { Pill } from './pill';
 import { GlassPanel } from './glass-panel';
 import { fmtDate } from './tracker-shell';
+import { useDrag } from './use-drag';
 import s from './tracker.module.scss';
 
 export interface DayShootsProps {
@@ -59,16 +74,33 @@ export interface DayShootsProps {
    * editors a shoot's videos can be passed to.
    */
   people: { id: string; name: string; kind: MemberKind; archived: boolean }[];
+  /** Every account, for the names on the shoots. */
   accounts: { id: string; name: string }[];
+  /**
+   * The accounts the staff member handles: the only ones a shoot's form
+   * offers (plus the one a shoot already has). Absent = every account.
+   */
+  handled?: string[];
   /** The staff member's own person; null on the admin's view. */
   meId: string | null;
   /** The tracker's whole list. Absent = read-only (the admin's view). */
   setShoots?: Dispatch<SetStateAction<Shoot[]>>;
+  /**
+   * The time now (useNow), for marking the staff member's shoots whose time
+   * has come; null or absent marks none.
+   */
+  now?: number | null;
+  /** Show another day: where a shoot just moved to. */
+  onPick?: (day: string) => void;
   className?: string;
 }
 
 type ItemStep = 'edit' | 'pass' | 'delete';
-type Open = { kind: 'add' } | { kind: ItemStep; id: string } | null;
+/** A Change opened by a drop carries the day it was dropped on. */
+type Open =
+  | { kind: 'add' }
+  | { kind: ItemStep; id: string; date?: string }
+  | null;
 
 export function DayShoots({
   day,
@@ -76,8 +108,11 @@ export function DayShoots({
   shoots,
   people,
   accounts,
+  handled,
   meId,
   setShoots,
+  now = null,
+  onPick,
   className,
 }: DayShootsProps) {
   const { t, locale } = useI18n();
@@ -92,6 +127,11 @@ export function DayShoots({
 
   const nameOf = new Map(people.map((p) => [p.id, p.name]));
   const accountOf = new Map(accounts.map((a) => [a.id, a.name]));
+  // What a shoot's form offers: the accounts this person handles, and the
+  // one the shoot already has, so a change never drops it.
+  const mine = handled ? new Set(handled) : null;
+  const pickable = (keep: string | null) =>
+    mine ? accounts.filter((a) => mine.has(a.id) || a.id === keep) : accounts;
   const editors = people.filter((p) => !p.archived && isEditorKind(p.kind));
   const archived = new Set(people.filter((p) => p.archived).map((p) => p.id));
   const personName = (id: string) => {
@@ -103,6 +143,26 @@ export function DayShoots({
   const monthStart = `${today.slice(0, 7)}-01`;
   const canAdd = me !== null && day >= monthStart;
   const adding = open?.kind === 'add';
+  // A shoot that can be moved: the person's own, not cancelled, not closed.
+  const movable = (x: Shoot) =>
+    x.memberId === me && x.date >= monthStart && x.status !== 'cancelled';
+
+  const drag = useDrag({
+    accepts: (id, key) => {
+      const x = shoots.find((y) => y.id === id);
+      const to = key.startsWith('day:') ? key.slice(4) : '';
+      // Today on: a drag is for putting a shoot off, and one dropped into
+      // the past would at once ask for its videos (the form still takes
+      // an earlier day this month, to fix a mistyped date).
+      return !!x && movable(x) && to >= today && to !== x.date;
+    },
+    // Dropped on a day: its Change form, on that day, asks why.
+    onDrop: (id, key) => {
+      setError(null);
+      setOpen({ kind: 'edit', id, date: key.slice(4) });
+    },
+  });
+  const dragged = shoots.find((x) => x.id === drag.dragId);
 
   /**
    * One save. A refusal is shown where it belongs, the form still open.
@@ -146,7 +206,7 @@ export function DayShoots({
     date: d.date,
     time: d.time,
     creatorId: d.creatorId,
-    note: d.note,
+    reason: d.reason,
   });
   const replace = (next: Shoot) =>
     setShoots?.((p) => sortShoots(p.map((x) => (x.id === next.id ? next : x))));
@@ -162,7 +222,11 @@ export function DayShoots({
     save(
       x.id,
       () => updateShoot(x.id, input(d), input(draftOf(x, x.date))),
-      (r) => replace(r.shoot!),
+      (r) => {
+        replace(r.shoot!);
+        // Moved to another day: show it there.
+        if (r.shoot!.date !== x.date) onPick?.(r.shoot!.date);
+      },
       open,
     );
   // Cancel shoot and Reopen are one click.
@@ -202,6 +266,13 @@ export function DayShoots({
               {t('Shoots for')}
             </p>
             <h2 className="mt-1 text-heading text-fg">{label}</h2>
+            {shoots.some(movable) ? (
+              <p className="mt-1 text-caption text-fg-subtle">
+                {t(
+                  'Drag a shoot (on a phone, by its ⠿ grip) onto a day on the calendar to move it.',
+                )}
+              </p>
+            ) : null}
           </div>
           {adding || !canAdd ? null : (
             <button
@@ -224,7 +295,8 @@ export function DayShoots({
           <div className="mb-3">
             <ShootForm
               initial={draftOf(null, day)}
-              accounts={accounts}
+              accounts={pickable(null)}
+              onlyHandled={!!mine}
               minDate={monthStart}
               saving={saving}
               error={errorAt('add')}
@@ -245,7 +317,10 @@ export function DayShoots({
                 <li key={x.id}>
                   <ShootForm
                     initial={draftOf(x, x.date)}
-                    accounts={accounts}
+                    startDate={open.date}
+                    editing
+                    accounts={pickable(x.creatorId)}
+                    onlyHandled={!!mine}
                     minDate={monthStart}
                     saving={saving}
                     error={errorAt(x.id)}
@@ -263,9 +338,15 @@ export function DayShoots({
                   }
                   showPerson={x.memberId !== me}
                   mine={x.memberId === me}
+                  due={me !== null && now !== null && isDue(x, me, now)}
                   // Change, cancel, reopen, delete: from this month on.
                   // Passing videos on: any day.
                   changeable={x.memberId === me && x.date >= monthStart}
+                  movable={movable(x)}
+                  dragging={drag.dragId === x.id}
+                  onPointerDown={(e) => {
+                    if (movable(x) && !saving) drag.start(x.id, e);
+                  }}
                   editors={editors}
                   open={
                     open && 'id' in open && open.id === x.id ? open.kind : null
@@ -286,6 +367,18 @@ export function DayShoots({
           </ul>
         )}
       </section>
+      {drag.ghostOf(
+        dragged
+          ? [
+              dragged.time,
+              dragged.title ??
+                (dragged.creatorId ? accountOf.get(dragged.creatorId) : null) ??
+                t('Shoot'),
+            ]
+              .filter(Boolean)
+              .join(' · ')
+          : null,
+      )}
     </GlassPanel>
   );
 }
@@ -296,7 +389,11 @@ function ShootItem({
   account,
   showPerson,
   mine,
+  due,
   changeable,
+  movable,
+  dragging,
+  onPointerDown,
   editors,
   open,
   saving,
@@ -313,8 +410,14 @@ function ShootItem({
   showPerson: boolean;
   /** Mine: its videos can be passed on, unless it was cancelled. */
   mine: boolean;
+  /** Mine, planned, and its time has come: its videos wait to be passed on. */
+  due: boolean;
   /** Mine and not in a closed month: can be changed, cancelled, deleted. */
   changeable: boolean;
+  /** Can be dragged onto another day. */
+  movable: boolean;
+  dragging: boolean;
+  onPointerDown: (e: ReactPointerEvent) => void;
   /** Who its videos can be given to. */
   editors: { id: string; name: string }[];
   open: ItemStep | null;
@@ -343,12 +446,31 @@ function ShootItem({
   const noteId = x.note ? `note-${x.id}` : undefined;
 
   return (
-    <li className={cn(s.inset, 'p-3 sm:px-4')}>
-      <div className="flex items-start gap-3">
+    <li
+      onPointerDown={movable ? onPointerDown : undefined}
+      className={cn(
+        s.inset,
+        due && s.due,
+        'p-3 sm:px-4',
+        movable && 'cursor-grab active:cursor-grabbing',
+        dragging && 'opacity-40',
+      )}
+    >
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
+        {movable ? (
+          // The grip: where a finger picks the shoot up.
+          <span
+            data-drag-handle
+            title={t('Drag to move')}
+            className="-ml-1 flex h-6 w-5 shrink-0 touch-none items-center justify-center text-fg-subtle"
+          >
+            <GripVertical size={16} aria-hidden />
+          </span>
+        ) : null}
         <span className="w-12 shrink-0 pt-0.5 text-label tnum text-fg-muted">
           {x.time ?? '—'}
         </span>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-40">
           <p
             className={
               cancelled
@@ -363,6 +485,11 @@ function ShootItem({
               {meta.join(' · ')}
             </p>
           ) : null}
+          {x.movedReason ? (
+            <p className="mt-1 break-words text-caption text-fg-muted">
+              {t('Moved: {reason}', { reason: x.movedReason })}
+            </p>
+          ) : null}
           {x.note ? (
             <p
               id={noteId}
@@ -373,15 +500,19 @@ function ShootItem({
           ) : null}
         </div>
         {x.status === 'done' ? (
-          <Pill className="shrink-0">
+          <Pill className="ml-auto shrink-0">
             {t('{count} videos passed', { count: x.videosShot ?? 0 })}
           </Pill>
         ) : cancelled ? (
-          <Pill tone="muted" className="shrink-0">
+          <Pill tone="muted" className="ml-auto shrink-0">
             {t('Cancelled')}
           </Pill>
+        ) : due ? (
+          <Pill tone="brand" className="ml-auto shrink-0">
+            {t('Time to pass videos')}
+          </Pill>
         ) : (
-          <Pill tone="muted" className="shrink-0">
+          <Pill tone="muted" className="ml-auto shrink-0">
             {t('Planned')}
           </Pill>
         )}

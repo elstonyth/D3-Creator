@@ -1,14 +1,16 @@
 'use client';
 
 /**
- * The admin console's Work Tracker: everyone's shoots and videos, read-only,
- * as staff update them in their own trackers. The same board as the staff
- * one — spotlight, calendar, the picked day — plus the team, one column a
- * person (what they are editing now and what waits on their check), who
- * handles and edits each account, and every video in hand.
+ * The admin console's Work Tracker: everyone's shoots and videos, as staff
+ * update them in their own trackers. The same board as the staff one —
+ * spotlight, calendar, the picked day — plus the team, one column a person
+ * (what they are editing now and what waits on their check), who handles
+ * and edits each account, and every video in hand.
  *
- * Nothing here changes anything: the admin only looks (the server refuses
- * an admin's writes too, lib/team/actor.ts).
+ * The admin sets who handles each account and each column's order by
+ * dragging cards (placeAccount), and can remove a video still being edited
+ * (removeVideo); everything else is staff's to move, and staff's actions
+ * refuse an admin (lib/team/actor.ts).
  */
 
 import Link from 'next/link';
@@ -17,6 +19,7 @@ import { localeTag } from '@gitroom/frontend/lib/i18n';
 import { addDays } from '@gitroom/frontend/lib/tracker';
 import { videoStage, type Video } from '@gitroom/frontend/lib/team/videos';
 import type { AdminTrackerData } from '@gitroom/frontend/lib/team/tracker-data';
+import type { VideoResult } from '@gitroom/frontend/lib/team/video-actions';
 import { cn } from '@gitroom/frontend/lib/utils';
 // clsx where a custom font-size token sits next to a text colour:
 // tailwind-merge would drop the size (see tracker-shell.tsx).
@@ -43,6 +46,13 @@ export interface AdminTrackerProps extends AdminTrackerData {
   initialDay: string | null;
   /** Where a person's profile lives on this host (`/team` or `/admin/team`). */
   profileBase: string;
+  /** The admin's Remove, for a video still being edited. */
+  removeVideo?: (id: string) => Promise<VideoResult>;
+  /** The account board's drop: a column's new order, and a handover. */
+  placeAccount?: (
+    order: string[],
+    move?: { creatorId: string; handlerId: string | null } | null,
+  ) => Promise<{ ok: boolean; message?: string }>;
 }
 
 export function AdminTracker({
@@ -58,6 +68,8 @@ export function AdminTracker({
   accounts,
   board,
   profileBase,
+  removeVideo,
+  placeAccount,
 }: AdminTrackerProps) {
   const { t, locale } = useI18n();
   const tag = localeTag(locale);
@@ -258,7 +270,12 @@ export function AdminTracker({
         </div>
       </GlassPanel>
 
-      <AccountBoard monthLabel={monthLabel} people={people} accounts={board} />
+      <AccountBoard
+        monthLabel={monthLabel}
+        people={people}
+        accounts={board}
+        onPlace={placeAccount}
+      />
 
       <GlassPanel className="mt-4 p-4 sm:p-6 md:mt-6">
         <div className="mb-5">
@@ -276,6 +293,7 @@ export function AdminTracker({
           meId={null}
           month={thisMonth}
           readOnly
+          adminRemove={removeVideo}
         />
       </GlassPanel>
     </TrackerScene>

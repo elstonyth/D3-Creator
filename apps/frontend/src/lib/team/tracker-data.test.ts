@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
+  loadHandled,
   loadPlacements,
   loadShoots,
   loadVideos,
@@ -24,6 +25,7 @@ jest.mock('@gitroom/frontend/lib/team/load', () => ({
   loadPeople: jest.fn(async () => []),
   loadRoster: jest.fn(async () => []),
   loadPlacements: jest.fn(async () => ({ assignments: [], stats: [] })),
+  loadHandled: jest.fn(async () => ['acc-1']),
   monthDays: (m: string) => ({ from: `${m}-01`, to: `${m}-31` }),
 }));
 
@@ -51,16 +53,23 @@ it('never hands staff the account board', async () => {
   expect(data).not.toHaveProperty('board');
 });
 
+it('reads only the accounts this person handles, not the board', async () => {
+  const data = await loadStaffTracker(ME, '2026-09', '2026-09-30');
+  expect(loadHandled).toHaveBeenCalledWith(ME);
+  expect(data.handled).toEqual(['acc-1']);
+});
+
 it('refuses to read without a person', async () => {
   await expect(loadStaffTracker('', '2026-09', '2026-09-30')).rejects.toThrow();
   expect(loadShoots).not.toHaveBeenCalled();
   expect(loadVideos).not.toHaveBeenCalled();
   expect(loadVideosDone).not.toHaveBeenCalled();
+  expect(loadHandled).not.toHaveBeenCalled();
 });
 
-it('reads today and tomorrow even when they are in the next month', async () => {
-  await loadStaffTracker(ME, '2026-09', '2026-09-30');
-  expect(loadShoots).toHaveBeenCalledWith('2026-09-30', '2026-10-02', ME);
+it('reads tomorrow and the last two weeks even across a month’s end', async () => {
+  await loadStaffTracker(ME, '2026-10', '2026-10-01');
+  expect(loadShoots).toHaveBeenCalledWith('2026-09-17', '2026-10-03', ME);
 });
 
 it('keeps the staff page on the scoped loader', () => {

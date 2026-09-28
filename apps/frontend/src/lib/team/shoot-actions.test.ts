@@ -76,6 +76,7 @@ const row = (creatorId: string | null) => ({
   videos_shot: 2,
   status: 'done',
   note: null,
+  moved_reason: null,
 });
 
 beforeEach(() => jest.clearAllMocks());
@@ -100,7 +101,7 @@ it('leaves the videos alone when the account did not change', async () => {
   const calls = fakeDb([row(ACC_A)]);
   const r = await updateShoot(
     ID,
-    { ...form(ACC_A), note: 'Bring the lights' },
+    { ...form(ACC_A), time: '10:00' },
     form(ACC_A),
   );
   expect(r).toMatchObject({ ok: true });
@@ -114,12 +115,13 @@ it('touches no video when the shoot is not the caller’s', async () => {
   expect(calls.some((c) => c.table === 'tracker_video')).toBe(false);
 });
 
-it('adds a shoot without a title, even when an old page sends one', async () => {
+it('adds a shoot without a title or note, even when an old page sends them', async () => {
   const calls = fakeDb([{ ...row(ACC_A), title: null }]);
-  const r = await addShoot({ ...form(ACC_A), title: 'Hotpot shop' });
+  const r = await addShoot({ ...form(ACC_A), title: 'Hotpot shop', note: 'x' });
   expect(r).toMatchObject({ ok: true, shoot: { title: null } });
   const insert = calls[0].steps.find((s) => s[0] === 'insert');
   expect(insert?.[1]).not.toHaveProperty('title');
+  expect(insert?.[1]).not.toHaveProperty('note');
   expect(insert?.[1]).toMatchObject({
     member_id: ALI,
     shoot_date: '2099-01-05',
@@ -127,45 +129,39 @@ it('adds a shoot without a title, even when an old page sends one', async () => 
   });
 });
 
-it('never writes over an old shoot’s title', async () => {
+it('never writes over an old shoot’s title or note', async () => {
   const calls = fakeDb([row(ACC_A)]);
   await updateShoot(
     ID,
-    { ...form(ACC_A), note: 'x', title: 'Changed' },
+    { ...form(ACC_A), time: '10:00', note: 'x', title: 'Changed' },
     form(ACC_A),
   );
   const update = calls[0].steps.find((s) => s[0] === 'update');
-  expect(update?.[1]).toMatchObject({ note: 'x' });
+  expect(update?.[1]).toMatchObject({ start_time: '10:00' });
   expect(update?.[1]).not.toHaveProperty('title');
+  expect(update?.[1]).not.toHaveProperty('note');
 });
 
-describe('correcting a passed shoot’s account moves the board with it', () => {
+describe('correcting a passed shoot’s account moves the board’s editor with it', () => {
   const MEI = 'aaaaaaaa-0000-4000-8000-000000000003';
   const KIM = 'aaaaaaaa-0000-4000-8000-000000000004';
   const onA = (editor_id: string) => ({ creator_id: ACC_A, editor_id });
 
-  it('gives back the account the videos left and claims the new one', async () => {
+  it('gives back the account the videos left and claims the new one’s editor', async () => {
     fakeDb([row(ACC_B)], [onA(KIM), onA(MEI), onA(MEI)]);
     const r = await updateShoot(ID, form(ACC_B), form(ACC_A));
     expect(r).toMatchObject({ ok: true });
-    expect(releaseAccount).toHaveBeenCalledWith(ACC_A, ALI, 'u1');
-    expect(claimAccount).toHaveBeenCalledWith(
-      ACC_B,
-      { handlerId: ALI, editorId: MEI },
-      'u1',
-    );
+    expect(releaseAccount).toHaveBeenCalledWith(ACC_A, 'u1');
+    // The editor only: who handles an account is the admin's to set.
+    expect(claimAccount).toHaveBeenCalledWith(ACC_B, MEI, 'u1');
   });
 
   it('only gives back when the account is taken off', async () => {
     fakeDb([row(null)], [onA(MEI)]);
     await updateShoot(ID, form(null), form(ACC_A));
-    expect(releaseAccount).toHaveBeenCalledWith(ACC_A, ALI, 'u1');
+    expect(releaseAccount).toHaveBeenCalledWith(ACC_A, 'u1');
     // claimAccount ignores a null account.
-    expect(claimAccount).toHaveBeenCalledWith(
-      null,
-      { handlerId: ALI, editorId: MEI },
-      'u1',
-    );
+    expect(claimAccount).toHaveBeenCalledWith(null, MEI, 'u1');
   });
 
   it('touches the board for no shoot that has not been passed on yet', async () => {
@@ -196,15 +192,11 @@ describe('passing videos on keeps the account board up to date', () => {
     });
   }
 
-  it('makes the passer the handler and the main editor the editor', async () => {
+  it('makes the main editor the editor, and never moves the handler', async () => {
     passDb(ACC_A);
     const r = await passVideos(ID, rows);
     expect(r).toMatchObject({ ok: true });
-    expect(claimAccount).toHaveBeenCalledWith(
-      ACC_A,
-      { handlerId: ALI, editorId: MEI },
-      'u1',
-    );
+    expect(claimAccount).toHaveBeenCalledWith(ACC_A, MEI, 'u1');
   });
 
   it('claims nothing when the pass is refused', async () => {
@@ -217,5 +209,36 @@ describe('passing videos on keeps the account board up to date', () => {
     const r = await passVideos(ID, rows);
     expect(r).toMatchObject({ ok: false });
     expect(claimAccount).not.toHaveBeenCalled();
+  });
+});
+
+describe('moving a shoot', () => {
+  const at = { date: '2099-01-05', time: '17:00', creatorId: ACC_A };
+
+  it('refuses a move that does not say why, before writing', async () => {
+    const calls = fakeDb([row(ACC_A)]);
+    const r = await updateShoot(ID, { ...at, time: '19:00' }, at);
+    expect(r).toEqual({ ok: false, message: 'Say why the shoot is moving.' });
+    expect(calls).toHaveLength(0);
+  });
+
+  it('writes the move with why, and hands the reason back', async () => {
+    const calls = fakeDb([
+      { ...row(ACC_A), start_time: '19:00:00', moved_reason: 'Client asked' },
+    ]);
+    const r = await updateShoot(
+      ID,
+      { ...at, time: '19:00', reason: 'Client asked' },
+      at,
+    );
+    expect(r).toMatchObject({
+      ok: true,
+      shoot: { time: '19:00', movedReason: 'Client asked' },
+    });
+    const update = calls[0].steps.find((s) => s[0] === 'update');
+    expect(update?.[1]).toEqual({
+      start_time: '19:00',
+      moved_reason: 'Client asked',
+    });
   });
 });

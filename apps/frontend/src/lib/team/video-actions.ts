@@ -2,8 +2,9 @@
 
 /**
  * Video job mutations. Staff only: videos are made by passing them on from a
- * shoot (passVideos in shoot-actions.ts), and the admin console only looks,
- * so an admin is refused here like anyone else who is not staff (asActor).
+ * shoot (passVideos in shoot-actions.ts), so an admin is refused here like
+ * anyone else who is not staff (asActor). The admin's one write, removing a
+ * video still being edited, is app/(admin)/admin/tracker/actions.ts.
  *
  * Each person moves only their own step. The handler — who passed the video
  * on — may change its title or editor, or remove it, until the editor clicks
@@ -102,11 +103,7 @@ export async function updateVideo(
         .select(VIDEO_COLS),
     );
     if (saved.ok && 'editor_id' in patch && saved.video?.editorId)
-      await claimAccount(
-        saved.video.creatorId,
-        { editorId: saved.video.editorId },
-        a.userId,
-      );
+      await claimAccount(saved.video.creatorId, saved.video.editorId, a.userId);
     return saved;
   });
 }
@@ -133,11 +130,10 @@ export async function deleteVideo(id: string): Promise<VideoResult> {
     });
     if (error) return dbError('deleteVideo', error);
     if (data !== true) return { ok: false, message: NOT_YOURS };
-    // Taken back: if that was the last of this work on the account, the
-    // account goes back to whoever held it before (releaseAccount checks).
+    // Taken back: if that was the last of this editor's work on the account,
+    // its editor goes back to who it was before (releaseAccount checks).
     await releaseAccount(
       (before as { creator_id: string | null } | null)?.creator_id ?? null,
-      a.memberId,
       a.userId,
     );
     return { ok: true };

@@ -20,6 +20,7 @@ import {
   addShoot,
   passVideos,
   setShootStatus,
+  updateShoot,
 } from '@gitroom/frontend/lib/team/shoot-actions';
 import { DayShoots } from './day-shoots';
 
@@ -55,7 +56,11 @@ const people = [
   { id: MEI, name: 'MEI', kind: 'both' as const, archived: false },
 ];
 const GARY = 'bbbbbbbb-0000-4000-8000-000000000001';
-const accounts = [{ id: GARY, name: 'Gary' }];
+const AMY = 'bbbbbbbb-0000-4000-8000-000000000002';
+const accounts = [
+  { id: GARY, name: 'Gary' },
+  { id: AMY, name: 'Amy' },
+];
 
 function shoot(
   n: number,
@@ -90,12 +95,18 @@ function Tracker({
   day = DAY,
   today = '2026-09-23',
   readOnly = false,
+  handled,
+  now,
+  onPick,
 }: {
   initial: Shoot[];
   meId: string | null;
   day?: string;
   today?: string;
   readOnly?: boolean;
+  handled?: string[];
+  now?: number;
+  onPick?: (day: string) => void;
 }) {
   const [shoots, setShoots] = useState(initial);
   return (
@@ -105,8 +116,11 @@ function Tracker({
       shoots={shoots.filter((s) => s.date === day)}
       people={people}
       accounts={accounts}
+      handled={handled}
       meId={meId}
       setShoots={readOnly ? undefined : setShoots}
+      now={now}
+      onPick={onPick}
     />
   );
 }
@@ -134,9 +148,11 @@ it('adds a shoot for the day it was opened on', async () => {
   });
   render(<Tracker initial={[MINE]} meId={KEE} />);
   fireEvent.click(screen.getByRole('button', { name: '+ Add a shoot' }));
-  // The form no longer asks where or what.
+  // The form no longer asks where or what, or for a note: when and where
+  // to be is all it needs.
   expect(screen.queryByLabelText(/Where/)).toBeNull();
   expect(screen.queryByRole('textbox', { name: /what/i })).toBeNull();
+  expect(screen.queryByLabelText(/Note/)).toBeNull();
   fireEvent.change(screen.getByLabelText(/Time/), {
     target: { value: '11:30' },
   });
@@ -157,7 +173,7 @@ it('adds a shoot for the day it was opened on', async () => {
     date: DAY,
     time: '11:30',
     creatorId: GARY,
-    note: '',
+    reason: '',
   });
   expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
   expect(refresh).toHaveBeenCalledTimes(1);
@@ -178,7 +194,7 @@ it('saves a shoot with nothing but its day', async () => {
       date: DAY,
       time: '',
       creatorId: '',
-      note: '',
+      reason: '',
     }),
   );
   expect(await screen.findByText('Shoot')).toBeTruthy();
@@ -218,6 +234,92 @@ it('keeps an old shoot’s title, with its account beside it', () => {
   expect(screen.getByText('Hotpot shop')).toBeTruthy();
   expect(screen.getByText('Gary')).toBeTruthy();
   expect(button('Change Hotpot shop')).toBeTruthy();
+});
+
+it('offers only the accounts the person handles, and keeps a shoot’s own', () => {
+  const onAmy = shoot(4, KEE, DAY, '10:00', null, { creatorId: AMY });
+  render(<Tracker initial={[onAmy]} meId={KEE} handled={[GARY]} />);
+  const options = () =>
+    [
+      ...(screen.getByLabelText(/Creator account/) as HTMLSelectElement)
+        .options,
+    ].map((o) => o.text);
+  fireEvent.click(screen.getByRole('button', { name: '+ Add a shoot' }));
+  expect(options()).toEqual(['No account', 'Gary']);
+  expect(screen.getByText('Only the accounts you handle.')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  // A shoot already on someone else's account keeps it on a change.
+  fireEvent.click(screen.getByRole('button', { name: 'Change 10:00 Amy' }));
+  expect(options()).toEqual(['No account', 'Gary', 'Amy']);
+});
+
+it('says so when the person handles no account yet', () => {
+  render(<Tracker initial={[]} meId={KEE} handled={[]} />);
+  fireEvent.click(screen.getByRole('button', { name: '+ Add a shoot' }));
+  expect(
+    [
+      ...(screen.getByLabelText(/Creator account/) as HTMLSelectElement)
+        .options,
+    ].map((o) => o.text),
+  ).toEqual(['No account']);
+  expect(
+    screen.getByText(
+      'You handle no accounts yet. Ask the admin to assign one.',
+    ),
+  ).toBeTruthy();
+});
+
+it('marks my planned shoot whose time has come, and only that one', () => {
+  // 22 Sep, 20:00 in Malaysia: MINE was at 19:30.
+  const now = Date.parse('2026-09-22T20:00:00+08:00');
+  const later = shoot(6, KEE, DAY, '21:00', 'Night market');
+  render(<Tracker initial={[MINE, THEIRS, later]} meId={KEE} now={now} />);
+  const card = (title: string) => screen.getByText(title).closest('li')!;
+  expect(card('Hotpot shop').textContent).toContain('Time to pass videos');
+  expect(card('Night market').textContent).toContain('Planned');
+  // Someone else's shoot is theirs to pass on.
+  expect(card('Furniture shop').textContent).toContain('Planned');
+});
+
+it('asks why when a shoot moves to another day or time, and says it moved', async () => {
+  (updateShoot as jest.Mock).mockResolvedValue({
+    ok: true,
+    shoot: {
+      ...MINE,
+      time: '21:00',
+      movedReason: 'The client changed the time',
+    },
+  });
+  render(<Tracker initial={[MINE]} meId={KEE} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Change Hotpot shop' }));
+  // Nothing moved yet: no reason asked for.
+  expect(screen.queryByLabelText('Why is it moving?')).toBeNull();
+  fireEvent.change(screen.getByLabelText(/Time/), {
+    target: { value: '21:00' },
+  });
+  const save = screen.getByRole('button', {
+    name: 'Save',
+  }) as HTMLButtonElement;
+  expect(save.disabled).toBe(true);
+  expect(screen.getByText(/Moving from .*19:30\./)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('Why is it moving?'), {
+    target: { value: 'The client changed the time' },
+  });
+  expect(save.disabled).toBe(false);
+  await act(async () => {
+    fireEvent.click(save);
+  });
+  expect(updateShoot).toHaveBeenCalledWith(
+    MINE.id,
+    {
+      date: DAY,
+      time: '21:00',
+      creatorId: '',
+      reason: 'The client changed the time',
+    },
+    { date: DAY, time: '19:30', creatorId: '', reason: '' },
+  );
+  expect(screen.getByText('Moved: The client changed the time')).toBeTruthy();
 });
 
 it('keeps the form open and says why when the server refuses', async () => {
@@ -428,5 +530,171 @@ describe('the admin’s view', () => {
   it('stays read-only even when given a person', () => {
     render(<Tracker initial={[MINE]} meId={KEE} readOnly />);
     expect(screen.queryAllByRole('button')).toHaveLength(0);
+  });
+});
+
+describe('dragging a shoot onto another day', () => {
+  // jsdom has neither pointer events nor hit-testing.
+  class FakePointerEvent extends MouseEvent {
+    pointerId: number;
+    pointerType: string;
+    constructor(type: string, init: PointerEventInit = {}) {
+      super(type, init);
+      this.pointerId = init.pointerId ?? 1;
+      this.pointerType = init.pointerType ?? 'mouse';
+    }
+  }
+  beforeAll(() => {
+    Object.assign(window, { PointerEvent: FakePointerEvent });
+  });
+  afterEach(() => {
+    Object.assign(document, { elementFromPoint: undefined });
+  });
+
+  /** The day panel beside a calendar day to drop on. */
+  function withDay(
+    dateKey: string,
+    props: Partial<Parameters<typeof Tracker>[0]> = {},
+  ) {
+    render(
+      <>
+        <Tracker initial={[MINE, THEIRS]} meId={KEE} {...props} />
+        <button type="button" data-drop={`day:${dateKey}`}>
+          {dateKey}
+        </button>
+      </>,
+    );
+    return screen.getByRole('button', { name: dateKey });
+  }
+
+  /** Drop `card` on `target`; the tick after lets the drop's click pass. */
+  async function drop(card: Element, target: Element) {
+    Object.assign(document, { elementFromPoint: () => target });
+    fireEvent.pointerDown(card, { button: 0, clientX: 10, clientY: 300 });
+    fireEvent.pointerMove(window, { clientX: 60, clientY: 320, buttons: 1 });
+    const marked = target.hasAttribute('data-drop-over');
+    await act(async () => {
+      fireEvent.pointerUp(window, { clientX: 60, clientY: 320 });
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    return marked;
+  }
+
+  const card = (title: string) => screen.getByText(title).closest('li')!;
+
+  it('opens the shoot’s Change on the day it is dropped on, asking why', async () => {
+    const onPick = jest.fn();
+    (updateShoot as jest.Mock).mockResolvedValue({
+      ok: true,
+      shoot: { ...MINE, date: '2026-09-25', movedReason: 'Client asked' },
+    });
+    const day25 = withDay('2026-09-25', { onPick });
+    expect(await drop(card('Hotpot shop'), day25)).toBe(true);
+    expect(day25.hasAttribute('data-drop-over')).toBe(false);
+    expect((screen.getByLabelText('Day') as HTMLInputElement).value).toBe(
+      '2026-09-25',
+    );
+    const why = screen.getByLabelText('Why is it moving?');
+    expect(document.activeElement).toBe(why);
+    fireEvent.change(why, { target: { value: 'Client asked' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    });
+    expect(updateShoot).toHaveBeenCalledWith(
+      MINE.id,
+      {
+        date: '2026-09-25',
+        time: '19:30',
+        creatorId: '',
+        reason: 'Client asked',
+      },
+      { date: DAY, time: '19:30', creatorId: '', reason: '' },
+    );
+    // Saved: the tracker shows the day it moved to.
+    expect(onPick).toHaveBeenCalledWith('2026-09-25');
+  });
+
+  it('never takes a drop on the shoot’s own day', async () => {
+    const same = withDay(DAY);
+    expect(await drop(card('Hotpot shop'), same)).toBe(false);
+    expect(screen.queryByLabelText('Why is it moving?')).toBeNull();
+  });
+
+  it('never drags a shoot into the past', async () => {
+    // Today is the 23rd in these tests.
+    const earlier = withDay('2026-09-21');
+    expect(await drop(card('Hotpot shop'), earlier)).toBe(false);
+    expect(screen.queryByLabelText('Why is it moving?')).toBeNull();
+  });
+
+  it('never moves a shoot into a closed month', async () => {
+    const august = withDay('2026-08-31');
+    expect(await drop(card('Hotpot shop'), august)).toBe(false);
+    expect(screen.queryByLabelText('Day')).toBeNull();
+  });
+
+  it('offers no grip on someone else’s shoot', async () => {
+    withDay('2026-09-25');
+    expect(
+      card('Hotpot shop').querySelector('[data-drag-handle]'),
+    ).not.toBeNull();
+    expect(
+      card('Furniture shop').querySelector('[data-drag-handle]'),
+    ).toBeNull();
+    const day25 = screen.getByRole('button', { name: '2026-09-25' });
+    expect(await drop(card('Furniture shop'), day25)).toBe(false);
+  });
+
+  it('never starts from a button in the card, and blocks text selection only mid-drag', async () => {
+    const day25 = withDay('2026-09-25');
+    Object.assign(document, { elementFromPoint: () => day25 });
+    fireEvent.pointerDown(
+      screen.getByRole('button', { name: 'Change Hotpot shop' }),
+      { button: 0, clientX: 10, clientY: 300 },
+    );
+    fireEvent.pointerMove(window, { clientX: 60, clientY: 320, buttons: 1 });
+    expect(day25.hasAttribute('data-drop-over')).toBe(false);
+    fireEvent.pointerUp(window, { clientX: 60, clientY: 320 });
+
+    fireEvent.pointerDown(card('Hotpot shop'), {
+      button: 0,
+      clientX: 10,
+      clientY: 300,
+    });
+    fireEvent.pointerMove(window, { clientX: 60, clientY: 320, buttons: 1 });
+    expect(document.body.style.userSelect).toBe('none');
+    fireEvent.pointerUp(window, { clientX: 60, clientY: 320 });
+    expect(document.body.style.userSelect).toBe('');
+  });
+
+  it('drops nothing when the window loses focus mid-drag', () => {
+    const day25 = withDay('2026-09-25');
+    Object.assign(document, { elementFromPoint: () => day25 });
+    fireEvent.pointerDown(card('Hotpot shop'), {
+      button: 0,
+      clientX: 10,
+      clientY: 300,
+    });
+    fireEvent.pointerMove(window, { clientX: 60, clientY: 320, buttons: 1 });
+    expect(day25.hasAttribute('data-drop-over')).toBe(true);
+    fireEvent.blur(window);
+    expect(day25.hasAttribute('data-drop-over')).toBe(false);
+    fireEvent.pointerUp(window, { clientX: 60, clientY: 320 });
+    expect(screen.queryByLabelText('Why is it moving?')).toBeNull();
+  });
+
+  it('lets a new press through when a finger’s release never came', async () => {
+    const day25 = withDay('2026-09-25');
+    const grip = card('Hotpot shop').querySelector('[data-drag-handle]')!;
+    // A touch whose release the page never hears…
+    fireEvent.pointerDown(grip, {
+      pointerId: 7,
+      pointerType: 'touch',
+      clientX: 10,
+      clientY: 300,
+    });
+    // …does not block the next drag.
+    expect(await drop(card('Hotpot shop'), day25)).toBe(true);
+    expect(screen.getByLabelText('Why is it moving?')).toBeTruthy();
   });
 });

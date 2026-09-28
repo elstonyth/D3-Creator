@@ -13,6 +13,7 @@
 import { addDays, monthRange } from '@gitroom/frontend/lib/tracker';
 import { boardOf, type AccountCard } from './accounts';
 import {
+  loadHandled,
   loadPeople,
   loadPlacements,
   loadRoster,
@@ -28,8 +29,9 @@ import { doneCounts, type Video } from './videos';
 const iso = (instant: string) => new Date(instant).toISOString();
 
 /**
- * The viewed month's shoots plus today's and tomorrow's (the spotlight),
- * which may fall in another month, each once.
+ * The viewed month's shoots plus the ones around today — the spotlight's
+ * today and tomorrow, and the last two weeks' for a staff member's
+ * "pass the videos on" reminder — which may fall in another month, each once.
  */
 function withSoon(month: Shoot[], soon: Shoot[]): Shoot[] {
   return sortShoots([
@@ -38,7 +40,7 @@ function withSoon(month: Shoot[], soon: Shoot[]): Shoot[] {
 }
 
 interface Common {
-  /** The viewed month's shoots, plus today's and tomorrow's. */
+  /** The viewed month's shoots, plus the ones around today (withSoon). */
   shoots: Shoot[];
   /** In hand, plus verified since the start of this month (not the viewed one). */
   videos: Video[];
@@ -50,6 +52,8 @@ export interface StaffTrackerData extends Common {
   /** Edits and checks stamped with this person in the viewed month. */
   edited: number;
   verified: number;
+  /** The accounts this person handles: the only ones a new shoot offers. */
+  handled: string[];
 }
 
 /** One staff member's own work. Throws without a person rather than read everyone's. */
@@ -62,14 +66,19 @@ export async function loadStaffTracker(
   if (!memberId) throw new Error('staff tracker: no person to scope to');
   const days = monthDays(month);
   const { from, to } = monthRange(month);
-  const [shoots, soon, videos, done, people, roster] = await Promise.all([
-    loadShoots(days.from, days.to, memberId),
-    loadShoots(today, addDays(today, 2), memberId),
-    loadVideos(iso(monthRange(today.slice(0, 7)).from), memberId),
-    loadVideosDone(iso(from), iso(to), memberId),
-    loadPeople(),
-    loadRoster(),
-  ]);
+  const [shoots, soon, videos, done, people, roster, handled] =
+    await Promise.all([
+      loadShoots(days.from, days.to, memberId),
+      // Today and tomorrow, and the last two weeks: a shoot whose videos
+      // were never passed on keeps asking, even across a month's end.
+      // ponytail: two weeks back; widen if staff leave it longer.
+      loadShoots(addDays(today, -14), addDays(today, 2), memberId),
+      loadVideos(iso(monthRange(today.slice(0, 7)).from), memberId),
+      loadVideosDone(iso(from), iso(to), memberId),
+      loadPeople(),
+      loadRoster(),
+      loadHandled(memberId),
+    ]);
   const counts = doneCounts(done, memberId, iso(from), iso(to));
   return {
     shoots: withSoon(shoots, soon),
@@ -77,7 +86,9 @@ export async function loadStaffTracker(
     edited: counts.edited,
     verified: counts.verified,
     people,
+    // Every account, for the names on shoots and videos.
     accounts: roster.map(({ id, name }) => ({ id, name })),
+    handled,
   };
 }
 

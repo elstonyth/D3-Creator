@@ -3,8 +3,9 @@
  * Who may move which step of a video. The editor clicks Done (a link is
  * optional); the handler — who passed the video on — may change or remove
  * it until then, and verifies the cut after. Nobody else gets those buttons,
- * and the admin's view has no buttons at all. The server re-checks all of
- * it — this is about not offering what it would refuse.
+ * and the admin's view has only Remove, on a video still being edited. The
+ * server re-checks all of it — this is about not offering what it would
+ * refuse.
  */
 
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
@@ -401,6 +402,45 @@ describe('the admin’s view', () => {
     expect(
       within(region('Verified this month')).getByText('Reel 5'),
     ).toBeTruthy();
+  });
+
+  it('lets the admin remove a video still being edited, after asking', async () => {
+    const adminRemove = jest.fn(async () => ({ ok: true }));
+    render(
+      <VideoBoard
+        videos={[TO_EDIT, TO_VERIFY, verified]}
+        people={people}
+        accounts={accounts}
+        meId={null}
+        month="2026-09"
+        readOnly
+        adminRemove={adminRemove}
+      />,
+    );
+    // Once the editor is done it counts toward their month, and stays.
+    expect(
+      screen.getAllByRole('button').map((b) => b.getAttribute('aria-label')),
+    ).toEqual(['Remove Reel 1']);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Reel 1' }));
+    const ask = screen.getByRole('group', { name: 'Remove Reel 1' });
+    expect(ask.textContent).toContain('the handler’s and editor’s lists');
+    fireEvent.click(within(ask).getByRole('button', { name: 'Keep' }));
+    expect(adminRemove).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Reel 1' }));
+    await act(async () => {
+      fireEvent.click(
+        within(screen.getByRole('group', { name: 'Remove Reel 1' })).getByRole(
+          'button',
+          { name: 'Remove' },
+        ),
+      );
+    });
+    expect(adminRemove).toHaveBeenCalledWith(TO_EDIT.id);
+    expect(deleteVideo).not.toHaveBeenCalled();
+    expect(screen.queryByText('Reel 1')).toBeNull();
+    expect(screen.getByRole('status').textContent).toContain(
+      'Removed: “Reel 1”.',
+    );
   });
 
   it('stays read-only even when given a person', () => {
