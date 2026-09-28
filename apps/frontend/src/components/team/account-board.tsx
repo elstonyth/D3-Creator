@@ -486,8 +486,8 @@ function AccountItem({
       </p>
 
       {movable ? (
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <div className="min-w-0">
+        <div className="mt-3 space-y-2">
+          <div>
             <label
               htmlFor={pickId}
               className="text-micro uppercase tracking-[0.1em] text-fg-subtle"

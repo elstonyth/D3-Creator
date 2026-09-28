@@ -230,10 +230,10 @@ export function WorkAlerts({
           setError(null);
         } else putAway();
       }}
-      className="m-auto w-[min(94vw,560px)] max-w-[560px] bg-transparent p-0 text-fg backdrop:bg-scrim"
+      className="m-auto w-[min(94vw,560px)] max-w-[560px] bg-transparent p-0 text-fg backdrop:bg-black/70 backdrop:backdrop-blur-sm"
     >
       {open ? (
-        <div className={cn(s.glass, 'max-h-[85vh] overflow-y-auto p-5 sm:p-6')}>
+        <div className="max-h-[85vh] overflow-y-auto rounded-[28px] border border-white/10 bg-surface p-5 shadow-glass sm:p-6">
           <h2 id={titleId} className="text-heading text-fg">
             {t('Waiting for you')}
           </h2>
