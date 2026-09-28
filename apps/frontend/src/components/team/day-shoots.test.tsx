@@ -571,7 +571,7 @@ describe('dragging a shoot onto another day', () => {
   async function drop(card: Element, target: Element) {
     Object.assign(document, { elementFromPoint: () => target });
     fireEvent.pointerDown(card, { button: 0, clientX: 10, clientY: 300 });
-    fireEvent.pointerMove(window, { clientX: 60, clientY: 320 });
+    fireEvent.pointerMove(window, { clientX: 60, clientY: 320, buttons: 1 });
     const marked = target.hasAttribute('data-drop-over');
     await act(async () => {
       fireEvent.pointerUp(window, { clientX: 60, clientY: 320 });

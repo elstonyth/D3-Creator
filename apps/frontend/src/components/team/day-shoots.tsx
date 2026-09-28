@@ -451,7 +451,7 @@ function ShootItem({
         dragging && 'opacity-40',
       )}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-1">
         {movable ? (
           // The grip: where a finger picks the shoot up.
           <span
@@ -465,7 +465,7 @@ function ShootItem({
         <span className="w-12 shrink-0 pt-0.5 text-label tnum text-fg-muted">
           {x.time ?? '—'}
         </span>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 basis-40">
           <p
             className={
               cancelled
@@ -495,19 +495,19 @@ function ShootItem({
           ) : null}
         </div>
         {x.status === 'done' ? (
-          <Pill className="shrink-0">
+          <Pill className="ml-auto shrink-0">
             {t('{count} videos passed', { count: x.videosShot ?? 0 })}
           </Pill>
         ) : cancelled ? (
-          <Pill tone="muted" className="shrink-0">
+          <Pill tone="muted" className="ml-auto shrink-0">
             {t('Cancelled')}
           </Pill>
         ) : due ? (
-          <Pill tone="brand" className="shrink-0">
+          <Pill tone="brand" className="ml-auto shrink-0">
             {t('Time to pass videos')}
           </Pill>
         ) : (
-          <Pill tone="muted" className="shrink-0">
+          <Pill tone="muted" className="ml-auto shrink-0">
             {t('Planned')}
           </Pill>
         )}

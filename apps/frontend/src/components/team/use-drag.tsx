@@ -13,8 +13,8 @@
  * - While dragging, a ghost label follows the pointer, the page scrolls
  *   itself near the top and bottom edges, and the drop target under the
  *   pointer — any element with `data-drop="…"` that `accepts` — is marked
- *   `data-drop-over`. Escape cancels; the click a drop would fire is
- *   swallowed.
+ *   `data-drop-over`. Escape, leaving the window, or a mouse button let go
+ *   outside it cancels; the click a drop would fire is swallowed.
  */
 
 import {
@@ -140,6 +140,9 @@ export function useDrag({
     }
     function move(ev: PointerEvent) {
       if (ev.pointerId !== s.pointerId) return;
+      // The button was let go where the page never heard it (outside the
+      // window): that drag is over, and drops nowhere.
+      if (ev.pointerType === 'mouse' && ev.buttons === 0) return end(false);
       s.x = ev.clientX;
       s.y = ev.clientY;
       if (!s.dragging) {
@@ -160,6 +163,9 @@ export function useDrag({
     function escape(ev: KeyboardEvent) {
       if (ev.key === 'Escape') end(false);
     }
+    function blur() {
+      end(false);
+    }
     // The click a drop fires lands on whatever is under the pointer.
     function swallow(ev: Event) {
       ev.stopPropagation();
@@ -172,6 +178,7 @@ export function useDrag({
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', cancel);
       window.removeEventListener('keydown', escape);
+      window.removeEventListener('blur', blur);
       session.current = null;
       stop.current = () => {};
       setDragId(null);
@@ -191,6 +198,7 @@ export function useDrag({
     window.addEventListener('pointerup', up);
     window.addEventListener('pointercancel', cancel);
     window.addEventListener('keydown', escape);
+    window.addEventListener('blur', blur);
     stop.current = cleanup;
   }
 
@@ -206,7 +214,7 @@ export function useDrag({
             el.style.transform = `translate(${s.x + 14}px, ${s.y + 14}px)`;
         }}
         aria-hidden
-        className="pointer-events-none fixed left-0 top-0 z-[60] max-w-[260px] truncate rounded-xl border border-white/15 bg-[#16161A] px-3 py-2 text-label text-fg shadow-glass"
+        className="pointer-events-none fixed left-0 top-0 z-[60] max-w-[260px] truncate rounded-xl border border-white/15 bg-surface px-3 py-2 text-label text-fg shadow-glass"
       >
         {label}
       </div>,

@@ -210,7 +210,7 @@ describe('the admin’s drag and drop', () => {
   async function drag(from: Element, over: Element, y = 300) {
     Object.assign(document, { elementFromPoint: () => over });
     fireEvent.pointerDown(from, { button: 0, clientX: 10, clientY: 300 });
-    fireEvent.pointerMove(window, { clientX: 40, clientY: y });
+    fireEvent.pointerMove(window, { clientX: 40, clientY: y, buttons: 1 });
     const marked = over.hasAttribute('data-drop-over');
     await act(async () => {
       fireEvent.pointerUp(window, { clientX: 40, clientY: y });
@@ -289,6 +289,25 @@ describe('the admin’s drag and drop', () => {
       clientY: 10,
     });
     fireEvent.pointerUp(window, { clientX: 12, clientY: 11 });
+    expect(onPlace).not.toHaveBeenCalled();
+  });
+
+  it('drops nothing when the mouse button was let go outside the window', async () => {
+    const onPlace = jest.fn(async () => ({ ok: true }));
+    renderMovable(onPlace);
+    const zuwei = screen.getByRole('region', { name: 'ZUWEI’s accounts' });
+    Object.assign(document, { elementFromPoint: () => zuwei });
+    fireEvent.pointerDown(cardOf('Gary'), {
+      button: 0,
+      clientX: 10,
+      clientY: 300,
+    });
+    fireEvent.pointerMove(window, { clientX: 40, clientY: 300, buttons: 1 });
+    expect(zuwei.hasAttribute('data-drop-over')).toBe(true);
+    // Back over the page with no button held: the release never came.
+    fireEvent.pointerMove(window, { clientX: 50, clientY: 300, buttons: 0 });
+    expect(zuwei.hasAttribute('data-drop-over')).toBe(false);
+    fireEvent.pointerUp(window, { clientX: 50, clientY: 300 });
     expect(onPlace).not.toHaveBeenCalled();
   });
 
