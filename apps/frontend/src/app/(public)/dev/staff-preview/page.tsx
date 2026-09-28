@@ -130,6 +130,7 @@ export default async function StaffPreviewPage({
     videosShot: null,
     status: 'planned',
     note: null,
+    movedReason: null,
     ...extra,
   });
   const shoots: Shoot[] = [
@@ -151,7 +152,11 @@ export default async function StaffPreviewPage({
       note: 'Bring the gimbal',
     }),
     // Since the form stopped asking where / what: named by the account.
-    shoot(8, HOWEN, 1, '11:30', null, { creatorId: acct(4) }),
+    // Moved from another time, with why.
+    shoot(8, HOWEN, 1, '11:30', null, {
+      creatorId: acct(4),
+      movedReason: '顾客改了时间',
+    }),
     shoot(0, HOWEN, 0, null, null, { note: '下午，带补光灯' }),
     shoot(9, HOWEN, 4, '19:30', '海边', { status: 'cancelled' }),
   ];

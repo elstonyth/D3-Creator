@@ -168,6 +168,7 @@ export function DayShoots({
     date: d.date,
     time: d.time,
     creatorId: d.creatorId,
+    reason: d.reason,
   });
   const replace = (next: Shoot) =>
     setShoots?.((p) => sortShoots(p.map((x) => (x.id === next.id ? next : x))));
@@ -267,6 +268,7 @@ export function DayShoots({
                 <li key={x.id}>
                   <ShootForm
                     initial={draftOf(x, x.date)}
+                    editing
                     accounts={pickable(x.creatorId)}
                     onlyHandled={!!mine}
                     minDate={monthStart}
@@ -388,6 +390,11 @@ function ShootItem({
           {meta.length > 0 ? (
             <p className="mt-0.5 text-caption text-fg-muted">
               {meta.join(' · ')}
+            </p>
+          ) : null}
+          {x.movedReason ? (
+            <p className="mt-1 break-words text-caption text-fg-muted">
+              {t('Moved: {reason}', { reason: x.movedReason })}
             </p>
           ) : null}
           {x.note ? (

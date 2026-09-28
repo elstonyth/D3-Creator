@@ -20,6 +20,7 @@ import {
   addShoot,
   passVideos,
   setShootStatus,
+  updateShoot,
 } from '@gitroom/frontend/lib/team/shoot-actions';
 import { DayShoots } from './day-shoots';
 
@@ -169,6 +170,7 @@ it('adds a shoot for the day it was opened on', async () => {
     date: DAY,
     time: '11:30',
     creatorId: GARY,
+    reason: '',
   });
   expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
   expect(refresh).toHaveBeenCalledTimes(1);
@@ -189,6 +191,7 @@ it('saves a shoot with nothing but its day', async () => {
       date: DAY,
       time: '',
       creatorId: '',
+      reason: '',
     }),
   );
   expect(await screen.findByText('Shoot')).toBeTruthy();
@@ -273,6 +276,47 @@ it('marks my planned shoot whose time has come, and only that one', () => {
   expect(card('Night market').textContent).toContain('Planned');
   // Someone else's shoot is theirs to pass on.
   expect(card('Furniture shop').textContent).toContain('Planned');
+});
+
+it('asks why when a shoot moves to another day or time, and says it moved', async () => {
+  (updateShoot as jest.Mock).mockResolvedValue({
+    ok: true,
+    shoot: {
+      ...MINE,
+      time: '21:00',
+      movedReason: 'The client changed the time',
+    },
+  });
+  render(<Tracker initial={[MINE]} meId={KEE} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Change Hotpot shop' }));
+  // Nothing moved yet: no reason asked for.
+  expect(screen.queryByLabelText('Why is it moving?')).toBeNull();
+  fireEvent.change(screen.getByLabelText(/Time/), {
+    target: { value: '21:00' },
+  });
+  const save = screen.getByRole('button', {
+    name: 'Save',
+  }) as HTMLButtonElement;
+  expect(save.disabled).toBe(true);
+  expect(screen.getByText(/Moving from .*19:30\./)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('Why is it moving?'), {
+    target: { value: 'The client changed the time' },
+  });
+  expect(save.disabled).toBe(false);
+  await act(async () => {
+    fireEvent.click(save);
+  });
+  expect(updateShoot).toHaveBeenCalledWith(
+    MINE.id,
+    {
+      date: DAY,
+      time: '21:00',
+      creatorId: '',
+      reason: 'The client changed the time',
+    },
+    { date: DAY, time: '19:30', creatorId: '', reason: '' },
+  );
+  expect(screen.getByText('Moved: The client changed the time')).toBeTruthy();
 });
 
 it('keeps the form open and says why when the server refuses', async () => {

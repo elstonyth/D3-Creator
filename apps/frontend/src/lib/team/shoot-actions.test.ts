@@ -76,6 +76,7 @@ const row = (creatorId: string | null) => ({
   videos_shot: 2,
   status: 'done',
   note: null,
+  moved_reason: null,
 });
 
 beforeEach(() => jest.clearAllMocks());
@@ -208,5 +209,36 @@ describe('passing videos on keeps the account board up to date', () => {
     const r = await passVideos(ID, rows);
     expect(r).toMatchObject({ ok: false });
     expect(claimAccount).not.toHaveBeenCalled();
+  });
+});
+
+describe('moving a shoot', () => {
+  const at = { date: '2099-01-05', time: '17:00', creatorId: ACC_A };
+
+  it('refuses a move that does not say why, before writing', async () => {
+    const calls = fakeDb([row(ACC_A)]);
+    const r = await updateShoot(ID, { ...at, time: '19:00' }, at);
+    expect(r).toEqual({ ok: false, message: 'Say why the shoot is moving.' });
+    expect(calls).toHaveLength(0);
+  });
+
+  it('writes the move with why, and hands the reason back', async () => {
+    const calls = fakeDb([
+      { ...row(ACC_A), start_time: '19:00:00', moved_reason: 'Client asked' },
+    ]);
+    const r = await updateShoot(
+      ID,
+      { ...at, time: '19:00', reason: 'Client asked' },
+      at,
+    );
+    expect(r).toMatchObject({
+      ok: true,
+      shoot: { time: '19:00', movedReason: 'Client asked' },
+    });
+    const update = calls[0].steps.find((s) => s[0] === 'update');
+    expect(update?.[1]).toEqual({
+      start_time: '19:00',
+      moved_reason: 'Client asked',
+    });
   });
 });

@@ -80,7 +80,7 @@ export async function addShoot(input: unknown): Promise<ShootResult> {
   });
 }
 
-/** Change what was filled in: day, time, account. */
+/** Change what was filled in: day, time, account — and why, if it moves. */
 export async function updateShoot(
   id: string,
   input: unknown,
@@ -94,6 +94,9 @@ export async function updateShoot(
     const v = p.value;
     if (v.date < monthStart()) return { ok: false, message: CLOSED };
     const patch = shootPatch(v, before);
+    // Moving a shoot says why (the owner's call).
+    if ('moved_reason' in patch && !patch.moved_reason)
+      return { ok: false, message: 'Say why the shoot is moving.' };
     const admin = getSupabaseAdmin();
     if (Object.keys(patch).length === 0)
       // Nothing changed: hand back the shoot as it is now.

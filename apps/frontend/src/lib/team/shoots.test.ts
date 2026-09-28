@@ -1,5 +1,6 @@
 import {
   isDue,
+  isMove,
   isTimeKey,
   parseShootInput,
   shootDueAt,
@@ -51,6 +52,7 @@ describe('parseShootInput', () => {
         date: '2026-09-23',
         time: '19:30',
         creatorId: null,
+        reason: null,
       },
     });
   });
@@ -63,6 +65,7 @@ describe('parseShootInput', () => {
         date: '2026-09-24',
         time: null,
         creatorId: null,
+        reason: null,
       },
     });
     expect(parseShootInput({ ...base, time: '' })).toMatchObject({
@@ -139,7 +142,11 @@ describe('shootPatch', () => {
 
   it('writes only what the form changed', () => {
     expect(shootPatch(next(), form)).toEqual({});
-    expect(shootPatch(next({ time: '' }), form)).toEqual({ start_time: null });
+    // Taking a shoot's time away moves it: it says why (here, nothing yet).
+    expect(shootPatch(next({ time: '' }), form)).toEqual({
+      start_time: null,
+      moved_reason: null,
+    });
     // An old note is never written over.
     expect(shootPatch(next({ note: 'Bring the lights' }), form)).toEqual({});
   });
@@ -189,5 +196,58 @@ describe('when a shoot is due', () => {
     expect(
       isDue(s({ time: null }), 'kee', at('2026-09-30T23:59:00+08:00')),
     ).toBe(false);
+  });
+});
+
+describe('moving a shoot', () => {
+  it('is another day, or another time than the one it had', () => {
+    const at = { date: '2026-09-29', time: '17:00' };
+    expect(isMove(at, { date: '2026-09-30', time: '17:00' })).toBe(true);
+    expect(isMove(at, { date: '2026-09-29', time: '19:00' })).toBe(true);
+    expect(isMove(at, { date: '2026-09-29', time: null })).toBe(true);
+    expect(isMove(at, at)).toBe(false);
+    // Giving an untimed shoot its first time is no move.
+    expect(
+      isMove(
+        { date: '2026-09-29', time: null },
+        { date: '2026-09-29', time: '10:00' },
+      ),
+    ).toBe(false);
+  });
+
+  it('tidies the reason, and refuses a long one', () => {
+    const base = { date: '2026-09-29', time: '17:00', creatorId: '' };
+    expect(
+      parseShootInput({ ...base, reason: '  client   changed it ' }),
+    ).toMatchObject({ ok: true, value: { reason: 'client changed it' } });
+    expect(parseShootInput({ ...base, reason: '   ' })).toMatchObject({
+      ok: true,
+      value: { reason: null },
+    });
+    expect(parseShootInput({ ...base, reason: 'x'.repeat(201) })).toMatchObject(
+      { ok: false },
+    );
+  });
+
+  it('writes why only with a move', () => {
+    const form = { date: '2026-09-29', time: '17:00', creatorId: '' };
+    const next = (patch: Record<string, unknown>) => {
+      const p = parseShootInput({ ...form, ...patch });
+      if (!p.ok) throw new Error(p.message);
+      return p.value;
+    };
+    expect(
+      shootPatch(next({ time: '19:00', reason: 'Client changed it' }), form),
+    ).toEqual({ start_time: '19:00', moved_reason: 'Client changed it' });
+    // A move with no reason still says so; the action refuses it.
+    expect(shootPatch(next({ date: '2026-09-30' }), form)).toEqual({
+      shoot_date: '2026-09-30',
+      moved_reason: null,
+    });
+    // Not a move: the reason is never written.
+    expect(shootPatch(next({ reason: 'x' }), form)).toEqual({});
+    expect(shootPatch(next({ time: '10:00' }), { ...form, time: '' })).toEqual({
+      start_time: '10:00',
+    });
   });
 });

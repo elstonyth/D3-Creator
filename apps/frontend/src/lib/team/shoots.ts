@@ -33,6 +33,8 @@ export interface Shoot {
   status: ShootStatus;
   /** A note from before the form stopped asking for one; shown, never written. */
   note: string | null;
+  /** Why it was last moved to another day or time; null if never. */
+  movedReason: string | null;
 }
 
 /**
@@ -45,7 +47,11 @@ export interface ShootInput {
   date: string;
   time: string | null;
   creatorId: string | null;
+  /** Why it is moving, when a change moves it (isMove). */
+  reason: string | null;
 }
+
+export const REASON_MAX = 200;
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -84,7 +90,14 @@ export function parseShootInput(v: unknown): Parsed<ShootInput> {
   const creatorId = blank(o.creatorId) ? null : o.creatorId;
   if (creatorId !== null && !isUuid(creatorId))
     return { ok: false, message: 'Invalid account.' };
-  return { ok: true, value: { date: o.date, time, creatorId } };
+  if (!blank(o.reason) && typeof o.reason !== 'string')
+    return { ok: false, message: 'Say why the shoot is moving.' };
+  const reason = blank(o.reason)
+    ? null
+    : (o.reason as string).replace(/\s+/g, ' ').trim();
+  if (reason !== null && reason.length > REASON_MAX)
+    return { ok: false, message: 'Keep the reason under 200 characters.' };
+  return { ok: true, value: { date: o.date, time, creatorId, reason } };
 }
 
 /**
@@ -118,10 +131,25 @@ export function sortShoots(list: Shoot[]): Shoot[] {
 }
 
 /**
+ * Whether a change moves a shoot: to another day, or to another time than the
+ * one it had. Giving a shoot with no time its first time is no move.
+ */
+export function isMove(
+  before: { date: string; time: string | null },
+  next: { date: string; time: string | null },
+): boolean {
+  return (
+    next.date !== before.date ||
+    (before.time !== null && next.time !== before.time)
+  );
+}
+
+/**
  * The columns an edit writes: only the fields that differ from what the form
  * started with, so a form left open in another tab doesn't undo a newer
  * change to a field it never touched. With no starting point every field is
- * written.
+ * written. A move (isMove) also writes why — the caller refuses one without
+ * a reason.
  */
 export function shootPatch(
   next: ShootInput,
@@ -136,5 +164,13 @@ export function shootPatch(
   if (next.date !== was('date')) patch.shoot_date = next.date;
   if (next.time !== was('time')) patch.start_time = next.time;
   if (next.creatorId !== was('creatorId')) patch.creator_id = next.creatorId;
+  const date = was('date');
+  const time = was('time');
+  if (
+    typeof date === 'string' &&
+    time !== undefined &&
+    isMove({ date, time: time as string | null }, next)
+  )
+    patch.moved_reason = next.reason;
   return patch;
 }

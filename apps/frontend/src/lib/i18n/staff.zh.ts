@@ -302,6 +302,14 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Go to my videos': '去我的视频',
   Later: '稍后',
   'Got it': '知道了',
+
+  // ---- Moving a shoot: why ---------------------------------------------------
+  'Why is it moving?': '为什么改期？',
+  'The client changed the time': '顾客改了时间',
+  'Moving from {when}.': '原定 {when}。',
+  'Say why the shoot is moving.': '请说明改期的原因。',
+  'Keep the reason under 200 characters.': '原因最多 200 字。',
+  'Moved: {reason}': '已改期：{reason}',
   '{account} is now handled by {name}.': '{account} 现在由 {name} 负责。',
   '{account} is now unassigned.': '{account} 现在未分配。',
   'That person is not on the board, or does not handle accounts.':
