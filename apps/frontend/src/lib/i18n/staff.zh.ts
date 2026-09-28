@@ -53,8 +53,6 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Pick a day.': '请选择日期。',
   'Time must look like 19:30.': '时间格式应为 19:30。',
   'Invalid account.': '账号无效。',
-  'Invalid note.': '备注无效。',
-  'Notes are limited to 1,000 characters.': '备注最多 1000 字。',
   'Invalid shoot.': '拍摄记录无效。',
   'That shoot is already gone.': '这条拍摄已被删除。',
   '{name} (left)': '{name}（已离职）',

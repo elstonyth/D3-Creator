@@ -249,9 +249,7 @@ export default async function StaffPreviewPage({
           verified={howenDone.verified.length}
           people={people}
           accounts={accounts}
-          handled={board
-            .filter((c) => c.handlerId === HOWEN)
-            .map((c) => c.id)}
+          handled={board.filter((c) => c.handlerId === HOWEN).map((c) => c.id)}
           meId={HOWEN}
         />
       ),

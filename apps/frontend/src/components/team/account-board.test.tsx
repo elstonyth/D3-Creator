@@ -175,10 +175,7 @@ it('totals each column: accounts, videos, views', () => {
 describe('the admin’s handover', () => {
   const GARY = card(1, 'Gary', KEE.id, ALI.id);
 
-  function renderMovable(
-    onMove: jest.Mock,
-    accounts: AccountCard[] = [GARY],
-  ) {
+  function renderMovable(onMove: jest.Mock, accounts: AccountCard[] = [GARY]) {
     return render(
       <AccountBoard
         monthLabel="September 2026"
@@ -243,7 +240,11 @@ describe('the admin’s handover', () => {
     renderMovable(onMove);
     const item = column('KEE’s accounts').getByRole('listitem');
     expect(item.draggable).toBe(true);
-    const dataTransfer = { setData: jest.fn(), effectAllowed: '', dropEffect: '' };
+    const dataTransfer = {
+      setData: jest.fn(),
+      effectAllowed: '',
+      dropEffect: '',
+    };
     fireEvent.dragStart(item, { dataTransfer });
     const target = screen.getByRole('region', { name: 'MEI’s accounts' });
     fireEvent.dragOver(target, { dataTransfer });

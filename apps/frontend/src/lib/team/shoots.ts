@@ -27,22 +27,21 @@ export interface Shoot {
   /** How many videos have been passed on from it (set when they are). */
   videosShot: number | null;
   status: ShootStatus;
+  /** A note from before the form stopped asking for one; shown, never written. */
   note: string | null;
 }
 
 /**
- * What a person fills in. The status changes separately: cancelled and back,
- * or done once videos are passed on from it. There is no title: the form no
- * longer asks where or what, and an old shoot's title is never written over.
+ * What a person fills in: when, and optionally for which account. The status
+ * changes separately: cancelled and back, or done once videos are passed on
+ * from it. There is no title and no note: the form no longer asks for them
+ * (the owner's call), and an old shoot's are never written over.
  */
 export interface ShootInput {
   date: string;
   time: string | null;
   creatorId: string | null;
-  note: string | null;
 }
-
-export const NOTE_MAX = 1000;
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
@@ -81,15 +80,7 @@ export function parseShootInput(v: unknown): Parsed<ShootInput> {
   const creatorId = blank(o.creatorId) ? null : o.creatorId;
   if (creatorId !== null && !isUuid(creatorId))
     return { ok: false, message: 'Invalid account.' };
-  if (!blank(o.note) && typeof o.note !== 'string')
-    return { ok: false, message: 'Invalid note.' };
-  const note = blank(o.note) ? null : (o.note as string).trim();
-  if (note !== null && note.length > NOTE_MAX)
-    return { ok: false, message: 'Notes are limited to 1,000 characters.' };
-  return {
-    ok: true,
-    value: { date: o.date, time, creatorId, note },
-  };
+  return { ok: true, value: { date: o.date, time, creatorId } };
 }
 
 /** By day, then time; a shoot with no time goes last in its day. Stable. */
@@ -122,6 +113,5 @@ export function shootPatch(
   if (next.date !== was('date')) patch.shoot_date = next.date;
   if (next.time !== was('time')) patch.start_time = next.time;
   if (next.creatorId !== was('creatorId')) patch.creator_id = next.creatorId;
-  if (next.note !== was('note')) patch.note = next.note;
   return patch;
 }

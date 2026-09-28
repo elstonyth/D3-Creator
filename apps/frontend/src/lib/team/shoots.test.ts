@@ -40,7 +40,6 @@ describe('parseShootInput', () => {
     date: '2026-09-23',
     time: '19:30',
     creatorId: '',
-    note: ' bring the ring light ',
   };
 
   it('tidies a good entry', () => {
@@ -50,7 +49,6 @@ describe('parseShootInput', () => {
         date: '2026-09-23',
         time: '19:30',
         creatorId: null,
-        note: 'bring the ring light',
       },
     });
   });
@@ -63,12 +61,11 @@ describe('parseShootInput', () => {
         date: '2026-09-24',
         time: null,
         creatorId: null,
-        note: null,
       },
     });
-    expect(parseShootInput({ ...base, time: '', note: '   ' })).toMatchObject({
+    expect(parseShootInput({ ...base, time: '' })).toMatchObject({
       ok: true,
-      value: { time: null, note: null },
+      value: { time: null },
     });
   });
 
@@ -78,13 +75,12 @@ describe('parseShootInput', () => {
     expect(bad({ date: '2026-02-31' })).toMatchObject({ ok: false });
     expect(bad({ time: '7pm' })).toMatchObject({ ok: false });
     expect(bad({ creatorId: 'not-a-uuid' })).toMatchObject({ ok: false });
-    expect(bad({ note: 'x'.repeat(1001) })).toMatchObject({ ok: false });
     expect(parseShootInput(null)).toMatchObject({ ok: false });
   });
 
-  it('drops a title sent by an old page: the form no longer has one', () => {
-    const r = parseShootInput({ ...base, title: 'Hotpot shop' });
-    expect(r.ok && 'title' in r.value).toBe(false);
+  it('drops a title or note sent by an old page: the form has neither', () => {
+    const r = parseShootInput({ ...base, title: 'Hotpot shop', note: 'x' });
+    expect(r.ok && ('title' in r.value || 'note' in r.value)).toBe(false);
   });
 
   it('keeps a real account id', () => {
@@ -132,7 +128,6 @@ describe('shootPatch', () => {
     date: '2026-09-26',
     time: '10:00',
     creatorId: '',
-    note: '',
   };
   const next = (patch: Record<string, unknown> = {}) => {
     const p = parseShootInput({ ...form, ...patch });
@@ -142,17 +137,15 @@ describe('shootPatch', () => {
 
   it('writes only what the form changed', () => {
     expect(shootPatch(next(), form)).toEqual({});
-    expect(shootPatch(next({ note: 'Bring the lights' }), form)).toEqual({
-      note: 'Bring the lights',
-    });
     expect(shootPatch(next({ time: '' }), form)).toEqual({ start_time: null });
+    // An old note is never written over.
+    expect(shootPatch(next({ note: 'Bring the lights' }), form)).toEqual({});
   });
 
   it('writes everything when it does not know what the form started with', () => {
-    // Never the title: an old shoot keeps the one it was saved with.
+    // Never the title or note: an old shoot keeps what it was saved with.
     expect(Object.keys(shootPatch(next(), null)).sort()).toEqual([
       'creator_id',
-      'note',
       'shoot_date',
       'start_time',
     ]);

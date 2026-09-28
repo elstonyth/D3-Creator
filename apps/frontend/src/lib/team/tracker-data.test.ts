@@ -76,7 +76,7 @@ it('keeps the staff page on the scoped loader', () => {
   // The page may not go round it to the team-wide loaders.
   const page = readFileSync(
     join(__dirname, '../../app/(staff)/staff/page.tsx'),
-    'utf8'
+    'utf8',
   );
   expect(page).toContain('loadStaffTracker(');
   expect(page).not.toMatch(/\bloadShoots\b|\bloadVideos\b|\bloadVideosDone\b/);

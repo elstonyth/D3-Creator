@@ -1,10 +1,10 @@
 'use client';
 
 /**
- * Add / edit one shoot: the day, a time if there is one (blank for
- * "afternoon"-style entries — write that in the note), and optionally which
- * account and a note. It no longer asks where or what (the owner's call); an
- * old shoot keeps the title it was saved with. The server parses and
+ * Add / edit one shoot: the day, a time if there is one, and optionally
+ * which account — all staff need to know is when and where to be. It no
+ * longer asks where or what, or for a note (the owner's calls); an old shoot
+ * keeps the title and note it was saved with. The server parses and
  * validates; this form only collects strings.
  */
 
@@ -20,7 +20,6 @@ export interface ShootDraft {
   date: string;
   time: string;
   creatorId: string;
-  note: string;
 }
 
 export function draftOf(s: Shoot | null, date: string): ShootDraft {
@@ -28,7 +27,6 @@ export function draftOf(s: Shoot | null, date: string): ShootDraft {
     date: s?.date ?? date,
     time: s?.time ?? '',
     creatorId: s?.creatorId ?? '',
-    note: s?.note ?? '',
   };
 }
 
@@ -119,16 +117,6 @@ export function ShootForm({
             </option>
           ))}
         </Select>
-      </Field>
-
-      <Field label={t('Note')} htmlFor={`${id}-note`} optional>
-        <Input
-          id={`${id}-note`}
-          value={d.note}
-          onChange={(e) => set({ note: e.target.value })}
-          maxLength={1000}
-          autoComplete="off"
-        />
       </Field>
 
       {error ? <Alert tone="danger">{error}</Alert> : null}

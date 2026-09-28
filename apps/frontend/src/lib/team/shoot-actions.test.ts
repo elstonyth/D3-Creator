@@ -100,7 +100,7 @@ it('leaves the videos alone when the account did not change', async () => {
   const calls = fakeDb([row(ACC_A)]);
   const r = await updateShoot(
     ID,
-    { ...form(ACC_A), note: 'Bring the lights' },
+    { ...form(ACC_A), time: '10:00' },
     form(ACC_A),
   );
   expect(r).toMatchObject({ ok: true });
@@ -114,12 +114,13 @@ it('touches no video when the shoot is not the caller’s', async () => {
   expect(calls.some((c) => c.table === 'tracker_video')).toBe(false);
 });
 
-it('adds a shoot without a title, even when an old page sends one', async () => {
+it('adds a shoot without a title or note, even when an old page sends them', async () => {
   const calls = fakeDb([{ ...row(ACC_A), title: null }]);
-  const r = await addShoot({ ...form(ACC_A), title: 'Hotpot shop' });
+  const r = await addShoot({ ...form(ACC_A), title: 'Hotpot shop', note: 'x' });
   expect(r).toMatchObject({ ok: true, shoot: { title: null } });
   const insert = calls[0].steps.find((s) => s[0] === 'insert');
   expect(insert?.[1]).not.toHaveProperty('title');
+  expect(insert?.[1]).not.toHaveProperty('note');
   expect(insert?.[1]).toMatchObject({
     member_id: ALI,
     shoot_date: '2099-01-05',
@@ -127,16 +128,17 @@ it('adds a shoot without a title, even when an old page sends one', async () => 
   });
 });
 
-it('never writes over an old shoot’s title', async () => {
+it('never writes over an old shoot’s title or note', async () => {
   const calls = fakeDb([row(ACC_A)]);
   await updateShoot(
     ID,
-    { ...form(ACC_A), note: 'x', title: 'Changed' },
+    { ...form(ACC_A), time: '10:00', note: 'x', title: 'Changed' },
     form(ACC_A),
   );
   const update = calls[0].steps.find((s) => s[0] === 'update');
-  expect(update?.[1]).toMatchObject({ note: 'x' });
+  expect(update?.[1]).toMatchObject({ start_time: '10:00' });
   expect(update?.[1]).not.toHaveProperty('title');
+  expect(update?.[1]).not.toHaveProperty('note');
 });
 
 describe('correcting a passed shoot’s account moves the board’s editor with it', () => {

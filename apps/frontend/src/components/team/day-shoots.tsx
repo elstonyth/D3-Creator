@@ -158,7 +158,6 @@ export function DayShoots({
     date: d.date,
     time: d.time,
     creatorId: d.creatorId,
-    note: d.note,
   });
   const replace = (next: Shoot) =>
     setShoots?.((p) => sortShoots(p.map((x) => (x.id === next.id ? next : x))));
