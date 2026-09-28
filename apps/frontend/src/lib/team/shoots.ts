@@ -33,7 +33,7 @@ export interface Shoot {
   status: ShootStatus;
   /** A note from before the form stopped asking for one; shown, never written. */
   note: string | null;
-  /** Why it was last moved to another day or time; null if never. */
+  /** Why it was last changed (day, time or account); null if never. */
   movedReason: string | null;
 }
 

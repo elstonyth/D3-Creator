@@ -80,7 +80,7 @@ export async function addShoot(input: unknown): Promise<ShootResult> {
   });
 }
 
-/** Change what was filled in: day, time, account — and why, if it moves. */
+/** Change what was filled in: day, time, account — always saying why. */
 export async function updateShoot(
   id: string,
   input: unknown,
