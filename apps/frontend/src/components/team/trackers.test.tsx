@@ -5,7 +5,7 @@
  * write but removing a video still being edited.
  */
 
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 
 import type { Shoot } from '@gitroom/frontend/lib/team/shoots';
 import type { Video } from '@gitroom/frontend/lib/team/videos';
@@ -264,6 +264,37 @@ describe('the staff tracker', () => {
     unmount();
     renderStaff();
     expect(document.querySelector('dialog[open]')).toBeNull();
+  });
+
+  it('takes a shoot dropped on a spotlight day, asking why it moves', async () => {
+    class FakePointerEvent extends MouseEvent {
+      pointerId = 1;
+      pointerType = 'mouse';
+    }
+    Object.assign(window, { PointerEvent: FakePointerEvent });
+    window.localStorage.clear();
+    renderStaff();
+    // Every calendar day takes a drop too.
+    expect(
+      document.querySelector('[data-drop="day:2026-09-15"]'),
+    ).not.toBeNull();
+    const tomorrow = document.querySelector('[data-drop="day:2026-10-01"]')!;
+    Object.assign(document, { elementFromPoint: () => tomorrow });
+    const hotpot = screen
+      .getByRole('button', { name: 'Change Hotpot shop' })
+      .closest('li')!;
+    fireEvent.pointerDown(hotpot, { button: 0, clientX: 10, clientY: 300 });
+    fireEvent.pointerMove(window, { clientX: 60, clientY: 320, buttons: 1 });
+    expect(tomorrow.hasAttribute('data-drop-over')).toBe(true);
+    await act(async () => {
+      fireEvent.pointerUp(window, { clientX: 60, clientY: 320 });
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect((screen.getByLabelText('Day') as HTMLInputElement).value).toBe(
+      '2026-10-01',
+    );
+    expect(screen.getByLabelText('Why is it moving?')).toBeTruthy();
+    Object.assign(document, { elementFromPoint: undefined });
   });
 
   it('lists my videos with who edits and who verifies them', () => {

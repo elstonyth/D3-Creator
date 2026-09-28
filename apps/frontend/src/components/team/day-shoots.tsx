@@ -151,7 +151,10 @@ export function DayShoots({
     accepts: (id, key) => {
       const x = shoots.find((y) => y.id === id);
       const to = key.startsWith('day:') ? key.slice(4) : '';
-      return !!x && movable(x) && to >= monthStart && to !== x.date;
+      // Today on: a drag is for putting a shoot off, and one dropped into
+      // the past would at once ask for its videos (the form still takes
+      // an earlier day this month, to fix a mistyped date).
+      return !!x && movable(x) && to >= today && to !== x.date;
     },
     // Dropped on a day: its Change form, on that day, asks why.
     onDrop: (id, key) => {
@@ -265,7 +268,9 @@ export function DayShoots({
             <h2 className="mt-1 text-heading text-fg">{label}</h2>
             {shoots.some(movable) ? (
               <p className="mt-1 text-caption text-fg-subtle">
-                {t('Drag a shoot onto a day on the calendar to move it.')}
+                {t(
+                  'Drag a shoot (on a phone, by its ⠿ grip) onto a day on the calendar to move it.',
+                )}
               </p>
             ) : null}
           </div>

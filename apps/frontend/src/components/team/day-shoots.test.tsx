@@ -620,6 +620,13 @@ describe('dragging a shoot onto another day', () => {
     expect(screen.queryByLabelText('Why is it moving?')).toBeNull();
   });
 
+  it('never drags a shoot into the past', async () => {
+    // Today is the 23rd in these tests.
+    const earlier = withDay('2026-09-21');
+    expect(await drop(card('Hotpot shop'), earlier)).toBe(false);
+    expect(screen.queryByLabelText('Why is it moving?')).toBeNull();
+  });
+
   it('never moves a shoot into a closed month', async () => {
     const august = withDay('2026-08-31');
     expect(await drop(card('Hotpot shop'), august)).toBe(false);
