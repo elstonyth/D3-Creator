@@ -8,20 +8,10 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
-import { addMonths } from '@gitroom/frontend/lib/tracker';
+import { addMonths, fmtDate } from '@gitroom/frontend/lib/tracker';
 import { Pill } from './pill';
 import { Stat, StatRow } from '@gitroom/frontend/components/ui/stat';
 import type { Shoot } from '@gitroom/frontend/lib/team/shoots';
-
-function fmt(
-  key: string,
-  tag: 'en' | 'zh-CN',
-  opts: Intl.DateTimeFormatOptions,
-) {
-  return new Intl.DateTimeFormat(tag, { timeZone: 'UTC', ...opts }).format(
-    new Date(key.length === 7 ? `${key}-01T00:00:00Z` : `${key}T00:00:00Z`),
-  );
-}
 
 export async function HistoryView({
   month,
@@ -70,7 +60,7 @@ export async function HistoryView({
           ←
         </Link>
         <h2 className="text-heading text-fg">
-          {fmt(month, tag, { month: 'long', year: 'numeric' })}
+          {fmtDate(`${month}-01`, tag, { month: 'long', year: 'numeric' })}
         </h2>
         {next <= thisMonth ? (
           <Link
@@ -117,7 +107,7 @@ export async function HistoryView({
                 className="rounded-2xl border border-line bg-surface p-4"
               >
                 <p className="mb-2 text-label text-fg">
-                  {fmt(day, tag, {
+                  {fmtDate(day, tag, {
                     weekday: 'long',
                     day: 'numeric',
                     month: 'short',

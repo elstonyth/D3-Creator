@@ -25,7 +25,11 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
-import { dateKeyAt, type MemberKind } from '@gitroom/frontend/lib/tracker';
+import {
+  dateKeyAt,
+  fmtDate,
+  type MemberKind,
+} from '@gitroom/frontend/lib/tracker';
 import { Alert } from '@gitroom/frontend/components/ui/alert';
 import { Button } from '@gitroom/frontend/components/ui/button';
 import { Field, Input, Select } from '@gitroom/frontend/components/ui/input';
@@ -83,15 +87,6 @@ type Open = { kind: Step; id: string } | null;
 
 const MINE: MySection[] = ['toEdit', 'toVerify', 'withEditor', 'done'];
 const ALL: VideoStage[] = ['editing', 'verifying', 'done'];
-
-function fmtDay(key: string, tag: 'en' | 'zh-CN'): string {
-  return new Intl.DateTimeFormat(tag, {
-    timeZone: 'UTC',
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-  }).format(new Date(`${key}T00:00:00Z`));
-}
 
 // Whether this render is in the browser (false on the server and while
 // hydrating), without a setState in an effect.
@@ -542,7 +537,12 @@ function VideoCard({
   const [link, setLink] = useState('');
   const [title, setTitle] = useState(v.title);
   const [editorId, setEditorId] = useState(v.editorId);
-  const doneOn = (iso: string) => fmtDay(dateKeyAt(new Date(iso)), tag);
+  const doneOn = (iso: string) =>
+    fmtDate(dateKeyAt(new Date(iso)), tag, {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    });
 
   function submit(e: FormEvent, fn: () => void) {
     e.preventDefault();
