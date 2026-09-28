@@ -322,6 +322,35 @@ it('asks why when a shoot moves to another day or time, and says it moved', asyn
   expect(screen.getByText('Moved: The client changed the time')).toBeTruthy();
 });
 
+it('opens the day’s and the time’s picker on a click, adding or changing', () => {
+  render(<Tracker initial={[MINE]} meId={KEE} />);
+  fireEvent.click(screen.getByRole('button', { name: '+ Add a shoot' }));
+  // A browser with no picker (jsdom is one): the click is harmless.
+  const errors: unknown[] = [];
+  const onError = (e: ErrorEvent) => errors.push(e.error);
+  window.addEventListener('error', onError);
+  fireEvent.click(screen.getByLabelText(/Time/));
+  window.removeEventListener('error', onError);
+  expect(errors).toEqual([]);
+
+  const opened: string[] = [];
+  const proto = HTMLInputElement.prototype as { showPicker?: () => void };
+  proto.showPicker = function (this: HTMLInputElement) {
+    opened.push(this.type);
+  };
+  try {
+    fireEvent.click(screen.getByLabelText(/Time/));
+    fireEvent.click(screen.getByLabelText('Day'));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Change Hotpot shop' }));
+    fireEvent.click(screen.getByLabelText(/Time/));
+    fireEvent.click(screen.getByLabelText('Day'));
+  } finally {
+    delete proto.showPicker;
+  }
+  expect(opened).toEqual(['time', 'date', 'time', 'date']);
+});
+
 it('keeps the form open and says why when the server refuses', async () => {
   (addShoot as jest.Mock).mockResolvedValue({
     ok: false,

@@ -9,7 +9,7 @@
  * validates; this form only collects strings.
  */
 
-import { useId, useState, type FormEvent } from 'react';
+import { useId, useState, type FormEvent, type MouseEvent } from 'react';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
 import { Alert } from '@gitroom/frontend/components/ui/alert';
@@ -38,6 +38,18 @@ export function draftOf(s: Shoot | null, date: string): ShootDraft {
     creatorId: s?.creatorId ?? '',
     reason: '',
   };
+}
+
+/**
+ * A click anywhere on the day or the time opens its picker, not only the
+ * small icon at its end (desktop Chrome); a phone opens its own on a tap.
+ */
+function openPicker(e: MouseEvent<HTMLInputElement>) {
+  try {
+    e.currentTarget.showPicker();
+  } catch {
+    // No picker in this browser, or it is already open: typing still works.
+  }
 }
 
 export function ShootForm({
@@ -113,6 +125,7 @@ export function ShootForm({
             type="date"
             value={d.date}
             onChange={(e) => set({ date: e.target.value })}
+            onClick={openPicker}
             min={minDate}
             required
           />
@@ -123,6 +136,7 @@ export function ShootForm({
             type="time"
             value={d.time}
             onChange={(e) => set({ time: e.target.value })}
+            onClick={openPicker}
             // The form opens in place of the button that opened it; focus
             // lands on the first thing usually filled in — or, opened by a
             // drop, on why it is moving.
