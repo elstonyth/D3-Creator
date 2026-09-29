@@ -3,7 +3,8 @@
 /**
  * The admin's writes on the Work Tracker. Who handles each account, and the
  * order of each person's column, are the admin's to set by dragging cards
- * (placeAccount); staff choose the editors and move every step of a video
+ * (placeAccount), and the order of the columns by dragging them by name
+ * (orderPeople); staff choose the editors and move every step of a video
  * (lib/team/video-actions.ts). The
  * admin can also take a video off the board while it is still being edited —
  * passed on by mistake, or stuck with an editor who can't reach it. Once the
@@ -35,6 +36,17 @@ async function admin(): Promise<AuthContext | null> {
   }
 }
 
+/** A full order of ids, as a drop sends it: some, all ids, none twice. */
+function isOrder(order: unknown): order is string[] {
+  return (
+    Array.isArray(order) &&
+    order.length > 0 &&
+    order.length <= 500 &&
+    order.every(isUuid) &&
+    new Set(order).size === order.length
+  );
+}
+
 /** A card that changes column: which one, and who handles that column. */
 export interface Move {
   creatorId: string;
@@ -56,11 +68,7 @@ export async function placeAccount(
   const me = await admin();
   if (!me) return { ok: false, message: 'Not authorized.' };
   if (
-    !Array.isArray(order) ||
-    order.length === 0 ||
-    order.length > 500 ||
-    !order.every(isUuid) ||
-    new Set(order).size !== order.length ||
+    !isOrder(order) ||
     (move !== null &&
       (typeof move !== 'object' ||
         !isUuid(move.creatorId) ||
@@ -100,6 +108,30 @@ export async function placeAccount(
     return { ok: true };
   } catch (e) {
     return dbError('placeAccount', e);
+  }
+}
+
+/**
+ * The people on the board after a column is dragged to a new place: `order`
+ * is everyone the admin's tab knows, in their new order. It is the order of
+ * people everywhere (loadPeople). Someone who joined since keeps their place
+ * after them. A failed write only misorders people until the next try.
+ */
+export async function orderPeople(order: string[]): Promise<BoardResult> {
+  if (!(await admin())) return { ok: false, message: 'Not authorized.' };
+  if (!isOrder(order)) return { ok: false, message: 'Invalid order.' };
+  try {
+    const db = getSupabaseAdmin();
+    const writes = await Promise.all(
+      order.map((id, i) =>
+        db.from('tracker_member').update({ sort_order: i }).eq('id', id),
+      ),
+    );
+    const failed = writes.find((w) => w.error);
+    if (failed) return dbError('orderPeople', failed.error);
+    return { ok: true };
+  } catch (e) {
+    return dbError('orderPeople', e);
   }
 }
 

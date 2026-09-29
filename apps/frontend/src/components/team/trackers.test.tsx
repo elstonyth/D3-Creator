@@ -364,6 +364,7 @@ describe('the admin’s tracker', () => {
         profileBase="/team"
         removeVideo={jest.fn()}
         placeAccount={jest.fn()}
+        orderPeople={jest.fn()}
       />,
     );
   }
@@ -416,6 +417,20 @@ describe('the admin’s tracker', () => {
     // MEI does both: a column of their own, and the one editing Gary.
     const mei = within(board.getByRole('region', { name: 'MEI’s accounts' }));
     expect(mei.getByText('Edits 1 account · 12 videos')).toBeTruthy();
+  });
+
+  it('lets the admin drag the board’s columns into order', () => {
+    renderAdmin();
+    const board = within(
+      screen.getByRole('region', { name: 'Personnel & client configuration' }),
+    );
+    // Each person's column has a grip on its name; Unassigned has none.
+    const grips = (name: string) =>
+      board
+        .getByRole('region', { name })
+        .querySelectorAll('header [data-drag-handle]').length;
+    expect(grips('ZUWEI’s accounts')).toBe(1);
+    expect(grips('Unassigned accounts')).toBe(0);
   });
 
   it('shows everyone’s day and the videos in hand', () => {

@@ -53,6 +53,8 @@ export interface AdminTrackerProps extends AdminTrackerData {
     order: string[],
     move?: { creatorId: string; handlerId: string | null } | null,
   ) => Promise<{ ok: boolean; message?: string }>;
+  /** The account board's column drop: everyone, in their new order. */
+  orderPeople?: (order: string[]) => Promise<{ ok: boolean; message?: string }>;
 }
 
 export function AdminTracker({
@@ -70,6 +72,7 @@ export function AdminTracker({
   profileBase,
   removeVideo,
   placeAccount,
+  orderPeople,
 }: AdminTrackerProps) {
   const { t, locale } = useI18n();
   const tag = localeTag(locale);
@@ -275,6 +278,7 @@ export function AdminTracker({
         people={people}
         accounts={board}
         onPlace={placeAccount}
+        onOrder={orderPeople}
       />
 
       <GlassPanel className="mt-4 p-4 sm:p-6 md:mt-6">

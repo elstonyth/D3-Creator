@@ -24,6 +24,7 @@ import { TeamManager } from '@gitroom/frontend/app/(admin)/admin/team/team-manag
 import {
   removeVideo,
   placeAccount,
+  orderPeople,
 } from '@gitroom/frontend/app/(admin)/admin/tracker/actions';
 
 export const metadata: Metadata = {
@@ -284,6 +285,7 @@ export default async function StaffPreviewPage({
           profileBase="/dev/staff-preview?view=person&of="
           removeVideo={removeVideo}
           placeAccount={placeAccount}
+          orderPeople={orderPeople}
         />
       ),
     },

@@ -14,6 +14,10 @@
  * (lib/team/claim-account.ts) — so it only shows here. Without `onPlace` the
  * board is read-only.
  *
+ * The order of the columns is the admin's too: a column dragged by its
+ * name (a finger: by its grip) and dropped on another takes that one's
+ * place. Unassigned stays last. It is the order of people everywhere.
+ *
  * One column per person who runs accounts (a handler, or someone who does
  * both) plus "Unassigned". Editors are not columns: they sit in a row of
  * chips under the header with what they edit. Month output (videos / views)
@@ -68,6 +72,11 @@ export type PlaceAccount = (
   move?: { creatorId: string; handlerId: string | null } | null,
 ) => Promise<{ ok: boolean; message?: string }>;
 
+/** Everyone on the board, in their new order, after a column is dropped. */
+export type OrderPeople = (
+  order: string[],
+) => Promise<{ ok: boolean; message?: string }>;
+
 /** Where a dragged card would land: its column, before which card. */
 type Slot = { col: string; before: string | null };
 
@@ -84,9 +93,10 @@ interface EditedStats {
 
 export function AccountBoard({
   monthLabel,
-  people,
+  people: initialPeople,
   accounts: initialAccounts,
   onPlace,
+  onOrder,
 }: {
   monthLabel: string;
   /** Everyone who is or was on the board; only those still on it get a place. */
@@ -94,6 +104,8 @@ export function AccountBoard({
   accounts: AccountCard[];
   /** The admin's drop: a column's new order, and a handover if any. */
   onPlace?: PlaceAccount;
+  /** The admin's drop of a column: everyone, in their new order. */
+  onOrder?: OrderPeople;
 }) {
   const { t, locale } = useI18n();
   const router = useRouter();
@@ -105,6 +117,13 @@ export function AccountBoard({
   if (fromServer !== initialAccounts) {
     setFromServer(initialAccounts);
     setAccounts(initialAccounts);
+  }
+  // …and the same for the order of the people.
+  const [people, setPeople] = useState(initialPeople);
+  const [peopleFromServer, setPeopleFromServer] = useState(initialPeople);
+  if (peopleFromServer !== initialPeople) {
+    setPeopleFromServer(initialPeople);
+    setPeople(initialPeople);
   }
   // One drop at a time: a second can't land before a refused first is put
   // back.
@@ -238,6 +257,49 @@ export function AccountBoard({
   // A cancelled drag leaves no line behind.
   const line = drag.dragId ? slot : null;
 
+  /** Put column `id` where column `onto` is; the ones between shift over. */
+  async function reorder(id: string, onto: string) {
+    if (!onOrder || busy) return;
+    const cols = handlers.map((m) => m.id);
+    const rest = people.filter((p) => p.id !== id);
+    // Moving right lands after `onto`, not before: its place, not beside it.
+    const at =
+      rest.findIndex((p) => p.id === onto) +
+      (cols.indexOf(id) < cols.indexOf(onto) ? 1 : 0);
+    const after = [
+      ...rest.slice(0, at),
+      people.find((p) => p.id === id)!,
+      ...rest.slice(at),
+    ];
+    const prior = people;
+    setPeople(after);
+    setBusy(true);
+    let r: { ok: boolean; message?: string };
+    try {
+      r = await onOrder(after.map((p) => p.id));
+    } catch {
+      r = { ok: false, message: 'Could not save. Try again.' };
+    } finally {
+      setBusy(false);
+    }
+    if (!r.ok) {
+      setPeople((cur) => (cur === after ? prior : cur));
+      setNotice({
+        id: Date.now(),
+        text: t(r.message ?? 'Could not save. Try again.'),
+      });
+      return;
+    }
+    router.refresh();
+  }
+
+  const colDrag = useDrag({
+    // Another person's column only: never Unassigned, never its own.
+    accepts: (id, key) =>
+      !!onOrder && !busy && key.slice(4) !== id && columnIds.has(key.slice(4)),
+    onDrop: (id, key) => void reorder(id, key.slice(4)),
+  });
+
   const edited = new Map<string, EditedStats>(
     members.map((m) => [m.id, { edits: 0, editedVideos: 0 }]),
   );
@@ -276,6 +338,13 @@ export function AccountBoard({
             <p className="mt-1 text-body-sm text-fg-muted">
               {t(
                 'Drag an account onto the person who handles it, and up or down to set the order. Editors follow what staff choose when they pass videos on.',
+              )}
+            </p>
+          ) : null}
+          {onOrder ? (
+            <p className="mt-1 text-body-sm text-fg-muted">
+              {t(
+                'Drag a person by their name onto another column to change the order of the columns.',
               )}
             </p>
           ) : null}
@@ -326,6 +395,8 @@ export function AccountBoard({
             const cards = accounts.filter((c) => columnOf(c) === col.id);
             const ed = col.member ? edited.get(col.member.id) : undefined;
             const lineHere = line?.col === col.id ? line : null;
+            // A person's column moves by its header; Unassigned stays last.
+            const orderable = !!onOrder && col.member !== null;
             return (
               <section
                 key={col.id}
@@ -336,14 +407,43 @@ export function AccountBoard({
                     ? t('{name}’s accounts', { name: col.name })
                     : t('Unassigned accounts')
                 }
-                data-drop={onPlace ? `col:${col.id}` : undefined}
-                className={cn(s.inset, s.dropZone, 'flex min-w-0 flex-col p-3')}
+                data-drop={onPlace || onOrder ? `col:${col.id}` : undefined}
+                className={cn(
+                  s.inset,
+                  s.dropZone,
+                  'flex min-w-0 flex-col p-3',
+                  colDrag.dragId === col.id && 'opacity-40',
+                )}
               >
-                <header className="mb-3 px-1">
+                <header
+                  onPointerDown={
+                    orderable
+                      ? (e) => {
+                          if (!busy) colDrag.start(col.id, e);
+                        }
+                      : undefined
+                  }
+                  className={cn(
+                    'mb-3 px-1',
+                    orderable && 'cursor-grab active:cursor-grabbing',
+                  )}
+                >
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="min-w-0 break-words text-subsection text-fg">
-                      {col.name}
-                    </h3>
+                    <div className="flex min-w-0 items-center gap-1">
+                      {orderable ? (
+                        // The grip: where a finger picks the column up.
+                        <span
+                          data-drag-handle
+                          title={t('Drag to move')}
+                          className="-ml-1 flex h-8 w-5 shrink-0 touch-none items-center justify-center text-fg-subtle"
+                        >
+                          <GripVertical size={16} aria-hidden />
+                        </span>
+                      ) : null}
+                      <h3 className="min-w-0 break-words text-subsection text-fg">
+                        {col.name}
+                      </h3>
+                    </div>
                     {col.member ? (
                       <span
                         className={clsx(
@@ -428,6 +528,7 @@ export function AccountBoard({
         </div>
       </section>
       {drag.ghostOf(accounts.find((c) => c.id === drag.dragId)?.name)}
+      {colDrag.ghostOf(columns.find((c) => c.id === colDrag.dragId)?.name)}
     </GlassPanel>
   );
 }
