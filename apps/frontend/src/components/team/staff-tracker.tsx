@@ -9,8 +9,8 @@
  *
  * What needs them now pops up (WorkAlerts): a shoot an hour past its start,
  * glowing on the spotlight and the day too, and new videos to edit or
- * verify. The page reads itself again every minute while it is on screen,
- * so new work arrives without a reload.
+ * verify, with a chime. The page reads itself again every minute, in a
+ * background tab too, so new work arrives without a reload.
  *
  * Everything here is the signed-in person's already (the page reads it
  * scoped, lib/team/tracker-data.ts); nothing is filtered to them here.
@@ -81,16 +81,17 @@ export function StaffTracker({
   const thisMonth = today.slice(0, 7);
 
   // New work shows up without a reload: the page is read again every
-  // minute while it is on screen, and as soon as it comes back into view.
+  // minute — in a background tab too, so its chime is heard there
+  // (WorkAlerts) — and as soon as it comes back into view.
   useEffect(() => {
-    const reread = () => {
+    const back = () => {
       if (document.visibilityState === 'visible') router.refresh();
     };
-    const id = window.setInterval(reread, 60_000);
-    document.addEventListener('visibilitychange', reread);
+    const id = window.setInterval(() => router.refresh(), 60_000);
+    document.addEventListener('visibilitychange', back);
     return () => {
       window.clearInterval(id);
-      document.removeEventListener('visibilitychange', reread);
+      document.removeEventListener('visibilitychange', back);
     };
   }, [router]);
 

@@ -11,10 +11,15 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import type { Shoot } from '@gitroom/frontend/lib/team/shoots';
 import type { Video } from '@gitroom/frontend/lib/team/videos';
 import { passVideos } from '@gitroom/frontend/lib/team/shoot-actions';
+import { armChime, playChime } from '@gitroom/frontend/lib/team/chime';
 import { WorkAlerts } from './work-alerts';
 
 jest.mock('@gitroom/frontend/lib/team/shoot-actions', () => ({
   passVideos: jest.fn(),
+}));
+jest.mock('@gitroom/frontend/lib/team/chime', () => ({
+  armChime: jest.fn(() => () => undefined),
+  playChime: jest.fn(),
 }));
 const refresh = jest.fn();
 jest.mock('next/navigation', () => ({ useRouter: () => ({ refresh }) }));
@@ -252,6 +257,28 @@ it('shows nothing before the page is in the browser', () => {
     alerts({ shoots: [shoot(1, '17:00')], videos: [video(1)], now: null }),
   );
   expect(dialog()).toBeNull();
+  expect(playChime).not.toHaveBeenCalled();
+});
+
+it('chimes once for each thing new to the pop-up', () => {
+  const { rerender } = render(alerts({ videos: [video(1)] }));
+  expect(armChime).toHaveBeenCalled();
+  expect(playChime).toHaveBeenCalledTimes(1);
+  // The page reads itself again with nothing new: no chime.
+  rerender(alerts({ videos: [video(1)] }));
+  expect(playChime).toHaveBeenCalledTimes(1);
+  // Another video passed on while the pop-up is still open.
+  rerender(alerts({ videos: [video(1), video(2)] }));
+  expect(playChime).toHaveBeenCalledTimes(2);
+  // Put away: seen, so the same again stays quiet.
+  fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
+  rerender(alerts({ videos: [video(1), video(2)] }));
+  expect(playChime).toHaveBeenCalledTimes(2);
+  // A shoot comes due.
+  rerender(
+    alerts({ shoots: [shoot(1, '17:00')], videos: [video(1), video(2)] }),
+  );
+  expect(playChime).toHaveBeenCalledTimes(3);
 });
 
 it('asks about a closed month’s shoot once per device, since it can’t be cancelled', () => {

@@ -8,9 +8,11 @@
  * - videos just passed to them to edit;
  * - cuts just finished that wait on their Verify.
  *
- * In-app only: the tracker re-reads the page every minute while it is on
- * screen, so a pass or a Done shows up here without a reload, but nothing
- * reaches a phone while the portal is closed. What has been seen is kept per
+ * In-app only: the tracker re-reads the page every minute, in a background
+ * tab too, so a pass or a Done shows up here without a reload, with a chime
+ * for each new thing (lib/team/chime.ts: only once the page has had a tap or
+ * a key). Nothing reaches a phone while the portal is closed. What has been
+ * seen is kept per
  * device (localStorage), by list and video, so a video given to a new editor
  * still pops up for them. A due shoot comes back on every visit until its
  * videos are passed on or it is cancelled.
@@ -27,6 +29,7 @@ import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
 import { Button } from '@gitroom/frontend/components/ui/button';
+import { armChime, playChime } from '@gitroom/frontend/lib/team/chime';
 import { isDue, type Shoot } from '@gitroom/frontend/lib/team/shoots';
 import {
   mySection,
@@ -154,6 +157,23 @@ export function WorkAlerts({
     if (open && !dlg.open) dlg.showModal();
     else if (!open && dlg.open) dlg.close();
   }, [open]);
+
+  // What the pop-up shows; a chime when something on it is new to it.
+  const showing = open
+    ? [
+        ...due.map((x) => `shoot:${x.id}`),
+        ...newEdit.map((v) => `edit:${v.id}`),
+        ...newVerify.map((v) => `verify:${v.id}`),
+      ].join(' ')
+    : '';
+  const heard = useRef<string[]>([]);
+  useEffect(() => {
+    const keys = showing ? showing.split(' ') : [];
+    const fresh = keys.some((k) => !heard.current.includes(k));
+    heard.current = keys;
+    if (fresh) playChime();
+  }, [showing]);
+  useEffect(() => armChime(), []);
 
   function putAway() {
     const keys = [

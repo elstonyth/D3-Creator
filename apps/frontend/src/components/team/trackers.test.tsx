@@ -266,6 +266,32 @@ describe('the staff tracker', () => {
     expect(document.querySelector('dialog[open]')).toBeNull();
   });
 
+  it('reads the page again every minute, in a background tab too', () => {
+    jest.useFakeTimers();
+    const shown = jest
+      .spyOn(document, 'visibilityState', 'get')
+      .mockReturnValue('hidden');
+    try {
+      const { unmount } = renderStaff();
+      refresh.mockClear();
+      // Behind other tabs: new work still comes in, and its chime with it.
+      act(() => {
+        jest.advanceTimersByTime(60_000);
+      });
+      expect(refresh).toHaveBeenCalledTimes(1);
+      // Back in view: read again at once.
+      shown.mockReturnValue('visible');
+      act(() => {
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+      expect(refresh).toHaveBeenCalledTimes(2);
+      unmount();
+    } finally {
+      shown.mockRestore();
+      jest.useRealTimers();
+    }
+  });
+
   it('takes a shoot dropped on a spotlight day, asking why it moves', async () => {
     class FakePointerEvent extends MouseEvent {
       pointerId = 1;
