@@ -1,11 +1,11 @@
 import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import { Metadata } from 'next';
 import { LeaderboardShowcase } from '@gitroom/frontend/components/leaderboard-showcase/leaderboard-showcase';
+import { type LiveCreatorRow } from '@gitroom/frontend/lib/queries';
 import {
-  getLiveCreatorRows,
-  getTopContentRankingsWindowed,
-  type LiveCreatorRow,
-} from '@gitroom/frontend/lib/queries';
+  cachedLiveCreatorRows,
+  cachedTopContent,
+} from '@gitroom/frontend/lib/public-data';
 
 // Rendered dynamically (uncached live-DB reads) — see (public)/page.tsx for why
 // this is force-dynamic and not build-time ISR.
@@ -16,7 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: t('Leaderboard — D3 Creator'),
     description: t(
-      'Top creators we grow at D3, ranked by followers, views, and engagement across every platform.'
+      'Top creators we grow at D3, ranked by followers, views, and engagement across every platform.',
     ),
     alternates: { canonical: '/leaderboard' },
   };
@@ -25,11 +25,11 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function LeaderboardPage() {
   const { t } = await getI18n();
   const [creators, content] = await Promise.all([
-    getLiveCreatorRows().catch((e) => {
+    cachedLiveCreatorRows().catch((e) => {
       console.error('[leaderboard] creators', e);
       return null as LiveCreatorRow[] | null;
     }),
-    getTopContentRankingsWindowed(50).catch((e) => {
+    cachedTopContent(50).catch((e) => {
       console.error('[leaderboard] top content', e);
       return null;
     }),
@@ -47,7 +47,7 @@ export default async function LeaderboardPage() {
         </h1>
         <p className="text-body-lg text-fgMuted max-w-[600px]">
           {t(
-            'Top creators by views, and their best content by views and engagement. No screenshots. No fake case studies. Just live numbers.'
+            'Top creators by views, and their best content by views and engagement. No screenshots. No fake case studies. Just live numbers.',
           )}{' '}
         </p>
       </header>

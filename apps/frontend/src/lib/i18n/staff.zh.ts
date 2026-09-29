@@ -111,6 +111,7 @@ export const staffZh: Readonly<Record<string, string>> = {
   handler: '负责人',
   editor: '剪辑',
   'handler & editor': '负责人兼剪辑',
+  'In hand now': '手上的工作',
   'Videos done': '已完成的视频',
   Edited: '已剪辑',
   'No edits marked done this month.': '本月没有标记完成的剪辑。',

@@ -1,11 +1,11 @@
 import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import { Metadata } from 'next';
 import { DashboardShowcase } from '@gitroom/frontend/components/dashboard-showcase/dashboard-showcase';
+import { type LiveCreatorRow } from '@gitroom/frontend/lib/queries';
 import {
-  getLiveCreatorRows,
-  type LiveCreatorRow,
-} from '@gitroom/frontend/lib/queries';
-import { getDashboardViewTotalsWindowed } from '@gitroom/frontend/lib/metrics-windowed';
+  cachedDashboardTotals,
+  cachedLiveCreatorRows,
+} from '@gitroom/frontend/lib/public-data';
 
 // Rendered dynamically (uncached live-DB reads) — see (public)/page.tsx for why
 // this is force-dynamic and not build-time ISR.
@@ -16,7 +16,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: t('Dashboard — D3 Creator'),
     description: t(
-      'Live overview of every creator we grow at D3 — combined views and followers across Instagram, TikTok, Facebook, and Douyin.'
+      'Live overview of every creator we grow at D3 — combined views and followers across Instagram, TikTok, Facebook, and Douyin.',
     ),
     alternates: { canonical: '/dashboard' },
   };
@@ -25,14 +25,14 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function DashboardPage() {
   const { t } = await getI18n();
   const [creators, windowed] = await Promise.all([
-    getLiveCreatorRows().catch((e) => {
+    cachedLiveCreatorRows().catch((e) => {
       console.error('[dashboard] creators', e);
       return null as LiveCreatorRow[] | null;
     }),
     // Windowed view totals power the period pills across the hero, platform
-    // breakdown, and Top Creators ranking. Resolves to empty maps on error
-    // (logged inside the helper) so those sections fall back to cumulative.
-    getDashboardViewTotalsWindowed().catch((e) => {
+    // breakdown, and Top Creators ranking. A failed read throws (and is not
+    // cached): undefined here, so those sections fall back to cumulative.
+    cachedDashboardTotals().catch((e) => {
       console.error('[dashboard] viewsByWindow', e);
       return undefined;
     }),
@@ -52,7 +52,7 @@ export default async function DashboardPage() {
         </h1>
         <p className="text-body-lg text-fgMuted max-w-[600px]">
           {t(
-            'A live roll-up of every account we manage. Filter by platform; numbers refresh as our scraper collects them.'
+            'A live roll-up of every account we manage. Filter by platform; numbers refresh as our scraper collects them.',
           )}{' '}
         </p>
         {isLive && (
@@ -61,7 +61,7 @@ export default async function DashboardPage() {
               creators.length === 1
                 ? 'Tracking {count} creator · combined followers and views across every platform.'
                 : 'Tracking {count} creators · combined followers and views across every platform.',
-              { count: creators.length }
+              { count: creators.length },
             )}{' '}
           </p>
         )}

@@ -16,10 +16,11 @@ import {
   loadPeople,
   loadRoster,
   loadShoots,
+  loadVideos,
   loadVideosDone,
   monthDays,
 } from '@gitroom/frontend/lib/team/load';
-import { finishedBy } from '@gitroom/frontend/lib/team/videos';
+import { finishedBy, mySection } from '@gitroom/frontend/lib/team/videos';
 import { Pill } from '@gitroom/frontend/components/team/pill';
 import { Container, Section } from '@gitroom/frontend/components/ui/section';
 import { HistoryView } from '@gitroom/frontend/components/team/history-view';
@@ -40,7 +41,8 @@ interface PageProps {
 
 /**
  * One person's record for a month, read-only: their shoots and the videos
- * they edited or verified, with the editors' links.
+ * they edited or verified, with the editors' links — and, on this month,
+ * what is in their hands now.
  */
 export default async function AdminPersonPage({
   params,
@@ -70,7 +72,8 @@ export default async function AdminPersonPage({
     : '/admin/team';
 
   const admin = getSupabaseAdmin();
-  const [shoots, roster, videos, login] = await Promise.all([
+  const current = month === thisMonth;
+  const [shoots, roster, videos, login, open] = await Promise.all([
     loadShoots(days.from, days.to, id),
     loadRoster(),
     loadVideosDone(
@@ -79,7 +82,18 @@ export default async function AdminPersonPage({
       id,
     ),
     admin.from('tracker_member').select('user_id').eq('id', id).maybeSingle(),
+    // What they hold now: only this month's page shows it.
+    current ? loadVideos(new Date(from).toISOString(), id) : null,
   ]);
+  const inHand = open
+    ? {
+        toEdit: open.filter((v) => mySection(v, id, month) === 'toEdit'),
+        toVerify: open.filter((v) => mySection(v, id, month) === 'toVerify'),
+        withEditor: open.filter(
+          (v) => mySection(v, id, month) === 'withEditor',
+        ),
+      }
+    : null;
   const userId = login.data?.user_id as string | null | undefined;
   const email = userId
     ? ((await admin.auth.admin.getUserById(userId)).data.user?.email ?? null)
@@ -133,6 +147,7 @@ export default async function AdminPersonPage({
           <PersonVideos
             edited={edited}
             verified={verified}
+            inHand={inHand}
             accountName={accountName}
           />
         </HistoryView>
