@@ -91,6 +91,8 @@ interface DyUser {
   total_favorited?: number | null;
   custom_verify?: string | null;
   ip_location?: string | null;
+  /** Set when the owner closed the account (账号已经注销): an id, no data. */
+  user_deleted?: boolean;
 }
 
 interface DyProfileResponse {
@@ -273,16 +275,42 @@ function mapProfile(
 export const douyinAdapter: PlatformAdapter = {
   platform: 'douyin',
   sourceId: 'tikhub:douyin/web',
-  async scrape(profileUrl: string, opts: ScrapeOptions = {}): Promise<ScrapeResult> {
+  async scrape(
+    profileUrl: string,
+    opts: ScrapeOptions = {},
+  ): Promise<ScrapeResult> {
     const secUid = extractSecUid(profileUrl);
 
-    const fetchPostsPage = (maxCursor: number | string) =>
-      tikhubGet<DyPostsResponse>({
-        path: '/api/v1/douyin/web/fetch_user_post_videos',
-        query: { sec_user_id: secUid, count: POSTS_PER_SCRAPE, max_cursor: maxCursor },
-        platform: PLATFORM,
-        profileUrl,
-      });
+    // TikHub's web feed fails for some accounts, some days ("Request failed.
+    // Please retry", HTTP 400), while its app/v3 feed of the same shape
+    // serves them: one try there before the scrape gives up.
+    const fetchPostsPage = async (maxCursor: number | string) => {
+      const query = {
+        sec_user_id: secUid,
+        count: POSTS_PER_SCRAPE,
+        max_cursor: maxCursor,
+      };
+      try {
+        return await tikhubGet<DyPostsResponse>({
+          path: '/api/v1/douyin/web/fetch_user_post_videos',
+          query,
+          platform: PLATFORM,
+          profileUrl,
+        });
+      } catch (err) {
+        if (
+          err instanceof ProfileNotFoundError ||
+          (err instanceof ScrapeError && err.status === 'private')
+        )
+          throw err;
+        return tikhubGet<DyPostsResponse>({
+          path: '/api/v1/douyin/app/v3/fetch_user_post_videos',
+          query,
+          platform: PLATFORM,
+          profileUrl,
+        });
+      }
+    };
 
     const [profileResp, postsResp] = await Promise.all([
       tikhubGet<DyProfileResponse>({
@@ -306,7 +334,8 @@ export const douyinAdapter: PlatformAdapter = {
     ]);
 
     const user = unwrapUser(profileResp);
-    if (!user || (!user.sec_uid && !user.uid)) {
+    // A closed account still answers, with its id and nothing else.
+    if (!user || (!user.sec_uid && !user.uid) || user.user_deleted) {
       throw new ProfileNotFoundError(PLATFORM, profileUrl);
     }
 
@@ -322,7 +351,12 @@ export const douyinAdapter: PlatformAdapter = {
       let pages = 0;
       let cursor: number | string | undefined = postsResp.max_cursor;
       let hasMore = Boolean(postsResp.has_more);
-      while (awemeList.length < maxPosts && hasMore && cursor !== undefined && pages < MAX_PAGES) {
+      while (
+        awemeList.length < maxPosts &&
+        hasMore &&
+        cursor !== undefined &&
+        pages < MAX_PAGES
+      ) {
         pages += 1;
         let next: DyPostsResponse;
         try {

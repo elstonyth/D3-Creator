@@ -21,8 +21,8 @@ import {
 } from '@gitroom/frontend/components/dashboard-showcase/showcase-data';
 import { ShowcaseNumber } from '@gitroom/frontend/components/dashboard-showcase/showcase-number';
 import { ImageWithFallback } from '@gitroom/frontend/components/ui/image-with-fallback';
+import { cachedLiveCreatorRows } from '@gitroom/frontend/lib/public-data';
 import {
-  getLiveCreatorRows,
   summarizeCreatorRows,
   platformBreakdownFromRows,
   type LivePlatformBreakdown,
@@ -36,9 +36,8 @@ import { SITE_NAME, SITE_URL } from '@gitroom/frontend/lib/site';
 // `force-dynamic` so `next build` does NOT prerender them: that build-time
 // render executed getLiveCreatorRows() — a full profile_snapshot + post_snapshot
 // scan — and intermittently exceeded the 60s static-generation timeout, flaking
-// CI (/leaderboard). Runtime behavior is unchanged (already dynamic). Restoring a
-// real 1h cache would need a cached aggregate (RPC + unstable_cache) — separate
-// follow-up.
+// CI (/leaderboard). Runtime behavior is unchanged (already dynamic). The reads
+// themselves are cached across visitors instead (lib/public-data.ts).
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -46,7 +45,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: t('D3 Creator — We don’t sell dreams. We show numbers.'),
     description: t(
-      'D3 Creator is a live showcase of the creators, brands, and IPs we grow across every platform. Real traffic. Real engagement. Real growth.'
+      'D3 Creator is a live showcase of the creators, brands, and IPs we grow across every platform. Real traffic. Real engagement. Real growth.',
     ),
     alternates: { canonical: '/' },
   };
@@ -80,7 +79,7 @@ export default async function HomePage() {
   // there is no live data yet, the synthetic demo rows flow through the SAME
   // helpers, so the page always shows combined totals (followers + views),
   // never 30-day deltas.
-  const liveRows = await getLiveCreatorRows().catch((err) => {
+  const liveRows = await cachedLiveCreatorRows().catch((err) => {
     console.error('[home] getLiveCreatorRows failed', err);
     return null;
   });
@@ -127,7 +126,7 @@ export default async function HomePage() {
                 </h1>
                 <p className="text-body text-fgMuted max-w-[480px] mx-auto lg:mx-0">
                   {t(
-                    'D3 Creator is a live showcase of the creators, brands, and IPs we grow across every platform. Real traffic. Real engagement. Real growth.'
+                    'D3 Creator is a live showcase of the creators, brands, and IPs we grow across every platform. Real traffic. Real engagement. Real growth.',
                   )}{' '}
                 </p>
                 <div className="flex flex-col sm:flex-row items-center lg:items-start justify-center lg:justify-start gap-3 mt-2">
@@ -203,7 +202,7 @@ export default async function HomePage() {
               </h3>
               <p className="text-body text-fgMuted">
                 {t(
-                  "Every creator we've built shows up here with their live counts — not a cherry-picked deck."
+                  "Every creator we've built shows up here with their live counts — not a cherry-picked deck.",
                 )}{' '}
               </p>
             </div>
@@ -216,7 +215,7 @@ export default async function HomePage() {
               </h3>
               <p className="text-body text-fgMuted">
                 {t(
-                  'Across every platform we operate. Snapshots every day. No edited screenshots.'
+                  'Across every platform we operate. Snapshots every day. No edited screenshots.',
                 )}{' '}
               </p>
             </div>
@@ -229,7 +228,7 @@ export default async function HomePage() {
               </h3>
               <p className="text-body text-fgMuted">
                 {t(
-                  'Since 2021. Founders, operators, and creators building real commercial IP.'
+                  'Since 2021. Founders, operators, and creators building real commercial IP.',
                 )}{' '}
               </p>
             </div>
@@ -440,7 +439,7 @@ export default async function HomePage() {
                                 creatorCount === 1
                                   ? '{count} creator'
                                   : '{count} creators',
-                                { count: creatorCount }
+                                { count: creatorCount },
                               )}
                         </span>
                       </div>
@@ -477,7 +476,7 @@ export default async function HomePage() {
               <StatCell
                 label={t('Tracked Creators')}
                 value={new Intl.NumberFormat(localeTag(locale)).format(
-                  summary.trackedCreators
+                  summary.trackedCreators,
                 )}
                 note={t('Across every platform')}
               />
@@ -510,7 +509,7 @@ export default async function HomePage() {
             </h2>
             <p className="text-body-lg text-fgMuted max-w-[520px] mx-auto mb-8">
               {t(
-                'The dashboard refreshes the moment our scraper kicks in. Pick a platform, sort by growth, watch the numbers move.'
+                'The dashboard refreshes the moment our scraper kicks in. Pick a platform, sort by growth, watch the numbers move.',
               )}{' '}
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -528,7 +527,7 @@ export default async function HomePage() {
             {!isLive && (
               <p className="text-caption text-fgSubtle mt-8 tabular-nums">
                 {t(
-                  'Showcase preview · synthetic data until the scraper switches on.'
+                  'Showcase preview · synthetic data until the scraper switches on.',
                 )}{' '}
               </p>
             )}

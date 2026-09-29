@@ -9,6 +9,7 @@
 jest.mock('../tikhub-client', () => ({ tikhubGet: jest.fn() }));
 
 import { tikhubGet } from '../tikhub-client';
+import { ProfileNotFoundError, ScrapeError } from '../errors';
 import { douyinAdapter } from './douyin';
 
 const mockGet = tikhubGet as unknown as jest.Mock;
@@ -29,7 +30,12 @@ const aweme = (id: string) => ({
   aweme_id: id,
   create_time: 1716800000,
   // feed always reports play_count=0 on Douyin; real views come from stats.
-  statistics: { play_count: 0, digg_count: 1, comment_count: 1, share_count: 0 },
+  statistics: {
+    play_count: 0,
+    digg_count: 1,
+    comment_count: 1,
+    share_count: 0,
+  },
 });
 
 /** Stub fetch_multi_video_statistics: echo a fixed play_count for each id. */
@@ -52,10 +58,17 @@ beforeEach(() => mockGet.mockReset());
 test('deep mode (maxPosts) paginates via max_cursor across pages', async () => {
   mockGet.mockImplementation(async (opts: any) => {
     if (opts.path.includes('handler_user_profile')) return healthyProfile;
-    if (opts.path.includes('fetch_multi_video_statistics')) return statsFor(opts);
+    if (opts.path.includes('fetch_multi_video_statistics'))
+      return statsFor(opts);
     const cursor = Number(opts.query?.max_cursor ?? 0);
-    if (cursor === 0) return { aweme_list: [aweme('d1'), aweme('d2')], has_more: 1, max_cursor: 100 };
-    if (cursor === 100) return { aweme_list: [aweme('d3')], has_more: 0, max_cursor: 200 };
+    if (cursor === 0)
+      return {
+        aweme_list: [aweme('d1'), aweme('d2')],
+        has_more: 1,
+        max_cursor: 100,
+      };
+    if (cursor === 100)
+      return { aweme_list: [aweme('d3')], has_more: 0, max_cursor: 200 };
     return { aweme_list: [], has_more: 0 };
   });
 
@@ -69,7 +82,8 @@ test('default scrape fetches a single posts page (cron stays cheap)', async () =
   let postsCalls = 0;
   mockGet.mockImplementation(async (opts: any) => {
     if (opts.path.includes('handler_user_profile')) return healthyProfile;
-    if (opts.path.includes('fetch_multi_video_statistics')) return statsFor(opts);
+    if (opts.path.includes('fetch_multi_video_statistics'))
+      return statsFor(opts);
     postsCalls++;
     return { aweme_list: [aweme('d1')], has_more: 1, max_cursor: 100 };
   });
@@ -79,7 +93,7 @@ test('default scrape fetches a single posts page (cron stays cheap)', async () =
   expect(res.posts).toHaveLength(1);
 });
 
-test('a failed stats backfill degrades views to null — never the feed\'s bogus 0', async () => {
+test("a failed stats backfill degrades views to null — never the feed's bogus 0", async () => {
   const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
   try {
     mockGet.mockImplementation(async (opts: any) => {
@@ -109,11 +123,58 @@ test('a failed stats backfill degrades views to null — never the feed\'s bogus
 test('deep mode stops at maxPosts even if more pages remain', async () => {
   mockGet.mockImplementation(async (opts: any) => {
     if (opts.path.includes('handler_user_profile')) return healthyProfile;
-    if (opts.path.includes('fetch_multi_video_statistics')) return statsFor(opts);
+    if (opts.path.includes('fetch_multi_video_statistics'))
+      return statsFor(opts);
     const n = Number(opts.query?.max_cursor ?? 0);
     return { aweme_list: [aweme('x' + n)], has_more: 1, max_cursor: n + 1 };
   });
 
   const res = await douyinAdapter.scrape(PROFILE_URL, { maxPosts: 3 });
   expect(res.posts).toHaveLength(3);
+});
+
+test('falls back to the app feed when the web feed fails (TikHub 400)', async () => {
+  const feeds: string[] = [];
+  mockGet.mockImplementation(async (opts: any) => {
+    if (opts.path.includes('handler_user_profile')) return healthyProfile;
+    if (opts.path.includes('fetch_multi_video_statistics'))
+      return statsFor(opts);
+    feeds.push(opts.path);
+    if (opts.path.includes('/web/fetch_user_post_videos'))
+      throw new ScrapeError(
+        'failed',
+        'TikHub returned HTTP 400',
+        'douyin',
+        PROFILE_URL,
+        true,
+      );
+    return { aweme_list: [aweme('a1'), aweme('a2')], has_more: 0 };
+  });
+
+  const res = await douyinAdapter.scrape(PROFILE_URL);
+  expect(feeds).toEqual([
+    '/api/v1/douyin/web/fetch_user_post_videos',
+    '/api/v1/douyin/app/v3/fetch_user_post_videos',
+  ]);
+  expect(res.posts.map((p) => p.external_post_id)).toEqual(['a1', 'a2']);
+  expect(res.posts[0].views).toBe(1000);
+});
+
+test('reports an account its owner deleted as not found', async () => {
+  mockGet.mockImplementation(async (opts: any) => {
+    if (opts.path.includes('handler_user_profile'))
+      // What Douyin answers for a closed account: an id, and a flag.
+      return {
+        user: {
+          uid: '7657897842565481529',
+          user_deleted: true,
+          special_state_info: { special_state: 1, title: '账号已经注销' },
+        },
+      };
+    return { aweme_list: [], has_more: 0 };
+  });
+
+  await expect(douyinAdapter.scrape(PROFILE_URL)).rejects.toBeInstanceOf(
+    ProfileNotFoundError,
+  );
 });
