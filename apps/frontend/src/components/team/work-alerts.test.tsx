@@ -59,6 +59,7 @@ function shoot(n: number, time: string | null, extra: Partial<Shoot> = {}) {
     creatorId: GARY,
     videosShot: null,
     status: 'planned',
+    createdBy: null,
     note: null,
     ...extra,
   } as Shoot;
@@ -91,6 +92,7 @@ function alerts({
   return (
     <WorkAlerts
       meId={KEE}
+      loginId="kee-login"
       month="2026-09"
       today={TODAY}
       now={now}
@@ -290,6 +292,7 @@ it('asks about a closed month’s shoot once per device, since it can’t be can
   const view = (extra = {}) => (
     <WorkAlerts
       meId={KEE}
+      loginId="kee-login"
       month="2026-10"
       today="2026-10-01"
       now={october.now}
@@ -320,4 +323,34 @@ it('closes an open pass form on Escape, keeping the pop-up', () => {
   expect(within(dialog()!).queryByLabelText('Video 1 title')).toBeNull();
   fireEvent(dialog()!, new Event('cancel', { cancelable: true }));
   expect(dialog()).toBeNull();
+});
+
+it('tells them once about a shoot someone else added for them', () => {
+  // 20:00 is not due yet at 18:30; the admin added it.
+  const added = shoot(1, '20:00', { createdBy: 'boss-login' });
+  const { rerender } = render(alerts({ shoots: [added] }));
+  const box = within(dialog()!);
+  expect(box.getByText('New shoots scheduled for you')).toBeTruthy();
+  expect(box.getByText('Today · 20:00 · Gary')).toBeTruthy();
+  expect(playChime).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
+  expect(dialog()).toBeNull();
+  // Seen on this device: not again.
+  rerender(alerts({ shoots: [added] }));
+  expect(dialog()).toBeNull();
+});
+
+it('says nothing new about their own shoot, or one already due', () => {
+  render(
+    alerts({
+      shoots: [
+        shoot(1, '20:00', { createdBy: 'kee-login' }),
+        // Due: asked about as due instead.
+        shoot(2, '17:00', { createdBy: 'boss-login' }),
+      ],
+    }),
+  );
+  const box = within(dialog()!);
+  expect(box.queryByText('New shoots scheduled for you')).toBeNull();
+  expect(box.getByText('Shoot time is up — pass the videos on')).toBeTruthy();
 });

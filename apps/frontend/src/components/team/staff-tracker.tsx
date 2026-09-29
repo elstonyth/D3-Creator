@@ -50,6 +50,8 @@ export interface StaffTrackerProps extends StaffTrackerData {
   initialDay: string | null;
   /** The signed-in staff member's person. */
   meId: string;
+  /** Their login: a shoot someone else added for them pops up. */
+  loginId: string;
 }
 
 export function StaffTracker({
@@ -64,6 +66,7 @@ export function StaffTracker({
   accounts,
   handled,
   meId,
+  loginId,
 }: StaffTrackerProps) {
   const { t, locale } = useI18n();
   const now = useNow();
@@ -217,6 +220,7 @@ export function StaffTracker({
 
       <WorkAlerts
         meId={meId}
+        loginId={loginId}
         month={thisMonth}
         today={today}
         now={now}

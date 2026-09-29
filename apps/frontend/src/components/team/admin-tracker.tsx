@@ -77,6 +77,8 @@ export interface AdminTrackerProps extends AdminTrackerData {
    * Team page): what waits on them pops up, as it does for staff.
    */
   meId?: string | null;
+  /** The admin's login: a shoot someone else added for them pops up. */
+  loginId?: string | null;
 }
 
 export function AdminTracker({
@@ -96,6 +98,7 @@ export function AdminTracker({
   placeAccount,
   orderPeople,
   meId = null,
+  loginId = null,
 }: AdminTrackerProps) {
   const { t, locale } = useI18n();
   const tag = localeTag(locale);
@@ -344,9 +347,10 @@ export function AdminTracker({
         />
       </GlassPanel>
 
-      {meId ? (
+      {meId && loginId ? (
         <WorkAlerts
           meId={meId}
+          loginId={loginId}
           month={thisMonth}
           today={today}
           now={now}

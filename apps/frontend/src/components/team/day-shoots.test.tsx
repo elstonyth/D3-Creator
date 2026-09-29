@@ -79,6 +79,7 @@ function shoot(
     creatorId: null,
     videosShot: null,
     status: 'planned',
+    createdBy: null,
     note: null,
     ...extra,
   };

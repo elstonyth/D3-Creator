@@ -92,6 +92,7 @@ function shoot(
     creatorId: null,
     videosShot: null,
     status: 'planned',
+    createdBy: null,
     note: null,
     ...extra,
   };
@@ -132,13 +133,13 @@ describe('the staff tracker', () => {
     video(3, {}), // still with MEI
   ];
 
-  function renderStaff() {
+  function renderStaff(list = shoots) {
     return render(
       <StaffTracker
         month="2026-09"
         today={TODAY}
         initialDay={null}
-        shoots={shoots}
+        shoots={list}
         videos={videos}
         edited={2}
         verified={5}
@@ -146,6 +147,7 @@ describe('the staff tracker', () => {
         accounts={accounts}
         handled={[ACC]}
         meId={KEE}
+        loginId="kee-login"
       />,
     );
   }
@@ -167,6 +169,7 @@ describe('the staff tracker', () => {
         accounts={accounts}
         handled={[ACC]}
         meId={KEE}
+        loginId="kee-login"
       />,
     );
     const spot = screen.getByRole('region', { name: 'Upcoming' });
@@ -230,6 +233,7 @@ describe('the staff tracker', () => {
         accounts={accounts}
         handled={[ACC]}
         meId={KEE}
+        loginId="kee-login"
       />,
     );
     expect(screen.queryByText('4 videos passed')).toBeNull();
@@ -264,6 +268,18 @@ describe('the staff tracker', () => {
     unmount();
     renderStaff();
     expect(document.querySelector('dialog[open]')).toBeNull();
+  });
+
+  it('pops up a shoot the admin added for me, not one I added', () => {
+    window.localStorage.clear();
+    renderStaff([
+      shoot(4, KEE, '2026-10-01', 'Night market', { createdBy: 'boss-login' }),
+      shoot(5, KEE, '2026-10-01', 'Car wash', { createdBy: 'kee-login' }),
+    ]);
+    const box = within(document.querySelector<HTMLElement>('dialog[open]')!);
+    expect(box.getByText('New shoots scheduled for you')).toBeTruthy();
+    expect(box.getByText(/Night market/)).toBeTruthy();
+    expect(box.queryByText(/Car wash/)).toBeNull();
   });
 
   it('reads the page again every minute, in a background tab too', () => {
@@ -364,6 +380,7 @@ describe('the admin’s tracker', () => {
     return render(
       <AdminTracker
         meId={meId}
+        loginId="boss-login"
         month="2026-09"
         today={TODAY}
         initialDay={null}

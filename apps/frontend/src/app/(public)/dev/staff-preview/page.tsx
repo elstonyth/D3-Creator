@@ -130,6 +130,7 @@ export default async function StaffPreviewPage({
     creatorId: null,
     videosShot: null,
     status: 'planned',
+    createdBy: null,
     note: null,
     movedReason: null,
     ...extra,
@@ -257,6 +258,7 @@ export default async function StaffPreviewPage({
           accounts={accounts}
           handled={board.filter((c) => c.handlerId === HOWEN).map((c) => c.id)}
           meId={HOWEN}
+          loginId="preview-login"
         />
       ),
     },

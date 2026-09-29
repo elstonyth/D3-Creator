@@ -302,6 +302,7 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Time to pass videos': '该交出视频了',
   'Waiting for you': '有事等你处理',
   'Shoot time is up — pass the videos on': '拍摄时间到了——请交出视频',
+  'New shoots scheduled for you': '为你安排的新拍摄',
   'New videos to edit': '新的剪辑任务',
   'Edited — ready for you to verify': '剪好了，等你审核',
   'From {name}': '来自 {name}',

@@ -51,6 +51,7 @@ export default async function StaffTrackerPage({ searchParams }: PageProps) {
       today={today}
       initialDay={day}
       meId={staff.memberId}
+      loginId={staff.userId}
     />
   );
 }

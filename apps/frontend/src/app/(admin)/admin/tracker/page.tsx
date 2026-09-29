@@ -59,6 +59,7 @@ export default async function AdminTrackerPage({ searchParams }: PageProps) {
       placeAccount={placeAccount}
       orderPeople={orderPeople}
       meId={meId}
+      loginId={auth.userId}
     />
   );
 }

@@ -35,6 +35,11 @@ export interface Shoot {
   note: string | null;
   /** Why it was last changed (day, time or account); null if never. */
   movedReason: string | null;
+  /**
+   * The login that added it. One added by someone else (the admin) is news
+   * to its person (WorkAlerts); null for a login since deleted.
+   */
+  createdBy: string | null;
 }
 
 /**

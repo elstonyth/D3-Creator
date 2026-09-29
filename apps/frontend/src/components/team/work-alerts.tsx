@@ -5,6 +5,7 @@
  * owner's call):
  * - a shoot an hour past its start (shootDueAt), with Pass videos right in
  *   the pop-up;
+ * - a shoot someone else (the admin) added for them, once;
  * - videos just passed to them to edit;
  * - cuts just finished that wait on their Verify.
  *
@@ -81,6 +82,7 @@ function parseSeen(raw: string | null): string[] {
 
 export function WorkAlerts({
   meId,
+  loginId,
   month,
   today,
   now,
@@ -92,6 +94,8 @@ export function WorkAlerts({
   onPassed,
 }: {
   meId: string;
+  /** Their own login: a shoot added by any other is news to them. */
+  loginId: string;
   /** This month (`YYYY-MM`), for which of their lists a video is on. */
   month: string;
   today: string;
@@ -146,10 +150,25 @@ export function WorkAlerts({
   const toVerify = videos.filter(
     (v) => mySection(v, meId, month) === 'toVerify' && v.editedBy !== meId,
   );
+  // A shoot someone else added for them; one already due is asked about
+  // above instead.
+  const added =
+    now === null
+      ? []
+      : shoots.filter(
+          (x) =>
+            x.memberId === meId &&
+            x.status === 'planned' &&
+            !!x.createdBy &&
+            x.createdBy !== loginId &&
+            !isDue(x, meId, now) &&
+            !known(`new:${x.id}`),
+        );
   const newEdit = toEdit.filter((v) => !known(`edit:${v.id}`));
   const newVerify = toVerify.filter((v) => !known(`verify:${v.id}`));
   const open =
-    now !== null && due.length + newEdit.length + newVerify.length > 0;
+    now !== null &&
+    due.length + added.length + newEdit.length + newVerify.length > 0;
 
   useEffect(() => {
     const dlg = dialogRef.current;
@@ -162,6 +181,7 @@ export function WorkAlerts({
   const showing = open
     ? [
         ...due.map((x) => `shoot:${x.id}`),
+        ...added.map((x) => `new:${x.id}`),
         ...newEdit.map((v) => `edit:${v.id}`),
         ...newVerify.map((v) => `verify:${v.id}`),
       ].join(' ')
@@ -177,6 +197,7 @@ export function WorkAlerts({
 
   function putAway() {
     const keys = [
+      ...added.map((x) => `new:${x.id}`),
       ...toEdit.map((v) => `edit:${v.id}`),
       ...toVerify.map((v) => `verify:${v.id}`),
       ...due.filter(closed).map((x) => `shoot:${x.id}`),
@@ -299,6 +320,21 @@ export function WorkAlerts({
                         }}
                       />
                     ) : null}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {added.length > 0 ? (
+            <section className="mt-5">
+              <h3 className="text-label text-fg">
+                {t('New shoots scheduled for you')}
+              </h3>
+              <ul className="mt-2 space-y-1.5">
+                {added.map((x) => (
+                  <li key={x.id} className={cn(s.inset, 'px-3 py-2')}>
+                    <p className="break-words text-body">{shootLabel(x)}</p>
                   </li>
                 ))}
               </ul>
