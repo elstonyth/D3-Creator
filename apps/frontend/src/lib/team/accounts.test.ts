@@ -1,10 +1,10 @@
-import { boardOf, orderWith, slotBefore } from './accounts';
+import { boardOf, igLive, orderWith, slotBefore } from './accounts';
 
 describe('boardOf', () => {
   const roster = [
-    { id: 'a', name: 'Amy', avatarUrl: null, platforms: ['tiktok'] },
-    { id: 'b', name: 'Bob', avatarUrl: null, platforms: ['instagram'] },
-    { id: 'c', name: 'Cat', avatarUrl: null, platforms: ['douyin'] },
+    { id: 'a', name: 'Amy', avatarUrl: null, platforms: ['tiktok'], igLive: false },
+    { id: 'b', name: 'Bob', avatarUrl: null, platforms: ['instagram'], igLive: true },
+    { id: 'c', name: 'Cat', avatarUrl: null, platforms: ['douyin'], igLive: false },
   ];
   const row = (
     creator_id: string,
@@ -66,5 +66,23 @@ describe('where a dragged card lands', () => {
     // From another column, or before a card that has left: at the end.
     expect(orderWith(['a', 'b'], 'x', 'b')).toEqual(['a', 'x', 'b']);
     expect(orderWith(['a', 'b'], 'x', 'gone')).toEqual(['a', 'b', 'x']);
+  });
+});
+
+describe('igLive', () => {
+  const ig = (scrape_status: string) => ({ platform: 'instagram', scrape_status });
+
+  it('counts an Instagram account that still scrapes, even after a failed run', () => {
+    expect(igLive([ig('ok')])).toBe(true);
+    expect(igLive([{ platform: 'tiktok', scrape_status: 'ok' }, ig('failed')])).toBe(
+      true,
+    );
+  });
+
+  it('does not count a missing, gone or private Instagram account', () => {
+    expect(igLive([])).toBe(false);
+    expect(igLive([{ platform: 'tiktok', scrape_status: 'ok' }])).toBe(false);
+    expect(igLive([ig('not_found')])).toBe(false);
+    expect(igLive([ig('private')])).toBe(false);
   });
 });

@@ -277,7 +277,7 @@ export const staffZh: Readonly<Record<string, string>> = {
   'What each person is editing now and what waits on their check. Numbers are for {month}.':
     '每个人正在剪辑的视频和等他们审核的视频。数字统计月份：{month}。',
   'Editing now': '正在剪辑',
-  From: '来自',
+  'Passed by': '交片人',
   'Cut by': '剪辑人',
   'Nothing in their hands.': '手上没有视频。',
   'Nothing waiting on them.': '没有等他们审核的视频。',
@@ -328,8 +328,9 @@ export const staffZh: Readonly<Record<string, string>> = {
   'That person is not on the board, or does not handle accounts.':
     '此人已不在看板上，或不负责账号。',
   'No accounts yet.': '还没有账号。',
-  'Videos and views count Instagram reels posted in {month} only.':
-    '视频数和播放量只统计 {month} 在 Instagram 发布的 Reels。',
+  'Videos and views count Instagram videos posted in {month} only.':
+    '视频数和播放量只统计 {month} 在 Instagram 发布的视频。',
+  'No working Instagram account': '没有可用的 Instagram 账号',
   'IG videos': 'IG 视频',
   'IG views': 'IG 播放',
   Unassigned: '未分配',

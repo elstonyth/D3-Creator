@@ -16,7 +16,11 @@ import {
   parseMemberKind,
   type MemberKind,
 } from '@gitroom/frontend/lib/tracker';
-import type { AssignmentRow, MonthStatsRow } from './accounts';
+import {
+  igLive,
+  type AssignmentRow,
+  type MonthStatsRow,
+} from './accounts';
 import { rowToShoot, SHOOT_COLS, type ShootRow } from './shoot-rows';
 import { sortShoots, type Shoot } from './shoots';
 import { rowToVideo, VIDEO_COLS, type VideoRow } from './video-rows';
@@ -35,6 +39,8 @@ export interface RosterAccount {
   name: string;
   avatarUrl: string | null;
   platforms: string[];
+  /** It has an Instagram profile that still scrapes (igLive). */
+  igLive: boolean;
 }
 
 function must<T>(
@@ -87,12 +93,12 @@ export async function loadRoster(): Promise<RosterAccount[]> {
       id: string;
       display_name: string;
       avatar_url: string | null;
-      profile: { platform: string }[] | null;
+      profile: { platform: string; scrape_status: string | null }[] | null;
     }[]
   >(
     await getSupabaseAdmin()
       .from('creator')
-      .select('id, display_name, avatar_url, profile(platform)')
+      .select('id, display_name, avatar_url, profile(platform, scrape_status)')
       .order('display_name'),
     'roster',
   );
@@ -105,6 +111,7 @@ export async function loadRoster(): Promise<RosterAccount[]> {
       platforms: Array.from(
         new Set((c.profile ?? []).map((p) => p.platform)),
       ).sort(),
+      igLive: igLive(c.profile ?? []),
     }));
 }
 

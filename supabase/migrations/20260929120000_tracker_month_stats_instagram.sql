@@ -3,8 +3,9 @@
 -- four platforms counted four platforms' views, and folding the copies into
 -- one "video" leaned on a guess (same duration, same caption hook).
 --
--- `videos` is now every Instagram reel published in [p_from, p_to), and
--- `views` their latest views. Image posts are not videos and carry no views.
+-- `videos` is now every Instagram video published in [p_from, p_to): a reel,
+-- or another video (the adapter's 'video': IGTV, a feed video). `views` is
+-- their latest views. Image posts are not videos and carry no views.
 -- `posts` stays in the result, equal to `videos`, so the function keeps its
 -- shape and the code reading it works before and after this lands.
 create or replace function public.tracker_creator_month_stats(
@@ -29,7 +30,7 @@ as $$
     join public.profile p on p.id = ps.profile_id
     where ps.posted_at >= p_from and ps.posted_at < p_to
       and p.platform = 'instagram'
-      and ps.content_type = 'reel'
+      and ps.content_type in ('reel', 'video')
     order by ps.profile_id, ps.external_post_id, ps.captured_at desc
   )
   select
@@ -44,4 +45,4 @@ $$;
 revoke all on function public.tracker_creator_month_stats(timestamptz, timestamptz) from public, anon, authenticated;
 
 comment on function public.tracker_creator_month_stats(timestamptz, timestamptz) is
-  'Work tracker: per-creator Instagram reels and their views for posts published in [p_from, p_to). service_role only.';
+  'Work tracker: per-creator Instagram videos (reels and other videos) and their views for posts published in [p_from, p_to). service_role only.';

@@ -8,14 +8,30 @@
 
 import type { RosterAccount } from './load';
 
+/**
+ * Whether an account's month numbers can be trusted: it has an Instagram
+ * profile that still scrapes. A failed run is a bad day; not_found (renamed,
+ * gone) and private are not coming back on their own.
+ */
+export function igLive(
+  profiles: { platform: string; scrape_status: string | null }[],
+): boolean {
+  return profiles.some(
+    (p) =>
+      p.platform === 'instagram' &&
+      p.scrape_status !== 'not_found' &&
+      p.scrape_status !== 'private',
+  );
+}
+
 export interface AccountCard extends RosterAccount {
   handlerId: string | null;
   editorId: string | null;
   /** Position within its handler's column (`tracker_assignment.sort_order`). */
   sortOrder: number;
-  /** Instagram reels published in the month (the owner counts IG only). */
+  /** Instagram videos published in the month (the owner counts IG only). */
   videos: number;
-  /** Σ latest views across those reels. */
+  /** Σ latest views across those videos. */
   views: number;
 }
 

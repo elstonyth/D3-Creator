@@ -398,6 +398,7 @@ describe('the admin’s tracker', () => {
             name: 'Gary',
             avatarUrl: null,
             platforms: ['tiktok'],
+            igLive: true,
             handlerId: ZUWEI,
             editorId: MEI,
             sortOrder: 0,
@@ -556,7 +557,7 @@ describe('the admin’s tracker', () => {
     const parts = (li: HTMLElement) =>
       Array.from(li.children).map((c) => c.textContent);
     // MEI is cutting Reel 1, passed on by KEE.
-    expect(parts(row('MEI', 'Reel 1'))).toEqual(['Reel 1', 'From KEE']);
+    expect(parts(row('MEI', 'Reel 1'))).toEqual(['Reel 1', 'Passed by KEE']);
     // Reel 2 waits on KEE's check; MEI cut it.
     expect(parts(row('KEE', 'Reel 2'))).toEqual(['Reel 2', 'Cut by MEI']);
   });

@@ -21,9 +21,10 @@
  * One column per person who runs accounts (a handler, or someone who does
  * both) plus "Unassigned". Editors are not columns: they sit in a row of
  * chips under the header with what they edit. Month output (videos / views)
- * comes from the scraped snapshots, Instagram reels only (the owner's call:
+ * comes from the scraped snapshots, Instagram videos only (the owner's call:
  * summed across platforms it did not add up), and follows the calendar's
- * month.
+ * month. An account with no working Instagram shows a dash, not a zero, and
+ * each card dims the platforms its numbers leave out.
  */
 
 import {
@@ -356,7 +357,7 @@ export function AccountBoard({
           ) : null}
           <p className="mt-1 text-caption text-fg-subtle">
             {t(
-              'Videos and views count Instagram reels posted in {month} only.',
+              'Videos and views count Instagram videos posted in {month} only.',
               { month: monthLabel },
             )}
           </p>
@@ -621,11 +622,12 @@ function AccountItem({
               if (!key) return null;
               const Icon = PLATFORM_ICONS[key];
               // The icons are aria-hidden by default; these carry meaning.
+              // Dimmed: the numbers count Instagram only.
               return (
                 <Icon
                   key={p}
                   size={12}
-                  className="shrink-0"
+                  className={cn('shrink-0', p !== 'instagram' && 'opacity-40')}
                   role="img"
                   aria-hidden={false}
                   aria-label={PLATFORM_LABELS[key]}
@@ -635,7 +637,10 @@ function AccountItem({
           </div>
         </div>
         <div className="text-right">
-          <p className="text-heading tnum leading-none text-fg">{c.videos}</p>
+          <p className="text-heading tnum leading-none text-fg">
+            {/* No working Instagram: nothing to count, not a quiet month. */}
+            {c.igLive ? c.videos : '—'}
+          </p>
           {/* Short: a longer label squeezes the account's name. The line
               below and the column say it is Instagram. */}
           <p className="mt-1 text-micro uppercase tracking-[0.1em] text-fg-subtle">
@@ -645,7 +650,9 @@ function AccountItem({
       </div>
 
       <p className="mt-3 text-caption tnum text-fg-muted">
-        {t('{views} IG views', { views: formatCompact(c.views, locale) })}
+        {c.igLive
+          ? t('{views} IG views', { views: formatCompact(c.views, locale) })
+          : t('No working Instagram account')}
       </p>
 
       <dl className="mt-3 grid grid-cols-2 gap-2">

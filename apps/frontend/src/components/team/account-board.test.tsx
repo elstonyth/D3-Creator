@@ -64,6 +64,7 @@ function card(
     name,
     avatarUrl: null,
     platforms: ['instagram'],
+    igLive: true,
     handlerId,
     editorId,
     sortOrder: n,
@@ -179,9 +180,39 @@ it('says its numbers are Instagram only', () => {
   expect(kee.getByText('1K IG views')).toBeTruthy();
   expect(
     screen.getByText(
-      'Videos and views count Instagram reels posted in September 2026 only.',
+      'Videos and views count Instagram videos posted in September 2026 only.',
     ),
   ).toBeTruthy();
+});
+
+it('shows a dash, not a zero, for an account with no working Instagram', () => {
+  renderBoard(
+    [KEE],
+    [
+      {
+        ...card(1, 'Gary', KEE.id, null),
+        platforms: ['douyin', 'tiktok'],
+        igLive: false,
+        videos: 0,
+        views: 0,
+      },
+    ],
+  );
+  const item = screen.getByText('Gary').closest('li')!;
+  expect(within(item).getByText('—')).toBeTruthy();
+  expect(within(item).getByText('No working Instagram account')).toBeTruthy();
+  expect(within(item).queryByText('0 IG views')).toBeNull();
+});
+
+it('dims the platforms the numbers do not count', () => {
+  renderBoard(
+    [KEE],
+    [{ ...card(1, 'Gary', KEE.id, null), platforms: ['instagram', 'tiktok'] }],
+  );
+  const icon = (name: string) =>
+    screen.getByRole('img', { name }).getAttribute('class') ?? '';
+  expect(icon('Instagram')).not.toContain('opacity-40');
+  expect(icon('TikTok')).toContain('opacity-40');
 });
 
 describe('the admin’s drag and drop', () => {

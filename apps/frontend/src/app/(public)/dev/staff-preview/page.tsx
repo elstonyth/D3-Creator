@@ -69,6 +69,8 @@ const board: AccountCard[] = [
   ...accounts[i],
   avatarUrl: null,
   platforms: platforms as string[],
+  // The new client has no Instagram yet: its card shows a dash.
+  igLive: (platforms as string[]).includes('instagram'),
   handlerId: handlerId as string | null,
   editorId: editorId as string | null,
   sortOrder: i,

@@ -294,7 +294,7 @@ export function AdminTracker({
                     empty={t('Nothing in their hands.')}
                     videos={editingNow}
                     // Who passed it on, and checks it next.
-                    otherLabel={t('From')}
+                    otherLabel={t('Passed by')}
                     other={(v) => nameOf.get(v.handlerId) ?? '—'}
                   />
                   <VideoList
