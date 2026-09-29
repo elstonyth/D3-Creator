@@ -55,23 +55,27 @@ export function useNow(): number | null {
 }
 
 /**
- * New work shows up without a reload: the page is read again every minute —
- * in a background tab too, so the pop-up's chime is heard there
- * (WorkAlerts) — and as soon as it comes back into view.
+ * New work shows up without a reload: the page is read again every minute,
+ * and as soon as it comes back into view. With `hidden`, in a background tab
+ * too, so the pop-up's chime is heard there (WorkAlerts); the admin's heavy
+ * page waits to be looked at.
  */
-export function useRereadEveryMinute() {
+export function useRereadEveryMinute(hidden: boolean) {
   const router = useRouter();
   useEffect(() => {
+    const shown = () => document.visibilityState === 'visible';
     const back = () => {
-      if (document.visibilityState === 'visible') router.refresh();
+      if (shown()) router.refresh();
     };
-    const id = window.setInterval(() => router.refresh(), MINUTE);
+    const id = window.setInterval(() => {
+      if (hidden || shown()) router.refresh();
+    }, MINUTE);
     document.addEventListener('visibilitychange', back);
     return () => {
       window.clearInterval(id);
       document.removeEventListener('visibilitychange', back);
     };
-  }, [router]);
+  }, [router, hidden]);
 }
 
 /**

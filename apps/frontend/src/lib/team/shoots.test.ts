@@ -108,6 +108,7 @@ describe('sortShoots', () => {
     videosShot: null,
     status: 'planned',
     createdBy: null,
+    updatedBy: null,
     note: null,
   });
 
@@ -175,6 +176,7 @@ describe('when a shoot is due', () => {
     videosShot: null,
     status: 'planned',
     createdBy: null,
+    updatedBy: null,
     note: null,
     ...patch,
   });

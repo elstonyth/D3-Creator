@@ -74,7 +74,7 @@ const TO_VERIFY = video('Reel 2', EDITED);
 function renderBoard(
   meId: string | null,
   videos = [TO_EDIT, TO_VERIFY],
-  { readOnly = false, month = '2026-09' } = {},
+  { everyone = false, month = '2026-09' } = {},
 ) {
   return render(
     <VideoBoard
@@ -83,7 +83,7 @@ function renderBoard(
       accounts={accounts}
       meId={meId}
       month={month}
-      readOnly={readOnly}
+      everyone={everyone}
     />,
   );
 }
@@ -390,7 +390,7 @@ describe('the admin’s view', () => {
   });
 
   it('shows who is editing and who verifies, with nothing to press', () => {
-    renderBoard(null, [TO_EDIT, TO_VERIFY, verified], { readOnly: true });
+    renderBoard(null, [TO_EDIT, TO_VERIFY, verified], { everyone: true });
     expect(screen.queryAllByRole('button')).toHaveLength(0);
     expect(within(region('Being edited')).getByText('Reel 1')).toBeTruthy();
     const card = within(region('Being edited'))
@@ -414,7 +414,7 @@ describe('the admin’s view', () => {
         accounts={accounts}
         meId={null}
         month="2026-09"
-        readOnly
+        everyone
         adminRemove={adminRemove}
       />,
     );
@@ -445,7 +445,7 @@ describe('the admin’s view', () => {
   });
 
   it('stays read-only even when given a person', () => {
-    renderBoard(KEE, [TO_EDIT, TO_VERIFY], { readOnly: true });
+    renderBoard(KEE, [TO_EDIT, TO_VERIFY], { everyone: true });
     expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 
@@ -453,7 +453,7 @@ describe('the admin’s view', () => {
     renderBoard(
       null,
       [TO_EDIT, video('Reel 7', { editorId: MEI, handlerId: MEI })],
-      { readOnly: true },
+      { everyone: true },
     );
     fireEvent.change(screen.getByLabelText('Show whose videos'), {
       target: { value: MEI },
@@ -473,7 +473,7 @@ describe('the admin’s view', () => {
         accounts={accounts}
         meId={null}
         month="2026-09"
-        readOnly
+        everyone
       />,
     );
     const card = screen.getByText('Reel 8').closest('li')!;
@@ -497,7 +497,7 @@ it('lets the admin do the handler’s steps on anyone’s video, never the edito
       accounts={accounts}
       meId={null}
       month="2026-09"
-      readOnly
+      everyone
       forAnyone
     />,
   );
@@ -522,7 +522,7 @@ it('offers the admin no step on a video whose handler left', () => {
       accounts={accounts}
       meId={null}
       month="2026-09"
-      readOnly
+      everyone
       forAnyone
     />,
   );

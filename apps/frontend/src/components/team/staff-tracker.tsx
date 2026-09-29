@@ -82,7 +82,7 @@ export function StaffTracker({
   const nav = useTrackerNav(month, today, initialDay);
   const thisMonth = today.slice(0, 7);
 
-  useRereadEveryMinute();
+  useRereadEveryMinute(true);
 
   const accountOf = new Map(accounts.map((a) => [a.id, a.name]));
   // The month on the calendar; the list also carries today's and

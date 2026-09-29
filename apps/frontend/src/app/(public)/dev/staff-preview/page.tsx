@@ -131,6 +131,7 @@ export default async function StaffPreviewPage({
     videosShot: null,
     status: 'planned',
     createdBy: null,
+    updatedBy: null,
     note: null,
     movedReason: null,
     ...extra,

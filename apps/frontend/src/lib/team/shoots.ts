@@ -40,6 +40,11 @@ export interface Shoot {
    * to its person (WorkAlerts); null for a login since deleted.
    */
   createdBy: string | null;
+  /**
+   * The login that last changed it (moved it, another account, cancelled or
+   * reopened it). A change by someone else is news to its person too.
+   */
+  updatedBy: string | null;
 }
 
 /**

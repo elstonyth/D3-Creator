@@ -75,10 +75,10 @@ export interface VideoBoardProps {
    */
   month: string;
   /**
-   * The admin's view: everyone's videos, by stage. Only `forAnyone` and
-   * `adminRemove` put anything to press on it.
+   * The admin's view: everyone's videos, by stage, none of them "mine".
+   * Only `forAnyone` and `adminRemove` put anything to press on it.
    */
-  readOnly?: boolean;
+  everyone?: boolean;
   /** The admin's handler steps on anyone's video: change, verify, undo. */
   forAnyone?: boolean;
   /**
@@ -104,7 +104,7 @@ export function VideoBoard({
   accounts,
   meId,
   month,
-  readOnly = false,
+  everyone = false,
   forAnyone = false,
   adminRemove,
 }: VideoBoardProps) {
@@ -112,7 +112,7 @@ export function VideoBoard({
   const router = useRouter();
   const tag = localeTag(locale);
   // Whose steps can be moved here: nobody's on the admin's view.
-  const me = readOnly ? null : meId;
+  const me = everyone ? null : meId;
   // Remove: the handler's own, or the admin's on their view.
   const remove = me === null ? adminRemove : deleteVideo;
   const removeAsk =

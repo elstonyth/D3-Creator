@@ -105,7 +105,8 @@ export function AdminTracker({
   const nav = useTrackerNav(month, today, initialDay);
   const thisMonth = today.slice(0, 7);
   const now = useNow();
-  useRereadEveryMinute();
+  // Only while on screen: the admin's page is the heavy one.
+  useRereadEveryMinute(false);
   // The admin changes shoots here too: the tracker keeps the list, and a
   // refresh brings the server's again (as on the staff tracker).
   const [shoots, setShoots] = useState<Shoot[]>(initialShoots);
@@ -341,7 +342,7 @@ export function AdminTracker({
           accounts={accounts}
           meId={null}
           month={thisMonth}
-          readOnly
+          everyone
           forAnyone
           adminRemove={removeVideo}
         />

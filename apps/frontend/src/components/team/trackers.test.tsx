@@ -93,6 +93,7 @@ function shoot(
     videosShot: null,
     status: 'planned',
     createdBy: null,
+    updatedBy: null,
     note: null,
     ...extra,
   };
@@ -446,6 +447,30 @@ describe('the admin’s tracker', () => {
     expect(box.getByText('Reel 2')).toBeTruthy();
     // Its "Go to my videos" has somewhere to go.
     expect(document.getElementById('my-videos')).toBeTruthy();
+  });
+
+  it('reads the admin’s page again only while it is on screen', () => {
+    jest.useFakeTimers();
+    const shown = jest
+      .spyOn(document, 'visibilityState', 'get')
+      .mockReturnValue('hidden');
+    try {
+      const { unmount } = renderAdmin();
+      refresh.mockClear();
+      act(() => {
+        jest.advanceTimersByTime(60_000);
+      });
+      expect(refresh).not.toHaveBeenCalled();
+      shown.mockReturnValue('visible');
+      act(() => {
+        jest.advanceTimersByTime(60_000);
+      });
+      expect(refresh).toHaveBeenCalledTimes(1);
+      unmount();
+    } finally {
+      shown.mockRestore();
+      jest.useRealTimers();
+    }
   });
 
   it('pops up nothing for an admin who is not on the board', () => {

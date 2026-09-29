@@ -80,6 +80,7 @@ function shoot(
     videosShot: null,
     status: 'planned',
     createdBy: null,
+    updatedBy: null,
     note: null,
     ...extra,
   };

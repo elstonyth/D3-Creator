@@ -56,6 +56,12 @@ function fakeDb(shootRows: unknown[], videoRows: unknown[] | null = null) {
         call.steps.push(['single']);
         return Promise.resolve({ data: shootRows[0] ?? null, error: null });
       },
+      // The shoot's person's login (ALI's), for giving back their claim.
+      maybeSingle: () =>
+        Promise.resolve({
+          data: table === 'tracker_member' ? { user_id: 'u1' } : null,
+          error: null,
+        }),
     };
     for (const m of ['select', 'insert', 'update', 'eq', 'gte'])
       q[m] = (...args: unknown[]) => {
@@ -162,7 +168,8 @@ it('never writes over an old shoot’s title or note', async () => {
     form(ACC_A),
   );
   const update = calls[0].steps.find((s) => s[0] === 'update');
-  expect(update?.[1]).toMatchObject({ start_time: '10:00' });
+  // Stamped with who changed it: a change by someone else pops up.
+  expect(update?.[1]).toMatchObject({ start_time: '10:00', updated_by: 'u1' });
   expect(update?.[1]).not.toHaveProperty('title');
   expect(update?.[1]).not.toHaveProperty('note');
 });
@@ -176,15 +183,32 @@ describe('correcting a passed shoot’s account moves the board’s editor with 
     fakeDb([row(ACC_B)], [onA(KIM), onA(MEI), onA(MEI)]);
     const r = await updateShoot(ID, form(ACC_B), form(ACC_A));
     expect(r).toMatchObject({ ok: true });
-    expect(releaseAccount).toHaveBeenCalledWith(ACC_A, 'u1');
+    expect(releaseAccount).toHaveBeenCalledWith(ACC_A, 'u1', 'u1');
     // The editor only: who handles an account is the admin's to set.
     expect(claimAccount).toHaveBeenCalledWith(ACC_B, MEI, 'u1');
+  });
+
+  it('gives back the shoot’s person’s claim when the admin fixes the account', async () => {
+    (getStaffContext as jest.Mock).mockResolvedValueOnce(null);
+    (getAuthContext as jest.Mock).mockResolvedValueOnce({
+      userId: 'boss',
+      role: 'admin',
+    });
+    fakeDb([row(ACC_B)], [onA(MEI)]);
+    await updateShoot(
+      ID,
+      { ...form(ACC_B), reason: 'Wrong account' },
+      form(ACC_A),
+      ALI,
+    );
+    // Stamped with the admin; ALI's own claim (u1) is what goes back.
+    expect(releaseAccount).toHaveBeenCalledWith(ACC_A, 'boss', 'u1');
   });
 
   it('only gives back when the account is taken off', async () => {
     fakeDb([row(null)], [onA(MEI)]);
     await updateShoot(ID, form(null), form(ACC_A));
-    expect(releaseAccount).toHaveBeenCalledWith(ACC_A, 'u1');
+    expect(releaseAccount).toHaveBeenCalledWith(ACC_A, 'u1', 'u1');
     // claimAccount ignores a null account.
     expect(claimAccount).toHaveBeenCalledWith(null, MEI, 'u1');
   });
@@ -272,6 +296,7 @@ describe('changing a shoot', () => {
     expect(update?.[1]).toEqual({
       start_time: '19:00',
       moved_reason: 'Client asked',
+      updated_by: 'u1',
     });
   });
 });

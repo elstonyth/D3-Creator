@@ -117,7 +117,7 @@ export async function updateShoot(
     const saved = one(
       await admin
         .from('tracker_shoot')
-        .update(patch)
+        .update({ ...patch, updated_by: a.userId })
         .eq('id', id)
         .eq('member_id', a.memberId)
         .gte('shoot_date', monthStart())
@@ -146,8 +146,18 @@ export async function updateShoot(
       // The board's editor follows the videos: the account they left gets
       // its editor back (if this was a mistaken pick), and the new one takes
       // the editor given most of them. Who handles either stays the admin's.
+      // The claim being taken back is the shoot's person's, whoever fixes it.
+      const owner = await admin
+        .from('tracker_member')
+        .select('user_id')
+        .eq('id', a.memberId)
+        .maybeSingle();
+      if (owner.error) return dbError('updateShoot', owner.error);
+      const claimedBy =
+        (owner.data as { user_id: string | null } | null)?.user_id ?? null;
       for (const left of new Set(moved.map((v) => v.creator_id)))
-        if (left !== patch.creator_id) await releaseAccount(left, a.userId);
+        if (left !== patch.creator_id)
+          await releaseAccount(left, a.userId, claimedBy);
       await claimAccount(
         patch.creator_id,
         mainEditor(moved.map((v) => v.editor_id)),
@@ -175,7 +185,7 @@ export async function setShootStatus(
     return one(
       await getSupabaseAdmin()
         .from('tracker_shoot')
-        .update({ status })
+        .update({ status, updated_by: a.userId })
         .eq('id', id)
         .eq('member_id', a.memberId)
         .eq('status', status === 'cancelled' ? 'planned' : 'cancelled')

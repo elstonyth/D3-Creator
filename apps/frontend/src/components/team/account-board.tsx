@@ -30,7 +30,9 @@ import {
   useId,
   useRef,
   useState,
+  type Dispatch,
   type PointerEvent as ReactPointerEvent,
+  type SetStateAction,
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { GripVertical } from 'lucide-react';
@@ -173,6 +175,37 @@ export function AccountBoard({
       ? c.handlerId
       : UNASSIGNED;
 
+  /**
+   * One drop, shown at once, then saved. If the save is refused, it is put
+   * back as it was — unless a refresh since has brought newer — and the
+   * notice says why. True once saved.
+   */
+  async function saveDrop<T>(
+    set: Dispatch<SetStateAction<T>>,
+    prior: T,
+    after: T,
+    call: () => Promise<{ ok: boolean; message?: string }>,
+  ): Promise<boolean> {
+    set(after);
+    setBusy(true);
+    let r: { ok: boolean; message?: string };
+    try {
+      r = await call();
+    } catch {
+      // A dropped connection or a stale deploy: a refusal, not a stuck card.
+      r = { ok: false, message: 'Could not save. Try again.' };
+    } finally {
+      setBusy(false);
+    }
+    if (r.ok) return true;
+    set((cur) => (cur === after ? prior : cur));
+    setNotice({
+      id: Date.now(),
+      text: t(r.message ?? 'Could not save. Try again.'),
+    });
+    return false;
+  }
+
   /** Put `id` in column `col`, before `before` (null = at the end). */
   async function place(id: string, col: string, before: string | null) {
     const card = accounts.find((c) => c.id === id);
@@ -183,7 +216,6 @@ export function AccountBoard({
     if (!moving && order.join() === was.join()) return;
     const handlerId = col === UNASSIGNED ? null : col;
     const byId = new Map(accounts.map((c) => [c.id, c]));
-    const prior = accounts;
     const after = [
       ...accounts.filter((c) => !order.includes(c.id)),
       ...order.map((cid, i) => ({
@@ -192,26 +224,11 @@ export function AccountBoard({
         ...(cid === id ? { handlerId } : {}),
       })),
     ];
-    setAccounts(after);
-    setBusy(true);
-    let r: { ok: boolean; message?: string };
-    try {
-      r = await onPlace(order, moving ? { creatorId: id, handlerId } : null);
-    } catch {
-      // A dropped connection or a stale deploy: a refusal, not a stuck card.
-      r = { ok: false, message: 'Could not save. Try again.' };
-    } finally {
-      setBusy(false);
-    }
-    if (!r.ok) {
-      // Back as it was — unless a refresh since has brought newer.
-      setAccounts((cur) => (cur === after ? prior : cur));
-      setNotice({
-        id: Date.now(),
-        text: t(r.message ?? 'Could not save. Try again.'),
-      });
-      return;
-    }
+    const save = onPlace;
+    const saved = await saveDrop(setAccounts, accounts, after, () =>
+      save(order, moving ? { creatorId: id, handlerId } : null),
+    );
+    if (!saved) return;
     if (moving)
       setNotice({
         id: Date.now(),
@@ -271,26 +288,13 @@ export function AccountBoard({
       people.find((p) => p.id === id)!,
       ...rest.slice(at),
     ];
-    const prior = people;
-    setPeople(after);
-    setBusy(true);
-    let r: { ok: boolean; message?: string };
-    try {
-      r = await onOrder(after.map((p) => p.id));
-    } catch {
-      r = { ok: false, message: 'Could not save. Try again.' };
-    } finally {
-      setBusy(false);
-    }
-    if (!r.ok) {
-      setPeople((cur) => (cur === after ? prior : cur));
-      setNotice({
-        id: Date.now(),
-        text: t(r.message ?? 'Could not save. Try again.'),
-      });
-      return;
-    }
-    router.refresh();
+    const save = onOrder;
+    if (
+      await saveDrop(setPeople, people, after, () =>
+        save(after.map((p) => p.id)),
+      )
+    )
+      router.refresh();
   }
 
   const colDrag = useDrag({

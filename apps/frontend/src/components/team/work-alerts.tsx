@@ -5,7 +5,8 @@
  * owner's call):
  * - a shoot an hour past its start (shootDueAt), with Pass videos right in
  *   the pop-up;
- * - a shoot someone else (the admin) added for them, once;
+ * - a shoot someone else (the admin) added for them, or changed since —
+ *   moved, another account, cancelled — once per change;
  * - videos just passed to them to edit;
  * - cuts just finished that wait on their Verify.
  *
@@ -164,11 +165,34 @@ export function WorkAlerts({
             !isDue(x, meId, now) &&
             !known(`new:${x.id}`),
         );
+  // What a changed shoot now says: each change pops up once.
+  const changedKey = (x: Shoot) =>
+    `changed:${x.id}:${x.date}:${x.time ?? ''}:${x.creatorId ?? ''}:${x.status}`;
+  // One someone else has changed since; a new one says so once, and one
+  // already due is asked about above instead.
+  const changed =
+    now === null
+      ? []
+      : shoots.filter(
+          (x) =>
+            x.memberId === meId &&
+            x.status !== 'done' &&
+            !!x.updatedBy &&
+            x.updatedBy !== loginId &&
+            !added.some((y) => y.id === x.id) &&
+            !isDue(x, meId, now) &&
+            !known(changedKey(x)),
+        );
   const newEdit = toEdit.filter((v) => !known(`edit:${v.id}`));
   const newVerify = toVerify.filter((v) => !known(`verify:${v.id}`));
   const open =
     now !== null &&
-    due.length + added.length + newEdit.length + newVerify.length > 0;
+    due.length +
+      added.length +
+      changed.length +
+      newEdit.length +
+      newVerify.length >
+      0;
 
   useEffect(() => {
     const dlg = dialogRef.current;
@@ -182,6 +206,7 @@ export function WorkAlerts({
     ? [
         ...due.map((x) => `shoot:${x.id}`),
         ...added.map((x) => `new:${x.id}`),
+        ...changed.map(changedKey),
         ...newEdit.map((v) => `edit:${v.id}`),
         ...newVerify.map((v) => `verify:${v.id}`),
       ].join(' ')
@@ -197,7 +222,9 @@ export function WorkAlerts({
 
   function putAway() {
     const keys = [
-      ...added.map((x) => `new:${x.id}`),
+      // A new one's details are seen with it: no second pop-up as changed.
+      ...added.flatMap((x) => [`new:${x.id}`, changedKey(x)]),
+      ...changed.map(changedKey),
       ...toEdit.map((v) => `edit:${v.id}`),
       ...toVerify.map((v) => `verify:${v.id}`),
       ...due.filter(closed).map((x) => `shoot:${x.id}`),
@@ -335,6 +362,28 @@ export function WorkAlerts({
                 {added.map((x) => (
                   <li key={x.id} className={cn(s.inset, 'px-3 py-2')}>
                     <p className="break-words text-body">{shootLabel(x)}</p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {changed.length > 0 ? (
+            <section className="mt-5">
+              <h3 className="text-label text-fg">
+                {t('Shoots changed for you')}
+              </h3>
+              <ul className="mt-2 space-y-1.5">
+                {changed.map((x) => (
+                  <li key={x.id} className={cn(s.inset, 'px-3 py-2')}>
+                    <p className="break-words text-body">{shootLabel(x)}</p>
+                    <p className="break-words text-caption text-fg-muted">
+                      {x.status === 'cancelled'
+                        ? t('Cancelled')
+                        : x.movedReason
+                          ? t('Changed: {reason}', { reason: x.movedReason })
+                          : null}
+                    </p>
                   </li>
                 ))}
               </ul>

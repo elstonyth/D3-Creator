@@ -6,7 +6,7 @@
 import { isShootStatus, type Shoot } from './shoots';
 
 export const SHOOT_COLS =
-  'id, member_id, shoot_date, start_time, title, creator_id, videos_shot, status, note, moved_reason, created_by';
+  'id, member_id, shoot_date, start_time, title, creator_id, videos_shot, status, note, moved_reason, created_by, updated_by';
 
 export interface ShootRow {
   id: string;
@@ -20,6 +20,7 @@ export interface ShootRow {
   note: string | null;
   moved_reason: string | null;
   created_by: string | null;
+  updated_by: string | null;
 }
 
 /** Postgres `time` reads back as HH:MM:SS; the app works in HH:MM. */
@@ -36,5 +37,6 @@ export function rowToShoot(r: ShootRow): Shoot {
     note: r.note,
     movedReason: r.moved_reason,
     createdBy: r.created_by,
+    updatedBy: r.updated_by,
   };
 }

@@ -60,6 +60,7 @@ function shoot(n: number, time: string | null, extra: Partial<Shoot> = {}) {
     videosShot: null,
     status: 'planned',
     createdBy: null,
+    updatedBy: null,
     note: null,
     ...extra,
   } as Shoot;
@@ -353,4 +354,33 @@ it('says nothing new about their own shoot, or one already due', () => {
   const box = within(dialog()!);
   expect(box.queryByText('New shoots scheduled for you')).toBeNull();
   expect(box.getByText('Shoot time is up — pass the videos on')).toBeTruthy();
+});
+
+it('tells them once about each change someone else made to their shoot', () => {
+  const moved = shoot(1, '20:00', {
+    updatedBy: 'boss-login',
+    movedReason: 'The client moved it',
+  });
+  const { rerender } = render(alerts({ shoots: [moved] }));
+  let box = within(dialog()!);
+  expect(box.getByText('Shoots changed for you')).toBeTruthy();
+  expect(box.getByText('Changed: The client moved it')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
+  rerender(alerts({ shoots: [moved] }));
+  expect(dialog()).toBeNull();
+  // Changed again — here, cancelled: news again.
+  rerender(alerts({ shoots: [{ ...moved, status: 'cancelled' }] }));
+  box = within(dialog()!);
+  expect(box.getByText('Cancelled')).toBeTruthy();
+});
+
+it('says nothing about a change they made themselves', () => {
+  render(
+    alerts({
+      shoots: [
+        shoot(1, '20:00', { updatedBy: 'kee-login', movedReason: 'Mine' }),
+      ],
+    }),
+  );
+  expect(dialog()).toBeNull();
 });
