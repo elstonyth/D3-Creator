@@ -38,4 +38,12 @@ describe('vercel.json cron jobs', () => {
     // heals that run's skipped thumbnails while their CDN URLs are still fresh.
     expect(backfill?.schedule).toBe('0 3 * * *');
   });
+
+  it('checks every minute for a shoot whose time is up, so its push is on time', () => {
+    // Pinned: the reminder is meant to reach a phone within a minute.
+    expect(crons).toContainEqual({
+      path: '/api/cron/work-due',
+      schedule: '* * * * *',
+    });
+  });
 });
