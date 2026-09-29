@@ -8,16 +8,30 @@
 
 import type { RosterAccount } from './load';
 
+/**
+ * Whether an account's month numbers can be trusted: it has an Instagram
+ * profile that still scrapes. A failed run is a bad day; not_found (renamed,
+ * gone) and private are not coming back on their own.
+ */
+export function igLive(
+  profiles: { platform: string; scrape_status: string | null }[],
+): boolean {
+  return profiles.some(
+    (p) =>
+      p.platform === 'instagram' &&
+      p.scrape_status !== 'not_found' &&
+      p.scrape_status !== 'private',
+  );
+}
+
 export interface AccountCard extends RosterAccount {
   handlerId: string | null;
   editorId: string | null;
   /** Position within its handler's column (`tracker_assignment.sort_order`). */
   sortOrder: number;
-  /** Distinct videos published in the month (cross-platform copies collapsed). */
+  /** Instagram videos published in the month (the owner counts IG only). */
   videos: number;
-  /** Every platform copy published in the month. */
-  posts: number;
-  /** Σ latest views across those posts. */
+  /** Σ latest views across those videos. */
   views: number;
 }
 
@@ -29,11 +43,10 @@ export interface AssignmentRow {
   sort_order: number;
 }
 
-/** A `tracker_creator_month_stats` row. */
+/** A `tracker_creator_month_stats` row (its `posts` repeats `videos`). */
 export interface MonthStatsRow {
   creator_id: string;
   videos: number;
-  posts: number;
   views: number | string;
 }
 
@@ -63,7 +76,6 @@ export function boardOf(
           editorId: active(a?.editor_id),
           sortOrder: a?.sort_order ?? 0,
           videos: s?.videos ?? 0,
-          posts: s?.posts ?? 0,
           views: Number(s?.views ?? 0),
         };
       })
