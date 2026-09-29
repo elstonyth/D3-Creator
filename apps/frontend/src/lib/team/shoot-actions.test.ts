@@ -7,8 +7,14 @@
 import { getSupabaseAdmin } from '@d3/database';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { claimAccount, releaseAccount } from './claim-account';
+import { notify } from './push';
 import { getStaffContext } from './staff-context';
-import { addShoot, passVideos, updateShoot } from './shoot-actions';
+import {
+  addShoot,
+  passVideos,
+  setShootStatus,
+  updateShoot,
+} from './shoot-actions';
 
 jest.mock('@d3/database', () => ({ getSupabaseAdmin: jest.fn() }));
 // Only an admin's call reads this (staff are found first, below).
@@ -16,6 +22,7 @@ jest.mock('@gitroom/frontend/lib/auth', () => ({
   getAuthContext: jest.fn(async () => ({ role: 'staff' })),
 }));
 jest.mock('./on-board', () => ({ onBoard: jest.fn(async () => true) }));
+jest.mock('./push', () => ({ notify: jest.fn() }));
 jest.mock('./claim-account', () => ({
   ...jest.requireActual('./claim-account'),
   claimAccount: jest.fn(async () => undefined),
@@ -248,6 +255,58 @@ describe('passing videos on keeps the account board up to date', () => {
     expect(claimAccount).toHaveBeenCalledWith(ACC_A, MEI, 'u1');
   });
 
+  it('tells each editor what was just passed to them', async () => {
+    const video = (id: string, title: string, editor_id: string) => ({
+      id,
+      creator_id: ACC_A,
+      shoot_id: ID,
+      title,
+      editor_id,
+      handler_id: ALI,
+      edited_at: null,
+      edited_by: null,
+      edit_link: null,
+      verified_at: null,
+      verified_by: null,
+      created_at: '2099-01-05T02:00:00Z',
+    });
+    passDb(ACC_A);
+    (getSupabaseAdmin as jest.Mock).mockReturnValue({
+      ...(getSupabaseAdmin as jest.Mock)(),
+      rpc: jest.fn(async () => ({
+        data: [
+          video('v1', 'Reel 1', KIM),
+          video('v2', 'Reel 2', MEI),
+          video('v3', 'Reel 3', MEI),
+        ],
+        error: null,
+      })),
+    });
+    await expect(passVideos(ID, rows)).resolves.toMatchObject({ ok: true });
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith(
+      [
+        {
+          kind: 'edit',
+          to: KIM,
+          from: ALI,
+          titles: ['Reel 1'],
+          creatorId: ACC_A,
+          ref: 'v1',
+        },
+        {
+          kind: 'edit',
+          to: MEI,
+          from: ALI,
+          titles: ['Reel 2', 'Reel 3'],
+          creatorId: ACC_A,
+          ref: 'v2',
+        },
+      ],
+      'u1',
+    );
+  });
+
   it('claims nothing when the pass is refused', async () => {
     (getSupabaseAdmin as jest.Mock).mockReturnValue({
       rpc: jest.fn(async () => ({
@@ -298,5 +357,59 @@ describe('changing a shoot', () => {
       moved_reason: 'Client asked',
       updated_by: 'u1',
     });
+  });
+});
+
+describe('telling whoever a shoot is for', () => {
+  it('tells them of a shoot added, changed or cancelled — by the login that did it', async () => {
+    fakeDb([row(ACC_A)]);
+    await addShoot(form(ACC_A));
+    fakeDb([row(ACC_A)]);
+    await updateShoot(ID, { ...form(ACC_A), time: '10:00' }, form(ACC_A));
+    fakeDb([{ ...row(ACC_A), status: 'cancelled' }]);
+    await setShootStatus(ID, 'cancelled');
+    expect((notify as jest.Mock).mock.calls).toEqual([
+      [
+        [
+          {
+            kind: 'new-shoot',
+            to: ALI,
+            shoot: expect.objectContaining({ id: ID }),
+          },
+        ],
+        'u1',
+      ],
+      [
+        [
+          {
+            kind: 'changed-shoot',
+            to: ALI,
+            shoot: expect.objectContaining({ id: ID }),
+          },
+        ],
+        'u1',
+      ],
+      [
+        [
+          {
+            kind: 'changed-shoot',
+            to: ALI,
+            shoot: expect.objectContaining({ status: 'cancelled' }),
+          },
+        ],
+        'u1',
+      ],
+    ]);
+  });
+
+  it('tells nobody of a change that changed nothing, or was refused', async () => {
+    const same = { ...form(ACC_A), time: null };
+    fakeDb([row(ACC_A)]);
+    await updateShoot(ID, same, same);
+    fakeDb([]);
+    await updateShoot(ID, form(ACC_B), form(ACC_A));
+    fakeDb([]);
+    await setShootStatus(ID, 'cancelled');
+    expect(notify).not.toHaveBeenCalled();
   });
 });

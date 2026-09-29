@@ -17,6 +17,9 @@
  *
  * Staff can take back only their own Done or Verify, and only from this
  * month: a month that is already counted stays put.
+ *
+ * A video given to an editor, and a finished cut, are pushed to whoever
+ * they are with now (lib/team/push.ts, after the response).
  */
 
 import { getSupabaseAdmin } from '@d3/database';
@@ -26,6 +29,7 @@ import { asActor } from './actor';
 import { claimAccount, releaseAccount } from './claim-account';
 import { dbError } from './db-error';
 import { onBoard } from './on-board';
+import { notify } from './push';
 import { rowToVideo, VIDEO_COLS, type VideoRow } from './video-rows';
 import {
   parseLink,
@@ -106,8 +110,23 @@ export async function updateVideo(
         .is('edited_at', null)
         .select(VIDEO_COLS),
     );
-    if (saved.ok && 'editor_id' in patch && saved.video?.editorId)
-      await claimAccount(saved.video.creatorId, saved.video.editorId, a.userId);
+    const v = saved.video;
+    if ('editor_id' in patch && v) {
+      await claimAccount(v.creatorId, v.editorId, a.userId);
+      notify(
+        [
+          {
+            kind: 'edit',
+            to: v.editorId,
+            from: v.handlerId,
+            titles: [v.title],
+            creatorId: v.creatorId,
+            ref: v.id,
+          },
+        ],
+        a.userId,
+      );
+    }
     return saved;
   }, as);
 }
@@ -160,7 +179,7 @@ export async function finishEdit(
         message:
           'That link does not look right. Paste one starting with https://, or leave it empty.',
       };
-    return one(
+    const saved = one(
       await getSupabaseAdmin()
         .from('tracker_video')
         .update({ edited_at: new Date().toISOString(), edit_link: l })
@@ -170,6 +189,22 @@ export async function finishEdit(
         .is('edited_at', null)
         .select(VIDEO_COLS),
     );
+    const v = saved.video;
+    if (v)
+      notify(
+        [
+          {
+            kind: 'verify',
+            to: v.handlerId,
+            by: v.editedBy ?? v.editorId,
+            title: v.title,
+            creatorId: v.creatorId,
+            ref: v.id,
+          },
+        ],
+        a.userId,
+      );
+    return saved;
   });
 }
 
