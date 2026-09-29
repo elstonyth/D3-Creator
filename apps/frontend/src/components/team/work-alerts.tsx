@@ -3,13 +3,18 @@
 /**
  * What needs the staff member now, as a pop-up over their tracker (the
  * owner's call):
- * - a shoot whose time has come, with Pass videos right in the pop-up;
+ * - a shoot an hour past its start (shootDueAt), with Pass videos right in
+ *   the pop-up;
+ * - a shoot someone else (the admin) added for them, or changed since —
+ *   moved, another account, cancelled — once per change;
  * - videos just passed to them to edit;
  * - cuts just finished that wait on their Verify.
  *
- * In-app only: the tracker re-reads the page every minute while it is on
- * screen, so a pass or a Done shows up here without a reload, but nothing
- * reaches a phone while the portal is closed. What has been seen is kept per
+ * In-app only: the tracker re-reads the page every minute, in a background
+ * tab too, so a pass or a Done shows up here without a reload, with a chime
+ * for each new thing (lib/team/chime.ts: only once the page has had a tap or
+ * a key). Nothing reaches a phone while the portal is closed. What has been
+ * seen is kept per
  * device (localStorage), by list and video, so a video given to a new editor
  * still pops up for them. A due shoot comes back on every visit until its
  * videos are passed on or it is cancelled.
@@ -26,6 +31,7 @@ import { useRouter } from 'next/navigation';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
 import { Button } from '@gitroom/frontend/components/ui/button';
+import { armChime, playChime } from '@gitroom/frontend/lib/team/chime';
 import { isDue, type Shoot } from '@gitroom/frontend/lib/team/shoots';
 import {
   mySection,
@@ -77,6 +83,7 @@ function parseSeen(raw: string | null): string[] {
 
 export function WorkAlerts({
   meId,
+  loginId,
   month,
   today,
   now,
@@ -88,6 +95,8 @@ export function WorkAlerts({
   onPassed,
 }: {
   meId: string;
+  /** Their own login: a shoot added by any other is news to them. */
+  loginId: string;
   /** This month (`YYYY-MM`), for which of their lists a video is on. */
   month: string;
   today: string;
@@ -142,10 +151,48 @@ export function WorkAlerts({
   const toVerify = videos.filter(
     (v) => mySection(v, meId, month) === 'toVerify' && v.editedBy !== meId,
   );
+  // A shoot someone else added for them; one already due is asked about
+  // above instead.
+  const added =
+    now === null
+      ? []
+      : shoots.filter(
+          (x) =>
+            x.memberId === meId &&
+            x.status === 'planned' &&
+            !!x.createdBy &&
+            x.createdBy !== loginId &&
+            !isDue(x, meId, now) &&
+            !known(`new:${x.id}`),
+        );
+  // What a changed shoot now says: each change pops up once.
+  const changedKey = (x: Shoot) =>
+    `changed:${x.id}:${x.date}:${x.time ?? ''}:${x.creatorId ?? ''}:${x.status}`;
+  // One someone else has changed since; a new one says so once, and one
+  // already due is asked about above instead.
+  const changed =
+    now === null
+      ? []
+      : shoots.filter(
+          (x) =>
+            x.memberId === meId &&
+            x.status !== 'done' &&
+            !!x.updatedBy &&
+            x.updatedBy !== loginId &&
+            !added.some((y) => y.id === x.id) &&
+            !isDue(x, meId, now) &&
+            !known(changedKey(x)),
+        );
   const newEdit = toEdit.filter((v) => !known(`edit:${v.id}`));
   const newVerify = toVerify.filter((v) => !known(`verify:${v.id}`));
   const open =
-    now !== null && due.length + newEdit.length + newVerify.length > 0;
+    now !== null &&
+    due.length +
+      added.length +
+      changed.length +
+      newEdit.length +
+      newVerify.length >
+      0;
 
   useEffect(() => {
     const dlg = dialogRef.current;
@@ -154,8 +201,30 @@ export function WorkAlerts({
     else if (!open && dlg.open) dlg.close();
   }, [open]);
 
+  // What the pop-up shows; a chime when something on it is new to it.
+  const showing = open
+    ? [
+        ...due.map((x) => `shoot:${x.id}`),
+        ...added.map((x) => `new:${x.id}`),
+        ...changed.map(changedKey),
+        ...newEdit.map((v) => `edit:${v.id}`),
+        ...newVerify.map((v) => `verify:${v.id}`),
+      ].join(' ')
+    : '';
+  const heard = useRef<string[]>([]);
+  useEffect(() => {
+    const keys = showing ? showing.split(' ') : [];
+    const fresh = keys.some((k) => !heard.current.includes(k));
+    heard.current = keys;
+    if (fresh) playChime();
+  }, [showing]);
+  useEffect(() => armChime(), []);
+
   function putAway() {
     const keys = [
+      // A new one's details are seen with it: no second pop-up as changed.
+      ...added.flatMap((x) => [`new:${x.id}`, changedKey(x)]),
+      ...changed.map(changedKey),
       ...toEdit.map((v) => `edit:${v.id}`),
       ...toVerify.map((v) => `verify:${v.id}`),
       ...due.filter(closed).map((x) => `shoot:${x.id}`),
@@ -179,7 +248,7 @@ export function WorkAlerts({
     setError(null);
     let r: PassResult;
     try {
-      r = await passVideos(x.id, rows);
+      r = await passVideos(x.id, rows, x.memberId);
     } catch {
       // A dropped connection or a stale deploy: a refusal, not a frozen form.
       r = { ok: false, message: 'Could not save. Try again.' };
@@ -278,6 +347,43 @@ export function WorkAlerts({
                         }}
                       />
                     ) : null}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {added.length > 0 ? (
+            <section className="mt-5">
+              <h3 className="text-label text-fg">
+                {t('New shoots scheduled for you')}
+              </h3>
+              <ul className="mt-2 space-y-1.5">
+                {added.map((x) => (
+                  <li key={x.id} className={cn(s.inset, 'px-3 py-2')}>
+                    <p className="break-words text-body">{shootLabel(x)}</p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {changed.length > 0 ? (
+            <section className="mt-5">
+              <h3 className="text-label text-fg">
+                {t('Shoots changed for you')}
+              </h3>
+              <ul className="mt-2 space-y-1.5">
+                {changed.map((x) => (
+                  <li key={x.id} className={cn(s.inset, 'px-3 py-2')}>
+                    <p className="break-words text-body">{shootLabel(x)}</p>
+                    <p className="break-words text-caption text-fg-muted">
+                      {x.status === 'cancelled'
+                        ? t('Cancelled')
+                        : x.movedReason
+                          ? t('Changed: {reason}', { reason: x.movedReason })
+                          : null}
+                    </p>
                   </li>
                 ))}
               </ul>

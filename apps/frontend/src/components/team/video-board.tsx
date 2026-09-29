@@ -5,8 +5,9 @@
  * videos to edit, cuts to verify, videos they passed on that are still with
  * the editor, and what they finished this month — and moves only their own
  * step. The admin sees everyone's: who is editing what now, what waits to
- * be verified, and what was verified this month — and can only remove a
- * video still being edited.
+ * be verified, and what was verified this month — and can remove a video
+ * still being edited, and do a handler's steps on anyone's video, as its
+ * handler (`forAnyone`: change it, verify it, take a Verify back).
  *
  * Saves wait for the server (each is one small write). A refusal is shown on
  * the video it belongs to, with its step still open. It sits in a work
@@ -73,8 +74,13 @@ export interface VideoBoardProps {
    * and the Done they can still take back are from this month only.
    */
   month: string;
-  /** The admin's view: everyone's videos, with nothing to change but Remove. */
-  readOnly?: boolean;
+  /**
+   * The admin's view: everyone's videos, by stage, none of them "mine".
+   * Only `forAnyone` and `adminRemove` put anything to press on it.
+   */
+  everyone?: boolean;
+  /** The admin's handler steps on anyone's video: change, verify, undo. */
+  forAnyone?: boolean;
   /**
    * The admin's Remove, on their view only: offered on each video still
    * being edited. Without it the admin's view has nothing to press.
@@ -98,14 +104,15 @@ export function VideoBoard({
   accounts,
   meId,
   month,
-  readOnly = false,
+  everyone = false,
+  forAnyone = false,
   adminRemove,
 }: VideoBoardProps) {
   const { t, locale } = useI18n();
   const router = useRouter();
   const tag = localeTag(locale);
   // Whose steps can be moved here: nobody's on the admin's view.
-  const me = readOnly ? null : meId;
+  const me = everyone ? null : meId;
   // Remove: the handler's own, or the admin's on their view.
   const remove = me === null ? adminRemove : deleteVideo;
   const removeAsk =
@@ -153,6 +160,9 @@ export function VideoBoard({
   const onBoard = people.filter((p) => !p.archived);
   const editors = onBoard.filter((p) => isEditorKind(p.kind));
   const left = (name: string) => t('{name} (left)', { name });
+  // Who the admin can act as: someone still on the team (lib/team/actor.ts).
+  const actsFor = (id: string | null) =>
+    forAnyone && !!id && byId.get(id)?.archived === false;
   const nameOf = (id: string | null): string | null => {
     if (!id) return null;
     if (id === me) return t('You');
@@ -352,7 +362,10 @@ export function VideoBoard({
                       )}
                       editors={editorPicks}
                       canEditDone={v.editorId === me && !v.editedAt}
-                      canChange={v.handlerId === me && !v.editedAt}
+                      canChange={
+                        (v.handlerId === me || actsFor(v.handlerId)) &&
+                        !v.editedAt
+                      }
                       canRemove={
                         !!remove &&
                         !v.editedAt &&
@@ -360,7 +373,9 @@ export function VideoBoard({
                       }
                       removeAsk={removeAsk}
                       canVerify={
-                        v.handlerId === me && !!v.editedAt && !v.verifiedAt
+                        (v.handlerId === me || actsFor(v.handlerId)) &&
+                        !!v.editedAt &&
+                        !v.verifiedAt
                       }
                       canUndoEdit={
                         v.editedBy === me &&
@@ -368,7 +383,9 @@ export function VideoBoard({
                         !v.verifiedAt
                       }
                       canUndoVerify={
-                        v.verifiedBy === me && inMonth(v.verifiedAt)
+                        !!v.verifiedBy &&
+                        (v.verifiedBy === me || actsFor(v.verifiedBy)) &&
+                        inMonth(v.verifiedAt)
                       }
                       tag={tag}
                       open={open?.id === v.id ? open.kind : null}
@@ -403,10 +420,12 @@ export function VideoBoard({
                         save(
                           v.id,
                           () =>
-                            updateVideo(v.id, next, {
-                              title: v.title,
-                              editorId: v.editorId,
-                            }),
+                            updateVideo(
+                              v.id,
+                              next,
+                              { title: v.title, editorId: v.editorId },
+                              v.handlerId,
+                            ),
                           replace,
                           open,
                         )
@@ -425,7 +444,7 @@ export function VideoBoard({
                       onVerify={() =>
                         save(
                           v.id,
-                          () => verifyVideo(v.id),
+                          () => verifyVideo(v.id, v.handlerId),
                           replace,
                           null,
                           t('Verified: “{title}”.', { title: v.title }),
@@ -434,7 +453,7 @@ export function VideoBoard({
                       onUndoVerify={() =>
                         save(
                           v.id,
-                          () => undoVerify(v.id),
+                          () => undoVerify(v.id, v.verifiedBy ?? undefined),
                           replace,
                           null,
                           t('Taken back: “{title}”.', { title: v.title }),

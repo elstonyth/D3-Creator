@@ -5,9 +5,10 @@ import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { isAdminHost } from '@gitroom/frontend/lib/portal-host';
 import { isDateKey, isMonthKey, todayKey } from '@gitroom/frontend/lib/tracker';
+import { loadPersonOf } from '@gitroom/frontend/lib/team/load';
 import { loadAdminTracker } from '@gitroom/frontend/lib/team/tracker-data';
 import { AdminTracker } from '@gitroom/frontend/components/team/admin-tracker';
-import { placeAccount, removeVideo } from './actions';
+import { orderPeople, placeAccount, removeVideo } from './actions';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -25,7 +26,7 @@ interface PageProps {
  * Everyone's Work Tracker: the shoots staff schedule, the videos they pass
  * on, who edits and who verifies each, as they update their own. The admin
  * sets who handles each account and can remove a video still being edited
- * (./actions); the rest is staff's.
+ * (./actions), and does a handler's steps for anyone (lib/team/actor.ts).
  */
 export default async function AdminTrackerPage({ searchParams }: PageProps) {
   const auth = await getAuthContext();
@@ -40,7 +41,10 @@ export default async function AdminTrackerPage({ searchParams }: PageProps) {
   const profileBase = isAdminHost((await headers()).get('host'))
     ? '/team'
     : '/admin/team';
-  const data = await loadAdminTracker(month, today);
+  const [data, meId] = await Promise.all([
+    loadAdminTracker(month, today),
+    loadPersonOf(auth.userId),
+  ]);
 
   return (
     <AdminTracker
@@ -53,6 +57,9 @@ export default async function AdminTrackerPage({ searchParams }: PageProps) {
       profileBase={profileBase}
       removeVideo={removeVideo}
       placeAccount={placeAccount}
+      orderPeople={orderPeople}
+      meId={meId}
+      loginId={auth.userId}
     />
   );
 }

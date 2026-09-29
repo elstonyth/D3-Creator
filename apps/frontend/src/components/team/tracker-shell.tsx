@@ -11,6 +11,7 @@
  */
 
 import {
+  useEffect,
   useState,
   useSyncExternalStore,
   useTransition,
@@ -51,6 +52,30 @@ export function useNow(): number | null {
     () => Math.floor(Date.now() / MINUTE) * MINUTE,
     () => null,
   );
+}
+
+/**
+ * New work shows up without a reload: the page is read again every minute,
+ * and as soon as it comes back into view. With `hidden`, in a background tab
+ * too, so the pop-up's chime is heard there (WorkAlerts); the admin's heavy
+ * page waits to be looked at.
+ */
+export function useRereadEveryMinute(hidden: boolean) {
+  const router = useRouter();
+  useEffect(() => {
+    const shown = () => document.visibilityState === 'visible';
+    const back = () => {
+      if (shown()) router.refresh();
+    };
+    const id = window.setInterval(() => {
+      if (hidden || shown()) router.refresh();
+    }, MINUTE);
+    document.addEventListener('visibilitychange', back);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', back);
+    };
+  }, [router, hidden]);
 }
 
 /**
@@ -149,8 +174,8 @@ export function TrackerScene({
 export interface SpotDay {
   key: string;
   /**
-   * One line per thing that day, already worded; `due` = a shoot whose time
-   * has come and whose videos wait to be passed on (its dot glows).
+   * One line per thing that day, already worded; `due` = a shoot that is due
+   * (shootDueAt) and whose videos wait to be passed on (its dot glows).
    */
   items: { id: string; label: string; due?: boolean }[];
   /** A line under the list (today's queue), if any. */

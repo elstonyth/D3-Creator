@@ -65,6 +65,21 @@ export async function loadPeople(): Promise<TeamPerson[]> {
   }));
 }
 
+/**
+ * The person on the board a login is linked to (the admin's own, when the
+ * admin is on the team too), or null.
+ */
+export async function loadPersonOf(userId: string): Promise<string | null> {
+  const { data, error } = await getSupabaseAdmin()
+    .from('tracker_member')
+    .select('id')
+    .eq('user_id', userId)
+    .is('archived_at', null)
+    .maybeSingle();
+  if (error) throw new Error(`team: person of login: ${error.message}`);
+  return data?.id ?? null;
+}
+
 /** Creator accounts that are real IPs (at least one platform profile), by name. */
 export async function loadRoster(): Promise<RosterAccount[]> {
   const rows = must<

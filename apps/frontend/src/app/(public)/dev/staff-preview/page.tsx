@@ -24,6 +24,7 @@ import { TeamManager } from '@gitroom/frontend/app/(admin)/admin/team/team-manag
 import {
   removeVideo,
   placeAccount,
+  orderPeople,
 } from '@gitroom/frontend/app/(admin)/admin/tracker/actions';
 
 export const metadata: Metadata = {
@@ -129,6 +130,8 @@ export default async function StaffPreviewPage({
     creatorId: null,
     videosShot: null,
     status: 'planned',
+    createdBy: null,
+    updatedBy: null,
     note: null,
     movedReason: null,
     ...extra,
@@ -256,6 +259,7 @@ export default async function StaffPreviewPage({
           accounts={accounts}
           handled={board.filter((c) => c.handlerId === HOWEN).map((c) => c.id)}
           meId={HOWEN}
+          loginId="preview-login"
         />
       ),
     },
@@ -284,6 +288,7 @@ export default async function StaffPreviewPage({
           profileBase="/dev/staff-preview?view=person&of="
           removeVideo={removeVideo}
           placeAccount={placeAccount}
+          orderPeople={orderPeople}
         />
       ),
     },

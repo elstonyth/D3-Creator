@@ -92,6 +92,8 @@ function shoot(
     creatorId: null,
     videosShot: null,
     status: 'planned',
+    createdBy: null,
+    updatedBy: null,
     note: null,
     ...extra,
   };
@@ -132,13 +134,13 @@ describe('the staff tracker', () => {
     video(3, {}), // still with MEI
   ];
 
-  function renderStaff() {
+  function renderStaff(list = shoots) {
     return render(
       <StaffTracker
         month="2026-09"
         today={TODAY}
         initialDay={null}
-        shoots={shoots}
+        shoots={list}
         videos={videos}
         edited={2}
         verified={5}
@@ -146,6 +148,7 @@ describe('the staff tracker', () => {
         accounts={accounts}
         handled={[ACC]}
         meId={KEE}
+        loginId="kee-login"
       />,
     );
   }
@@ -167,6 +170,7 @@ describe('the staff tracker', () => {
         accounts={accounts}
         handled={[ACC]}
         meId={KEE}
+        loginId="kee-login"
       />,
     );
     const spot = screen.getByRole('region', { name: 'Upcoming' });
@@ -230,6 +234,7 @@ describe('the staff tracker', () => {
         accounts={accounts}
         handled={[ACC]}
         meId={KEE}
+        loginId="kee-login"
       />,
     );
     expect(screen.queryByText('4 videos passed')).toBeNull();
@@ -264,6 +269,44 @@ describe('the staff tracker', () => {
     unmount();
     renderStaff();
     expect(document.querySelector('dialog[open]')).toBeNull();
+  });
+
+  it('pops up a shoot the admin added for me, not one I added', () => {
+    window.localStorage.clear();
+    renderStaff([
+      shoot(4, KEE, '2026-10-01', 'Night market', { createdBy: 'boss-login' }),
+      shoot(5, KEE, '2026-10-01', 'Car wash', { createdBy: 'kee-login' }),
+    ]);
+    const box = within(document.querySelector<HTMLElement>('dialog[open]')!);
+    expect(box.getByText('New shoots scheduled for you')).toBeTruthy();
+    expect(box.getByText(/Night market/)).toBeTruthy();
+    expect(box.queryByText(/Car wash/)).toBeNull();
+  });
+
+  it('reads the page again every minute, in a background tab too', () => {
+    jest.useFakeTimers();
+    const shown = jest
+      .spyOn(document, 'visibilityState', 'get')
+      .mockReturnValue('hidden');
+    try {
+      const { unmount } = renderStaff();
+      refresh.mockClear();
+      // Behind other tabs: new work still comes in, and its chime with it.
+      act(() => {
+        jest.advanceTimersByTime(60_000);
+      });
+      expect(refresh).toHaveBeenCalledTimes(1);
+      // Back in view: read again at once.
+      shown.mockReturnValue('visible');
+      act(() => {
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+      expect(refresh).toHaveBeenCalledTimes(2);
+      unmount();
+    } finally {
+      shown.mockRestore();
+      jest.useRealTimers();
+    }
   });
 
   it('takes a shoot dropped on a spotlight day, asking why it moves', async () => {
@@ -334,9 +377,11 @@ describe('the admin’s tracker', () => {
     }),
   ];
 
-  function renderAdmin() {
+  function renderAdmin(meId: string | null = null) {
     return render(
       <AdminTracker
+        meId={meId}
+        loginId="boss-login"
         month="2026-09"
         today={TODAY}
         initialDay={null}
@@ -364,29 +409,74 @@ describe('the admin’s tracker', () => {
         profileBase="/team"
         removeVideo={jest.fn()}
         placeAccount={jest.fn()}
+        orderPeople={jest.fn()}
       />,
     );
   }
 
-  it('offers no write but who handles each account and removing a video still being edited', () => {
+  it('does a handler’s steps for anyone, but never an editor’s own', () => {
     renderAdmin();
-    // The rest only moves around: days, months, the cards.
-    const writes =
-      /^(\+ add|pass videos|change|cancel shoot|reopen|delete|done|verify|remove|undo|save|move)/i;
-    expect(
-      screen
-        .getAllByRole('button')
-        .map((b) => b.getAttribute('aria-label') ?? b.textContent ?? '')
-        .filter((name) => writes.test(name)),
-    ).toEqual(['Remove Reel 1']);
-    expect(screen.queryAllByRole('textbox')).toHaveLength(0);
-    expect(screen.queryAllByRole('switch')).toHaveLength(0);
-    // The selects: who handles each account, and the video list's filter.
-    expect(
-      screen
-        .getAllByRole('combobox')
-        .map((c) => c.getAttribute('aria-label') ?? c.id),
-    ).toEqual(['Handler for Gary', 'videos-person']);
+    const names = screen
+      .getAllByRole('button')
+      .map((b) => b.getAttribute('aria-label') ?? b.textContent ?? '');
+    expect(names).toEqual(
+      expect.arrayContaining([
+        // Shoots: add one for someone; change or pass on anyone's.
+        '+ Add a shoot',
+        'Change Hotpot shop',
+        'Pass videos: Hotpot shop',
+        // Videos, as each one's handler: re-assign, verify, take it back.
+        'Change Reel 1',
+        'Remove Reel 1',
+        'Verify: Reel 2',
+        'Undo verify: Reel 3',
+      ]),
+    );
+    // The editor's Done, and taking it back, stay the editor's.
+    expect(names.filter((n) => /^(Done editing|Undo edit)/.test(n))).toEqual(
+      [],
+    );
+  });
+
+  it('pops up what waits on the admin’s own person, as for staff', () => {
+    window.localStorage.clear();
+    renderAdmin(KEE);
+    const box = within(document.querySelector<HTMLElement>('dialog[open]')!);
+    // Reel 2, cut by MEI, waits on KEE's Verify.
+    expect(box.getByText('Edited — ready for you to verify')).toBeTruthy();
+    expect(box.getByText('Reel 2')).toBeTruthy();
+    // Its "Go to my videos" has somewhere to go.
+    expect(document.getElementById('my-videos')).toBeTruthy();
+  });
+
+  it('reads the admin’s page again only while it is on screen', () => {
+    jest.useFakeTimers();
+    const shown = jest
+      .spyOn(document, 'visibilityState', 'get')
+      .mockReturnValue('hidden');
+    try {
+      const { unmount } = renderAdmin();
+      refresh.mockClear();
+      act(() => {
+        jest.advanceTimersByTime(60_000);
+      });
+      expect(refresh).not.toHaveBeenCalled();
+      shown.mockReturnValue('visible');
+      act(() => {
+        jest.advanceTimersByTime(60_000);
+      });
+      expect(refresh).toHaveBeenCalledTimes(1);
+      unmount();
+    } finally {
+      shown.mockRestore();
+      jest.useRealTimers();
+    }
+  });
+
+  it('pops up nothing for an admin who is not on the board', () => {
+    window.localStorage.clear();
+    renderAdmin();
+    expect(document.querySelector('dialog[open]')).toBeNull();
   });
 
   it('shows who handles and who edits each account', () => {
@@ -416,6 +506,20 @@ describe('the admin’s tracker', () => {
     // MEI does both: a column of their own, and the one editing Gary.
     const mei = within(board.getByRole('region', { name: 'MEI’s accounts' }));
     expect(mei.getByText('Edits 1 account · 12 videos')).toBeTruthy();
+  });
+
+  it('lets the admin drag the board’s columns into order', () => {
+    renderAdmin();
+    const board = within(
+      screen.getByRole('region', { name: 'Personnel & client configuration' }),
+    );
+    // Each person's column has a grip on its name; Unassigned has none.
+    const grips = (name: string) =>
+      board
+        .getByRole('region', { name })
+        .querySelectorAll('header [data-drag-handle]').length;
+    expect(grips('ZUWEI’s accounts')).toBe(1);
+    expect(grips('Unassigned accounts')).toBe(0);
   });
 
   it('shows everyone’s day and the videos in hand', () => {

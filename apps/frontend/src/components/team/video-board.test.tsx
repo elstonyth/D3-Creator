@@ -74,7 +74,7 @@ const TO_VERIFY = video('Reel 2', EDITED);
 function renderBoard(
   meId: string | null,
   videos = [TO_EDIT, TO_VERIFY],
-  { readOnly = false, month = '2026-09' } = {},
+  { everyone = false, month = '2026-09' } = {},
 ) {
   return render(
     <VideoBoard
@@ -83,7 +83,7 @@ function renderBoard(
       accounts={accounts}
       meId={meId}
       month={month}
-      readOnly={readOnly}
+      everyone={everyone}
     />,
   );
 }
@@ -208,7 +208,7 @@ it('verifies with one click and moves the video to done', async () => {
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: 'Verify: Reel 2' }));
   });
-  expect(verifyVideo).toHaveBeenCalledWith(TO_VERIFY.id);
+  expect(verifyVideo).toHaveBeenCalledWith(TO_VERIFY.id, KEE);
   const done = region('Done this month');
   expect(within(done).getByText('Reel 2')).toBeTruthy();
   expect(
@@ -237,6 +237,7 @@ it('lets the handler change the title and editor, sending what it started from',
     TO_EDIT.id,
     { title: 'Reel 1b', editorId: MEI },
     { title: 'Reel 1', editorId: ALI },
+    KEE,
   );
   expect(screen.getByText('Reel 1b')).toBeTruthy();
 });
@@ -389,7 +390,7 @@ describe('the admin’s view', () => {
   });
 
   it('shows who is editing and who verifies, with nothing to press', () => {
-    renderBoard(null, [TO_EDIT, TO_VERIFY, verified], { readOnly: true });
+    renderBoard(null, [TO_EDIT, TO_VERIFY, verified], { everyone: true });
     expect(screen.queryAllByRole('button')).toHaveLength(0);
     expect(within(region('Being edited')).getByText('Reel 1')).toBeTruthy();
     const card = within(region('Being edited'))
@@ -413,7 +414,7 @@ describe('the admin’s view', () => {
         accounts={accounts}
         meId={null}
         month="2026-09"
-        readOnly
+        everyone
         adminRemove={adminRemove}
       />,
     );
@@ -444,7 +445,7 @@ describe('the admin’s view', () => {
   });
 
   it('stays read-only even when given a person', () => {
-    renderBoard(KEE, [TO_EDIT, TO_VERIFY], { readOnly: true });
+    renderBoard(KEE, [TO_EDIT, TO_VERIFY], { everyone: true });
     expect(screen.queryAllByRole('button')).toHaveLength(0);
   });
 
@@ -452,7 +453,7 @@ describe('the admin’s view', () => {
     renderBoard(
       null,
       [TO_EDIT, video('Reel 7', { editorId: MEI, handlerId: MEI })],
-      { readOnly: true },
+      { everyone: true },
     );
     fireEvent.change(screen.getByLabelText('Show whose videos'), {
       target: { value: MEI },
@@ -472,10 +473,58 @@ describe('the admin’s view', () => {
         accounts={accounts}
         meId={null}
         month="2026-09"
-        readOnly
+        everyone
       />,
     );
     const card = screen.getByText('Reel 8').closest('li')!;
     expect(within(card).getByText(/ZU \(left\)/)).toBeTruthy();
   });
+});
+
+it('lets the admin do the handler’s steps on anyone’s video, never the editor’s', async () => {
+  (verifyVideo as jest.Mock).mockResolvedValue({
+    ok: true,
+    video: {
+      ...TO_VERIFY,
+      verifiedAt: '2026-09-29T09:00:00Z',
+      verifiedBy: KEE,
+    },
+  });
+  render(
+    <VideoBoard
+      videos={[TO_EDIT, TO_VERIFY]}
+      people={people}
+      accounts={accounts}
+      meId={null}
+      month="2026-09"
+      everyone
+      forAnyone
+    />,
+  );
+  expect(screen.getByRole('button', { name: 'Change Reel 1' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: /^Done editing/ })).toBeNull();
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Verify: Reel 2' }));
+  });
+  // As the video's handler, whoever that is.
+  expect(verifyVideo).toHaveBeenCalledWith(TO_VERIFY.id, KEE);
+});
+
+it('offers the admin no step on a video whose handler left', () => {
+  const GONE = 'aaaaaaaa-0000-4000-8000-000000000011';
+  render(
+    <VideoBoard
+      videos={[{ ...TO_VERIFY, handlerId: GONE }]}
+      people={[
+        ...people,
+        { id: GONE, name: 'GONE', kind: 'handler', archived: true },
+      ]}
+      accounts={accounts}
+      meId={null}
+      month="2026-09"
+      everyone
+      forAnyone
+    />,
+  );
+  expect(screen.queryByRole('button', { name: 'Verify: Reel 2' })).toBeNull();
 });

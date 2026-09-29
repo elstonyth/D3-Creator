@@ -8,13 +8,17 @@ import { claimAccount, releaseAccount } from './claim-account';
 import { deleteVideo, updateVideo } from './video-actions';
 
 jest.mock('@d3/database', () => ({ getSupabaseAdmin: jest.fn() }));
+// Only an admin's call reads this (staff are found first, below).
+jest.mock('@gitroom/frontend/lib/auth', () => ({
+  getAuthContext: jest.fn(async () => ({ role: 'staff' })),
+}));
 jest.mock('./on-board', () => ({ onBoard: jest.fn(async () => true) }));
 jest.mock('./claim-account', () => ({
   claimAccount: jest.fn(async () => undefined),
   releaseAccount: jest.fn(async () => undefined),
 }));
 jest.mock('./staff-context', () => ({
-  requireStaff: jest.fn(async () => ({
+  getStaffContext: jest.fn(async () => ({
     userId: 'u1',
     memberId: 'aaaaaaaa-0000-4000-8000-000000000001', // KEE
   })),

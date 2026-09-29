@@ -3,7 +3,9 @@
 /**
  * One day's shoots, the panel under a work tracker's calendar. On the staff
  * tracker they are the staff member's own, to add, change and pass on; on
- * the admin's tracker they are everyone's, read-only (no `setShoots`).
+ * the admin's tracker they are everyone's, and the admin does all of it for
+ * anyone, as each shoot's own person (`forAnyone`; lib/team/actor.ts). With
+ * no `setShoots` the panel is read-only.
  *
  * After a shoot its owner passes the videos on from its card: one row per
  * video, each given to an editor. That marks the shoot done; passing again
@@ -83,11 +85,16 @@ export interface DayShootsProps {
   handled?: string[];
   /** The staff member's own person; null on the admin's view. */
   meId: string | null;
-  /** The tracker's whole list. Absent = read-only (the admin's view). */
+  /** The tracker's whole list. Absent = read-only. */
   setShoots?: Dispatch<SetStateAction<Shoot[]>>;
   /**
-   * The time now (useNow), for marking the staff member's shoots whose time
-   * has come; null or absent marks none.
+   * The admin's view: every shoot can be changed and passed on, as its own
+   * person, and a new one is added for whoever the admin picks.
+   */
+  forAnyone?: boolean;
+  /**
+   * The time now (useNow), for marking the staff member's shoots that are
+   * due (shootDueAt); null or absent marks none.
    */
   now?: number | null;
   /** Show another day: where a shoot just moved to. */
@@ -111,6 +118,7 @@ export function DayShoots({
   handled,
   meId,
   setShoots,
+  forAnyone = false,
   now = null,
   onPick,
   className,
@@ -118,7 +126,8 @@ export function DayShoots({
   const { t, locale } = useI18n();
   const router = useRouter();
   const tag = localeTag(locale);
-  // Whose shoots can be changed here: nobody's on the admin's view.
+  // Whose shoots can be changed here: the staff member's own, or anyone's
+  // on the admin's view; nobody's when read-only.
   const me = setShoots ? meId : null;
   const [open, setOpen] = useState<Open>(null);
   const [saving, setSaving] = useState(false);
@@ -133,7 +142,16 @@ export function DayShoots({
   const pickable = (keep: string | null) =>
     mine ? accounts.filter((a) => mine.has(a.id) || a.id === keep) : accounts;
   const editors = people.filter((p) => !p.archived && isEditorKind(p.kind));
+  // Who the admin can add a shoot for: people who run accounts. Their own
+  // person first, if they are one.
+  const handlers = people.filter((p) => !p.archived && p.kind !== 'editor');
+  const addFor = handlers.some((p) => p.id === me) ? me! : '';
   const archived = new Set(people.filter((p) => p.archived).map((p) => p.id));
+  // Someone who left can't be acted as (lib/team/actor.ts), so the admin
+  // is offered nothing on their shoots.
+  const acts = (x: Shoot) =>
+    x.memberId === me ||
+    (!!setShoots && forAnyone && !archived.has(x.memberId));
   const personName = (id: string) => {
     const name = nameOf.get(id) ?? '—';
     return archived.has(id) ? t('{name} (left)', { name }) : name;
@@ -141,11 +159,11 @@ export function DayShoots({
 
   // First day of this month: staff change nothing dated before it.
   const monthStart = `${today.slice(0, 7)}-01`;
-  const canAdd = me !== null && day >= monthStart;
+  const canAdd = !!setShoots && (forAnyone || me !== null) && day >= monthStart;
   const adding = open?.kind === 'add';
   // A shoot that can be moved: the person's own, not cancelled, not closed.
   const movable = (x: Shoot) =>
-    x.memberId === me && x.date >= monthStart && x.status !== 'cancelled';
+    acts(x) && x.date >= monthStart && x.status !== 'cancelled';
 
   const drag = useDrag({
     accepts: (id, key) => {
@@ -214,14 +232,14 @@ export function DayShoots({
   const add = (d: ShootDraft) =>
     save(
       'add',
-      () => addShoot(input(d)),
+      () => addShoot(input(d), d.memberId),
       (r) => setShoots?.((p) => sortShoots([...p, r.shoot!])),
       open,
     );
   const edit = (x: Shoot, d: ShootDraft) =>
     save(
       x.id,
-      () => updateShoot(x.id, input(d), input(draftOf(x, x.date))),
+      () => updateShoot(x.id, input(d), input(draftOf(x, x.date)), x.memberId),
       (r) => {
         replace(r.shoot!);
         // Moved to another day: show it there.
@@ -233,20 +251,20 @@ export function DayShoots({
   const status = (x: Shoot, next: 'planned' | 'cancelled') =>
     save(
       x.id,
-      () => setShootStatus(x.id, next),
+      () => setShootStatus(x.id, next, x.memberId),
       (r) => replace(r.shoot!),
     );
   const pass = (x: Shoot, rows: PassRow[]) =>
     save(
       x.id,
-      () => passVideos(x.id, rows),
+      () => passVideos(x.id, rows, x.memberId),
       (r) => replace(r.shoot!),
       open,
     );
   const remove = (x: Shoot) =>
     save(
       x.id,
-      () => deleteShoot(x.id),
+      () => deleteShoot(x.id, x.memberId),
       () => setShoots?.((p) => p.filter((y) => y.id !== x.id)),
       open,
     );
@@ -294,9 +312,13 @@ export function DayShoots({
         {adding ? (
           <div className="mb-3">
             <ShootForm
-              initial={draftOf(null, day)}
+              initial={{
+                ...draftOf(null, day),
+                memberId: forAnyone ? addFor : (me ?? ''),
+              }}
               accounts={pickable(null)}
               onlyHandled={!!mine}
+              people={forAnyone ? handlers : undefined}
               minDate={monthStart}
               saving={saving}
               error={errorAt('add')}
@@ -336,12 +358,13 @@ export function DayShoots({
                   account={
                     x.creatorId ? (accountOf.get(x.creatorId) ?? null) : null
                   }
-                  showPerson={x.memberId !== me}
-                  mine={x.memberId === me}
+                  // Everyone's shoots on the admin's view: each one named.
+                  showPerson={forAnyone || x.memberId !== me}
+                  mine={acts(x)}
                   due={me !== null && now !== null && isDue(x, me, now)}
                   // Change, cancel, reopen, delete: from this month on.
                   // Passing videos on: any day.
-                  changeable={x.memberId === me && x.date >= monthStart}
+                  changeable={acts(x) && x.date >= monthStart}
                   movable={movable(x)}
                   dragging={drag.dragId === x.id}
                   onPointerDown={(e) => {
@@ -410,7 +433,7 @@ function ShootItem({
   showPerson: boolean;
   /** Mine: its videos can be passed on, unless it was cancelled. */
   mine: boolean;
-  /** Mine, planned, and its time has come: its videos wait to be passed on. */
+  /** Mine, planned, and due (shootDueAt): its videos wait to be passed on. */
   due: boolean;
   /** Mine and not in a closed month: can be changed, cancelled, deleted. */
   changeable: boolean;

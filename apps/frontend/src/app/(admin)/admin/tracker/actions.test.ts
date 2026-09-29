@@ -9,7 +9,7 @@
 import { getSupabaseAdmin } from '@d3/database';
 import { requireAdmin } from '@gitroom/frontend/lib/auth';
 import { onBoard } from '@gitroom/frontend/lib/team/on-board';
-import { placeAccount, removeVideo } from './actions';
+import { orderPeople, placeAccount, removeVideo } from './actions';
 
 jest.mock('@d3/database', () => ({ getSupabaseAdmin: jest.fn() }));
 jest.mock('@gitroom/frontend/lib/auth', () => ({
@@ -170,6 +170,58 @@ describe('a drop on the account board', () => {
       await expect(
         placeAccount(order as unknown as string[], move),
       ).resolves.toMatchObject({ ok: false });
+    expect(from).not.toHaveBeenCalled();
+  });
+});
+
+describe('the order of the people on the board', () => {
+  function memberDb(fail = false) {
+    const eq = jest.fn(async () => ({
+      error: fail ? { message: 'boom' } : null,
+    }));
+    const update = jest.fn(() => ({ eq }));
+    const from = jest.fn(() => ({ update }));
+    (getSupabaseAdmin as jest.Mock).mockReturnValue({ from });
+    return { from, update, eq };
+  }
+
+  it('gives everyone their place in the new order', async () => {
+    const { from, update, eq } = memberDb();
+    await expect(orderPeople([ZUWEI, KEE])).resolves.toEqual({ ok: true });
+    expect(from).toHaveBeenCalledWith('tracker_member');
+    expect(update.mock.calls).toEqual([
+      [{ sort_order: 0 }],
+      [{ sort_order: 1 }],
+    ]);
+    expect(eq.mock.calls).toEqual([
+      ['id', ZUWEI],
+      ['id', KEE],
+    ]);
+  });
+
+  it('says so when a write fails', async () => {
+    memberDb(true);
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    await expect(orderPeople([KEE])).resolves.toEqual({
+      ok: false,
+      message: 'Could not save. Try again.',
+    });
+  });
+
+  it('refuses anyone but the admin, and a bad order, before writing', async () => {
+    const { from } = memberDb();
+    (requireAdmin as jest.Mock).mockRejectedValueOnce(
+      new Error('Not authorized.'),
+    );
+    await expect(orderPeople([KEE])).resolves.toEqual({
+      ok: false,
+      message: 'Not authorized.',
+    });
+    for (const order of [[], ['nope'], [KEE, KEE], 'KEE'])
+      await expect(orderPeople(order as unknown as string[])).resolves.toEqual({
+        ok: false,
+        message: 'Invalid order.',
+      });
     expect(from).not.toHaveBeenCalled();
   });
 });

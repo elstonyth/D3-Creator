@@ -364,4 +364,114 @@ describe('the admin’s drag and drop', () => {
       }),
     );
   });
+
+  describe('the order of the columns', () => {
+    function renderOrderable(onOrder: jest.Mock) {
+      return render(
+        <AccountBoard
+          monthLabel="September 2026"
+          people={[KEE, ZUWEI, ALI, MEI]}
+          accounts={[GARY, AMY, BOB]}
+          onPlace={jest.fn(async () => ({ ok: true }))}
+          onOrder={onOrder}
+        />,
+      );
+    }
+    const columns = () =>
+      screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
+    const headerOf = (name: string) =>
+      screen.getByRole('heading', { name }).closest('header')!;
+
+    it('moves a column into the place of the one it is dropped on', async () => {
+      const onOrder = jest.fn(async () => ({ ok: true }));
+      renderOrderable(onOrder);
+      expect(columns()).toEqual(['KEE', 'ZUWEI', 'MEI', 'Unassigned']);
+      // To the left: MEI takes KEE's place, first.
+      expect(
+        await drag(
+          headerOf('MEI'),
+          screen.getByRole('region', { name: 'KEE’s accounts' }),
+        ),
+      ).toBe(true);
+      // Everyone, editors too, in the new order: the order of people
+      // everywhere.
+      expect(onOrder).toHaveBeenLastCalledWith([
+        MEI.id,
+        KEE.id,
+        ZUWEI.id,
+        ALI.id,
+      ]);
+      expect(columns()).toEqual(['MEI', 'KEE', 'ZUWEI', 'Unassigned']);
+      // To the right: MEI takes ZUWEI's place, ahead of the editors still.
+      await drag(
+        headerOf('MEI'),
+        screen.getByRole('region', { name: 'ZUWEI’s accounts' }),
+      );
+      expect(onOrder).toHaveBeenLastCalledWith([
+        KEE.id,
+        ZUWEI.id,
+        MEI.id,
+        ALI.id,
+      ]);
+      expect(columns()).toEqual(['KEE', 'ZUWEI', 'MEI', 'Unassigned']);
+      expect(refresh).toHaveBeenCalledTimes(2);
+    });
+
+    it('never drops a column on Unassigned, or on itself', async () => {
+      const onOrder = jest.fn(async () => ({ ok: true }));
+      renderOrderable(onOrder);
+      expect(
+        await drag(
+          headerOf('KEE'),
+          screen.getByRole('region', { name: 'Unassigned accounts' }),
+        ),
+      ).toBe(false);
+      expect(
+        await drag(
+          headerOf('KEE'),
+          screen.getByRole('region', { name: 'KEE’s accounts' }),
+        ),
+      ).toBe(false);
+      expect(onOrder).not.toHaveBeenCalled();
+    });
+
+    it('puts the columns back and says why when the order is refused', async () => {
+      const onOrder = jest.fn(async () => ({
+        ok: false,
+        message: 'Could not save. Try again.',
+      }));
+      renderOrderable(onOrder);
+      await drag(
+        headerOf('ZUWEI'),
+        screen.getByRole('region', { name: 'KEE’s accounts' }),
+      );
+      expect(columns()).toEqual(['KEE', 'ZUWEI', 'MEI', 'Unassigned']);
+      expect(screen.getByRole('status').textContent).toBe(
+        'Could not save. Try again.',
+      );
+      expect(refresh).not.toHaveBeenCalled();
+    });
+
+    it('lets a finger move a column only by its grip', async () => {
+      const onOrder = jest.fn(async () => ({ ok: true }));
+      renderOrderable(onOrder);
+      const kee = screen.getByRole('region', { name: 'KEE’s accounts' });
+      Object.assign(document, { elementFromPoint: () => kee });
+      const touch = { pointerType: 'touch', clientX: 10, clientY: 300 };
+      fireEvent.pointerDown(
+        screen.getByRole('heading', { name: 'MEI' }),
+        touch,
+      );
+      fireEvent.pointerMove(window, { ...touch, clientX: 60 });
+      fireEvent.pointerUp(window, touch);
+      expect(onOrder).not.toHaveBeenCalled();
+      const grip = headerOf('MEI').querySelector('[data-drag-handle]')!;
+      fireEvent.pointerDown(grip, touch);
+      fireEvent.pointerMove(window, { ...touch, clientX: 60 });
+      await act(async () => {
+        fireEvent.pointerUp(window, { ...touch, clientX: 60 });
+      });
+      expect(onOrder).toHaveBeenCalledWith([MEI.id, KEE.id, ZUWEI.id, ALI.id]);
+    });
+  });
 });

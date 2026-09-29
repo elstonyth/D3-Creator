@@ -287,6 +287,8 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Drag an account onto the person who handles it, and up or down to set the order. Editors follow what staff choose when they pass videos on.':
     '把账号拖到负责人那一栏，上下拖动可调整顺序。剪辑由员工交出视频时自己选。',
   'Drag to move': '拖动以移动',
+  'Drag a person by their name onto another column to change the order of the columns.':
+    '按住人名拖到另一栏上，可以调整各栏的顺序。',
   'Drag a shoot (on a phone, by its ⠿ grip) onto a day on the calendar to move it.':
     '把拍摄拖到日历上的某一天即可改期（手机上请按住 ⠿ 拖动）。',
   'Invalid order.': '顺序无效。',
@@ -294,11 +296,14 @@ export const staffZh: Readonly<Record<string, string>> = {
   'You handle no accounts yet. Ask the admin to assign one.':
     '你还没有负责的账号。请管理员给你分配。',
   'Only the accounts you handle.': '只列出你负责的账号。',
+  'Pick who handles it': '选择负责人',
 
   // ---- What needs you now: the pop-up and the due shoots ----------------------
   'Time to pass videos': '该交出视频了',
   'Waiting for you': '有事等你处理',
   'Shoot time is up — pass the videos on': '拍摄时间到了——请交出视频',
+  'New shoots scheduled for you': '为你安排的新拍摄',
+  'Shoots changed for you': '你的拍摄有变动',
   'New videos to edit': '新的剪辑任务',
   'Edited — ready for you to verify': '剪好了，等你审核',
   'From {name}': '来自 {name}',

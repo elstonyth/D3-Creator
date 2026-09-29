@@ -11,10 +11,15 @@ import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import type { Shoot } from '@gitroom/frontend/lib/team/shoots';
 import type { Video } from '@gitroom/frontend/lib/team/videos';
 import { passVideos } from '@gitroom/frontend/lib/team/shoot-actions';
+import { armChime, playChime } from '@gitroom/frontend/lib/team/chime';
 import { WorkAlerts } from './work-alerts';
 
 jest.mock('@gitroom/frontend/lib/team/shoot-actions', () => ({
   passVideos: jest.fn(),
+}));
+jest.mock('@gitroom/frontend/lib/team/chime', () => ({
+  armChime: jest.fn(() => () => undefined),
+  playChime: jest.fn(),
 }));
 const refresh = jest.fn();
 jest.mock('next/navigation', () => ({ useRouter: () => ({ refresh }) }));
@@ -41,8 +46,8 @@ const people = [
 ];
 const accounts = [{ id: GARY, name: 'Gary' }];
 const TODAY = '2026-09-29';
-// 29 Sep, 17:30 in Malaysia.
-const NOW = Date.parse('2026-09-29T17:30:00+08:00');
+// 29 Sep, 18:30 in Malaysia.
+const NOW = Date.parse('2026-09-29T18:30:00+08:00');
 
 function shoot(n: number, time: string | null, extra: Partial<Shoot> = {}) {
   return {
@@ -54,6 +59,8 @@ function shoot(n: number, time: string | null, extra: Partial<Shoot> = {}) {
     creatorId: GARY,
     videosShot: null,
     status: 'planned',
+    createdBy: null,
+    updatedBy: null,
     note: null,
     ...extra,
   } as Shoot;
@@ -86,6 +93,7 @@ function alerts({
   return (
     <WorkAlerts
       meId={KEE}
+      loginId="kee-login"
       month="2026-09"
       today={TODAY}
       now={now}
@@ -107,7 +115,7 @@ beforeEach(() => {
   window.localStorage.clear();
 });
 
-it('asks to pass the videos on once a shoot’s time has come', async () => {
+it('asks to pass the videos on an hour after a shoot’s time', async () => {
   const onPassed = jest.fn();
   const at17 = shoot(1, '17:00');
   (passVideos as jest.Mock).mockResolvedValue({
@@ -115,12 +123,12 @@ it('asks to pass the videos on once a shoot’s time has come', async () => {
     shoot: { ...at17, status: 'done', videosShot: 1 },
     videos: [],
   });
-  render(alerts({ shoots: [at17, shoot(2, '19:00')], onPassed }));
+  render(alerts({ shoots: [at17, shoot(2, '18:00')], onPassed }));
   const box = within(dialog()!);
   expect(box.getByText('Shoot time is up — pass the videos on')).toBeTruthy();
-  // 17:00 has come; 19:00 has not.
+  // 17:00 began over an hour ago; 18:00 is still going on.
   expect(box.getByText('Today · 17:00 · Gary')).toBeTruthy();
-  expect(box.queryByText(/19:00/)).toBeNull();
+  expect(box.queryByText(/18:00/)).toBeNull();
 
   fireEvent.click(
     box.getByRole('button', { name: 'Pass videos: Today · 17:00 · Gary' }),
@@ -131,9 +139,11 @@ it('asks to pass the videos on once a shoot’s time has come', async () => {
   await act(async () => {
     fireEvent.click(box.getByRole('button', { name: 'Pass videos' }));
   });
-  expect(passVideos).toHaveBeenCalledWith(at17.id, [
-    { title: 'Reel 1', editorId: MEI },
-  ]);
+  expect(passVideos).toHaveBeenCalledWith(
+    at17.id,
+    [{ title: 'Reel 1', editorId: MEI }],
+    KEE,
+  );
   expect(onPassed).toHaveBeenCalledWith(
     expect.objectContaining({ id: at17.id, status: 'done' }),
   );
@@ -252,6 +262,28 @@ it('shows nothing before the page is in the browser', () => {
     alerts({ shoots: [shoot(1, '17:00')], videos: [video(1)], now: null }),
   );
   expect(dialog()).toBeNull();
+  expect(playChime).not.toHaveBeenCalled();
+});
+
+it('chimes once for each thing new to the pop-up', () => {
+  const { rerender } = render(alerts({ videos: [video(1)] }));
+  expect(armChime).toHaveBeenCalled();
+  expect(playChime).toHaveBeenCalledTimes(1);
+  // The page reads itself again with nothing new: no chime.
+  rerender(alerts({ videos: [video(1)] }));
+  expect(playChime).toHaveBeenCalledTimes(1);
+  // Another video passed on while the pop-up is still open.
+  rerender(alerts({ videos: [video(1), video(2)] }));
+  expect(playChime).toHaveBeenCalledTimes(2);
+  // Put away: seen, so the same again stays quiet.
+  fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
+  rerender(alerts({ videos: [video(1), video(2)] }));
+  expect(playChime).toHaveBeenCalledTimes(2);
+  // A shoot comes due.
+  rerender(
+    alerts({ shoots: [shoot(1, '17:00')], videos: [video(1), video(2)] }),
+  );
+  expect(playChime).toHaveBeenCalledTimes(3);
 });
 
 it('asks about a closed month’s shoot once per device, since it can’t be cancelled', () => {
@@ -261,6 +293,7 @@ it('asks about a closed month’s shoot once per device, since it can’t be can
   const view = (extra = {}) => (
     <WorkAlerts
       meId={KEE}
+      loginId="kee-login"
       month="2026-10"
       today="2026-10-01"
       now={october.now}
@@ -290,5 +323,64 @@ it('closes an open pass form on Escape, keeping the pop-up', () => {
   expect(dialog()).not.toBeNull();
   expect(within(dialog()!).queryByLabelText('Video 1 title')).toBeNull();
   fireEvent(dialog()!, new Event('cancel', { cancelable: true }));
+  expect(dialog()).toBeNull();
+});
+
+it('tells them once about a shoot someone else added for them', () => {
+  // 20:00 is not due yet at 18:30; the admin added it.
+  const added = shoot(1, '20:00', { createdBy: 'boss-login' });
+  const { rerender } = render(alerts({ shoots: [added] }));
+  const box = within(dialog()!);
+  expect(box.getByText('New shoots scheduled for you')).toBeTruthy();
+  expect(box.getByText('Today · 20:00 · Gary')).toBeTruthy();
+  expect(playChime).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
+  expect(dialog()).toBeNull();
+  // Seen on this device: not again.
+  rerender(alerts({ shoots: [added] }));
+  expect(dialog()).toBeNull();
+});
+
+it('says nothing new about their own shoot, or one already due', () => {
+  render(
+    alerts({
+      shoots: [
+        shoot(1, '20:00', { createdBy: 'kee-login' }),
+        // Due: asked about as due instead.
+        shoot(2, '17:00', { createdBy: 'boss-login' }),
+      ],
+    }),
+  );
+  const box = within(dialog()!);
+  expect(box.queryByText('New shoots scheduled for you')).toBeNull();
+  expect(box.getByText('Shoot time is up — pass the videos on')).toBeTruthy();
+});
+
+it('tells them once about each change someone else made to their shoot', () => {
+  const moved = shoot(1, '20:00', {
+    updatedBy: 'boss-login',
+    movedReason: 'The client moved it',
+  });
+  const { rerender } = render(alerts({ shoots: [moved] }));
+  let box = within(dialog()!);
+  expect(box.getByText('Shoots changed for you')).toBeTruthy();
+  expect(box.getByText('Changed: The client moved it')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
+  rerender(alerts({ shoots: [moved] }));
+  expect(dialog()).toBeNull();
+  // Changed again — here, cancelled: news again.
+  rerender(alerts({ shoots: [{ ...moved, status: 'cancelled' }] }));
+  box = within(dialog()!);
+  expect(box.getByText('Cancelled')).toBeTruthy();
+});
+
+it('says nothing about a change they made themselves', () => {
+  render(
+    alerts({
+      shoots: [
+        shoot(1, '20:00', { updatedBy: 'kee-login', movedReason: 'Mine' }),
+      ],
+    }),
+  );
   expect(dialog()).toBeNull();
 });

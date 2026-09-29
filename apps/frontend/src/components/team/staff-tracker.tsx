@@ -7,17 +7,16 @@
  * edit, to verify, passed on and still with the editor, done this month —
  * each naming who edits it and who verifies it.
  *
- * What needs them now pops up (WorkAlerts): a shoot whose time has come,
+ * What needs them now pops up (WorkAlerts): a shoot an hour past its start,
  * glowing on the spotlight and the day too, and new videos to edit or
- * verify. The page reads itself again every minute while it is on screen,
- * so new work arrives without a reload.
+ * verify, with a chime. The page reads itself again every minute, in a
+ * background tab too, so new work arrives without a reload.
  *
  * Everything here is the signed-in person's already (the page reads it
  * scoped, lib/team/tracker-data.ts); nothing is filtered to them here.
  */
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
 import { addDays } from '@gitroom/frontend/lib/tracker';
@@ -37,6 +36,7 @@ import {
   TrackerCalendar,
   TrackerScene,
   useNow,
+  useRereadEveryMinute,
   useTrackerNav,
 } from './tracker-shell';
 import { VideoBoard } from './video-board';
@@ -50,6 +50,8 @@ export interface StaffTrackerProps extends StaffTrackerData {
   initialDay: string | null;
   /** The signed-in staff member's person. */
   meId: string;
+  /** Their login: a shoot someone else added for them pops up. */
+  loginId: string;
 }
 
 export function StaffTracker({
@@ -64,9 +66,9 @@ export function StaffTracker({
   accounts,
   handled,
   meId,
+  loginId,
 }: StaffTrackerProps) {
   const { t, locale } = useI18n();
-  const router = useRouter();
   const now = useNow();
   const [shoots, setShoots] = useState<Shoot[]>(initialShoots);
   // A refresh brings the server's list again (a video taken back on the
@@ -80,19 +82,7 @@ export function StaffTracker({
   const nav = useTrackerNav(month, today, initialDay);
   const thisMonth = today.slice(0, 7);
 
-  // New work shows up without a reload: the page is read again every
-  // minute while it is on screen, and as soon as it comes back into view.
-  useEffect(() => {
-    const reread = () => {
-      if (document.visibilityState === 'visible') router.refresh();
-    };
-    const id = window.setInterval(reread, 60_000);
-    document.addEventListener('visibilitychange', reread);
-    return () => {
-      window.clearInterval(id);
-      document.removeEventListener('visibilitychange', reread);
-    };
-  }, [router]);
+  useRereadEveryMinute(true);
 
   const accountOf = new Map(accounts.map((a) => [a.id, a.name]));
   // The month on the calendar; the list also carries today's and
@@ -230,6 +220,7 @@ export function StaffTracker({
 
       <WorkAlerts
         meId={meId}
+        loginId={loginId}
         month={thisMonth}
         today={today}
         now={now}

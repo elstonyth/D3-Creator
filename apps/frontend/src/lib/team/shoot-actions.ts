@@ -1,13 +1,12 @@
 'use server';
 
 /**
- * Shoot mutations for the staff portal. Staff only: the admin console shows
- * the schedule but changes none of it, so an admin is refused here like
- * anyone else who is not staff (asActor).
- *
- * A staff member only ever writes their own shoots: the person comes from
- * their session (requireStaff), never from the browser, and every write is
- * filtered by it, so an id belonging to someone else simply matches nothing.
+ * Shoot mutations for the work trackers. A staff member only ever writes
+ * their own shoots: the person comes from their session (requireStaff), never
+ * from the browser, and every write is filtered by it, so an id belonging to
+ * someone else simply matches nothing. The admin does the same for anyone,
+ * as the person each call names (`as`, lib/team/actor.ts): the shoot's own,
+ * or who a new shoot is for.
  * Changing, cancelling and deleting also stay inside this month and later: a
  * month that has been counted is closed. Passing videos on is the exception
  * — a shoot's videos can be passed on whenever they are ready.
@@ -58,7 +57,11 @@ function one(res: {
   return { ok: true, shoot: rowToShoot(res.data[0] as ShootRow) };
 }
 
-export async function addShoot(input: unknown): Promise<ShootResult> {
+export async function addShoot(
+  input: unknown,
+  /** The admin's pick of whose shoot it is (see asActor). */
+  as?: string,
+): Promise<ShootResult> {
   return asActor(async (a): Promise<ShootResult> => {
     const p = parseShootInput(input);
     if (!p.ok) return p;
@@ -77,7 +80,7 @@ export async function addShoot(input: unknown): Promise<ShootResult> {
       .single();
     if (error) return dbError('addShoot', error);
     return { ok: true, shoot: rowToShoot(data as ShootRow) };
-  });
+  }, as);
 }
 
 /** Change what was filled in: day, time, account — always saying why. */
@@ -86,6 +89,8 @@ export async function updateShoot(
   input: unknown,
   /** What the form started with; only fields changed from it are written. */
   before?: unknown,
+  /** The shoot's own person, for the admin (see asActor). */
+  as?: string,
 ): Promise<ShootResult> {
   return asActor(async (a): Promise<ShootResult> => {
     if (!isUuid(id)) return { ok: false, message: 'Invalid shoot.' };
@@ -112,7 +117,7 @@ export async function updateShoot(
     const saved = one(
       await admin
         .from('tracker_shoot')
-        .update(patch)
+        .update({ ...patch, updated_by: a.userId })
         .eq('id', id)
         .eq('member_id', a.memberId)
         .gte('shoot_date', monthStart())
@@ -141,8 +146,18 @@ export async function updateShoot(
       // The board's editor follows the videos: the account they left gets
       // its editor back (if this was a mistaken pick), and the new one takes
       // the editor given most of them. Who handles either stays the admin's.
+      // The claim being taken back is the shoot's person's, whoever fixes it.
+      const owner = await admin
+        .from('tracker_member')
+        .select('user_id')
+        .eq('id', a.memberId)
+        .maybeSingle();
+      if (owner.error) return dbError('updateShoot', owner.error);
+      const claimedBy =
+        (owner.data as { user_id: string | null } | null)?.user_id ?? null;
       for (const left of new Set(moved.map((v) => v.creator_id)))
-        if (left !== patch.creator_id) await releaseAccount(left, a.userId);
+        if (left !== patch.creator_id)
+          await releaseAccount(left, a.userId, claimedBy);
       await claimAccount(
         patch.creator_id,
         mainEditor(moved.map((v) => v.editor_id)),
@@ -150,7 +165,7 @@ export async function updateShoot(
       );
     }
     return saved;
-  });
+  }, as);
 }
 
 /**
@@ -161,6 +176,7 @@ export async function updateShoot(
 export async function setShootStatus(
   id: string,
   status: string,
+  as?: string,
 ): Promise<ShootResult> {
   return asActor(async (a): Promise<ShootResult> => {
     if (!isUuid(id)) return { ok: false, message: 'Invalid shoot.' };
@@ -169,17 +185,20 @@ export async function setShootStatus(
     return one(
       await getSupabaseAdmin()
         .from('tracker_shoot')
-        .update({ status })
+        .update({ status, updated_by: a.userId })
         .eq('id', id)
         .eq('member_id', a.memberId)
         .eq('status', status === 'cancelled' ? 'planned' : 'cancelled')
         .gte('shoot_date', monthStart())
         .select(SHOOT_COLS),
     );
-  });
+  }, as);
 }
 
-export async function deleteShoot(id: string): Promise<ShootResult> {
+export async function deleteShoot(
+  id: string,
+  as?: string,
+): Promise<ShootResult> {
   return asActor(async (a): Promise<ShootResult> => {
     if (!isUuid(id)) return { ok: false, message: 'Invalid shoot.' };
     const { data, error } = await getSupabaseAdmin()
@@ -192,12 +211,12 @@ export async function deleteShoot(id: string): Promise<ShootResult> {
     if (error) return dbError('deleteShoot', error);
     if (!data || data.length === 0) return { ok: false, message: NOT_YOURS };
     return { ok: true };
-  });
+  }, as);
 }
 
 /**
  * After a shoot: pass its videos on, one row per video, each to an editor.
- * The caller becomes every video's handler, and the shoot is marked done
+ * The shoot's person becomes every video's handler, and the shoot is marked done
  * with how many videos have come out of it. Passing again adds more.
  *
  * On the admin's account board, the editor given most of these videos
@@ -211,6 +230,7 @@ export async function deleteShoot(id: string): Promise<ShootResult> {
 export async function passVideos(
   shootId: string,
   input: unknown,
+  as?: string,
 ): Promise<PassResult> {
   return asActor(async (a): Promise<PassResult> => {
     if (!isUuid(shootId)) return { ok: false, message: 'Invalid shoot.' };
@@ -256,5 +276,5 @@ export async function passVideos(
       shoot: passed,
       videos: ((data ?? []) as VideoRow[]).map(rowToVideo),
     };
-  });
+  }, as);
 }

@@ -127,6 +127,23 @@ describe('releaseAccount', () => {
     expect(update).not.toHaveBeenCalled();
   });
 
+  it('takes back the claim of the person the admin acts for', async () => {
+    const { update } = board({ editor_id: 'mei' }, [claim('ali', 'mei')]);
+    await releaseAccount('acc', 'boss', 'u1');
+    expect(update).toHaveBeenCalledWith({
+      editor_id: 'ali',
+      updated_by: 'boss',
+    });
+  });
+
+  it('never takes back a change no login made', async () => {
+    const { update } = board({ editor_id: 'mei' }, [
+      { ...claim('ali', 'mei'), changed_by: null },
+    ]);
+    await releaseAccount('acc', 'boss', null);
+    expect(update).not.toHaveBeenCalled();
+  });
+
   it('leaves a claim someone else has made since', async () => {
     const { update } = board({ editor_id: 'sk' }, [
       { ...claim('mei', 'sk'), changed_by: 'u9' },

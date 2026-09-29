@@ -35,6 +35,16 @@ export interface Shoot {
   note: string | null;
   /** Why it was last changed (day, time or account); null if never. */
   movedReason: string | null;
+  /**
+   * The login that added it. One added by someone else (the admin) is news
+   * to its person (WorkAlerts); null for a login since deleted.
+   */
+  createdBy: string | null;
+  /**
+   * The login that last changed it (moved it, another account, cancelled or
+   * reopened it). A change by someone else is news to its person too.
+   */
+  updatedBy: string | null;
 }
 
 /**
@@ -100,20 +110,23 @@ export function parseShootInput(v: unknown): Parsed<ShootInput> {
   return { ok: true, value: { date: o.date, time, creatorId, reason } };
 }
 
+/** How long after its start a shoot is taken to be over (the owner's call). */
+const SHOOT_LENGTH_MS = 60 * 60_000;
+
 /**
- * When a shoot is due to have happened (epoch ms, Malaysia time): at its
- * start time, or — for one with no time, "sometime that day" — once its day
- * is over.
+ * When a shoot is due to have happened (epoch ms, Malaysia time): an hour
+ * after its start time, or — for one with no time, "sometime that day" —
+ * once its day is over.
  */
 export function shootDueAt(s: Pick<Shoot, 'date' | 'time'>): number {
   return s.time
-    ? Date.parse(`${s.date}T${s.time}:00${TRACKER_TZ_OFFSET}`)
+    ? Date.parse(`${s.date}T${s.time}:00${TRACKER_TZ_OFFSET}`) + SHOOT_LENGTH_MS
     : Date.parse(`${addDays(s.date, 1)}T00:00:00${TRACKER_TZ_OFFSET}`);
 }
 
 /**
  * One of `me`'s shoots that has happened but still has no videos passed on:
- * planned, and its time has come. Its owner is asked to pass them on.
+ * planned, and due (shootDueAt). Its owner is asked to pass them on.
  */
 export function isDue(s: Shoot, me: string, now: number): boolean {
   return s.memberId === me && s.status === 'planned' && now >= shootDueAt(s);

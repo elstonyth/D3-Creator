@@ -50,10 +50,13 @@ export async function claimAccount(
  * goes back to who it was before — but only while this claim is still the
  * latest change to it and none of that editor's videos is left on the
  * account. So a mistaken pick undoes itself, and a real handover stays.
+ * The admin acting for someone takes back that person's claim too
+ * (`claimedBy`: their login).
  */
 export async function releaseAccount(
   creatorId: string | null,
   userId: string,
+  claimedBy: string | null = null,
 ): Promise<void> {
   if (!creatorId) return;
   try {
@@ -90,7 +93,8 @@ export async function releaseAccount(
     if (
       !now ||
       !e ||
-      e.changed_by !== userId ||
+      (e.changed_by !== userId &&
+        (claimedBy === null || e.changed_by !== claimedBy)) ||
       e.new_value === null ||
       now.editor_id !== e.new_value ||
       videos.some((v) => v.editor_id === e.new_value)

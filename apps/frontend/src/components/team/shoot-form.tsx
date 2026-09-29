@@ -29,6 +29,8 @@ export interface ShootDraft {
   creatorId: string;
   /** Why it changed: asked of every change to a saved shoot. */
   reason: string;
+  /** Whose shoot it is: picked by the admin when adding one. */
+  memberId: string;
 }
 
 export function draftOf(s: Shoot | null, date: string): ShootDraft {
@@ -37,6 +39,7 @@ export function draftOf(s: Shoot | null, date: string): ShootDraft {
     time: s?.time ?? '',
     creatorId: s?.creatorId ?? '',
     reason: '',
+    memberId: s?.memberId ?? '',
   };
 }
 
@@ -58,6 +61,7 @@ export function ShootForm({
   editing = false,
   accounts,
   onlyHandled = false,
+  people,
   minDate,
   saving,
   error,
@@ -75,6 +79,8 @@ export function ShootForm({
   accounts: { id: string; name: string }[];
   /** `accounts` is only the ones this person handles: say so. */
   onlyHandled?: boolean;
+  /** Who a new shoot can be for: the admin picks. Absent for staff. */
+  people?: { id: string; name: string }[];
   /** Earliest day that can be picked (staff: the first of this month). */
   minDate?: string;
   saving: boolean;
@@ -94,7 +100,8 @@ export function ShootForm({
       { date: initial.date, time: initial.time || null },
       { date: d.date, time: d.time || null },
     );
-  const ready = !!d.date && (!editing || !!d.reason.trim());
+  const ready =
+    !!d.date && (!people || !!d.memberId) && (!editing || !!d.reason.trim());
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -117,6 +124,24 @@ export function ShootForm({
       onSubmit={submit}
       className="space-y-3 rounded-[18px] border border-white/10 bg-black/25 p-3"
     >
+      {people ? (
+        <Field label={t('Handler')} htmlFor={`${id}-who`}>
+          <Select
+            id={`${id}-who`}
+            value={d.memberId}
+            onChange={(e) => set({ memberId: e.target.value })}
+            required
+          >
+            <option value="">{t('Pick who handles it')}</option>
+            {people.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      ) : null}
+
       <div className="grid grid-cols-2 gap-3">
         <Field label={t('Day')} htmlFor={`${id}-date`}>
           <Input
