@@ -160,6 +160,92 @@ test('falls back to the app feed when the web feed fails (TikHub 400)', async ()
   expect(res.posts[0].views).toBe(1000);
 });
 
+test("falls back to the app feed when the web feed hides a new account's posts", async () => {
+  const feeds: string[] = [];
+  mockGet.mockImplementation(async (opts: any) => {
+    if (opts.path.includes('handler_user_profile')) return healthyProfile;
+    if (opts.path.includes('fetch_multi_video_statistics'))
+      return statsFor(opts);
+    feeds.push(opts.path);
+    // What the web feed answers for a brand-new account: HTTP 200 and an
+    // empty list, while the profile counts its posts (aweme_count 40).
+    if (opts.path.includes('/web/fetch_user_post_videos'))
+      return { aweme_list: [], has_more: 0 };
+    return { aweme_list: [aweme('a1'), aweme('a2')], has_more: 0 };
+  });
+
+  const res = await douyinAdapter.scrape(PROFILE_URL);
+  expect(feeds).toEqual([
+    '/api/v1/douyin/web/fetch_user_post_videos',
+    '/api/v1/douyin/app/v3/fetch_user_post_videos',
+  ]);
+  expect(res.posts.map((p) => p.external_post_id)).toEqual(['a1', 'a2']);
+  expect(res.posts[0].views).toBe(1000);
+});
+
+test('an empty web feed for a profile with no posts costs no extra call', async () => {
+  const feeds: string[] = [];
+  mockGet.mockImplementation(async (opts: any) => {
+    if (opts.path.includes('handler_user_profile'))
+      return { user: { ...healthyProfile.user, aweme_count: 0 } };
+    feeds.push(opts.path);
+    return { aweme_list: [], has_more: 0 };
+  });
+
+  const res = await douyinAdapter.scrape(PROFILE_URL);
+  expect(feeds).toEqual(['/api/v1/douyin/web/fetch_user_post_videos']);
+  expect(res.posts).toEqual([]);
+});
+
+test('an empty app feed that stood in for a failed web feed is not asked twice', async () => {
+  const feeds: string[] = [];
+  mockGet.mockImplementation(async (opts: any) => {
+    if (opts.path.includes('handler_user_profile')) return healthyProfile;
+    feeds.push(opts.path);
+    if (opts.path.includes('/web/fetch_user_post_videos'))
+      throw new ScrapeError(
+        'failed',
+        'TikHub returned HTTP 400',
+        'douyin',
+        PROFILE_URL,
+        true,
+      );
+    return { aweme_list: [], has_more: 0 };
+  });
+
+  await douyinAdapter.scrape(PROFILE_URL);
+  expect(feeds).toEqual([
+    '/api/v1/douyin/web/fetch_user_post_videos',
+    '/api/v1/douyin/app/v3/fetch_user_post_videos',
+  ]);
+});
+
+test('a failed app feed call after an empty web feed still keeps the profile snapshot', async () => {
+  const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  try {
+    mockGet.mockImplementation(async (opts: any) => {
+      if (opts.path.includes('handler_user_profile')) return healthyProfile;
+      if (opts.path.includes('/web/fetch_user_post_videos'))
+        return { aweme_list: [], has_more: 0 };
+      throw new ScrapeError(
+        'failed',
+        'TikHub returned HTTP 500',
+        'douyin',
+        PROFILE_URL,
+        true,
+      );
+    });
+
+    // Before the app feed was asked, this scrape succeeded with no posts; a
+    // failure there must not turn it into a failed scrape.
+    const res = await douyinAdapter.scrape(PROFILE_URL);
+    expect(res.posts).toEqual([]);
+    expect(res.profile.followers).toBe(500);
+  } finally {
+    warn.mockRestore();
+  }
+});
+
 test('reports an account its owner deleted as not found', async () => {
   mockGet.mockImplementation(async (opts: any) => {
     if (opts.path.includes('handler_user_profile'))

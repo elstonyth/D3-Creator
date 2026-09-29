@@ -4,6 +4,8 @@
  * Endpoints used:
  *   GET /api/v1/douyin/web/handler_user_profile?sec_user_id=<sec_uid>
  *   GET /api/v1/douyin/web/fetch_user_post_videos?sec_user_id=<sec_uid>&count=30
+ *   GET /api/v1/douyin/app/v3/fetch_user_post_videos (same query; only when the
+ *       web feed fails, or comes back empty for a profile that has posts)
  *   GET /api/v1/douyin/app/v3/fetch_multi_video_statistics?aweme_ids=<id,id,…>
  *
  * Douyin is the mainland-China ByteDance app — different product from
@@ -281,38 +283,44 @@ export const douyinAdapter: PlatformAdapter = {
   ): Promise<ScrapeResult> {
     const secUid = extractSecUid(profileUrl);
 
+    const feedQuery = (maxCursor: number | string) => ({
+      sec_user_id: secUid,
+      count: POSTS_PER_SCRAPE,
+      max_cursor: maxCursor,
+    });
+    const fetchAppPage = (maxCursor: number | string) =>
+      tikhubGet<DyPostsResponse>({
+        path: '/api/v1/douyin/app/v3/fetch_user_post_videos',
+        query: feedQuery(maxCursor),
+        platform: PLATFORM,
+        profileUrl,
+      });
+
     // TikHub's web feed fails for some accounts, some days ("Request failed.
     // Please retry", HTTP 400), while its app/v3 feed of the same shape
     // serves them: one try there before the scrape gives up.
+    let webFeedAnswered = false;
     const fetchPostsPage = async (maxCursor: number | string) => {
-      const query = {
-        sec_user_id: secUid,
-        count: POSTS_PER_SCRAPE,
-        max_cursor: maxCursor,
-      };
       try {
-        return await tikhubGet<DyPostsResponse>({
+        const page = await tikhubGet<DyPostsResponse>({
           path: '/api/v1/douyin/web/fetch_user_post_videos',
-          query,
+          query: feedQuery(maxCursor),
           platform: PLATFORM,
           profileUrl,
         });
+        webFeedAnswered = true;
+        return page;
       } catch (err) {
         if (
           err instanceof ProfileNotFoundError ||
           (err instanceof ScrapeError && err.status === 'private')
         )
           throw err;
-        return tikhubGet<DyPostsResponse>({
-          path: '/api/v1/douyin/app/v3/fetch_user_post_videos',
-          query,
-          platform: PLATFORM,
-          profileUrl,
-        });
+        return fetchAppPage(maxCursor);
       }
     };
 
-    const [profileResp, postsResp] = await Promise.all([
+    const [profileResp, firstPage] = await Promise.all([
       tikhubGet<DyProfileResponse>({
         path: '/api/v1/douyin/web/handler_user_profile',
         query: { sec_user_id: secUid },
@@ -337,6 +345,25 @@ export const douyinAdapter: PlatformAdapter = {
     // A closed account still answers, with its id and nothing else.
     if (!user || (!user.sec_uid && !user.uid) || user.user_deleted) {
       throw new ProfileNotFoundError(PLATFORM, profileUrl);
+    }
+
+    // The web feed also hides a brand-new account's posts: HTTP 200 with an
+    // empty list, so the fallback above never fires, while the app/v3 feed
+    // lists them. Ask it once, only when the profile counts posts. If that
+    // call fails, keep the empty page so the profile snapshot still lands.
+    let postsResp = firstPage;
+    if (
+      webFeedAnswered &&
+      !firstPage.aweme_list?.length &&
+      (user.aweme_count ?? 0) > 0
+    ) {
+      postsResp = await fetchAppPage('0').catch((err) => {
+        console.warn(
+          `[douyin] app feed failed after an empty web feed for ${profileUrl}; keeping no posts`,
+          err,
+        );
+        return firstPage;
+      });
     }
 
     const awemeList = postsResp.aweme_list ?? [];
