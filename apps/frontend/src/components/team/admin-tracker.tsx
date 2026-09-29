@@ -322,7 +322,10 @@ export function AdminTracker({
 
       <GlassPanel className="mt-4 p-4 sm:p-6 md:mt-6">
         <div className="mb-5">
-          <h2 className="text-heading text-fg">{t('Videos')}</h2>
+          {/* The pop-up's "Go to my videos" lands here. */}
+          <h2 id="my-videos" className="scroll-mt-6 text-heading text-fg">
+            {t('Videos')}
+          </h2>
           <p className="mt-1 text-body-sm text-fg-muted">
             {t(
               'Who is editing each video now, and who verifies it next. Staff pass videos on from their shoots; each Done and Verify counts toward their month.',

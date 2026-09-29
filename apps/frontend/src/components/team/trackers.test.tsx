@@ -427,6 +427,8 @@ describe('the admin’s tracker', () => {
     // Reel 2, cut by MEI, waits on KEE's Verify.
     expect(box.getByText('Edited — ready for you to verify')).toBeTruthy();
     expect(box.getByText('Reel 2')).toBeTruthy();
+    // Its "Go to my videos" has somewhere to go.
+    expect(document.getElementById('my-videos')).toBeTruthy();
   });
 
   it('pops up nothing for an admin who is not on the board', () => {
