@@ -29,6 +29,7 @@ import { isEditorKind, mySection } from '@gitroom/frontend/lib/team/videos';
 import type { StaffTrackerData } from '@gitroom/frontend/lib/team/tracker-data';
 import { DayShoots } from './day-shoots';
 import { GlassPanel } from './glass-panel';
+import { PushToggle } from './push-toggle';
 import {
   fmtDate,
   Spotlight,
@@ -52,6 +53,8 @@ export interface StaffTrackerProps extends StaffTrackerData {
   meId: string;
   /** Their login: a shoot someone else added for them pops up. */
   loginId: string;
+  /** The key this device subscribes to pushes with; null while push is off. */
+  pushKey?: string | null;
 }
 
 export function StaffTracker({
@@ -67,6 +70,7 @@ export function StaffTracker({
   handled,
   meId,
   loginId,
+  pushKey = null,
 }: StaffTrackerProps) {
   const { t, locale } = useI18n();
   const now = useNow();
@@ -121,6 +125,7 @@ export function StaffTracker({
 
   return (
     <TrackerScene
+      aside={<PushToggle publicKey={pushKey} />}
       eyebrow={t('Staff')}
       subline={t(
         'Your shoots, the videos you passed on, and what is waiting for you.',

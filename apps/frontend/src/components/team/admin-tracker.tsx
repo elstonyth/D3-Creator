@@ -41,6 +41,7 @@ import clsx from 'clsx';
 import { AccountBoard } from './account-board';
 import { DayShoots } from './day-shoots';
 import { GlassPanel } from './glass-panel';
+import { PushToggle } from './push-toggle';
 import {
   fmtDate,
   Spotlight,
@@ -79,6 +80,11 @@ export interface AdminTrackerProps extends AdminTrackerData {
   meId?: string | null;
   /** The admin's login: a shoot someone else added for them pops up. */
   loginId?: string | null;
+  /**
+   * The key this device subscribes to pushes with: only for an admin on the
+   * board, whose pop-ups can then reach their phone. Null while push is off.
+   */
+  pushKey?: string | null;
 }
 
 export function AdminTracker({
@@ -99,6 +105,7 @@ export function AdminTracker({
   orderPeople,
   meId = null,
   loginId = null,
+  pushKey = null,
 }: AdminTrackerProps) {
   const { t, locale } = useI18n();
   const tag = localeTag(locale);
@@ -158,6 +165,7 @@ export function AdminTracker({
 
   return (
     <TrackerScene
+      aside={meId ? <PushToggle publicKey={pushKey} /> : null}
       eyebrow={t('Admin console')}
       subline={t('Everyone’s shoots and videos as staff update them.')}
       today={today}
