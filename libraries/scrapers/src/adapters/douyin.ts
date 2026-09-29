@@ -3,9 +3,9 @@
  *
  * Endpoints used:
  *   GET /api/v1/douyin/web/handler_user_profile?sec_user_id=<sec_uid>
- *   GET /api/v1/douyin/web/fetch_user_post_videos?sec_user_id=<sec_uid>&count=30
- *   GET /api/v1/douyin/app/v3/fetch_user_post_videos (same query; only when the
- *       web feed fails, or comes back empty for a profile that has posts)
+ *   GET /api/v1/douyin/app/v3/fetch_user_post_videos?sec_user_id=<sec_uid>&count=30
+ *   GET /api/v1/douyin/web/fetch_user_post_videos (same query and shape; only
+ *       when the app feed fails, or comes back empty for a profile that has posts)
  *   GET /api/v1/douyin/app/v3/fetch_multi_video_statistics?aweme_ids=<id,id,…>
  *
  * Douyin is the mainland-China ByteDance app — different product from
@@ -274,6 +274,15 @@ function mapProfile(
   };
 }
 
+type Feed = 'app' | 'web';
+
+interface FirstPage {
+  page: DyPostsResponse;
+  /** Which feed answered page one: deeper pages ask the same one. */
+  feed: Feed;
+  asked: Feed[];
+}
+
 export const douyinAdapter: PlatformAdapter = {
   platform: 'douyin',
   sourceId: 'tikhub:douyin/web',
@@ -283,60 +292,57 @@ export const douyinAdapter: PlatformAdapter = {
   ): Promise<ScrapeResult> {
     const secUid = extractSecUid(profileUrl);
 
-    const feedQuery = (maxCursor: number | string) => ({
-      sec_user_id: secUid,
-      count: POSTS_PER_SCRAPE,
-      max_cursor: maxCursor,
-    });
-    const fetchAppPage = (maxCursor: number | string) =>
+    // Posts come from the app/v3 feed; the web feed of the same shape stands
+    // in for it. Checked live on 2026-09-29: the web feed answered HTTP 400
+    // for every account tried, and before that hid a new account's posts
+    // (HTTP 200, empty list), while the app feed listed them all. Same price.
+    const PAGE_PATH: Record<Feed, string> = {
+      app: '/api/v1/douyin/app/v3/fetch_user_post_videos',
+      web: '/api/v1/douyin/web/fetch_user_post_videos',
+    };
+    const fetchPage = (feed: Feed, maxCursor: number | string) =>
       tikhubGet<DyPostsResponse>({
-        path: '/api/v1/douyin/app/v3/fetch_user_post_videos',
-        query: feedQuery(maxCursor),
+        path: PAGE_PATH[feed],
+        query: {
+          sec_user_id: secUid,
+          count: POSTS_PER_SCRAPE,
+          max_cursor: maxCursor,
+        },
         platform: PLATFORM,
         profileUrl,
       });
+    // A private or missing posts tab: no other feed will show more.
+    const hidden = (err: unknown) =>
+      err instanceof ProfileNotFoundError ||
+      (err instanceof ScrapeError && err.status === 'private');
 
-    // TikHub's web feed fails for some accounts, some days ("Request failed.
-    // Please retry", HTTP 400), while its app/v3 feed of the same shape
-    // serves them: one try there before the scrape gives up.
-    let webFeedAnswered = false;
-    const fetchPostsPage = async (maxCursor: number | string) => {
+    /** Page one, the feed that served it, and every feed already asked. */
+    const pageOne = async (): Promise<FirstPage> => {
       try {
-        const page = await tikhubGet<DyPostsResponse>({
-          path: '/api/v1/douyin/web/fetch_user_post_videos',
-          query: feedQuery(maxCursor),
-          platform: PLATFORM,
-          profileUrl,
-        });
-        webFeedAnswered = true;
-        return page;
+        return { page: await fetchPage('app', '0'), feed: 'app', asked: ['app'] };
       } catch (err) {
-        if (
-          err instanceof ProfileNotFoundError ||
-          (err instanceof ScrapeError && err.status === 'private')
-        )
-          throw err;
-        return fetchAppPage(maxCursor);
+        if (hidden(err)) throw err;
+        return {
+          page: await fetchPage('web', '0'),
+          feed: 'web',
+          asked: ['app', 'web'],
+        };
       }
     };
 
-    const [profileResp, firstPage] = await Promise.all([
+    const [profileResp, first] = await Promise.all([
       tikhubGet<DyProfileResponse>({
         path: '/api/v1/douyin/web/handler_user_profile',
         query: { sec_user_id: secUid },
         platform: PLATFORM,
         profileUrl,
       }),
-      fetchPostsPage('0').catch((err) => {
+      pageOne().catch((err): FirstPage => {
         // Posts are supplementary — a private/missing posts tab must not sink
         // the profile snapshot. The profile response below still decides
-        // not_found. Degrade to empty posts.
-        if (
-          err instanceof ProfileNotFoundError ||
-          (err instanceof ScrapeError && err.status === 'private')
-        ) {
-          return { aweme_list: [] } as DyPostsResponse;
-        }
+        // not_found. Degrade to empty posts, and ask no other feed.
+        if (hidden(err))
+          return { page: { aweme_list: [] }, feed: 'app', asked: ['app', 'web'] };
         throw err;
       }),
     ]);
@@ -347,23 +353,29 @@ export const douyinAdapter: PlatformAdapter = {
       throw new ProfileNotFoundError(PLATFORM, profileUrl);
     }
 
-    // The web feed also hides a brand-new account's posts: HTTP 200 with an
-    // empty list, so the fallback above never fires, while the app/v3 feed
-    // lists them. Ask it once, only when the profile counts posts. If that
-    // call fails, keep the empty page so the profile snapshot still lands.
-    let postsResp = firstPage;
+    // A feed can answer HTTP 200 with an empty list for an account that has
+    // posts (the web feed did, for new accounts). Ask the feed not yet asked,
+    // once, only when the profile counts posts. If that call fails, keep the
+    // empty page so the profile snapshot still lands.
+    let postsResp = first.page;
+    let feed = first.feed;
+    const other: Feed = feed === 'app' ? 'web' : 'app';
     if (
-      webFeedAnswered &&
-      !firstPage.aweme_list?.length &&
-      (user.aweme_count ?? 0) > 0
+      !postsResp.aweme_list?.length &&
+      (user.aweme_count ?? 0) > 0 &&
+      !first.asked.includes(other)
     ) {
-      postsResp = await fetchAppPage('0').catch((err) => {
+      const alt = await fetchPage(other, '0').catch((err) => {
         console.warn(
-          `[douyin] app feed failed after an empty web feed for ${profileUrl}; keeping no posts`,
+          `[douyin] ${other} feed failed after an empty ${feed} feed for ${profileUrl}; keeping no posts`,
           err,
         );
-        return firstPage;
+        return null;
       });
+      if (alt?.aweme_list?.length) {
+        postsResp = alt;
+        feed = other;
+      }
     }
 
     const awemeList = postsResp.aweme_list ?? [];
@@ -387,7 +399,8 @@ export const douyinAdapter: PlatformAdapter = {
         pages += 1;
         let next: DyPostsResponse;
         try {
-          next = await fetchPostsPage(cursor);
+          // The feed that served page one: the cursor is that feed's.
+          next = await fetchPage(feed, cursor);
         } catch {
           // A mid-pagination failure must not discard the posts already
           // collected — stop here and keep what we have.

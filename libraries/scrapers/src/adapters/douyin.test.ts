@@ -133,110 +133,97 @@ test('deep mode stops at maxPosts even if more pages remain', async () => {
   expect(res.posts).toHaveLength(3);
 });
 
-test('falls back to the app feed when the web feed fails (TikHub 400)', async () => {
-  const feeds: string[] = [];
+const APP = '/api/v1/douyin/app/v3/fetch_user_post_videos';
+const WEB = '/api/v1/douyin/web/fetch_user_post_videos';
+const http = (code: number) =>
+  new ScrapeError('failed', `TikHub returned HTTP ${code}`, 'douyin', PROFILE_URL, true);
+
+/**
+ * Answers each posts feed from `feeds` (a list, or a throw), records which
+ * feed was asked with which cursor, and serves the profile and stats.
+ */
+function route(
+  feeds: Record<'app' | 'web', (cursor: number) => unknown>,
+  profile: unknown = healthyProfile,
+) {
+  const asked: string[] = [];
   mockGet.mockImplementation(async (opts: any) => {
-    if (opts.path.includes('handler_user_profile')) return healthyProfile;
+    if (opts.path.includes('handler_user_profile')) return profile;
     if (opts.path.includes('fetch_multi_video_statistics'))
       return statsFor(opts);
-    feeds.push(opts.path);
-    if (opts.path.includes('/web/fetch_user_post_videos'))
-      throw new ScrapeError(
-        'failed',
-        'TikHub returned HTTP 400',
-        'douyin',
-        PROFILE_URL,
-        true,
-      );
-    return { aweme_list: [aweme('a1'), aweme('a2')], has_more: 0 };
+    const cursor = Number(opts.query?.max_cursor ?? 0);
+    const feed = opts.path === APP ? 'app' : 'web';
+    asked.push(`${feed}@${cursor}`);
+    const answer = feeds[feed](cursor);
+    if (answer instanceof Error) throw answer;
+    return answer;
   });
+  return asked;
+}
 
+test('asks the app feed first: the one that lists every account', async () => {
+  const asked = route({
+    app: () => ({ aweme_list: [aweme('a1'), aweme('a2')], has_more: 0 }),
+    web: () => http(400),
+  });
   const res = await douyinAdapter.scrape(PROFILE_URL);
-  expect(feeds).toEqual([
-    '/api/v1/douyin/web/fetch_user_post_videos',
-    '/api/v1/douyin/app/v3/fetch_user_post_videos',
-  ]);
+  expect(asked).toEqual(['app@0']);
   expect(res.posts.map((p) => p.external_post_id)).toEqual(['a1', 'a2']);
   expect(res.posts[0].views).toBe(1000);
 });
 
-test("falls back to the app feed when the web feed hides a new account's posts", async () => {
-  const feeds: string[] = [];
-  mockGet.mockImplementation(async (opts: any) => {
-    if (opts.path.includes('handler_user_profile')) return healthyProfile;
-    if (opts.path.includes('fetch_multi_video_statistics'))
-      return statsFor(opts);
-    feeds.push(opts.path);
-    // What the web feed answers for a brand-new account: HTTP 200 and an
-    // empty list, while the profile counts its posts (aweme_count 40).
-    if (opts.path.includes('/web/fetch_user_post_videos'))
-      return { aweme_list: [], has_more: 0 };
-    return { aweme_list: [aweme('a1'), aweme('a2')], has_more: 0 };
+test('falls back to the web feed when the app feed fails (TikHub 400)', async () => {
+  const asked = route({
+    app: () => http(400),
+    web: () => ({ aweme_list: [aweme('w1')], has_more: 0 }),
   });
-
   const res = await douyinAdapter.scrape(PROFILE_URL);
-  expect(feeds).toEqual([
-    '/api/v1/douyin/web/fetch_user_post_videos',
-    '/api/v1/douyin/app/v3/fetch_user_post_videos',
-  ]);
-  expect(res.posts.map((p) => p.external_post_id)).toEqual(['a1', 'a2']);
-  expect(res.posts[0].views).toBe(1000);
+  expect(asked).toEqual(['app@0', 'web@0']);
+  expect(res.posts.map((p) => p.external_post_id)).toEqual(['w1']);
 });
 
-test('an empty web feed for a profile with no posts costs no extra call', async () => {
-  const feeds: string[] = [];
-  mockGet.mockImplementation(async (opts: any) => {
-    if (opts.path.includes('handler_user_profile'))
-      return { user: { ...healthyProfile.user, aweme_count: 0 } };
-    feeds.push(opts.path);
-    return { aweme_list: [], has_more: 0 };
+test("asks the web feed once when the app feed hides an account's posts", async () => {
+  // HTTP 200 and an empty list, while the profile counts 40 posts: what the
+  // web feed once answered for a brand-new account.
+  const asked = route({
+    app: () => ({ aweme_list: [], has_more: 0 }),
+    web: () => ({ aweme_list: [aweme('w1'), aweme('w2')], has_more: 0 }),
   });
-
   const res = await douyinAdapter.scrape(PROFILE_URL);
-  expect(feeds).toEqual(['/api/v1/douyin/web/fetch_user_post_videos']);
+  expect(asked).toEqual(['app@0', 'web@0']);
+  expect(res.posts.map((p) => p.external_post_id)).toEqual(['w1', 'w2']);
+});
+
+test('an empty feed for a profile with no posts costs no extra call', async () => {
+  const asked = route(
+    {
+      app: () => ({ aweme_list: [], has_more: 0 }),
+      web: () => ({ aweme_list: [aweme('w1')], has_more: 0 }),
+    },
+    { user: { ...healthyProfile.user, aweme_count: 0 } },
+  );
+  const res = await douyinAdapter.scrape(PROFILE_URL);
+  expect(asked).toEqual(['app@0']);
   expect(res.posts).toEqual([]);
 });
 
-test('an empty app feed that stood in for a failed web feed is not asked twice', async () => {
-  const feeds: string[] = [];
-  mockGet.mockImplementation(async (opts: any) => {
-    if (opts.path.includes('handler_user_profile')) return healthyProfile;
-    feeds.push(opts.path);
-    if (opts.path.includes('/web/fetch_user_post_videos'))
-      throw new ScrapeError(
-        'failed',
-        'TikHub returned HTTP 400',
-        'douyin',
-        PROFILE_URL,
-        true,
-      );
-    return { aweme_list: [], has_more: 0 };
+test('an empty web feed that stood in for a failed app feed is not asked twice', async () => {
+  const asked = route({
+    app: () => http(400),
+    web: () => ({ aweme_list: [], has_more: 0 }),
   });
-
   await douyinAdapter.scrape(PROFILE_URL);
-  expect(feeds).toEqual([
-    '/api/v1/douyin/web/fetch_user_post_videos',
-    '/api/v1/douyin/app/v3/fetch_user_post_videos',
-  ]);
+  expect(asked).toEqual(['app@0', 'web@0']);
 });
 
-test('a failed app feed call after an empty web feed still keeps the profile snapshot', async () => {
+test('a failed web call after an empty app feed still keeps the profile snapshot', async () => {
   const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
   try {
-    mockGet.mockImplementation(async (opts: any) => {
-      if (opts.path.includes('handler_user_profile')) return healthyProfile;
-      if (opts.path.includes('/web/fetch_user_post_videos'))
-        return { aweme_list: [], has_more: 0 };
-      throw new ScrapeError(
-        'failed',
-        'TikHub returned HTTP 500',
-        'douyin',
-        PROFILE_URL,
-        true,
-      );
+    route({
+      app: () => ({ aweme_list: [], has_more: 0 }),
+      web: () => http(500),
     });
-
-    // Before the app feed was asked, this scrape succeeded with no posts; a
+    // Before the web feed was asked, this scrape succeeded with no posts; a
     // failure there must not turn it into a failed scrape.
     const res = await douyinAdapter.scrape(PROFILE_URL);
     expect(res.posts).toEqual([]);
@@ -244,6 +231,57 @@ test('a failed app feed call after an empty web feed still keeps the profile sna
   } finally {
     warn.mockRestore();
   }
+});
+
+test('a private posts tab asks no other feed, and keeps the profile', async () => {
+  const asked = route({
+    app: () => new ScrapeError('private', 'private', 'douyin', PROFILE_URL),
+    web: () => ({ aweme_list: [aweme('w1')], has_more: 0 }),
+  });
+  const res = await douyinAdapter.scrape(PROFILE_URL);
+  expect(asked).toEqual(['app@0']);
+  expect(res.posts).toEqual([]);
+  expect(res.profile.followers).toBe(500);
+});
+
+test('both feeds failing fails the scrape', async () => {
+  route({ app: () => http(400), web: () => http(400) });
+  await expect(douyinAdapter.scrape(PROFILE_URL)).rejects.toBeInstanceOf(
+    ScrapeError,
+  );
+});
+
+test('deep pages keep asking the feed that served page one (its cursors)', async () => {
+  const page = (id: string, more: number, cursor: number) => ({
+    aweme_list: [aweme(id)],
+    has_more: more,
+    max_cursor: cursor,
+  });
+  // The app feed failed, so the web feed served page one: pages two and
+  // three come from the web feed too, never an app page for a web cursor.
+  const viaWeb = route({
+    app: () => http(400),
+    web: (c) => (c === 0 ? page('w1', 1, 100) : c === 100 ? page('w2', 1, 200) : page('w3', 0, 300)),
+  });
+  const res = await douyinAdapter.scrape(PROFILE_URL, { maxPosts: 10 });
+  expect(viaWeb).toEqual(['app@0', 'web@0', 'web@100', 'web@200']);
+  expect(res.posts.map((p) => p.external_post_id)).toEqual(['w1', 'w2', 'w3']);
+
+  // The app feed hid the posts and the web feed listed them: the same.
+  const rescued = route({
+    app: () => ({ aweme_list: [], has_more: 0 }),
+    web: (c) => (c === 0 ? page('w1', 1, 100) : page('w2', 0, 200)),
+  });
+  await douyinAdapter.scrape(PROFILE_URL, { maxPosts: 10 });
+  expect(rescued).toEqual(['app@0', 'web@0', 'web@100']);
+
+  // Page one from the app feed: its deeper pages from the app feed.
+  const viaApp = route({
+    app: (c) => (c === 0 ? page('a1', 1, 100) : page('a2', 0, 200)),
+    web: () => http(400),
+  });
+  await douyinAdapter.scrape(PROFILE_URL, { maxPosts: 10 });
+  expect(viaApp).toEqual(['app@0', 'app@100']);
 });
 
 test('reports an account its owner deleted as not found', async () => {
