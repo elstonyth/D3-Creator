@@ -1,5 +1,5 @@
 -- Regression guard for the account board's month numbers
--- (tracker_creator_month_stats, migration 20260929120000): Instagram only,
+-- (tracker_creator_month_stats, migration 20260929132840): Instagram only,
 -- videos only (reels and the adapter's other 'video' posts), each post once at
 -- its latest snapshot, inside the month. Not run by CI — run it by hand
 -- against the local stack (or any database) after touching the function.
