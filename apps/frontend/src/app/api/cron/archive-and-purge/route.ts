@@ -17,9 +17,9 @@
  *   Header:   Authorization: Bearer <CRON_SECRET>
  */
 
-import { timingSafeEqual } from 'node:crypto';
-
 import { NextResponse } from 'next/server';
+
+import { assertCronAuth } from '@gitroom/frontend/lib/cron-auth';
 
 import { getSupabaseAdmin } from '@d3/database';
 
@@ -27,28 +27,6 @@ const ARCHIVE_BUCKET = 'snapshot-archive';
 
 export const maxDuration = 300;
 export const dynamic = 'force-dynamic';
-
-function assertAuth(request: Request): Response | null {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    return NextResponse.json(
-      { error: 'CRON_SECRET not configured on the server' },
-      { status: 500 },
-    );
-  }
-  const auth = request.headers.get('authorization') || '';
-  const expectedFull = `Bearer ${expected}`;
-  if (
-    auth.length !== expectedFull.length ||
-    !timingSafeEqual(
-      Buffer.from(auth, 'utf8'),
-      Buffer.from(expectedFull, 'utf8'),
-    )
-  ) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  }
-  return null;
-}
 
 interface ExpiringRow {
   // Common shape between profile_snapshot and post_snapshot — both have
@@ -144,7 +122,7 @@ async function archiveAndPurgeTable<T extends ExpiringRow>(
 }
 
 export async function GET(request: Request): Promise<Response> {
-  const authFail = assertAuth(request);
+  const authFail = assertCronAuth(request);
   if (authFail) return authFail;
 
   const sb = getSupabaseAdmin();

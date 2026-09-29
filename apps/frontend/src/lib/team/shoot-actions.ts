@@ -12,7 +12,9 @@
  * — a shoot's videos can be passed on whenever they are ready.
  *
  * Every input is validated here (parseShootInput, parsePassInput) as well as
- * by the database, so a refusal reads as a sentence. No revalidatePath: the
+ * by the database, so a refusal reads as a sentence. Whoever a saved change
+ * is news for is pushed about it (lib/team/push.ts, after the response; not
+ * about their own act). No revalidatePath: the
  * pages are dynamic and the schedule keeps its own state, so re-rendering
  * the page inside every action would only slow the save down.
  */
@@ -24,6 +26,7 @@ import { asActor } from './actor';
 import { claimAccount, mainEditor, releaseAccount } from './claim-account';
 import { dbError } from './db-error';
 import { onBoard } from './on-board';
+import { notify } from './push';
 import { rowToShoot, SHOOT_COLS, type ShootRow } from './shoot-rows';
 import { parseShootInput, shootPatch, type Shoot } from './shoots';
 import { rowToVideo, type VideoRow } from './video-rows';
@@ -79,7 +82,9 @@ export async function addShoot(
       .select(SHOOT_COLS)
       .single();
     if (error) return dbError('addShoot', error);
-    return { ok: true, shoot: rowToShoot(data as ShootRow) };
+    const shoot = rowToShoot(data as ShootRow);
+    notify([{ kind: 'new-shoot', to: a.memberId, shoot }], a.userId);
+    return { ok: true, shoot };
   }, as);
 }
 
@@ -123,6 +128,11 @@ export async function updateShoot(
         .gte('shoot_date', monthStart())
         .select(SHOOT_COLS),
     );
+    if (saved.shoot)
+      notify(
+        [{ kind: 'changed-shoot', to: a.memberId, shoot: saved.shoot }],
+        a.userId,
+      );
     if (!saved.ok || !('creator_id' in patch)) return saved;
     // Its videos were given the shoot's account when passed on; a corrected
     // account reaches them too. The caller handles every one of them.
@@ -182,7 +192,7 @@ export async function setShootStatus(
     if (!isUuid(id)) return { ok: false, message: 'Invalid shoot.' };
     if (status !== 'planned' && status !== 'cancelled')
       return { ok: false, message: 'Invalid status.' };
-    return one(
+    const saved = one(
       await getSupabaseAdmin()
         .from('tracker_shoot')
         .update({ status, updated_by: a.userId })
@@ -192,6 +202,20 @@ export async function setShootStatus(
         .gte('shoot_date', monthStart())
         .select(SHOOT_COLS),
     );
+    if (saved.shoot)
+      notify(
+        [
+          {
+            kind: 'changed-shoot',
+            to: a.memberId,
+            // A cancel or reopen is not a move: an older move's reason
+            // would say the wrong thing.
+            shoot: { ...saved.shoot, movedReason: null },
+          },
+        ],
+        a.userId,
+      );
+    return saved;
   }, as);
 }
 
@@ -271,10 +295,22 @@ export async function passVideos(
       mainEditor(rows.map((r) => r.editorId)),
       a.userId,
     );
-    return {
-      ok: true,
-      shoot: passed,
-      videos: ((data ?? []) as VideoRow[]).map(rowToVideo),
-    };
+    const videos = ((data ?? []) as VideoRow[]).map(rowToVideo);
+    // Each editor hears once, of all the videos just given to them.
+    const byEditor = new Map<string, Video[]>();
+    for (const v of videos)
+      byEditor.set(v.editorId, [...(byEditor.get(v.editorId) ?? []), v]);
+    notify(
+      [...byEditor].map(([to, theirs]) => ({
+        kind: 'edit' as const,
+        to,
+        from: a.memberId,
+        titles: theirs.map((v) => v.title),
+        creatorId: theirs[0].creatorId,
+        ref: theirs[0].id,
+      })),
+      a.userId,
+    );
+    return { ok: true, shoot: passed, videos };
   }, as);
 }

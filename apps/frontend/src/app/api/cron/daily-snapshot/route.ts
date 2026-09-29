@@ -22,9 +22,9 @@
  *   so the UI can surface badges (Task 5 step 2).
  */
 
-import { timingSafeEqual } from 'node:crypto';
-
 import { NextResponse } from 'next/server';
+
+import { assertCronAuth } from '@gitroom/frontend/lib/cron-auth';
 
 import * as Sentry from '@sentry/nextjs';
 
@@ -94,38 +94,8 @@ interface ProfileResult {
   error?: string;
 }
 
-function assertAuth(request: Request): Response | null {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    // Be loud — never let a misconfigured prod silently accept anonymous traffic.
-    console.error('[cron] CRON_SECRET not set — cron auth will fail');
-    return NextResponse.json(
-      {
-        error:
-          'CRON_SECRET not configured on the server — add it to Vercel project env vars',
-      },
-      { status: 500 },
-    );
-  }
-  const auth = request.headers.get('authorization') || '';
-  const expectedFull = `Bearer ${expected}`;
-  // Length check first so timingSafeEqual doesn't throw on mismatched buffers.
-  // The length-mismatch path leaks only "wrong length", not which character —
-  // an acceptable oracle for a high-entropy random secret.
-  if (
-    auth.length !== expectedFull.length ||
-    !timingSafeEqual(
-      Buffer.from(auth, 'utf8'),
-      Buffer.from(expectedFull, 'utf8'),
-    )
-  ) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  }
-  return null;
-}
-
 export async function GET(request: Request): Promise<Response> {
-  const authFail = assertAuth(request);
+  const authFail = assertCronAuth(request);
   if (authFail) return authFail;
 
   const startedAt = new Date();

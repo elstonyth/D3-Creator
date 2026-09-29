@@ -5,7 +5,8 @@
 
 import { getSupabaseAdmin } from '@d3/database';
 import { claimAccount, releaseAccount } from './claim-account';
-import { deleteVideo, updateVideo } from './video-actions';
+import { notify } from './push';
+import { deleteVideo, finishEdit, updateVideo } from './video-actions';
 
 jest.mock('@d3/database', () => ({ getSupabaseAdmin: jest.fn() }));
 // Only an admin's call reads this (staff are found first, below).
@@ -13,6 +14,7 @@ jest.mock('@gitroom/frontend/lib/auth', () => ({
   getAuthContext: jest.fn(async () => ({ role: 'staff' })),
 }));
 jest.mock('./on-board', () => ({ onBoard: jest.fn(async () => true) }));
+jest.mock('./push', () => ({ notify: jest.fn() }));
 jest.mock('./claim-account', () => ({
   claimAccount: jest.fn(async () => undefined),
   releaseAccount: jest.fn(async () => undefined),
@@ -32,7 +34,7 @@ const ACC = 'bbbbbbbb-0000-4000-8000-000000000001';
 
 /** The update answers with the video as saved, or nothing (not the caller's). */
 function videoDb(
-  saved: { editor_id: string; creator_id: string | null } | null,
+  saved: { editor_id: string; creator_id: string | null; [col: string]: unknown } | null,
 ) {
   const q: Record<string, unknown> = {
     then: (ok: (v: unknown) => unknown) =>
@@ -106,5 +108,59 @@ describe('taking a video back', () => {
     const r = await deleteVideo(ID);
     expect(r).toMatchObject({ ok: false });
     expect(releaseAccount).not.toHaveBeenCalled();
+  });
+});
+
+describe('telling whoever a video is with now', () => {
+  it('tells the new editor of a video given to them', async () => {
+    videoDb({ editor_id: MEI, creator_id: ACC });
+    await updateVideo(ID, { title: 'Reel 1', editorId: MEI }, before);
+    expect(notify).toHaveBeenCalledWith(
+      [
+        {
+          kind: 'edit',
+          to: MEI,
+          from: KEE,
+          titles: ['Reel 1'],
+          creatorId: ACC,
+          ref: ID,
+        },
+      ],
+      'u1',
+    );
+  });
+
+  it('tells the handler a cut waits on their check', async () => {
+    videoDb({
+      editor_id: KEE,
+      creator_id: ACC,
+      handler_id: ALI,
+      edited_at: '2026-09-29T08:00:00Z',
+      edited_by: KEE,
+    });
+    await expect(finishEdit(ID)).resolves.toMatchObject({ ok: true });
+    expect(notify).toHaveBeenCalledWith(
+      [
+        {
+          kind: 'verify',
+          to: ALI,
+          by: KEE,
+          title: 'Reel 1',
+          creatorId: ACC,
+          ref: ID,
+        },
+      ],
+      'u1',
+    );
+  });
+
+  it('tells nobody of a title fix, or a step that was refused', async () => {
+    videoDb({ editor_id: ALI, creator_id: ACC });
+    await updateVideo(ID, { title: 'Reel one', editorId: ALI }, before);
+    videoDb(null);
+    await updateVideo(ID, { title: 'Reel 1', editorId: MEI }, before);
+    videoDb(null);
+    await finishEdit(ID);
+    expect(notify).not.toHaveBeenCalled();
   });
 });

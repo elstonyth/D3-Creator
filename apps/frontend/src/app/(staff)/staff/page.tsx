@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { getI18n } from '@gitroom/frontend/lib/i18n-server';
 import { isDateKey, isMonthKey, todayKey } from '@gitroom/frontend/lib/tracker';
+import { pushKey } from '@gitroom/frontend/lib/team/push';
 import { getStaffContext } from '@gitroom/frontend/lib/team/staff-context';
 import { loadStaffTracker } from '@gitroom/frontend/lib/team/tracker-data';
 import { Container, Section } from '@gitroom/frontend/components/ui/section';
@@ -52,6 +53,7 @@ export default async function StaffTrackerPage({ searchParams }: PageProps) {
       initialDay={day}
       meId={staff.memberId}
       loginId={staff.userId}
+      pushKey={pushKey()}
     />
   );
 }

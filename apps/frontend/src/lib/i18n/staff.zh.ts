@@ -312,6 +312,20 @@ export const staffZh: Readonly<Record<string, string>> = {
   'From {name}': '来自 {name}',
   'Cut by {name}': '{name} 剪辑',
   'Go to my videos': '去我的视频',
+
+  // ---- Push notifications ------------------------------------------------------
+  'New shoot scheduled for you': '为你安排了新拍摄',
+  'Shoot changed for you': '你的拍摄有变动',
+  'That browser gave a subscription that cannot be used.':
+    '这个浏览器提供的订阅无法使用。',
+  'Turn on notifications': '开启通知',
+  'Notifications on': '通知已开启',
+  'Turn off': '关闭通知',
+  'Could not turn notifications on. Try again.': '无法开启通知，请重试。',
+  'Notifications are blocked. Allow them for this site in your browser settings.':
+    '通知已被浏览器阻止。请在浏览器设置里允许本网站发送通知。',
+  'On iPhone: tap Share, then Add to Home Screen. Open D3 from your Home Screen to turn on notifications.':
+    '在 iPhone 上：点“分享”，再点“添加到主屏幕”，然后从主屏幕打开 D3，就能开启通知。',
   Later: '稍后',
   'Got it': '知道了',
 

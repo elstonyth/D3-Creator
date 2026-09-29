@@ -6,6 +6,7 @@ import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { isAdminHost } from '@gitroom/frontend/lib/portal-host';
 import { isDateKey, isMonthKey, todayKey } from '@gitroom/frontend/lib/tracker';
 import { loadPersonOf } from '@gitroom/frontend/lib/team/load';
+import { pushKey } from '@gitroom/frontend/lib/team/push';
 import { loadAdminTracker } from '@gitroom/frontend/lib/team/tracker-data';
 import { AdminTracker } from '@gitroom/frontend/components/team/admin-tracker';
 import { orderPeople, placeAccount, removeVideo } from './actions';
@@ -60,6 +61,8 @@ export default async function AdminTrackerPage({ searchParams }: PageProps) {
       orderPeople={orderPeople}
       meId={meId}
       loginId={auth.userId}
+      // Only an admin on the board has pop-ups to be pushed.
+      pushKey={meId ? pushKey() : null}
     />
   );
 }

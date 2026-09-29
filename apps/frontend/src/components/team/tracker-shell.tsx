@@ -123,11 +123,14 @@ export function TrackerScene({
   eyebrow,
   subline,
   today,
+  aside,
   children,
 }: {
   eyebrow: string;
   subline: string;
   today: string;
+  /** Under today's date (it keeps its own space): the notifications switch. */
+  aside?: ReactNode;
   children: ReactNode;
 }) {
   const { t, locale } = useI18n();
@@ -163,6 +166,7 @@ export function TrackerScene({
                 year: 'numeric',
               })}
             </p>
+            {aside}
           </div>
         </header>
         {children}
