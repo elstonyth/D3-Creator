@@ -778,6 +778,31 @@ describe('the admin, for anyone', () => {
     ).toBe(KEE);
   });
 
+  it('offers nothing on the shoot of someone who left, and names every shoot', () => {
+    const GONE = 'aaaaaaaa-0000-4000-8000-000000000008';
+    const left = shoot(3, GONE, DAY, '10:00', 'Old client');
+    render(
+      <DayShoots
+        day={DAY}
+        today="2026-09-23"
+        shoots={[MINE, left]}
+        people={[
+          ...people,
+          { id: GONE, name: 'GONE', kind: 'handler', archived: true },
+        ]}
+        accounts={accounts}
+        meId={KEE}
+        setShoots={jest.fn()}
+        forAnyone
+      />,
+    );
+    expect(button('Change Hotpot shop')).toBeTruthy();
+    expect(button('Change Old client')).toBeNull();
+    expect(button('Cancel shoot: Old client')).toBeNull();
+    // The admin's own shoot carries their name too, among everyone's.
+    expect(screen.getByText(/KEE/)).toBeTruthy();
+  });
+
   it('changes anyone’s shoot as that shoot’s own person', async () => {
     (setShootStatus as jest.Mock).mockResolvedValue({
       ok: true,

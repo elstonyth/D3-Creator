@@ -160,6 +160,9 @@ export function VideoBoard({
   const onBoard = people.filter((p) => !p.archived);
   const editors = onBoard.filter((p) => isEditorKind(p.kind));
   const left = (name: string) => t('{name} (left)', { name });
+  // Who the admin can act as: someone still on the team (lib/team/actor.ts).
+  const actsFor = (id: string | null) =>
+    forAnyone && !!id && byId.get(id)?.archived === false;
   const nameOf = (id: string | null): string | null => {
     if (!id) return null;
     if (id === me) return t('You');
@@ -360,7 +363,8 @@ export function VideoBoard({
                       editors={editorPicks}
                       canEditDone={v.editorId === me && !v.editedAt}
                       canChange={
-                        (forAnyone || v.handlerId === me) && !v.editedAt
+                        (v.handlerId === me || actsFor(v.handlerId)) &&
+                        !v.editedAt
                       }
                       canRemove={
                         !!remove &&
@@ -369,7 +373,7 @@ export function VideoBoard({
                       }
                       removeAsk={removeAsk}
                       canVerify={
-                        (forAnyone || v.handlerId === me) &&
+                        (v.handlerId === me || actsFor(v.handlerId)) &&
                         !!v.editedAt &&
                         !v.verifiedAt
                       }
@@ -380,7 +384,7 @@ export function VideoBoard({
                       }
                       canUndoVerify={
                         !!v.verifiedBy &&
-                        (forAnyone || v.verifiedBy === me) &&
+                        (v.verifiedBy === me || actsFor(v.verifiedBy)) &&
                         inMonth(v.verifiedAt)
                       }
                       tag={tag}

@@ -7,10 +7,11 @@
 import { getSupabaseAdmin } from '@d3/database';
 import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { claimAccount, releaseAccount } from './claim-account';
+import { getStaffContext } from './staff-context';
 import { addShoot, passVideos, updateShoot } from './shoot-actions';
 
 jest.mock('@d3/database', () => ({ getSupabaseAdmin: jest.fn() }));
-// Signed in as staff: who they act as comes from requireStaff below.
+// Only an admin's call reads this (staff are found first, below).
 jest.mock('@gitroom/frontend/lib/auth', () => ({
   getAuthContext: jest.fn(async () => ({ role: 'staff' })),
 }));
@@ -21,7 +22,7 @@ jest.mock('./claim-account', () => ({
   releaseAccount: jest.fn(async () => undefined),
 }));
 jest.mock('./staff-context', () => ({
-  requireStaff: jest.fn(async () => ({
+  getStaffContext: jest.fn(async () => ({
     userId: 'u1',
     memberId: 'aaaaaaaa-0000-4000-8000-000000000009', // ALI
   })),
@@ -142,6 +143,7 @@ it('adds a shoot without a title or note, even when an old page sends them', asy
 
 it('adds the admin’s shoot for the person named, stamped with the admin', async () => {
   const SK = 'aaaaaaaa-0000-4000-8000-000000000004';
+  (getStaffContext as jest.Mock).mockResolvedValueOnce(null);
   (getAuthContext as jest.Mock).mockResolvedValueOnce({
     userId: 'boss',
     role: 'admin',

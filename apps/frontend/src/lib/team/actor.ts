@@ -16,7 +16,7 @@ import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { isUuid } from '@gitroom/frontend/lib/ids';
 import { dbError } from './db-error';
 import { onBoard } from './on-board';
-import { requireStaff } from './staff-context';
+import { getStaffContext } from './staff-context';
 
 export interface Actor {
   /** The login doing it: stamped on what it writes. */
@@ -26,14 +26,13 @@ export interface Actor {
 }
 
 export async function getActor(as?: unknown): Promise<Actor> {
+  // Staff first: one session read, as before, for every staff write.
+  const staff = await getStaffContext();
+  if (staff) return { userId: staff.userId, memberId: staff.memberId };
   const auth = await getAuthContext();
-  if (auth?.role === 'admin') {
-    if (isUuid(as) && (await onBoard([as])))
-      return { userId: auth.userId, memberId: as };
-    throw new Error('Not authorized.');
-  }
-  const staff = await requireStaff();
-  return { userId: staff.userId, memberId: staff.memberId };
+  if (auth?.role === 'admin' && isUuid(as) && (await onBoard([as])))
+    return { userId: auth.userId, memberId: as };
+  throw new Error('Not authorized.');
 }
 
 /**

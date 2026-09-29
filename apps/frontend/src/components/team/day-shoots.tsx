@@ -129,7 +129,6 @@ export function DayShoots({
   // Whose shoots can be changed here: the staff member's own, or anyone's
   // on the admin's view; nobody's when read-only.
   const me = setShoots ? meId : null;
-  const acts = (x: Shoot) => !!setShoots && (forAnyone || x.memberId === me);
   const [open, setOpen] = useState<Open>(null);
   const [saving, setSaving] = useState(false);
   // A refusal, and what it belongs to: a shoot's id, or `add`.
@@ -148,6 +147,11 @@ export function DayShoots({
   const handlers = people.filter((p) => !p.archived && p.kind !== 'editor');
   const addFor = handlers.some((p) => p.id === me) ? me! : '';
   const archived = new Set(people.filter((p) => p.archived).map((p) => p.id));
+  // Someone who left can't be acted as (lib/team/actor.ts), so the admin
+  // is offered nothing on their shoots.
+  const acts = (x: Shoot) =>
+    x.memberId === me ||
+    (!!setShoots && forAnyone && !archived.has(x.memberId));
   const personName = (id: string) => {
     const name = nameOf.get(id) ?? '—';
     return archived.has(id) ? t('{name} (left)', { name }) : name;
@@ -354,7 +358,8 @@ export function DayShoots({
                   account={
                     x.creatorId ? (accountOf.get(x.creatorId) ?? null) : null
                   }
-                  showPerson={x.memberId !== me}
+                  // Everyone's shoots on the admin's view: each one named.
+                  showPerson={forAnyone || x.memberId !== me}
                   mine={acts(x)}
                   due={me !== null && now !== null && isDue(x, me, now)}
                   // Change, cancel, reopen, delete: from this month on.

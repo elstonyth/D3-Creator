@@ -17,7 +17,7 @@ import {
   setShootStatus,
   updateShoot,
 } from './shoot-actions';
-import { requireStaff } from './staff-context';
+import { getStaffContext } from './staff-context';
 import {
   deleteVideo,
   finishEdit,
@@ -31,9 +31,8 @@ jest.mock('@d3/database', () => ({ getSupabaseAdmin: jest.fn() }));
 jest.mock('@gitroom/frontend/lib/auth', () => ({ getAuthContext: jest.fn() }));
 jest.mock('./on-board', () => ({ onBoard: jest.fn(async () => true) }));
 jest.mock('./staff-context', () => ({
-  requireStaff: jest.fn(async () => {
-    throw new Error('Not authorized.');
-  }),
+  // Not staff unless a test says so.
+  getStaffContext: jest.fn(async () => null),
 }));
 
 const ID = 'cccccccc-0000-4000-8000-000000000001';
@@ -58,12 +57,14 @@ it('lets the admin act as the person named, if they are on the board', async () 
 
 it('keeps staff to their own person, whoever the browser names', async () => {
   (getAuthContext as jest.Mock).mockResolvedValue({ ...admin, role: 'staff' });
-  (requireStaff as jest.Mock).mockResolvedValueOnce({
+  (getStaffContext as jest.Mock).mockResolvedValueOnce({
     userId: 'u2',
     memberId: ALI,
   });
   await expect(getActor(SK)).resolves.toEqual({ userId: 'u2', memberId: ALI });
   expect(onBoard).not.toHaveBeenCalled();
+  // One session read for a staff write: getStaffContext's own.
+  expect(getAuthContext).not.toHaveBeenCalled();
 });
 
 it('refuses the admin every write that names nobody, and an editor’s steps', async () => {

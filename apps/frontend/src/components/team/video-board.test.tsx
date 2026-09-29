@@ -509,3 +509,22 @@ it('lets the admin do the handler’s steps on anyone’s video, never the edito
   // As the video's handler, whoever that is.
   expect(verifyVideo).toHaveBeenCalledWith(TO_VERIFY.id, KEE);
 });
+
+it('offers the admin no step on a video whose handler left', () => {
+  const GONE = 'aaaaaaaa-0000-4000-8000-000000000011';
+  render(
+    <VideoBoard
+      videos={[{ ...TO_VERIFY, handlerId: GONE }]}
+      people={[
+        ...people,
+        { id: GONE, name: 'GONE', kind: 'handler', archived: true },
+      ]}
+      accounts={accounts}
+      meId={null}
+      month="2026-09"
+      readOnly
+      forAnyone
+    />,
+  );
+  expect(screen.queryByRole('button', { name: 'Verify: Reel 2' })).toBeNull();
+});
