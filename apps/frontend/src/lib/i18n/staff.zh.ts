@@ -277,6 +277,8 @@ export const staffZh: Readonly<Record<string, string>> = {
   'What each person is editing now and what waits on their check. Numbers are for {month}.':
     '每个人正在剪辑的视频和等他们审核的视频。数字统计月份：{month}。',
   'Editing now': '正在剪辑',
+  'Passed by': '交片人',
+  'Cut by': '剪辑人',
   'Nothing in their hands.': '手上没有视频。',
   'Nothing waiting on them.': '没有等他们审核的视频。',
   'not verified yet': '尚未审核',
@@ -326,17 +328,20 @@ export const staffZh: Readonly<Record<string, string>> = {
   'That person is not on the board, or does not handle accounts.':
     '此人已不在看板上，或不负责账号。',
   'No accounts yet.': '还没有账号。',
-  'Videos = different videos posted in {month}. The same clip on several platforms counts once.':
-    '视频数 = {month} 发布的不同视频数量；同一条视频发在多个平台只算一次。',
+  'Videos and views count Instagram videos posted in {month} only.':
+    '视频数和播放量只统计 {month} 在 Instagram 发布的视频。',
+  'No working Instagram account': '没有可用的 Instagram 账号',
+  'IG videos': 'IG 视频',
+  'IG views': 'IG 播放',
   Unassigned: '未分配',
   '{name}’s accounts': '{name} 的账号',
   'Unassigned accounts': '未分配的账号',
   Editors: '剪辑人员',
   'No editors yet.': '还没有剪辑人员。',
-  'Edits {count} accounts · {videos} videos':
-    '剪辑 {count} 个账号 · {videos} 条视频',
-  'Edits 1 account · {videos} videos': '剪辑 1 个账号 · {videos} 条视频',
+  'Edits {count} accounts · {videos} IG videos':
+    '剪辑 {count} 个账号 · {videos} 条 IG 视频',
+  'Edits 1 account · {videos} IG videos': '剪辑 1 个账号 · {videos} 条 IG 视频',
   'Every account has a handler.': '所有账号都已分配负责人。',
-  '{views} views · {posts} posts': '{views} 播放 · {posts} 条发布',
+  '{views} IG views': '{views} IG 播放',
   Nobody: '无',
 };

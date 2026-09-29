@@ -64,11 +64,11 @@ function card(
     name,
     avatarUrl: null,
     platforms: ['instagram'],
+    igLive: true,
     handlerId,
     editorId,
     sortOrder: n,
     videos: 4,
-    posts: 8,
     views: 1000,
   };
 }
@@ -123,14 +123,14 @@ it('lists an editor as a chip, never as a column', () => {
   expect(screen.queryByRole('heading', { name: 'ALI' })).toBeNull();
   const row = within(screen.getByRole('region', { name: 'Editors' }));
   expect(row.getByText('ALI')).toBeTruthy();
-  expect(row.getByText('Edits 1 account · 4 videos')).toBeTruthy();
+  expect(row.getByText('Edits 1 account · 4 IG videos')).toBeTruthy();
 });
 
 it('gives someone who does both jobs a column, not a chip', () => {
   renderBoard([KEE, ALI, MEI], [card(1, 'Gary', MEI.id, MEI.id)]);
   expect(column('MEI’s accounts').getByText('Handler & editor')).toBeTruthy();
   expect(
-    column('MEI’s accounts').getByText('Edits 1 account · 4 videos'),
+    column('MEI’s accounts').getByText('Edits 1 account · 4 IG videos'),
   ).toBeTruthy();
   const row = within(screen.getByRole('region', { name: 'Editors' }));
   expect(row.queryByText('MEI')).toBeNull();
@@ -170,6 +170,49 @@ it('totals each column: accounts, videos, views', () => {
     .slice(0, 3)
     .map((d) => d.textContent);
   expect(cells).toEqual(['2', '8', '2K']);
+});
+
+it('says its numbers are Instagram only', () => {
+  renderBoard([KEE], [card(1, 'Gary', KEE.id, null)]);
+  const kee = column('KEE’s accounts');
+  expect(kee.getByText('IG videos')).toBeTruthy();
+  expect(kee.getByText('IG views')).toBeTruthy();
+  expect(kee.getByText('1K IG views')).toBeTruthy();
+  expect(
+    screen.getByText(
+      'Videos and views count Instagram videos posted in September 2026 only.',
+    ),
+  ).toBeTruthy();
+});
+
+it('shows a dash, not a zero, for an account with no working Instagram', () => {
+  renderBoard(
+    [KEE],
+    [
+      {
+        ...card(1, 'Gary', KEE.id, null),
+        platforms: ['douyin', 'tiktok'],
+        igLive: false,
+        videos: 0,
+        views: 0,
+      },
+    ],
+  );
+  const item = screen.getByText('Gary').closest('li')!;
+  expect(within(item).getByText('—')).toBeTruthy();
+  expect(within(item).getByText('No working Instagram account')).toBeTruthy();
+  expect(within(item).queryByText('0 IG views')).toBeNull();
+});
+
+it('dims the platforms the numbers do not count', () => {
+  renderBoard(
+    [KEE],
+    [{ ...card(1, 'Gary', KEE.id, null), platforms: ['instagram', 'tiktok'] }],
+  );
+  const icon = (name: string) =>
+    screen.getByRole('img', { name }).getAttribute('class') ?? '';
+  expect(icon('Instagram')).not.toContain('opacity-40');
+  expect(icon('TikTok')).toContain('opacity-40');
 });
 
 describe('the admin’s drag and drop', () => {

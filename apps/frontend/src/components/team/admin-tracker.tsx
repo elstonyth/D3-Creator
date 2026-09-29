@@ -294,6 +294,7 @@ export function AdminTracker({
                     empty={t('Nothing in their hands.')}
                     videos={editingNow}
                     // Who passed it on, and checks it next.
+                    otherLabel={t('Passed by')}
                     other={(v) => nameOf.get(v.handlerId) ?? '—'}
                   />
                   <VideoList
@@ -301,6 +302,7 @@ export function AdminTracker({
                     empty={t('Nothing waiting on them.')}
                     videos={toVerify}
                     // Whose cut it is.
+                    otherLabel={t('Cut by')}
                     other={(v) => nameOf.get(v.editorId) ?? '—'}
                   />
 
@@ -386,18 +388,25 @@ function VideoList({
   title,
   empty,
   videos,
+  otherLabel,
   other,
 }: {
   title: string;
   empty: string;
   videos: Video[];
-  /** The other hand on each video, named beside its title. */
+  /** What the name at each row's right is: heads that column. */
+  otherLabel: string;
+  /** The other hand on each video, at the far right of its row. */
   other: (v: Video) => string;
 }) {
   return (
     <div className="mt-2">
-      <p className="mb-1.5 px-1 text-micro uppercase tracking-[0.14em] text-fg-subtle">
-        {title} <span className="tnum">{videos.length}</span>
+      <p className="mb-1.5 flex items-baseline justify-between gap-3 px-1 text-micro uppercase tracking-[0.14em] text-fg-subtle">
+        <span>
+          {title} <span className="tnum">{videos.length}</span>
+        </span>
+        {/* Each row says it to a screen reader itself. */}
+        {videos.length > 0 ? <span aria-hidden>{otherLabel}</span> : null}
       </p>
       {videos.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-white/10 px-3 py-3 text-center text-caption text-fg-subtle">
@@ -408,10 +417,16 @@ function VideoList({
           {videos.map((v) => (
             <li
               key={v.id}
-              className={clsx(s.inset, 'px-3 py-2 text-body-sm text-fg')}
+              className={clsx(
+                s.inset,
+                'flex items-baseline justify-between gap-3 px-3 py-2 text-body-sm text-fg',
+              )}
             >
-              <span className="break-words">{v.title}</span>
-              <span className="text-fg-muted"> · {other(v)}</span>
+              <span className="min-w-0 break-words">{v.title}</span>
+              <span className="shrink-0 text-right text-fg-muted">
+                <span className="sr-only">{otherLabel} </span>
+                {other(v)}
+              </span>
             </li>
           ))}
         </ul>
