@@ -5,10 +5,15 @@
  */
 
 import { getSupabaseAdmin } from '@d3/database';
+import { getAuthContext } from '@gitroom/frontend/lib/auth';
 import { claimAccount, releaseAccount } from './claim-account';
 import { addShoot, passVideos, updateShoot } from './shoot-actions';
 
 jest.mock('@d3/database', () => ({ getSupabaseAdmin: jest.fn() }));
+// Signed in as staff: who they act as comes from requireStaff below.
+jest.mock('@gitroom/frontend/lib/auth', () => ({
+  getAuthContext: jest.fn(async () => ({ role: 'staff' })),
+}));
 jest.mock('./on-board', () => ({ onBoard: jest.fn(async () => true) }));
 jest.mock('./claim-account', () => ({
   ...jest.requireActual('./claim-account'),
@@ -133,6 +138,18 @@ it('adds a shoot without a title or note, even when an old page sends them', asy
     shoot_date: '2099-01-05',
     creator_id: ACC_A,
   });
+});
+
+it('adds the admin’s shoot for the person named, stamped with the admin', async () => {
+  const SK = 'aaaaaaaa-0000-4000-8000-000000000004';
+  (getAuthContext as jest.Mock).mockResolvedValueOnce({
+    userId: 'boss',
+    role: 'admin',
+  });
+  const calls = fakeDb([row(ACC_A)]);
+  await expect(addShoot(form(ACC_A), SK)).resolves.toMatchObject({ ok: true });
+  const insert = calls[0].steps.find((s) => s[0] === 'insert');
+  expect(insert?.[1]).toMatchObject({ member_id: SK, created_by: 'boss' });
 });
 
 it('never writes over an old shoot’s title or note', async () => {

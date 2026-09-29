@@ -136,9 +136,11 @@ it('asks to pass the videos on an hour after a shoot’s time', async () => {
   await act(async () => {
     fireEvent.click(box.getByRole('button', { name: 'Pass videos' }));
   });
-  expect(passVideos).toHaveBeenCalledWith(at17.id, [
-    { title: 'Reel 1', editorId: MEI },
-  ]);
+  expect(passVideos).toHaveBeenCalledWith(
+    at17.id,
+    [{ title: 'Reel 1', editorId: MEI }],
+    KEE,
+  );
   expect(onPassed).toHaveBeenCalledWith(
     expect.objectContaining({ id: at17.id, status: 'done' }),
   );

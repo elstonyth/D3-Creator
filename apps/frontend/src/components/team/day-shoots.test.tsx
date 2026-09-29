@@ -98,9 +98,11 @@ function Tracker({
   handled,
   now,
   onPick,
+  forAnyone,
 }: {
   initial: Shoot[];
   meId: string | null;
+  forAnyone?: boolean;
   day?: string;
   today?: string;
   readOnly?: boolean;
@@ -119,6 +121,7 @@ function Tracker({
       handled={handled}
       meId={meId}
       setShoots={readOnly ? undefined : setShoots}
+      forAnyone={forAnyone}
       now={now}
       onPick={onPick}
     />
@@ -170,13 +173,12 @@ it('adds a shoot for the day it was opened on', async () => {
   );
   expect(button('Change 11:30 Gary')).toBeTruthy();
   expect(screen.getByText('Gary').tagName).toBe('P');
-  // Staff never choose the person; the server uses theirs.
-  expect(addShoot).toHaveBeenCalledWith({
-    date: DAY,
-    time: '11:30',
-    creatorId: GARY,
-    reason: '',
-  });
+  // Staff never choose the person: the form names their own, and the server
+  // takes theirs from the session anyway.
+  expect(addShoot).toHaveBeenCalledWith(
+    { date: DAY, time: '11:30', creatorId: GARY, reason: '' },
+    KEE,
+  );
   expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
   expect(refresh).toHaveBeenCalledTimes(1);
 });
@@ -192,12 +194,10 @@ it('saves a shoot with nothing but its day', async () => {
   expect((save as HTMLButtonElement).disabled).toBe(false);
   fireEvent.click(save);
   await waitFor(() =>
-    expect(addShoot).toHaveBeenCalledWith({
-      date: DAY,
-      time: '',
-      creatorId: '',
-      reason: '',
-    }),
+    expect(addShoot).toHaveBeenCalledWith(
+      { date: DAY, time: '', creatorId: '', reason: '' },
+      KEE,
+    ),
   );
   expect(await screen.findByText('Shoot')).toBeTruthy();
 });
@@ -322,6 +322,7 @@ it('asks why before any change to a saved shoot is saved, and shows why', async 
       reason: 'The client changed the time',
     },
     { date: DAY, time: '19:30', creatorId: '', reason: '' },
+    KEE,
   );
   expect(screen.getByText('Changed: The client changed the time')).toBeTruthy();
 });
@@ -405,10 +406,14 @@ it('passes a shoot’s videos on, one row per video, to the editors', async () =
     fireEvent.click(screen.getByRole('button', { name: 'Pass videos' }));
   });
 
-  expect(passVideos).toHaveBeenCalledWith(MINE.id, [
-    { title: 'Reel 1', editorId: MEI },
-    { title: 'Reel 2', editorId: ALI },
-  ]);
+  expect(passVideos).toHaveBeenCalledWith(
+    MINE.id,
+    [
+      { title: 'Reel 1', editorId: MEI },
+      { title: 'Reel 2', editorId: ALI },
+    ],
+    KEE,
+  );
   expect(screen.getByText('2 videos passed')).toBeTruthy();
   expect(screen.queryByLabelText('Video 1 title')).toBeNull();
   // The tracker re-reads the page: the new videos show in its video list.
@@ -506,7 +511,7 @@ it('cancels a planned shoot with one click', async () => {
       screen.getByRole('button', { name: 'Cancel shoot: Hotpot shop' }),
     );
   });
-  expect(setShootStatus).toHaveBeenCalledWith(MINE.id, 'cancelled');
+  expect(setShootStatus).toHaveBeenCalledWith(MINE.id, 'cancelled', KEE);
   expect(button('Reopen Hotpot shop')).toBeTruthy();
 });
 
@@ -642,6 +647,7 @@ describe('dragging a shoot onto another day', () => {
         reason: 'Client asked',
       },
       { date: DAY, time: '19:30', creatorId: '', reason: '' },
+      KEE,
     );
     // Saved: the tracker shows the day it moved to.
     expect(onPick).toHaveBeenCalledWith('2026-09-25');
@@ -729,5 +735,61 @@ describe('dragging a shoot onto another day', () => {
     // …does not block the next drag.
     expect(await drop(card('Hotpot shop'), day25)).toBe(true);
     expect(screen.getByLabelText('Why the change?')).toBeTruthy();
+  });
+});
+
+describe('the admin, for anyone', () => {
+  it('adds a shoot for whoever the admin picks among those who run accounts', async () => {
+    (addShoot as jest.Mock).mockResolvedValue({
+      ok: true,
+      shoot: shoot(5, ZUWEI, DAY, null, null),
+    });
+    render(<Tracker initial={[]} meId={null} forAnyone />);
+    fireEvent.click(screen.getByRole('button', { name: '+ Add a shoot' }));
+    const who = screen.getByRole('combobox', {
+      name: 'Handler',
+    }) as HTMLSelectElement;
+    // Handlers and people who do both; never someone who only edits.
+    expect([...who.options].map((o) => o.text)).toEqual([
+      'Pick who handles it',
+      'KEE',
+      'ZUWEI',
+      'MEI',
+    ]);
+    const save = screen.getByRole('button', { name: 'Save' });
+    expect((save as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(who, { target: { value: ZUWEI } });
+    await act(async () => {
+      fireEvent.click(save);
+    });
+    expect(addShoot).toHaveBeenCalledWith(
+      { date: DAY, time: '', creatorId: '', reason: '' },
+      ZUWEI,
+    );
+  });
+
+  it('picks the admin’s own person first, when they run accounts', () => {
+    render(<Tracker initial={[]} meId={KEE} forAnyone />);
+    fireEvent.click(screen.getByRole('button', { name: '+ Add a shoot' }));
+    expect(
+      (screen.getByRole('combobox', { name: 'Handler' }) as HTMLSelectElement)
+        .value,
+    ).toBe(KEE);
+  });
+
+  it('changes anyone’s shoot as that shoot’s own person', async () => {
+    (setShootStatus as jest.Mock).mockResolvedValue({
+      ok: true,
+      shoot: { ...THEIRS, status: 'cancelled' },
+    });
+    render(<Tracker initial={[MINE, THEIRS]} meId={KEE} forAnyone />);
+    expect(button('Change Furniture shop')).toBeTruthy();
+    expect(button('Pass videos: Furniture shop')).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Cancel shoot: Furniture shop' }),
+      );
+    });
+    expect(setShootStatus).toHaveBeenCalledWith(THEIRS.id, 'cancelled', ZUWEI);
   });
 });

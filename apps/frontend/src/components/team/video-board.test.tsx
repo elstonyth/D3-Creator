@@ -208,7 +208,7 @@ it('verifies with one click and moves the video to done', async () => {
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: 'Verify: Reel 2' }));
   });
-  expect(verifyVideo).toHaveBeenCalledWith(TO_VERIFY.id);
+  expect(verifyVideo).toHaveBeenCalledWith(TO_VERIFY.id, KEE);
   const done = region('Done this month');
   expect(within(done).getByText('Reel 2')).toBeTruthy();
   expect(
@@ -237,6 +237,7 @@ it('lets the handler change the title and editor, sending what it started from',
     TO_EDIT.id,
     { title: 'Reel 1b', editorId: MEI },
     { title: 'Reel 1', editorId: ALI },
+    KEE,
   );
   expect(screen.getByText('Reel 1b')).toBeTruthy();
 });
@@ -478,4 +479,33 @@ describe('the admin’s view', () => {
     const card = screen.getByText('Reel 8').closest('li')!;
     expect(within(card).getByText(/ZU \(left\)/)).toBeTruthy();
   });
+});
+
+it('lets the admin do the handler’s steps on anyone’s video, never the editor’s', async () => {
+  (verifyVideo as jest.Mock).mockResolvedValue({
+    ok: true,
+    video: {
+      ...TO_VERIFY,
+      verifiedAt: '2026-09-29T09:00:00Z',
+      verifiedBy: KEE,
+    },
+  });
+  render(
+    <VideoBoard
+      videos={[TO_EDIT, TO_VERIFY]}
+      people={people}
+      accounts={accounts}
+      meId={null}
+      month="2026-09"
+      readOnly
+      forAnyone
+    />,
+  );
+  expect(screen.getByRole('button', { name: 'Change Reel 1' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: /^Done editing/ })).toBeNull();
+  await act(async () => {
+    fireEvent.click(screen.getByRole('button', { name: 'Verify: Reel 2' }));
+  });
+  // As the video's handler, whoever that is.
+  expect(verifyVideo).toHaveBeenCalledWith(TO_VERIFY.id, KEE);
 });

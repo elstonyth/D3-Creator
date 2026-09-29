@@ -360,9 +360,10 @@ describe('the admin’s tracker', () => {
     }),
   ];
 
-  function renderAdmin() {
+  function renderAdmin(meId: string | null = null) {
     return render(
       <AdminTracker
+        meId={meId}
         month="2026-09"
         today={TODAY}
         initialDay={null}
@@ -395,25 +396,43 @@ describe('the admin’s tracker', () => {
     );
   }
 
-  it('offers no write but who handles each account and removing a video still being edited', () => {
+  it('does a handler’s steps for anyone, but never an editor’s own', () => {
     renderAdmin();
-    // The rest only moves around: days, months, the cards.
-    const writes =
-      /^(\+ add|pass videos|change|cancel shoot|reopen|delete|done|verify|remove|undo|save|move)/i;
-    expect(
-      screen
-        .getAllByRole('button')
-        .map((b) => b.getAttribute('aria-label') ?? b.textContent ?? '')
-        .filter((name) => writes.test(name)),
-    ).toEqual(['Remove Reel 1']);
-    expect(screen.queryAllByRole('textbox')).toHaveLength(0);
-    expect(screen.queryAllByRole('switch')).toHaveLength(0);
-    // The selects: who handles each account, and the video list's filter.
-    expect(
-      screen
-        .getAllByRole('combobox')
-        .map((c) => c.getAttribute('aria-label') ?? c.id),
-    ).toEqual(['Handler for Gary', 'videos-person']);
+    const names = screen
+      .getAllByRole('button')
+      .map((b) => b.getAttribute('aria-label') ?? b.textContent ?? '');
+    expect(names).toEqual(
+      expect.arrayContaining([
+        // Shoots: add one for someone; change or pass on anyone's.
+        '+ Add a shoot',
+        'Change Hotpot shop',
+        'Pass videos: Hotpot shop',
+        // Videos, as each one's handler: re-assign, verify, take it back.
+        'Change Reel 1',
+        'Remove Reel 1',
+        'Verify: Reel 2',
+        'Undo verify: Reel 3',
+      ]),
+    );
+    // The editor's Done, and taking it back, stay the editor's.
+    expect(names.filter((n) => /^(Done editing|Undo edit)/.test(n))).toEqual(
+      [],
+    );
+  });
+
+  it('pops up what waits on the admin’s own person, as for staff', () => {
+    window.localStorage.clear();
+    renderAdmin(KEE);
+    const box = within(document.querySelector<HTMLElement>('dialog[open]')!);
+    // Reel 2, cut by MEI, waits on KEE's Verify.
+    expect(box.getByText('Edited — ready for you to verify')).toBeTruthy();
+    expect(box.getByText('Reel 2')).toBeTruthy();
+  });
+
+  it('pops up nothing for an admin who is not on the board', () => {
+    window.localStorage.clear();
+    renderAdmin();
+    expect(document.querySelector('dialog[open]')).toBeNull();
   });
 
   it('shows who handles and who edits each account', () => {

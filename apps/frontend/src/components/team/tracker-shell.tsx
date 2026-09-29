@@ -11,6 +11,7 @@
  */
 
 import {
+  useEffect,
   useState,
   useSyncExternalStore,
   useTransition,
@@ -51,6 +52,26 @@ export function useNow(): number | null {
     () => Math.floor(Date.now() / MINUTE) * MINUTE,
     () => null,
   );
+}
+
+/**
+ * New work shows up without a reload: the page is read again every minute —
+ * in a background tab too, so the pop-up's chime is heard there
+ * (WorkAlerts) — and as soon as it comes back into view.
+ */
+export function useRereadEveryMinute() {
+  const router = useRouter();
+  useEffect(() => {
+    const back = () => {
+      if (document.visibilityState === 'visible') router.refresh();
+    };
+    const id = window.setInterval(() => router.refresh(), MINUTE);
+    document.addEventListener('visibilitychange', back);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', back);
+    };
+  }, [router]);
 }
 
 /**

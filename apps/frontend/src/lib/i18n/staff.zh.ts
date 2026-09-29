@@ -296,6 +296,7 @@ export const staffZh: Readonly<Record<string, string>> = {
   'You handle no accounts yet. Ask the admin to assign one.':
     '你还没有负责的账号。请管理员给你分配。',
   'Only the accounts you handle.': '只列出你负责的账号。',
+  'Pick who handles it': '选择负责人',
 
   // ---- What needs you now: the pop-up and the due shoots ----------------------
   'Time to pass videos': '该交出视频了',

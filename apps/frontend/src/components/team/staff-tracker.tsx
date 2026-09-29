@@ -16,8 +16,7 @@
  * scoped, lib/team/tracker-data.ts); nothing is filtered to them here.
  */
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
 import { addDays } from '@gitroom/frontend/lib/tracker';
@@ -37,6 +36,7 @@ import {
   TrackerCalendar,
   TrackerScene,
   useNow,
+  useRereadEveryMinute,
   useTrackerNav,
 } from './tracker-shell';
 import { VideoBoard } from './video-board';
@@ -66,7 +66,6 @@ export function StaffTracker({
   meId,
 }: StaffTrackerProps) {
   const { t, locale } = useI18n();
-  const router = useRouter();
   const now = useNow();
   const [shoots, setShoots] = useState<Shoot[]>(initialShoots);
   // A refresh brings the server's list again (a video taken back on the
@@ -80,20 +79,7 @@ export function StaffTracker({
   const nav = useTrackerNav(month, today, initialDay);
   const thisMonth = today.slice(0, 7);
 
-  // New work shows up without a reload: the page is read again every
-  // minute — in a background tab too, so its chime is heard there
-  // (WorkAlerts) — and as soon as it comes back into view.
-  useEffect(() => {
-    const back = () => {
-      if (document.visibilityState === 'visible') router.refresh();
-    };
-    const id = window.setInterval(() => router.refresh(), 60_000);
-    document.addEventListener('visibilitychange', back);
-    return () => {
-      window.clearInterval(id);
-      document.removeEventListener('visibilitychange', back);
-    };
-  }, [router]);
+  useRereadEveryMinute();
 
   const accountOf = new Map(accounts.map((a) => [a.id, a.name]));
   // The month on the calendar; the list also carries today's and

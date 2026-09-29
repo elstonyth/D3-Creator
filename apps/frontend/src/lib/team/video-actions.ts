@@ -1,10 +1,12 @@
 'use server';
 
 /**
- * Video job mutations. Staff only: videos are made by passing them on from a
- * shoot (passVideos in shoot-actions.ts), so an admin is refused here like
- * anyone else who is not staff (asActor). The admin's one write, removing a
- * video still being edited, is app/(admin)/admin/tracker/actions.ts.
+ * Video job mutations. Videos are made by passing them on from a shoot
+ * (passVideos in shoot-actions.ts). The admin does the handler's steps here
+ * for anyone, as the video's handler (`as`, lib/team/actor.ts): change it,
+ * verify it, take a Verify back. The editor's steps, and the handler's own
+ * take-back, name nobody, so they refuse the admin; the admin's Remove is
+ * app/(admin)/admin/tracker/actions.ts.
  *
  * Each person moves only their own step. The handler — who passed the video
  * on — may change its title or editor, or remove it, until the editor clicks
@@ -70,6 +72,8 @@ export async function updateVideo(
   input: unknown,
   /** What the form started with; only fields changed from it are written. */
   before?: unknown,
+  /** The video's handler, for the admin (see asActor). */
+  as?: string,
 ): Promise<VideoResult> {
   return asActor(async (a): Promise<VideoResult> => {
     if (!isUuid(id)) return { ok: false, message: 'Invalid video.' };
@@ -105,7 +109,7 @@ export async function updateVideo(
     if (saved.ok && 'editor_id' in patch && saved.video?.editorId)
       await claimAccount(saved.video.creatorId, saved.video.editorId, a.userId);
     return saved;
-  });
+  }, as);
 }
 
 /**
@@ -190,7 +194,11 @@ export async function undoEdit(id: string): Promise<VideoResult> {
 // ---- the handler's check -------------------------------------------------------
 
 /** The handler's Verify: the cut is checked and good. */
-export async function verifyVideo(id: string): Promise<VideoResult> {
+export async function verifyVideo(
+  id: string,
+  /** The video's handler, for the admin (see asActor). */
+  as?: string,
+): Promise<VideoResult> {
   return asActor(async (a): Promise<VideoResult> => {
     if (!isUuid(id)) return { ok: false, message: 'Invalid video.' };
     return one(
@@ -204,11 +212,15 @@ export async function verifyVideo(id: string): Promise<VideoResult> {
         .is('verified_at', null)
         .select(VIDEO_COLS),
     );
-  });
+  }, as);
 }
 
 /** Take the handler's Verify back. */
-export async function undoVerify(id: string): Promise<VideoResult> {
+export async function undoVerify(
+  id: string,
+  /** Who the Verify counts for, for the admin (see asActor). */
+  as?: string,
+): Promise<VideoResult> {
   return asActor(async (a): Promise<VideoResult> => {
     if (!isUuid(id)) return { ok: false, message: 'Invalid video.' };
     return one(
@@ -221,5 +233,5 @@ export async function undoVerify(id: string): Promise<VideoResult> {
         .select(VIDEO_COLS),
       'You can only take back your own Verify from this month.',
     );
-  });
+  }, as);
 }

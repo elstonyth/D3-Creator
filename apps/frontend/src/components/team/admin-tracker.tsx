@@ -7,17 +7,31 @@
  * (what they are editing now and what waits on their check), who handles
  * and edits each account, and every video in hand.
  *
- * The admin sets who handles each account and each column's order by
- * dragging cards (placeAccount), and can remove a video still being edited
- * (removeVideo); everything else is staff's to move, and staff's actions
- * refuse an admin (lib/team/actor.ts).
+ * The admin sets who handles each account by dragging cards (placeAccount)
+ * and the order of the people by dragging columns (orderPeople), can remove
+ * a video still being edited (removeVideo), and does a handler's steps for
+ * anyone, as that person (lib/team/actor.ts): adds, changes, cancels and
+ * deletes shoots, passes their videos on, and changes and verifies videos.
+ * An editor's Done stays the editor's. When the admin is on the board too
+ * (their login linked to a person on the Team page), what waits on them
+ * pops up as it does for staff.
  */
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useI18n } from '@gitroom/frontend/components/i18n/locale-provider';
 import { localeTag } from '@gitroom/frontend/lib/i18n';
 import { addDays } from '@gitroom/frontend/lib/tracker';
-import { videoStage, type Video } from '@gitroom/frontend/lib/team/videos';
+import {
+  isDue,
+  sortShoots,
+  type Shoot,
+} from '@gitroom/frontend/lib/team/shoots';
+import {
+  isEditorKind,
+  videoStage,
+  type Video,
+} from '@gitroom/frontend/lib/team/videos';
 import type { AdminTrackerData } from '@gitroom/frontend/lib/team/tracker-data';
 import type { VideoResult } from '@gitroom/frontend/lib/team/video-actions';
 import { cn } from '@gitroom/frontend/lib/utils';
@@ -33,9 +47,12 @@ import {
   StatsPanel,
   TrackerCalendar,
   TrackerScene,
+  useNow,
+  useRereadEveryMinute,
   useTrackerNav,
 } from './tracker-shell';
 import { VideoBoard } from './video-board';
+import { WorkAlerts } from './work-alerts';
 import s from './tracker.module.scss';
 
 export interface AdminTrackerProps extends AdminTrackerData {
@@ -55,13 +72,18 @@ export interface AdminTrackerProps extends AdminTrackerData {
   ) => Promise<{ ok: boolean; message?: string }>;
   /** The account board's column drop: everyone, in their new order. */
   orderPeople?: (order: string[]) => Promise<{ ok: boolean; message?: string }>;
+  /**
+   * The admin's own person on the board (their login linked to one on the
+   * Team page): what waits on them pops up, as it does for staff.
+   */
+  meId?: string | null;
 }
 
 export function AdminTracker({
   month,
   today,
   initialDay,
-  shoots,
+  shoots: initialShoots,
   videos,
   done: doneBy,
   edited,
@@ -73,11 +95,22 @@ export function AdminTracker({
   removeVideo,
   placeAccount,
   orderPeople,
+  meId = null,
 }: AdminTrackerProps) {
   const { t, locale } = useI18n();
   const tag = localeTag(locale);
   const nav = useTrackerNav(month, today, initialDay);
   const thisMonth = today.slice(0, 7);
+  const now = useNow();
+  useRereadEveryMinute();
+  // The admin changes shoots here too: the tracker keeps the list, and a
+  // refresh brings the server's again (as on the staff tracker).
+  const [shoots, setShoots] = useState<Shoot[]>(initialShoots);
+  const [fromServer, setFromServer] = useState(initialShoots);
+  if (fromServer !== initialShoots) {
+    setFromServer(initialShoots);
+    setShoots(initialShoots);
+  }
 
   const nameOf = new Map(people.map((p) => [p.id, p.name]));
   const accountOf = new Map(accounts.map((a) => [a.id, a.name]));
@@ -109,6 +142,8 @@ export function AdminTracker({
         ]
           .filter(Boolean)
           .join(' · '),
+        // The admin's own shoot whose videos are due.
+        due: meId !== null && now !== null && isDue(x, meId, now),
       })),
   });
 
@@ -177,7 +212,11 @@ export function AdminTracker({
           shoots={shoots.filter((x) => x.date === nav.selected)}
           people={people}
           accounts={accounts}
-          meId={null}
+          meId={meId}
+          setShoots={setShoots}
+          forAnyone
+          now={now}
+          onPick={nav.pick}
           className="lg:col-span-12"
         />
       </section>
@@ -297,9 +336,29 @@ export function AdminTracker({
           meId={null}
           month={thisMonth}
           readOnly
+          forAnyone
           adminRemove={removeVideo}
         />
       </GlassPanel>
+
+      {meId ? (
+        <WorkAlerts
+          meId={meId}
+          month={thisMonth}
+          today={today}
+          now={now}
+          shoots={shoots}
+          videos={videos}
+          people={people}
+          accounts={accounts}
+          editors={people.filter((p) => !p.archived && isEditorKind(p.kind))}
+          onPassed={(next) =>
+            setShoots((p) =>
+              sortShoots(p.map((x) => (x.id === next.id ? next : x))),
+            )
+          }
+        />
+      ) : null}
     </TrackerScene>
   );
 }

@@ -200,7 +200,7 @@ export function WorkAlerts({
     setError(null);
     let r: PassResult;
     try {
-      r = await passVideos(x.id, rows);
+      r = await passVideos(x.id, rows, x.memberId);
     } catch {
       // A dropped connection or a stale deploy: a refusal, not a frozen form.
       r = { ok: false, message: 'Could not save. Try again.' };

@@ -8,6 +8,10 @@ import { claimAccount, releaseAccount } from './claim-account';
 import { deleteVideo, updateVideo } from './video-actions';
 
 jest.mock('@d3/database', () => ({ getSupabaseAdmin: jest.fn() }));
+// Signed in as staff: who they act as comes from requireStaff below.
+jest.mock('@gitroom/frontend/lib/auth', () => ({
+  getAuthContext: jest.fn(async () => ({ role: 'staff' })),
+}));
 jest.mock('./on-board', () => ({ onBoard: jest.fn(async () => true) }));
 jest.mock('./claim-account', () => ({
   claimAccount: jest.fn(async () => undefined),
