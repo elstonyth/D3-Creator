@@ -272,8 +272,8 @@ it('says so when the person handles no account yet', () => {
 });
 
 it('marks my planned shoot whose time has come, and only that one', () => {
-  // 22 Sep, 20:00 in Malaysia: MINE was at 19:30.
-  const now = Date.parse('2026-09-22T20:00:00+08:00');
+  // 22 Sep, 20:30 in Malaysia: MINE was at 19:30, an hour ago.
+  const now = Date.parse('2026-09-22T20:30:00+08:00');
   const later = shoot(6, KEE, DAY, '21:00', 'Night market');
   render(<Tracker initial={[MINE, THEIRS, later]} meId={KEE} now={now} />);
   const card = (title: string) => screen.getByText(title).closest('li')!;

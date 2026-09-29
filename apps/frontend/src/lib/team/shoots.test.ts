@@ -177,17 +177,21 @@ describe('when a shoot is due', () => {
     ...patch,
   });
 
-  it('is its start time in Malaysia, or the end of its day with no time', () => {
-    expect(shootDueAt(s({}))).toBe(at('2026-09-30T09:00:00Z'));
+  it('is an hour after its start in Malaysia, or the end of its day with no time', () => {
+    expect(shootDueAt(s({}))).toBe(at('2026-09-30T10:00:00Z'));
+    // A late shoot is due the next day.
+    expect(shootDueAt(s({ time: '23:30' }))).toBe(at('2026-09-30T16:30:00Z'));
     // No time: once the day is over — here across a month's end.
     expect(shootDueAt(s({ time: null }))).toBe(at('2026-09-30T16:00:00Z'));
   });
 
-  it('asks only the owner, only while planned, only once the time has come', () => {
-    const after = at('2026-09-30T17:00:00+08:00');
+  it('asks only the owner, only while planned, only an hour into the shoot', () => {
+    const after = at('2026-09-30T18:00:00+08:00');
     const before = after - 60_000;
     expect(isDue(s({}), 'kee', after)).toBe(true);
     expect(isDue(s({}), 'kee', before)).toBe(false);
+    // Not at its start: the shoot is still going on.
+    expect(isDue(s({}), 'kee', at('2026-09-30T17:00:00+08:00'))).toBe(false);
     expect(isDue(s({}), 'mei', after)).toBe(false);
     expect(isDue(s({ status: 'done' }), 'kee', after)).toBe(false);
     expect(isDue(s({ status: 'cancelled' }), 'kee', after)).toBe(false);

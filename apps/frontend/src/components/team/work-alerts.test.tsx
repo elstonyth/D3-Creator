@@ -41,8 +41,8 @@ const people = [
 ];
 const accounts = [{ id: GARY, name: 'Gary' }];
 const TODAY = '2026-09-29';
-// 29 Sep, 17:30 in Malaysia.
-const NOW = Date.parse('2026-09-29T17:30:00+08:00');
+// 29 Sep, 18:30 in Malaysia.
+const NOW = Date.parse('2026-09-29T18:30:00+08:00');
 
 function shoot(n: number, time: string | null, extra: Partial<Shoot> = {}) {
   return {
@@ -107,7 +107,7 @@ beforeEach(() => {
   window.localStorage.clear();
 });
 
-it('asks to pass the videos on once a shoot’s time has come', async () => {
+it('asks to pass the videos on an hour after a shoot’s time', async () => {
   const onPassed = jest.fn();
   const at17 = shoot(1, '17:00');
   (passVideos as jest.Mock).mockResolvedValue({
@@ -115,12 +115,12 @@ it('asks to pass the videos on once a shoot’s time has come', async () => {
     shoot: { ...at17, status: 'done', videosShot: 1 },
     videos: [],
   });
-  render(alerts({ shoots: [at17, shoot(2, '19:00')], onPassed }));
+  render(alerts({ shoots: [at17, shoot(2, '18:00')], onPassed }));
   const box = within(dialog()!);
   expect(box.getByText('Shoot time is up — pass the videos on')).toBeTruthy();
-  // 17:00 has come; 19:00 has not.
+  // 17:00 began over an hour ago; 18:00 is still going on.
   expect(box.getByText('Today · 17:00 · Gary')).toBeTruthy();
-  expect(box.queryByText(/19:00/)).toBeNull();
+  expect(box.queryByText(/18:00/)).toBeNull();
 
   fireEvent.click(
     box.getByRole('button', { name: 'Pass videos: Today · 17:00 · Gary' }),

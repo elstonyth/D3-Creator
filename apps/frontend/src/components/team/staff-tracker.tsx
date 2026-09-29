@@ -7,7 +7,7 @@
  * edit, to verify, passed on and still with the editor, done this month —
  * each naming who edits it and who verifies it.
  *
- * What needs them now pops up (WorkAlerts): a shoot whose time has come,
+ * What needs them now pops up (WorkAlerts): a shoot an hour past its start,
  * glowing on the spotlight and the day too, and new videos to edit or
  * verify. The page reads itself again every minute while it is on screen,
  * so new work arrives without a reload.

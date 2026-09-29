@@ -149,8 +149,8 @@ export function TrackerScene({
 export interface SpotDay {
   key: string;
   /**
-   * One line per thing that day, already worded; `due` = a shoot whose time
-   * has come and whose videos wait to be passed on (its dot glows).
+   * One line per thing that day, already worded; `due` = a shoot that is due
+   * (shootDueAt) and whose videos wait to be passed on (its dot glows).
    */
   items: { id: string; label: string; due?: boolean }[];
   /** A line under the list (today's queue), if any. */

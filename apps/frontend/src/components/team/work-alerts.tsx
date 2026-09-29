@@ -3,7 +3,8 @@
 /**
  * What needs the staff member now, as a pop-up over their tracker (the
  * owner's call):
- * - a shoot whose time has come, with Pass videos right in the pop-up;
+ * - a shoot an hour past its start (shootDueAt), with Pass videos right in
+ *   the pop-up;
  * - videos just passed to them to edit;
  * - cuts just finished that wait on their Verify.
  *

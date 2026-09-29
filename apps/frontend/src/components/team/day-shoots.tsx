@@ -86,8 +86,8 @@ export interface DayShootsProps {
   /** The tracker's whole list. Absent = read-only (the admin's view). */
   setShoots?: Dispatch<SetStateAction<Shoot[]>>;
   /**
-   * The time now (useNow), for marking the staff member's shoots whose time
-   * has come; null or absent marks none.
+   * The time now (useNow), for marking the staff member's shoots that are
+   * due (shootDueAt); null or absent marks none.
    */
   now?: number | null;
   /** Show another day: where a shoot just moved to. */
@@ -410,7 +410,7 @@ function ShootItem({
   showPerson: boolean;
   /** Mine: its videos can be passed on, unless it was cancelled. */
   mine: boolean;
-  /** Mine, planned, and its time has come: its videos wait to be passed on. */
+  /** Mine, planned, and due (shootDueAt): its videos wait to be passed on. */
   due: boolean;
   /** Mine and not in a closed month: can be changed, cancelled, deleted. */
   changeable: boolean;
