@@ -82,13 +82,15 @@ Every pop-up item becomes a push, and the pop-up itself stays as it is.
 5. **`app/api/cron/work-due/route.ts`**, scheduled `* * * * *` in `vercel.json`
    (Pro allows per-minute crons).
    - It is guarded by `Bearer CRON_SECRET`, like the other crons.
-   - It reads planned shoots dated yesterday or today whose `due_pushed_at` is null.
-   - It keeps those whose push time falls within the last 2 h. That way the first run
-     after deploy doesn't push every stale overdue shoot, and a missed minute still
-     catches up.
-   - It claims them atomically: `update … set due_pushed_at = now() where id in (…)
-and due_pushed_at is null and status = 'planned' returning …`. Overlapping runs
-     therefore never push a shoot twice.
+   - It reads planned shoots dated yesterday or today, with `due_pushed_for`: the push
+     time it last pushed for.
+   - It keeps those whose push time falls within the last 2 h and differs from
+     `due_pushed_for`. That way the first run after deploy doesn't push every stale
+     overdue shoot, a missed minute still catches up, and a moved shoot (a new push
+     time) re-arms by itself.
+   - It claims each one atomically: `update … set due_pushed_for = <its push time>
+     where id = … and status = 'planned' and due_pushed_for is distinct from it
+     returning …`. Overlapping runs therefore never push a shoot twice.
    - Then it awaits `sendPush`.
 
 ## Data (one migration)
@@ -107,10 +109,10 @@ create index push_subscription_user_id_idx on public.push_subscription (user_id)
 revoke all on table public.push_subscription from anon, authenticated;
 alter table public.push_subscription enable row level security;   -- service role only
 
-alter table public.tracker_shoot add column due_pushed_at timestamptz;
+alter table public.tracker_shoot add column due_pushed_for timestamptz;  -- the push time last pushed for
 ```
 
-`updateShoot` writes `due_pushed_at = null` when the day or time changes.
+The shoot actions never write it, so there is no deploy coupling there.
 
 ## Config
 
