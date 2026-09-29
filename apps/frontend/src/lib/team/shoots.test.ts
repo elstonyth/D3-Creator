@@ -1,8 +1,10 @@
 import {
+  dueForPush,
   isDue,
   isMove,
   isTimeKey,
   parseShootInput,
+  pushDueAt,
   shootDueAt,
   shootPatch,
   sortShoots,
@@ -205,6 +207,33 @@ describe('when a shoot is due', () => {
     expect(
       isDue(s({ time: null }), 'kee', at('2026-09-30T23:59:00+08:00')),
     ).toBe(false);
+  });
+
+  it('pushes when due, but a shoot with no time at 9 the next morning', () => {
+    expect(pushDueAt(s({}))).toBe(shootDueAt(s({})));
+    expect(pushDueAt(s({ time: null }))).toBe(at('2026-10-01T09:00:00+08:00'));
+  });
+
+  it('pushes only planned shoots that fell due in the last two hours', () => {
+    const now = at('2026-09-30T19:00:00+08:00');
+    const list = [
+      s({ id: 'due-now', time: '17:59' }), // due 18:59
+      s({ id: 'just-due', time: '18:00' }), // due 19:00, exactly now
+      s({ id: 'too-old', time: '15:59' }), // due 16:59: over two hours ago
+      s({ id: 'not-yet', time: '18:01' }), // due 19:01
+      s({ id: 'done', time: '17:30', status: 'done' }),
+      s({ id: 'cancelled', time: '17:30', status: 'cancelled' }),
+      // No time, yesterday: its 9am push is ten hours old.
+      s({ id: 'untimed', date: '2026-09-29', time: null }),
+    ];
+    expect(dueForPush(list, now).map((x) => x.id)).toEqual([
+      'due-now',
+      'just-due',
+    ]);
+    // Yesterday's untimed shoot, at 10am today: one hour in.
+    expect(
+      dueForPush(list, at('2026-09-30T10:00:00+08:00')).map((x) => x.id),
+    ).toEqual(['untimed']);
   });
 });
 

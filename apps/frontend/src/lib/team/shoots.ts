@@ -132,6 +132,34 @@ export function isDue(s: Shoot, me: string, now: number): boolean {
   return s.memberId === me && s.status === 'planned' && now >= shootDueAt(s);
 }
 
+/**
+ * When a planned shoot's reminder is pushed to its person's phone
+ * (app/api/cron/work-due): when it falls due — but a shoot with no time,
+ * due at midnight, at 9 the next morning, so no phone buzzes at 00:00.
+ */
+export function pushDueAt(s: Pick<Shoot, 'date' | 'time'>): number {
+  return s.time
+    ? shootDueAt(s)
+    : Date.parse(`${addDays(s.date, 1)}T09:00:00${TRACKER_TZ_OFFSET}`);
+}
+
+/**
+ * How far back a missed reminder is still pushed: a cron run or two can be
+ * missed, but the first run after a deploy must not push every old one.
+ */
+export const PUSH_WINDOW_MS = 2 * 60 * 60_000;
+
+/** The planned shoots whose reminder fell due in the last PUSH_WINDOW_MS. */
+export function dueForPush<T extends Pick<Shoot, 'date' | 'time' | 'status'>>(
+  shoots: T[],
+  now: number,
+): T[] {
+  return shoots.filter((s) => {
+    const at = pushDueAt(s);
+    return s.status === 'planned' && at <= now && at > now - PUSH_WINDOW_MS;
+  });
+}
+
 /** By day, then time; a shoot with no time goes last in its day. Stable. */
 export function sortShoots(list: Shoot[]): Shoot[] {
   return list.slice().sort((a, b) => {

@@ -310,6 +310,12 @@ export const staffZh: Readonly<Record<string, string>> = {
   'From {name}': '来自 {name}',
   'Cut by {name}': '{name} 剪辑',
   'Go to my videos': '去我的视频',
+
+  // ---- Push notifications ------------------------------------------------------
+  'New shoot scheduled for you': '为你安排了新拍摄',
+  'Shoot changed for you': '你的拍摄有变动',
+  'That browser gave a subscription that cannot be used.':
+    '这个浏览器提供的订阅无法使用。',
   Later: '稍后',
   'Got it': '知道了',
 
