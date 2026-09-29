@@ -23,14 +23,29 @@ const JSON_SUB = {
   keys: { p256dh: 'p', auth: 'a' },
 };
 
-let sub: {
+type FakeSub = {
   endpoint: string;
+  options?: { applicationServerKey: ArrayBuffer | null };
   toJSON: () => unknown;
   unsubscribe: jest.Mock;
-} | null;
+};
+let sub: FakeSub | null;
 let pushManager: { getSubscription: jest.Mock; subscribe: jest.Mock };
+let serviceWorker: {
+  register: jest.Mock;
+  getRegistration: jest.Mock;
+  ready: Promise<unknown>;
+};
+// A worker exists once the device has turned push on (register()).
+let registered: boolean;
 let permission: NotificationPermission;
 const requestPermission = jest.fn(async () => permission);
+
+/** Our key's bytes (the browser keeps them on the subscription). */
+function keyBuffer(b64url: string): ArrayBuffer {
+  const raw = atob(b64url.replace(/-/g, '+').replace(/_/g, '/') + '=');
+  return Uint8Array.from(raw, (c) => c.charCodeAt(0)).buffer;
+}
 
 function browser({ push = true, ua = 'Mozilla/5.0 (Windows NT 10.0)' } = {}) {
   const made = {
@@ -51,11 +66,16 @@ function browser({ push = true, ua = 'Mozilla/5.0 (Windows NT 10.0)' } = {}) {
     configurable: true,
   });
   if (push) {
+    serviceWorker = {
+      register: jest.fn(async () => {
+        registered = true;
+        return reg;
+      }),
+      getRegistration: jest.fn(async () => (registered ? reg : undefined)),
+      ready: Promise.resolve(reg),
+    };
     Object.defineProperty(window.navigator, 'serviceWorker', {
-      value: {
-        register: jest.fn(async () => reg),
-        ready: Promise.resolve(reg),
-      },
+      value: serviceWorker,
       configurable: true,
     });
     Object.assign(window, {
@@ -83,8 +103,54 @@ async function settle() {
 beforeEach(() => {
   jest.clearAllMocks();
   sub = null;
+  registered = false;
   permission = 'default';
   browser();
+});
+
+it('installs no worker for someone who never turned push on', async () => {
+  render(<PushToggle publicKey={KEY} />);
+  await settle();
+  expect(serviceWorker.register).not.toHaveBeenCalled();
+  expect(
+    screen.getByRole('button', { name: 'Turn on notifications' }),
+  ).toBeTruthy();
+});
+
+it('moves a device subscribed with another key onto ours', async () => {
+  permission = 'granted';
+  registered = true;
+  const old: FakeSub = {
+    endpoint: 'https://fcm.googleapis.com/fcm/send/old',
+    options: { applicationServerKey: new Uint8Array(65).fill(7).buffer },
+    toJSON: () => ({ endpoint: 'old' }),
+    unsubscribe: jest.fn(async () => true),
+  };
+  sub = old;
+  render(<PushToggle publicKey={KEY} />);
+  await settle();
+  // Every push service refuses the old one: forgotten, then replaced.
+  expect(dropPush).toHaveBeenCalledWith(old.endpoint);
+  expect(old.unsubscribe).toHaveBeenCalled();
+  expect(pushManager.subscribe).toHaveBeenCalledTimes(1);
+  expect(savePush).toHaveBeenCalledWith(JSON_SUB, 'en', '/');
+  expect(screen.getByText('Notifications on')).toBeTruthy();
+});
+
+it('keeps a device subscribed with our key as it is', async () => {
+  permission = 'granted';
+  registered = true;
+  sub = {
+    endpoint: JSON_SUB.endpoint,
+    options: { applicationServerKey: keyBuffer(KEY) },
+    toJSON: () => JSON_SUB,
+    unsubscribe: jest.fn(async () => true),
+  };
+  render(<PushToggle publicKey={KEY} />);
+  await settle();
+  expect(pushManager.subscribe).not.toHaveBeenCalled();
+  expect(dropPush).not.toHaveBeenCalled();
+  expect(savePush).toHaveBeenCalledWith(JSON_SUB, 'en', '/');
 });
 
 it('shows nothing while push is off on the server', async () => {
@@ -156,6 +222,7 @@ it('stays off when the browser is not allowed to ask', async () => {
 
 it('files an already-on device again, then turns it off', async () => {
   permission = 'granted';
+  registered = true;
   sub = {
     endpoint: JSON_SUB.endpoint,
     toJSON: () => JSON_SUB,

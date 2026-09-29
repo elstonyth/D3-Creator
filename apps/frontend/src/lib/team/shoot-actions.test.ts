@@ -402,6 +402,13 @@ describe('telling whoever a shoot is for', () => {
     ]);
   });
 
+  it('gives a cancel or a reopen no old move’s reason', async () => {
+    fakeDb([{ ...row(ACC_A), status: 'planned', moved_reason: 'Client asked' }]);
+    await setShootStatus(ID, 'planned');
+    const [[[event]]] = (notify as jest.Mock).mock.calls;
+    expect(event.shoot).toMatchObject({ status: 'planned', movedReason: null });
+  });
+
   it('tells nobody of a change that changed nothing, or was refused', async () => {
     const same = { ...form(ACC_A), time: null };
     fakeDb([row(ACC_A)]);

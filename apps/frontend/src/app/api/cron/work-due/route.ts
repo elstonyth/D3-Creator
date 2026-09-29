@@ -14,9 +14,9 @@
  * Auth: Bearer ${CRON_SECRET}, as the other crons.
  */
 
-import { timingSafeEqual } from 'node:crypto';
-
 import { NextResponse } from 'next/server';
+
+import { assertCronAuth } from '@gitroom/frontend/lib/cron-auth';
 
 import { getSupabaseAdmin } from '@d3/database';
 import { pushKey, sendPush } from '@gitroom/frontend/lib/team/push';
@@ -34,30 +34,8 @@ import { addDays, todayKey } from '@gitroom/frontend/lib/tracker';
 
 export const dynamic = 'force-dynamic';
 
-function assertAuth(request: Request): Response | null {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    return NextResponse.json(
-      { error: 'CRON_SECRET not configured on the server' },
-      { status: 500 },
-    );
-  }
-  const auth = request.headers.get('authorization') || '';
-  const expectedFull = `Bearer ${expected}`;
-  if (
-    auth.length !== expectedFull.length ||
-    !timingSafeEqual(
-      Buffer.from(auth, 'utf8'),
-      Buffer.from(expectedFull, 'utf8'),
-    )
-  ) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  }
-  return null;
-}
-
 export async function GET(request: Request): Promise<Response> {
-  const denied = assertAuth(request);
+  const denied = assertCronAuth(request);
   if (denied) return denied;
   if (!pushKey()) return NextResponse.json({ skipped: 'push is off' });
 

@@ -129,7 +129,7 @@ export function TrackerScene({
   eyebrow: string;
   subline: string;
   today: string;
-  /** Under today's date: this device's notifications switch. */
+  /** Under today's date (it keeps its own space): the notifications switch. */
   aside?: ReactNode;
   children: ReactNode;
 }) {
@@ -166,7 +166,7 @@ export function TrackerScene({
                 year: 'numeric',
               })}
             </p>
-            {aside ? <div className="mt-3">{aside}</div> : null}
+            {aside}
           </div>
         </header>
         {children}

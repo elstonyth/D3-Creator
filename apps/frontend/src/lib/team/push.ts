@@ -5,7 +5,8 @@
  * push-actions.ts; a due shoot's reminder is app/api/cron/work-due.
  *
  * - Nobody is pushed about their own act: an event whose person's login is
- *   the one that did it is skipped, as the pop-up does.
+ *   the one that did it is skipped, as the pop-up does. Nor about what the
+ *   pop-up would not show (isNews: a done shoot, one already due).
  * - People who left the board, or have no login, get nothing.
  * - A push never fails, or slows, the save that caused it: actions queue it
  *   with notify(), to run once the response is out, and sendPush never
@@ -20,7 +21,12 @@ import { after } from 'next/server';
 import { sendNotification } from 'web-push';
 import { getSupabaseAdmin } from '@d3/database';
 import { parseLocale } from '@gitroom/frontend/lib/i18n';
-import { pushText, type PushEvent, type PushText } from './push-words';
+import {
+  isNews,
+  pushText,
+  type PushEvent,
+  type PushText,
+} from './push-words';
 
 export type { PushEvent } from './push-words';
 
@@ -48,7 +54,13 @@ export function pushKey(): string | null {
 /** Push these once the response is out: the save never waits on it. */
 export function notify(events: PushEvent[], actorUserId: string): void {
   if (events.length === 0 || !pushKey()) return;
-  after(() => sendPush(events, actorUserId));
+  try {
+    after(() => sendPush(events, actorUserId));
+  } catch (err) {
+    // Nothing to run after (called outside a request): no push — and never
+    // a saved change reported as failed.
+    console.error('[push] could not queue', err);
+  }
 }
 
 /**
@@ -62,12 +74,14 @@ export async function sendPush(
 ): Promise<number> {
   const publicKey = pushKey();
   const privateKey = process.env.VAPID_PRIVATE_KEY;
-  if (!publicKey || !privateKey || events.length === 0) return 0;
+  const now = Date.now();
+  const news = events.filter((e) => isNews(e, now));
+  if (!publicKey || !privateKey || news.length === 0) return 0;
   try {
     const db = getSupabaseAdmin();
     const personIds = new Set<string>();
     const creatorIds = new Set<string>();
-    for (const e of events) {
+    for (const e of news) {
       personIds.add(e.to);
       if (e.kind === 'edit') personIds.add(e.from);
       if (e.kind === 'verify') personIds.add(e.by);
@@ -106,7 +120,7 @@ export async function sendPush(
         .filter((m) => m.archived_at === null && m.user_id !== null)
         .map((m) => [m.id, m.user_id as string]),
     );
-    const told = events.filter((e) => {
+    const told = news.filter((e) => {
       const login = loginOf.get(e.to);
       return login !== undefined && login !== actorUserId;
     });

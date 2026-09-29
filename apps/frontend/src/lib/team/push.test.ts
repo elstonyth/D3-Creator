@@ -224,6 +224,37 @@ it('does nothing without the keys', async () => {
   expect(asked).toEqual([]);
 });
 
+it('tells nobody what the pop-up would not show', async () => {
+  const done = {
+    id: 's1',
+    memberId: 'mei',
+    date: '2026-09-30',
+    time: '10:00',
+    title: null,
+    creatorId: null,
+    videosShot: 2,
+    status: 'done' as const,
+    note: null,
+    movedReason: 'Wrong account',
+    createdBy: null,
+    updatedBy: null,
+  };
+  await expect(
+    sendPush([{ kind: 'changed-shoot', to: 'mei', shoot: done }], 'u-kee'),
+  ).resolves.toBe(0);
+  expect(asked).toEqual([]);
+});
+
+it('never fails the save when there is no request to run after', () => {
+  const log = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+  (after as jest.Mock).mockImplementationOnce(() => {
+    throw new Error('`after` was called outside a request scope');
+  });
+  expect(() => notify([toMei], 'u-kee')).not.toThrow();
+  expect(log).toHaveBeenCalled();
+  log.mockRestore();
+});
+
 it('sends once the response is out', async () => {
   expect(pushKey()).toBe('pub-key');
   notify([toMei], 'u-kee');

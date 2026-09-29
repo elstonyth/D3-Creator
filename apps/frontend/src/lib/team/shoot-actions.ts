@@ -204,7 +204,15 @@ export async function setShootStatus(
     );
     if (saved.shoot)
       notify(
-        [{ kind: 'changed-shoot', to: a.memberId, shoot: saved.shoot }],
+        [
+          {
+            kind: 'changed-shoot',
+            to: a.memberId,
+            // A cancel or reopen is not a move: an older move's reason
+            // would say the wrong thing.
+            shoot: { ...saved.shoot, movedReason: null },
+          },
+        ],
         a.userId,
       );
     return saved;

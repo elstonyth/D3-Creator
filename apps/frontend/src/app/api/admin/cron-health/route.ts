@@ -17,9 +17,9 @@
  *        https://<host>/api/admin/cron-health?limit=10
  */
 
-import { timingSafeEqual } from 'node:crypto';
-
 import { NextResponse } from 'next/server';
+
+import { assertCronAuth } from '@gitroom/frontend/lib/cron-auth';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { getSupabaseAdmin } from '@d3/database';
@@ -33,32 +33,6 @@ import {
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
-function assertAuth(request: Request): Response | null {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    console.error('[cron] CRON_SECRET not set — cron auth will fail');
-    return NextResponse.json(
-      {
-        error:
-          'CRON_SECRET not configured on the server — add it to Vercel project env vars',
-      },
-      { status: 500 },
-    );
-  }
-  const auth = request.headers.get('authorization') || '';
-  const expectedFull = `Bearer ${expected}`;
-  if (
-    auth.length !== expectedFull.length ||
-    !timingSafeEqual(
-      Buffer.from(auth, 'utf8'),
-      Buffer.from(expectedFull, 'utf8'),
-    )
-  ) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  }
-  return null;
-}
-
 function clampLimit(raw: string | null): number {
   const n = raw ? Number(raw) : 10;
   if (!Number.isFinite(n) || n <= 0) return 10;
@@ -66,7 +40,7 @@ function clampLimit(raw: string | null): number {
 }
 
 export async function GET(request: Request): Promise<Response> {
-  const authFail = assertAuth(request);
+  const authFail = assertCronAuth(request);
   if (authFail) return authFail;
 
   const url = new URL(request.url);

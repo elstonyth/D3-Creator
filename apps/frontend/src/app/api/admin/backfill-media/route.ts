@@ -20,9 +20,9 @@
  * Auth: Authorization: Bearer ${CRON_SECRET} (same gate as the crons).
  */
 
-import { timingSafeEqual } from 'node:crypto';
-
 import { NextResponse } from 'next/server';
+
+import { assertCronAuth } from '@gitroom/frontend/lib/cron-auth';
 
 import {
   getSupabaseAdmin,
@@ -37,25 +37,6 @@ export const runtime = 'nodejs';
 
 const CONCURRENCY = 8;
 
-function assertAuth(request: Request): Response | null {
-  const expected = process.env.CRON_SECRET;
-  if (!expected) {
-    return NextResponse.json(
-      { error: 'CRON_SECRET not configured on the server' },
-      { status: 500 },
-    );
-  }
-  const auth = request.headers.get('authorization') || '';
-  const expectedFull = `Bearer ${expected}`;
-  if (
-    auth.length !== expectedFull.length ||
-    !timingSafeEqual(Buffer.from(auth, 'utf8'), Buffer.from(expectedFull, 'utf8'))
-  ) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  }
-  return null;
-}
-
 interface CandidateRow {
   profile_id: string;
   external_post_id: string;
@@ -64,7 +45,7 @@ interface CandidateRow {
 }
 
 export async function GET(request: Request): Promise<Response> {
-  const authFail = assertAuth(request);
+  const authFail = assertCronAuth(request);
   if (authFail) return authFail;
 
   const url = new URL(request.url);

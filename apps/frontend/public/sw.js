@@ -20,7 +20,8 @@ self.addEventListener('push', (event) => {
       tag: data.tag,
       // A newer push about the same thing buzzes again, not silently.
       renotify: Boolean(data.tag),
-      icon: '/icon.png',
+      // 192px: what a notification shows (icon.png is 1024px, 500 KB).
+      icon: '/icon-192.png',
       data: { path: typeof data.path === 'string' ? data.path : '/' },
     }),
   );
@@ -29,14 +30,16 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const home = self.location.origin + '/';
+  const path = event.notification.data && event.notification.data.path;
   let target = home;
-  try {
-    const url = new URL(event.notification.data.path, self.location.origin);
-    // Only ever this host.
-    if (url.origin === self.location.origin) target = url.href;
-  } catch {
-    // A bad path: the tracker's home.
-  }
+  if (typeof path === 'string')
+    try {
+      const url = new URL(path, self.location.origin);
+      // Only ever this host.
+      if (url.origin === self.location.origin) target = url.href;
+    } catch {
+      // A bad path: the tracker's home.
+    }
   event.waitUntil(
     (async () => {
       const tabs = await self.clients.matchAll({
