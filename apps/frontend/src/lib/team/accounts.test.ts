@@ -17,7 +17,7 @@ describe('boardOf', () => {
     const cards = boardOf(
       roster,
       [row('a', 'k', 'e', 1), row('b', 'k', null, 0)],
-      [{ creator_id: 'a', videos: 3, posts: 5, views: '1200' }],
+      [{ creator_id: 'a', videos: 3, views: '1200' }],
       new Set(['k', 'e']),
     );
     expect(cards.map((c) => c.id)).toEqual(['b', 'c', 'a']);
@@ -26,7 +26,6 @@ describe('boardOf', () => {
       handlerId: 'k',
       editorId: 'e',
       videos: 3,
-      posts: 5,
       views: 1200,
     });
     // Never assigned, nothing posted: unassigned and zero.

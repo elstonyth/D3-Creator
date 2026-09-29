@@ -21,7 +21,9 @@
  * One column per person who runs accounts (a handler, or someone who does
  * both) plus "Unassigned". Editors are not columns: they sit in a row of
  * chips under the header with what they edit. Month output (videos / views)
- * comes from the scraped snapshots and follows the calendar's month.
+ * comes from the scraped snapshots, Instagram reels only (the owner's call:
+ * summed across platforms it did not add up), and follows the calendar's
+ * month.
  */
 
 import {
@@ -317,8 +319,8 @@ export function AccountBoard({
 
   const editsLine = (st: EditedStats) =>
     st.edits === 1
-      ? t('Edits 1 account · {videos} videos', { videos: st.editedVideos })
-      : t('Edits {count} accounts · {videos} videos', {
+      ? t('Edits 1 account · {videos} IG videos', { videos: st.editedVideos })
+      : t('Edits {count} accounts · {videos} IG videos', {
           count: st.edits,
           videos: st.editedVideos,
         });
@@ -354,7 +356,7 @@ export function AccountBoard({
           ) : null}
           <p className="mt-1 text-caption text-fg-subtle">
             {t(
-              'Videos = different videos posted in {month}. The same clip on several platforms counts once.',
+              'Videos and views count Instagram reels posted in {month} only.',
               { month: monthLabel },
             )}
           </p>
@@ -464,14 +466,14 @@ export function AccountBoard({
                   <dl className="mt-2 grid grid-cols-3 gap-2">
                     <Stat label={t('Accounts')} value={String(cards.length)} />
                     <Stat
-                      label={t('Videos')}
+                      label={t('IG videos')}
                       value={formatCompact(
                         cards.reduce((n, c) => n + c.videos, 0),
                         locale,
                       )}
                     />
                     <Stat
-                      label={t('Views')}
+                      label={t('IG views')}
                       value={formatCompact(
                         cards.reduce((n, c) => n + c.views, 0),
                         locale,
@@ -612,7 +614,8 @@ function AccountItem({
         />
         <div className="min-w-0 flex-1">
           <p className="truncate text-label text-fg">{c.name}</p>
-          <div className="mt-1 flex items-center gap-1.5 text-fg-muted">
+          {/* Wraps in a narrow column rather than running under the count. */}
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-fg-muted">
             {c.platforms.map((p) => {
               const key = platformKey(p);
               if (!key) return null;
@@ -633,6 +636,8 @@ function AccountItem({
         </div>
         <div className="text-right">
           <p className="text-heading tnum leading-none text-fg">{c.videos}</p>
+          {/* Short: a longer label squeezes the account's name. The line
+              below and the column say it is Instagram. */}
           <p className="mt-1 text-micro uppercase tracking-[0.1em] text-fg-subtle">
             {t('videos')}
           </p>
@@ -640,10 +645,7 @@ function AccountItem({
       </div>
 
       <p className="mt-3 text-caption tnum text-fg-muted">
-        {t('{views} views · {posts} posts', {
-          views: formatCompact(c.views, locale),
-          posts: c.posts,
-        })}
+        {t('{views} IG views', { views: formatCompact(c.views, locale) })}
       </p>
 
       <dl className="mt-3 grid grid-cols-2 gap-2">

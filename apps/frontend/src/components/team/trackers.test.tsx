@@ -402,7 +402,6 @@ describe('the admin’s tracker', () => {
             editorId: MEI,
             sortOrder: 0,
             videos: 12,
-            posts: 30,
             views: 250000,
           },
         ]}
@@ -505,7 +504,7 @@ describe('the admin’s tracker', () => {
     ).toBe(ZUWEI);
     // MEI does both: a column of their own, and the one editing Gary.
     const mei = within(board.getByRole('region', { name: 'MEI’s accounts' }));
-    expect(mei.getByText('Edits 1 account · 12 videos')).toBeTruthy();
+    expect(mei.getByText('Edits 1 account · 12 IG videos')).toBeTruthy();
   });
 
   it('lets the admin drag the board’s columns into order', () => {
@@ -546,5 +545,19 @@ describe('the admin’s tracker', () => {
     // MEI is cutting Reel 1 for KEE.
     expect(within(mei).getByText('Reel 1')).toBeTruthy();
     expect(within(mei).getByText('Handler & editor')).toBeTruthy();
+  });
+
+  it('puts the other person on each video at the row’s far right', () => {
+    renderAdmin();
+    const row = (person: string, title: string) =>
+      within(screen.getByRole('region', { name: person }))
+        .getByText(title)
+        .closest('li')!;
+    const parts = (li: HTMLElement) =>
+      Array.from(li.children).map((c) => c.textContent);
+    // MEI is cutting Reel 1, passed on by KEE.
+    expect(parts(row('MEI', 'Reel 1'))).toEqual(['Reel 1', 'From KEE']);
+    // Reel 2 waits on KEE's check; MEI cut it.
+    expect(parts(row('KEE', 'Reel 2'))).toEqual(['Reel 2', 'Cut by MEI']);
   });
 });

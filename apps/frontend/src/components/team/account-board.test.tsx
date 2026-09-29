@@ -68,7 +68,6 @@ function card(
     editorId,
     sortOrder: n,
     videos: 4,
-    posts: 8,
     views: 1000,
   };
 }
@@ -123,14 +122,14 @@ it('lists an editor as a chip, never as a column', () => {
   expect(screen.queryByRole('heading', { name: 'ALI' })).toBeNull();
   const row = within(screen.getByRole('region', { name: 'Editors' }));
   expect(row.getByText('ALI')).toBeTruthy();
-  expect(row.getByText('Edits 1 account · 4 videos')).toBeTruthy();
+  expect(row.getByText('Edits 1 account · 4 IG videos')).toBeTruthy();
 });
 
 it('gives someone who does both jobs a column, not a chip', () => {
   renderBoard([KEE, ALI, MEI], [card(1, 'Gary', MEI.id, MEI.id)]);
   expect(column('MEI’s accounts').getByText('Handler & editor')).toBeTruthy();
   expect(
-    column('MEI’s accounts').getByText('Edits 1 account · 4 videos'),
+    column('MEI’s accounts').getByText('Edits 1 account · 4 IG videos'),
   ).toBeTruthy();
   const row = within(screen.getByRole('region', { name: 'Editors' }));
   expect(row.queryByText('MEI')).toBeNull();
@@ -170,6 +169,19 @@ it('totals each column: accounts, videos, views', () => {
     .slice(0, 3)
     .map((d) => d.textContent);
   expect(cells).toEqual(['2', '8', '2K']);
+});
+
+it('says its numbers are Instagram only', () => {
+  renderBoard([KEE], [card(1, 'Gary', KEE.id, null)]);
+  const kee = column('KEE’s accounts');
+  expect(kee.getByText('IG videos')).toBeTruthy();
+  expect(kee.getByText('IG views')).toBeTruthy();
+  expect(kee.getByText('1K IG views')).toBeTruthy();
+  expect(
+    screen.getByText(
+      'Videos and views count Instagram reels posted in September 2026 only.',
+    ),
+  ).toBeTruthy();
 });
 
 describe('the admin’s drag and drop', () => {

@@ -13,11 +13,9 @@ export interface AccountCard extends RosterAccount {
   editorId: string | null;
   /** Position within its handler's column (`tracker_assignment.sort_order`). */
   sortOrder: number;
-  /** Distinct videos published in the month (cross-platform copies collapsed). */
+  /** Instagram reels published in the month (the owner counts IG only). */
   videos: number;
-  /** Every platform copy published in the month. */
-  posts: number;
-  /** Σ latest views across those posts. */
+  /** Σ latest views across those reels. */
   views: number;
 }
 
@@ -29,11 +27,10 @@ export interface AssignmentRow {
   sort_order: number;
 }
 
-/** A `tracker_creator_month_stats` row. */
+/** A `tracker_creator_month_stats` row (its `posts` repeats `videos`). */
 export interface MonthStatsRow {
   creator_id: string;
   videos: number;
-  posts: number;
   views: number | string;
 }
 
@@ -63,7 +60,6 @@ export function boardOf(
           editorId: active(a?.editor_id),
           sortOrder: a?.sort_order ?? 0,
           videos: s?.videos ?? 0,
-          posts: s?.posts ?? 0,
           views: Number(s?.views ?? 0),
         };
       })

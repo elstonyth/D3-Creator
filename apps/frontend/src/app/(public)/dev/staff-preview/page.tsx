@@ -59,20 +59,13 @@ const accounts = [
 
 // The admin's account board: who handles and edits each account.
 const board: AccountCard[] = [
-  [KEE, null, 31, 52, 851_200, ['douyin', 'facebook', 'instagram', 'tiktok']],
-  [KEE, MEI, 15, 19, 70_500, ['douyin', 'facebook', 'instagram']],
-  [ZUWEI, HOWEN, 13, 16, 311_900, ['facebook', 'instagram', 'tiktok']],
-  [
-    HOWEN,
-    null,
-    29,
-    29,
-    4_300_000,
-    ['douyin', 'facebook', 'instagram', 'tiktok'],
-  ],
+  [KEE, null, 31, 851_200, ['douyin', 'facebook', 'instagram', 'tiktok']],
+  [KEE, MEI, 15, 70_500, ['douyin', 'facebook', 'instagram']],
+  [ZUWEI, HOWEN, 13, 311_900, ['facebook', 'instagram', 'tiktok']],
+  [HOWEN, null, 29, 4_300_000, ['douyin', 'facebook', 'instagram', 'tiktok']],
   // A new client: the admin has not picked who handles it yet.
-  [null, null, 0, 0, 0, ['tiktok']],
-].map(([handlerId, editorId, videos, posts, views, platforms], i) => ({
+  [null, null, 0, 0, ['tiktok']],
+].map(([handlerId, editorId, videos, views, platforms], i) => ({
   ...accounts[i],
   avatarUrl: null,
   platforms: platforms as string[],
@@ -80,7 +73,6 @@ const board: AccountCard[] = [
   editorId: editorId as string | null,
   sortOrder: i,
   videos: videos as number,
-  posts: posts as number,
   views: views as number,
 }));
 
