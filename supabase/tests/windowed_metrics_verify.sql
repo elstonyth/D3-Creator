@@ -121,9 +121,10 @@ begin
     raise exception 'FAIL zero-interaction: engagement = % (expected 0.0000, not NULL)', r.engagement;
   end if;
 
-  -- ---- Assert bool_or insufficient: a creator with one mature profile AND one
-  -- brand-new profile (no in-window baseline) must be insufficient = true, so
-  -- the understated aggregate delta shows "Building history…" not a mature number.
+  -- ---- Assert bool_and insufficient: a creator with one mature profile AND one
+  -- brand-new profile (no in-window baseline) stays ranked (insufficient = false);
+  -- the new profile just contributes 0 to followers_delta. Only a creator with
+  -- NO baseline on any profile is "Building history…".
   insert into public.creator (id, display_name)
   values ('00000000-0000-0000-0000-0000000c0003','MIXED Creator');
   insert into public.profile (id, creator_id, platform, profile_url, handle) values
@@ -135,8 +136,11 @@ begin
     ('00000000-0000-0000-0000-0000000d0004', current_date-0,  300);   -- new: no 30d baseline
   select * into r from public.creator_metrics_windowed('30d', array['00000000-0000-0000-0000-0000000c0003'::uuid])
     where creator_id = '00000000-0000-0000-0000-0000000c0003';
-  if r.insufficient is distinct from true then
-    raise exception 'FAIL bool_or: mixed-maturity creator 30d insufficient = % (expected true)', r.insufficient;
+  if r.insufficient is distinct from false then
+    raise exception 'FAIL bool_and: mixed-maturity creator 30d insufficient = % (expected false)', r.insufficient;
+  end if;
+  if r.followers_delta is distinct from 100 then
+    raise exception 'FAIL bool_and: mixed-maturity creator 30d followers_delta = % (expected 100)', r.followers_delta;
   end if;
 
   -- ---- Assert an unsupported window RAISES (fail-fast, not silent lifetime).
