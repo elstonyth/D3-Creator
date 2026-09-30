@@ -28,7 +28,7 @@
     "@d3/analyzer": "workspace:*",
     "@d3/openrouter": "workspace:*",
     "@samasante/liquid-glass": "^0.1.1",
-    "@sentry/nextjs": "^10.45.0",
+    "@sentry/nextjs": "^11.0.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.2",
     "@swc/helpers": "0.5.23",
