@@ -22,7 +22,7 @@
     "typecheck": "pnpm --filter ./apps/frontend exec tsc --noEmit"
   },
   "dependencies": {
-    "@sentry/nextjs": "^10.45.0",
+    "@sentry/nextjs": "^11.0.0",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.2",
     "@upstash/ratelimit": "^2.0.8",
