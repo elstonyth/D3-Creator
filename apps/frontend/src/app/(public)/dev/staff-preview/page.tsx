@@ -64,12 +64,13 @@ const board: AccountCard[] = [
   [ZUWEI, HOWEN, 13, 311_900, ['facebook', 'instagram', 'tiktok']],
   [HOWEN, null, 29, 4_300_000, ['douyin', 'facebook', 'instagram', 'tiktok']],
   // A new client: the admin has not picked who handles it yet.
-  [null, null, 0, 0, ['tiktok']],
+  [null, null, 0, 12_400, ['tiktok']],
 ].map(([handlerId, editorId, videos, views, platforms], i) => ({
   ...accounts[i],
   avatarUrl: null,
   platforms: platforms as string[],
-  // The new client has no Instagram yet: its card shows a dash.
+  // The new client has no Instagram yet: a dash for its videos, but its
+  // TikTok views still count.
   igLive: (platforms as string[]).includes('instagram'),
   handlerId: handlerId as string | null,
   editorId: editorId as string | null,
