@@ -321,8 +321,8 @@ export function AccountBoard({
 
   const editsLine = (st: EditedStats) =>
     st.edits === 1
-      ? t('Edits 1 account · {videos} IG videos', { videos: st.editedVideos })
-      : t('Edits {count} accounts · {videos} IG videos', {
+      ? t('Edits 1 account · {videos} videos', { videos: st.editedVideos })
+      : t('Edits {count} accounts · {videos} videos', {
           count: st.edits,
           videos: st.editedVideos,
         });
@@ -468,7 +468,7 @@ export function AccountBoard({
                   <dl className="mt-2 grid grid-cols-3 gap-2">
                     <Stat label={t('Accounts')} value={String(cards.length)} />
                     <Stat
-                      label={t('IG videos')}
+                      label={t('Video count')}
                       value={formatCompact(
                         cards.reduce((n, c) => n + c.videos, 0),
                         locale,
@@ -642,7 +642,7 @@ function AccountItem({
             {/* No working Instagram: no videos to count, not a quiet month. */}
             {c.igLive ? c.videos : '—'}
           </p>
-          {/* Short: a longer label squeezes the account's name. The column
+          {/* Short: a longer label squeezes the account's name. The caption
               says it is Instagram. */}
           <p className="mt-1 text-micro uppercase tracking-[0.1em] text-fg-subtle">
             {t('videos')}
