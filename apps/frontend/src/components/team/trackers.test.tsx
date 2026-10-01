@@ -505,7 +505,7 @@ describe('the admin’s tracker', () => {
     ).toBe(ZUWEI);
     // MEI does both: a column of their own, and the one editing Gary.
     const mei = within(board.getByRole('region', { name: 'MEI’s accounts' }));
-    expect(mei.getByText('Edits 1 account · 12 IG videos')).toBeTruthy();
+    expect(mei.getByText('Edits 1 account · 12 videos')).toBeTruthy();
   });
 
   it('lets the admin drag the board’s columns into order', () => {

@@ -345,15 +345,15 @@ export const staffZh: Readonly<Record<string, string>> = {
   'Videos count Instagram videos posted in {month}; views add up Instagram, TikTok, Facebook and Douyin.':
     '视频数只统计 {month} 在 Instagram 发布的视频；播放量合计 Instagram、TikTok、Facebook 和抖音四个平台。',
   'No working Instagram account': '没有可用的 Instagram 账号',
-  'IG videos': 'IG 视频',
+  'Video count': '视频数量',
   Unassigned: '未分配',
   '{name}’s accounts': '{name} 的账号',
   'Unassigned accounts': '未分配的账号',
   Editors: '剪辑人员',
   'No editors yet.': '还没有剪辑人员。',
-  'Edits {count} accounts · {videos} IG videos':
-    '剪辑 {count} 个账号 · {videos} 条 IG 视频',
-  'Edits 1 account · {videos} IG videos': '剪辑 1 个账号 · {videos} 条 IG 视频',
+  'Edits {count} accounts · {videos} videos':
+    '剪辑 {count} 个账号 · {videos} 条视频',
+  'Edits 1 account · {videos} videos': '剪辑 1 个账号 · {videos} 条视频',
   'Every account has a handler.': '所有账号都已分配负责人。',
   Nobody: '无',
 };

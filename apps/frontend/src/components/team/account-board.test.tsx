@@ -123,14 +123,14 @@ it('lists an editor as a chip, never as a column', () => {
   expect(screen.queryByRole('heading', { name: 'ALI' })).toBeNull();
   const row = within(screen.getByRole('region', { name: 'Editors' }));
   expect(row.getByText('ALI')).toBeTruthy();
-  expect(row.getByText('Edits 1 account · 4 IG videos')).toBeTruthy();
+  expect(row.getByText('Edits 1 account · 4 videos')).toBeTruthy();
 });
 
 it('gives someone who does both jobs a column, not a chip', () => {
   renderBoard([KEE, ALI, MEI], [card(1, 'Gary', MEI.id, MEI.id)]);
   expect(column('MEI’s accounts').getByText('Handler & editor')).toBeTruthy();
   expect(
-    column('MEI’s accounts').getByText('Edits 1 account · 4 IG videos'),
+    column('MEI’s accounts').getByText('Edits 1 account · 4 videos'),
   ).toBeTruthy();
   const row = within(screen.getByRole('region', { name: 'Editors' }));
   expect(row.queryByText('MEI')).toBeNull();
@@ -175,7 +175,7 @@ it('totals each column: accounts, videos, views', () => {
 it('says videos are Instagram and views are four platforms', () => {
   renderBoard([KEE], [card(1, 'Gary', KEE.id, null)]);
   const kee = column('KEE’s accounts');
-  expect(kee.getByText('IG videos')).toBeTruthy();
+  expect(kee.getByText('Video count')).toBeTruthy();
   expect(kee.getByText('Views')).toBeTruthy();
   expect(kee.getByText('1K views')).toBeTruthy();
   expect(
