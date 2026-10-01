@@ -342,11 +342,10 @@ export const staffZh: Readonly<Record<string, string>> = {
   'That person is not on the board, or does not handle accounts.':
     '此人已不在看板上，或不负责账号。',
   'No accounts yet.': '还没有账号。',
-  'Videos and views count Instagram videos posted in {month} only.':
-    '视频数和播放量只统计 {month} 在 Instagram 发布的视频。',
+  'Videos count Instagram videos posted in {month}; views add up Instagram, TikTok, Facebook and Douyin.':
+    '视频数只统计 {month} 在 Instagram 发布的视频；播放量合计 Instagram、TikTok、Facebook 和抖音四个平台。',
   'No working Instagram account': '没有可用的 Instagram 账号',
   'IG videos': 'IG 视频',
-  'IG views': 'IG 播放',
   Unassigned: '未分配',
   '{name}’s accounts': '{name} 的账号',
   'Unassigned accounts': '未分配的账号',
@@ -356,6 +355,5 @@ export const staffZh: Readonly<Record<string, string>> = {
     '剪辑 {count} 个账号 · {videos} 条 IG 视频',
   'Edits 1 account · {videos} IG videos': '剪辑 1 个账号 · {videos} 条 IG 视频',
   'Every account has a handler.': '所有账号都已分配负责人。',
-  '{views} IG views': '{views} IG 播放',
   Nobody: '无',
 };

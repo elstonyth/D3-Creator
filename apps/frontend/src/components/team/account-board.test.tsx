@@ -172,20 +172,20 @@ it('totals each column: accounts, videos, views', () => {
   expect(cells).toEqual(['2', '8', '2K']);
 });
 
-it('says its numbers are Instagram only', () => {
+it('says videos are Instagram and views are four platforms', () => {
   renderBoard([KEE], [card(1, 'Gary', KEE.id, null)]);
   const kee = column('KEE’s accounts');
   expect(kee.getByText('IG videos')).toBeTruthy();
-  expect(kee.getByText('IG views')).toBeTruthy();
-  expect(kee.getByText('1K IG views')).toBeTruthy();
+  expect(kee.getByText('Views')).toBeTruthy();
+  expect(kee.getByText('1K views')).toBeTruthy();
   expect(
     screen.getByText(
-      'Videos and views count Instagram videos posted in September 2026 only.',
+      'Videos count Instagram videos posted in September 2026; views add up Instagram, TikTok, Facebook and Douyin.',
     ),
   ).toBeTruthy();
 });
 
-it('shows a dash, not a zero, for an account with no working Instagram', () => {
+it('shows a dash for the videos of an account with no working Instagram, and still its views', () => {
   renderBoard(
     [KEE],
     [
@@ -194,25 +194,32 @@ it('shows a dash, not a zero, for an account with no working Instagram', () => {
         platforms: ['douyin', 'tiktok'],
         igLive: false,
         videos: 0,
-        views: 0,
+        views: 2500,
       },
     ],
   );
   const item = screen.getByText('Gary').closest('li')!;
   expect(within(item).getByText('—')).toBeTruthy();
-  expect(within(item).getByText('No working Instagram account')).toBeTruthy();
-  expect(within(item).queryByText('0 IG views')).toBeNull();
+  expect(
+    within(item).getByText('2.5K views · No working Instagram account'),
+  ).toBeTruthy();
 });
 
 it('dims the platforms the numbers do not count', () => {
   renderBoard(
     [KEE],
-    [{ ...card(1, 'Gary', KEE.id, null), platforms: ['instagram', 'tiktok'] }],
+    [
+      {
+        ...card(1, 'Gary', KEE.id, null),
+        platforms: ['instagram', 'tiktok', 'rednote'],
+      },
+    ],
   );
   const icon = (name: string) =>
     screen.getByRole('img', { name }).getAttribute('class') ?? '';
   expect(icon('Instagram')).not.toContain('opacity-40');
-  expect(icon('TikTok')).toContain('opacity-40');
+  expect(icon('TikTok')).not.toContain('opacity-40');
+  expect(icon('Xiaohongshu')).toContain('opacity-40');
 });
 
 describe('the admin’s drag and drop', () => {

@@ -20,11 +20,12 @@
  *
  * One column per person who runs accounts (a handler, or someone who does
  * both) plus "Unassigned". Editors are not columns: they sit in a row of
- * chips under the header with what they edit. Month output (videos / views)
- * comes from the scraped snapshots, Instagram videos only (the owner's call:
- * summed across platforms it did not add up), and follows the calendar's
- * month. An account with no working Instagram shows a dash, not a zero, and
- * each card dims the platforms its numbers leave out.
+ * chips under the header with what they edit. Month output comes from the
+ * scraped snapshots and follows the calendar's month: videos are Instagram
+ * videos, views add up Instagram, TikTok, Facebook and Douyin (the owner's
+ * call, 2026-10-01). An account with no working Instagram shows a dash for
+ * its videos, not a zero, and each card dims the platforms its numbers leave
+ * out (RedNote).
  */
 
 import {
@@ -357,7 +358,7 @@ export function AccountBoard({
           ) : null}
           <p className="mt-1 text-caption text-fg-subtle">
             {t(
-              'Videos and views count Instagram videos posted in {month} only.',
+              'Videos count Instagram videos posted in {month}; views add up Instagram, TikTok, Facebook and Douyin.',
               { month: monthLabel },
             )}
           </p>
@@ -474,7 +475,7 @@ export function AccountBoard({
                       )}
                     />
                     <Stat
-                      label={t('IG views')}
+                      label={t('Views')}
                       value={formatCompact(
                         cards.reduce((n, c) => n + c.views, 0),
                         locale,
@@ -622,12 +623,12 @@ function AccountItem({
               if (!key) return null;
               const Icon = PLATFORM_ICONS[key];
               // The icons are aria-hidden by default; these carry meaning.
-              // Dimmed: the numbers count Instagram only.
+              // Dimmed: the numbers leave RedNote out.
               return (
                 <Icon
                   key={p}
                   size={12}
-                  className={cn('shrink-0', p !== 'instagram' && 'opacity-40')}
+                  className={cn('shrink-0', p === 'rednote' && 'opacity-40')}
                   role="img"
                   aria-hidden={false}
                   aria-label={PLATFORM_LABELS[key]}
@@ -638,21 +639,21 @@ function AccountItem({
         </div>
         <div className="text-right">
           <p className="text-heading tnum leading-none text-fg">
-            {/* No working Instagram: nothing to count, not a quiet month. */}
+            {/* No working Instagram: no videos to count, not a quiet month. */}
             {c.igLive ? c.videos : '—'}
           </p>
-          {/* Short: a longer label squeezes the account's name. The line
-              below and the column say it is Instagram. */}
+          {/* Short: a longer label squeezes the account's name. The column
+              says it is Instagram. */}
           <p className="mt-1 text-micro uppercase tracking-[0.1em] text-fg-subtle">
             {t('videos')}
           </p>
         </div>
       </div>
 
+      {/* Views count every platform, so they show without Instagram too. */}
       <p className="mt-3 text-caption tnum text-fg-muted">
-        {c.igLive
-          ? t('{views} IG views', { views: formatCompact(c.views, locale) })
-          : t('No working Instagram account')}
+        {t('{count} views', { count: formatCompact(c.views, locale) })}
+        {c.igLive ? null : ` · ${t('No working Instagram account')}`}
       </p>
 
       <dl className="mt-3 grid grid-cols-2 gap-2">

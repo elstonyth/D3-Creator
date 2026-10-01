@@ -9,7 +9,7 @@
 import type { RosterAccount } from './load';
 
 /**
- * Whether an account's month numbers can be trusted: it has an Instagram
+ * Whether an account's month video count can be trusted: it has an Instagram
  * profile that still scrapes. A failed run is a bad day; not_found (renamed,
  * gone) and private are not coming back on their own.
  */
@@ -31,7 +31,7 @@ export interface AccountCard extends RosterAccount {
   sortOrder: number;
   /** Instagram videos published in the month (the owner counts IG only). */
   videos: number;
-  /** Σ latest views across those videos. */
+  /** Σ latest views of the month's posts on IG, TikTok, Facebook, Douyin. */
   views: number;
 }
 
