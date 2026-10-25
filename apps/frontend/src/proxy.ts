@@ -122,7 +122,8 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Run on all paths except Next internals + static assets.
-    '/((?!_next/static|_next/image|favicon.ico|api/cron|api/proxy-image|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|css|js|map)$).*)',
+    // Run on all paths except Next internals + static assets. The manifest is
+    // static too: routed, it bounced signed-in admin/staff to their role home.
+    '/((?!_next/static|_next/image|favicon.ico|api/cron|api/proxy-image|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico|css|js|map|webmanifest)$).*)',
   ],
 };
