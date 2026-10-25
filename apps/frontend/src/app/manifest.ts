@@ -4,6 +4,8 @@ import { SITE_NAME } from '@gitroom/frontend/lib/site';
 // Served at /manifest.webmanifest — makes the app installable (PWA).
 // icon.png (1024²) doubles as the maskable icon — its glyph sits inside the
 // safe zone on a dark bleed. Add a 192px variant only if an installer needs it.
+// icon-monochrome.png is the same glyph as a white alpha mask, for Android
+// themed icons; launchers that don't support it ignore it.
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: SITE_NAME,
@@ -26,6 +28,12 @@ export default function manifest(): MetadataRoute.Manifest {
         sizes: '1024x1024',
         type: 'image/png',
         purpose: 'maskable',
+      },
+      {
+        src: '/icon-monochrome.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'monochrome',
       },
     ],
   };

@@ -59,6 +59,7 @@ export default async function AdminLayout({
     >
       <head>
         <link rel="icon" href="/d3-logo.png?v=3" type="image/png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=4" />
         <meta name="darkreader-lock" />
       </head>
       <body className="dark flex min-h-screen flex-col bg-canvas font-sans text-fg antialiased">

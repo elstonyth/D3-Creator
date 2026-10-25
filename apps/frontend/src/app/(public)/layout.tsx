@@ -90,7 +90,7 @@ export default async function PublicLayout({
     >
       <head>
         <link rel="icon" href="/d3-logo.png?v=3" type="image/png" />
-        <link rel="apple-touch-icon" href="/d3-logo.png?v=3" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=4" />
         {/* Page is already dark — tell Dark Reader to skip it so it doesn't
             inject data-darkreader-* attrs pre-hydration and cause mismatch */}
         <meta name="darkreader-lock" />
